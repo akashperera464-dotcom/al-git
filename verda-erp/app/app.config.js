@@ -23,8 +23,10 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.verda.teaerp",
       infoPlist: {
-        NSCameraUsageDescription: "Verda uses the camera to scan worker QR badges for attendance.",
+        NSCameraUsageDescription: "Verda uses the camera to capture receipts and scan worker QR badges for attendance.",
         NSLocationWhenInUseUsageDescription: "Verda uses your location to verify your check-in at the estate.",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Verda uses background location to verify estate attendance during deliveries.",
+        NSPhotoLibraryUsageDescription: "Verda needs photo library access to attach saved receipt images.",
       },
       // APNs / Firebase for push on iOS
       googleServicesFile: "./GoogleService-Info.plist",
@@ -38,7 +40,19 @@ export default {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#064e3b",
       },
-      permissions: ["CAMERA", "INTERNET", "VIBRATE", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "POST_NOTIFICATIONS"],
+      permissions: [
+        "CAMERA",
+        "INTERNET",
+        "VIBRATE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "POST_NOTIFICATIONS",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+      ],
       // Keep notification/external links inside the app (not the phone browser).
       intentFilters: [
         { action: "VIEW", autoVerify: false, data: { scheme: "https" } },
@@ -48,18 +62,46 @@ export default {
     plugins: [
       [
         "expo-camera",
-        { cameraPermission: "Allow Verda to scan QR badges for attendance." },
+        {
+          cameraPermission: "Verda needs camera access to capture receipts, documents, and scan worker QR badges for attendance.",
+          microphonePermission: false,
+        },
+      ],
+      [
+        "expo-image-picker",
+        {
+          photosPermission: "Verda needs photo library access to attach saved receipt images.",
+          cameraPermission: "Verda needs camera access to capture receipts and field documents.",
+        },
+      ],
+      [
+        "expo-media-library",
+        {
+          photosPermission: "Verda saves captured documents to your photo library for offline reference.",
+          savePhotosPermission: false,
+          isAccessMediaLocationEnabled: true,
+        },
       ],
       [
         "expo-location",
         {
-          locationAlwaysAndWhenInUsePermission: "Allow Verda to use your location to verify estate check-ins.",
-          locationWhenInUsePermission: "Allow Verda to use your location to verify estate check-ins.",
+          locationAlwaysAndWhenInUsePermission: "Verda uses your location to verify estate check-ins during deliveries, even when the app is closed.",
+          locationWhenInUsePermission: "Verda uses your location to verify your check-in at the estate.",
+          isAndroidBackgroundLocationEnabled: true,
+          androidBackgroundLocationMode: "fusedLocationProvider",
         },
       ],
-      // Background fetch for the agri advisory engine.
-      "expo-background-fetch",
+      [
+        "expo-secure-store",
+        { faceIDPermission: "Verda uses Face ID to securely unlock your account." },
+      ],
+      // Background fetch for both the agri advisory engine + the offline sync queue.
+      [
+        "expo-background-fetch",
+        { backgroundTaskName: "verda-flush-queue" },
+      ],
       "expo-task-manager",
+      "expo-file-system",
       // expo-notifications plugin — configures FCM at build time.
       [
         "expo-notifications",

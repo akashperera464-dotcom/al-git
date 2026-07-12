@@ -771,3 +771,260 @@ export const seedResourceRequests: ResourceRequest[] = [
 
 /** The signed-in supplier (resolved from Auth). */
 export const CURRENT_SUPPLIER = { id: "sup-001", name: "Sumithra Green Leaf Co." };
+
+// ============================================================================
+// PHASE-2 DOMAIN TYPES — Finance / Payroll / Factory / HR / Procurement
+// ============================================================================
+
+// ---- Factory Floor ----
+export type FactoryStage = "withering" | "rolling" | "fermentation" | "drying" | "sorting" | "packing" | "dispatched";
+export type BatchStatus = "open" | "in_progress" | "completed" | "rejected";
+
+export interface FactoryBatch {
+  id: string;
+  batchCode: string;
+  estateId?: string;
+  divisionId?: string;
+  supplierId?: string;
+  gradeCode: string;
+  gradeName?: string;
+  greenLeafInKg: number;
+  outputKg: number;
+  wasteKg: number;
+  currentStage: FactoryStage;
+  status: BatchStatus;
+  startedAt?: string;
+  completedAt?: string;
+  startedBy?: string;
+  notes?: string;
+  version: number;
+  createdAt: string;
+}
+
+export interface FactoryStageLog {
+  id: string;
+  batchId: string;
+  stage: FactoryStage;
+  operatorUid?: string;
+  startedAt: string;
+  endedAt?: string;
+  durationMin?: number;
+  inputKg?: number;
+  outputKg?: number;
+  moisturePct?: number;
+  temperatureC?: number;
+  humidityPct?: number;
+  gradeCode?: string;
+  gradeName?: string;
+  notes?: string;
+}
+
+// ---- Finance ----
+export type GlAccountType = "asset" | "liability" | "equity" | "revenue" | "expense";
+export type JournalStatus = "draft" | "posted" | "reversed";
+
+export interface GlAccount {
+  id: string;
+  code: string;
+  name: string;
+  type: GlAccountType;
+  isActive: boolean;
+  parentId?: string;
+}
+
+export interface JournalLine {
+  id: string;
+  journalId: string;
+  accountId: string;
+  accountCode?: string;
+  accountName?: string;
+  debit: number;
+  credit: number;
+  description?: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  entryNo: string;
+  entryDate: string;
+  description: string;
+  reference?: string;
+  estateId?: string;
+  status: JournalStatus;
+  postedBy?: string;
+  postedAt?: string;
+  version: number;
+  lines: JournalLine[];
+  createdAt: string;
+}
+
+export interface SupplierInvoice {
+  id: string;
+  invoiceNo: string;
+  supplierId: string;
+  estateId?: string;
+  invoiceDate: string;
+  dueDate?: string;
+  grossAmount: number;
+  deduction: number;
+  netAmount: number;
+  status: "unpaid" | "partial" | "paid";
+  paidAmount: number;
+  journalId?: string;
+  version: number;
+}
+
+// ---- Payroll ----
+export type PayrollStatus = "draft" | "approved" | "paid";
+
+export interface PayrollRun {
+  id: string;
+  runCode: string;
+  estateId?: string;
+  periodMonth: number;  // 1..12
+  periodYear: number;
+  status: PayrollStatus;
+  totalGross: number;
+  totalEpf: number;       // employee 8%
+  totalEtf: number;       // employer 3%
+  totalEmployerEpf: number; // employer 12%
+  totalNet: number;
+  approvedBy?: string;
+  approvedAt?: string;
+  paidAt?: string;
+  version: number;
+  createdAt: string;
+}
+
+export interface Payslip {
+  id: string;
+  payrollRunId: string;
+  workerId: string;
+  workerName?: string;
+  basicSalary: number;
+  overtimePay: number;
+  allowances: number;
+  grossPay: number;
+  epfEmployee: number;  // 8%
+  epfEmployer: number;  // 12%
+  etfEmployer: number;  // 3%
+  deductions: number;
+  netPay: number;
+  daysWorked: number;
+}
+
+// ---- HR / Leave ----
+export type LeaveType = "annual" | "sick" | "casual" | "maternity" | "nopay";
+export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface WorkerHrFields {
+  fullName?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  address?: string;
+  emergencyContact?: string;
+  hireDate?: string;
+  terminationDate?: string;
+  epfNumber?: string;
+  etfNumber?: string;
+  bankName?: string;
+  bankBranch?: string;
+  basicSalary: number;
+  skillMatrix: Record<string, number>; // skill → 1..5
+  leaveBalance: { annual: number; sick: number; casual: number };
+  version: number;
+}
+
+export interface LeaveRequest {
+  id: string;
+  workerId: string;
+  workerName?: string;
+  leaveType: LeaveType;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason?: string;
+  status: LeaveStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  version: number;
+  createdAt: string;
+}
+
+// ---- Procurement ----
+export type PoStatus = "draft" | "sent" | "partially_received" | "received" | "cancelled";
+export type StockMoveType = "in" | "out" | "adjust" | "transfer";
+
+export interface StockItem {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  unit: string;
+  qtyOnHand: number;
+  reorderLevel: number;
+  unitCost: number;
+  estateId?: string;
+  version: number;
+}
+
+export interface PurchaseOrderLine {
+  id: string;
+  poId: string;
+  stockItemId: string;
+  stockItemCode?: string;
+  stockItemName?: string;
+  qtyOrdered: number;
+  qtyReceived: number;
+  unitCost: number;
+  lineTotal: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  poCode: string;
+  supplierName: string;
+  estateId?: string;
+  orderDate: string;
+  expectedDate?: string;
+  status: PoStatus;
+  totalAmount: number;
+  notes?: string;
+  lines: PurchaseOrderLine[];
+  version: number;
+}
+
+export interface GoodsReceipt {
+  id: string;
+  grnCode: string;
+  poId?: string;
+  poCode?: string;
+  receivedDate: string;
+  receivedBy?: string;
+  supplierInvoiceNo?: string;
+  notes?: string;
+  version: number;
+}
+
+export interface StockMovement {
+  id: string;
+  stockItemId: string;
+  moveType: StockMoveType;
+  qty: number;
+  unitCost: number;
+  referenceType?: string;
+  referenceId?: string;
+  fromEstateId?: string;
+  toEstateId?: string;
+  performedBy?: string;
+  performedAt: string;
+  notes?: string;
+}
+
+// ---- Conflict resolution result ----
+export type ConflictResolution = "updated" | "conflict" | "not_found";
+export interface OptimisticUpdateResult<T> {
+  resolution: ConflictResolution;
+  current?: T;  // server's current row (on conflict)
+  updated?: T;  // newly updated row (on success)
+}
