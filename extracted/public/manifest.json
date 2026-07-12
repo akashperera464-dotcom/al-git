@@ -1,0 +1,26 @@
+{
+  "name": "Verda · Integrated Tea Estate ERP Platform",
+  "short_name": "Verda ERP",
+  "description": "Offline-first PWA for tea estates, field supervisors and VVIP green-leaf suppliers.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#04231a",
+  "theme_color": "#064e3b",
+  "categories": ["business", "productivity", "agriculture"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Estate Dashboard", "url": "/?m=dashboard" },
+    { "name": "Weigh-in", "url": "/?m=harvest" },
+    { "name": "Fertilizer Advisor", "url": "/?m=supplier-advisor" }
+  ]
+}

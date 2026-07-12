@@ -1,0 +1,18 @@
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+
+  VITE v7.3.2  ready in 244 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://21.0.19.216:3000/
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+
+  VITE v7.3.2  ready in 233 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://21.0.19.216:3000/

@@ -1,0 +1,17 @@
+{
+  "common": {
+    "appName": "Verda ERP",
+    "loadingConsole": "Loading your estate console…",
+    "online": "Online",
+    "offline": "Offline",
+    "retry": "Retry connection",
+    "youAreOffline": "You are offline",
+    "offlineMsg": "Verda couldn't reach the estate server. Your field captures are safe and will sync automatically the moment you reconnect.",
+    "language": "Language"
+  },
+  "lang": {
+    "en": "English",
+    "si": "සිංහල",
+    "ta": "தமிழ்"
+  }
+}

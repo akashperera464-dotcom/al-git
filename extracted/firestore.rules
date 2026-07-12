@@ -1,0 +1,154 @@
+rules_version = '2';
+
+// =============================================================================
+// Verda ERP · Firestore Security Rules (RBAC placeholder)
+// -----------------------------------------------------------------------------
+// Boundaries mirror src/lib/rbac.ts exactly:
+//   admin     → full visibility across the ecosystem
+//   supervisor→ ONLY attendance / work-allocation / leaf-weighing capture
+//   supplier  → ONLY their own deliveries / alerts / payments
+//
+// Role is stored on users/{uid}.role and resolved per-request via role().
+// Suppliers can never read workers, payroll, finance or other suppliers.
+// Supervisors can never read ledger / payroll / loans / supplier banking.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ----
+    function isSignedIn() { return request.auth != null; }
+    function ownUid() { return request.auth.uid; }
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function role() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? userDoc().role : null;
+    }
+    function isAdmin() { return role() == 'admin' || role() == 'FACTORY_OWNER'; }
+    function isSupervisor() { return role() == 'supervisor' || role() == 'FIELD_SUPERVISOR'; }
+    function isSupplier() { return role() == 'supplier' || role() == 'SUPPLIER'; }
+    // the estate this caller is scoped to (users/{uid}.associatedEntityId)
+    function myEntity() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? userDoc().associatedEntityId : null;
+    }
+
+    // ---- identity & role (drives all RBAC) ----
+    match /users/{uid} {
+      allow read: if isSignedIn() && (isAdmin() || uid == ownUid());
+      allow create: if isSignedIn();            // first sign-in self-registers
+      allow update, delete: if isAdmin();
+      // a non-admin may never change their own role/tier/banking/estate-link fields
+      allow update: if uid == ownUid()
+        && !request.resource.data.diff(resource.data)
+             .affectedKeys().hasAny(['role', 'tier', 'bankAccount', 'associatedEntityId']);
+    }
+
+    // ---- ADMIN-FULL: hierarchy, manufacturing, finance ----
+    match /estates/{id}/{document=**} { allow read, write: if isAdmin(); }
+    match /divisions/{id}/{document=**} { allow read, write: if isAdmin(); }
+    match /blocks/{id} { allow read, write: if isAdmin(); }
+
+    match /fields/{id} {
+      allow read: if isAdmin() || isSupervisor();   // supervisor reads for allocation
+      allow write: if isAdmin();
+    }
+    match /crop_tasks/{id} { allow read: if isAdmin() || isSupervisor(); allow write: if isAdmin(); }
+    match /vehicles/{id} { allow read, write: if isAdmin(); }
+    match /factory_batches/{id} { allow read, write: if isAdmin(); }
+    match /inventory_items/{id} { allow read, write: if isAdmin(); }
+
+    // ---- People & pay: ADMIN ONLY (suppliers PROHIBITED, supervisors read-only) ----
+    match /workers/{id} {
+      allow read: if isAdmin() || isSupervisor();   // supervisor needs names for attendance
+      allow write: if isAdmin();
+    }
+    match /payroll_runs/{id} { allow read, write: if isAdmin(); }
+    match /loans/{id} { allow read, write: if isAdmin(); }
+    match /loyalty_points/{id} { allow read, write: if isAdmin(); }
+    match /welfare_units/{id} { allow read, write: if isAdmin(); }
+    match /welfare_cases/{id} { allow read, write: if isAdmin(); }
+
+    // ---- Finance & ledger: ADMIN ONLY ----
+    match /ledger_entries/{id} { allow read, write: if isAdmin(); }
+    match /cashbook/{id} { allow read, write: if isAdmin(); }
+
+    // ---- Inputs ----
+    match /fertilizer_stock/{id} { allow read: if isAdmin() || isSupervisor(); allow write: if isAdmin(); }
+    match /fertilizer_logs/{id} { allow read: if isAdmin() || isSupervisor(); allow create: if isAdmin() || isSupervisor(); }
+    match /agrochemical_stock/{id} { allow read, write: if isAdmin(); }
+    match /agrochemical_audit/{id} { allow read: if isAdmin() || isSupervisor(); allow create: if isAdmin() || isSupervisor(); }
+
+    // ---- SUPERVISOR capture collections ----
+    match /collection_centers/{id} { allow read: if isAdmin() || isSupervisor(); }
+    match /attendance/{id} {
+      allow read: if isAdmin() || isSupervisor();
+      allow create: if isSupervisor();            // QR clock-in capture
+      allow update, delete: if isAdmin();
+    }
+    match /work_allocations/{id} { allow read, write: if isAdmin() || isSupervisor(); }
+    match /harvest/{id} {
+      allow read: if isAdmin() || isSupervisor();
+      allow create: if isSupervisor();            // offline-first weigh-in
+      allow update, delete: if isAdmin();
+    }
+
+    // ---- SUPPLIER: OWN DATA ONLY ----
+    match /suppliers/{supplierId} {
+      // a supplier may read/update only their own profile — never another's
+      allow read: if isAdmin() || (isSupplier() && supplierId == ownUid());
+      allow create: if isSupplier() && supplierId == ownUid();
+      allow update: if isAdmin()
+        || (isSupplier() && supplierId == ownUid()
+             && !request.resource.data.diff(resource.data)
+                  .affectedKeys().hasAny(['tier', 'pricePerKg', 'bankAccount']));
+      allow delete: if isAdmin();
+
+      match /supplies/{supplyId} {
+        // RULE #2 + #3: a supplier reads a supply ONLY if it is theirs AND its
+        // estateId matches their associatedEntityId. Admins read any.
+        allow read: if isAdmin()
+          || (isSupplier()
+              && supplierId == ownUid()
+              && resource.data.estateId == myEntity());
+        allow write: if isAdmin();
+      }
+    }
+
+    // ---- Resource requisitions (supplier → admin ticket flow) ----
+    match /resource_requests/{id} {
+      // suppliers create + read their OWN tickets only; admins manage all
+      allow read: if isAdmin()
+        || (isSupplier() && resource.data.supplierId == ownUid());
+      allow create: if isSupplier()
+        && request.resource.data.supplierId == ownUid()
+        && request.resource.data.status == 'PENDING';
+      // silent state change on approve/reject is ADMIN-ONLY — suppliers may
+      // never mutate status/adminNotes themselves
+      allow update: if isAdmin()
+        || (isSupplier()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasAll(['note','dateNeeded','quantity'])
+            && request.resource.data.status == resource.data.status);
+      allow delete: if isAdmin();
+
+      // Cloud Function: onWrite → if status changed → sendFcmToSupplier()
+      // (see src/lib/fcm.ts). Tokens resolved via fcm_tokens/{supplierId}.
+    }
+
+    // ---- Notifications: free FCM channel ----
+    match /push_log/{id} {
+      allow read: if isAdmin() || (isSupplier() && resource.data.recipientId == ownUid());
+      allow write: if isAdmin();                  // only server / admin dispatches
+    }
+    match /fcm_tokens/{id} {
+      allow read, delete: if isAdmin();
+      allow create, update: if isSignedIn();      // register your own device
+    }
+
+    // ---- explicit deny-everything-else ----
+    match /{document=**} { allow read, write: if false; }
+  }
+}
