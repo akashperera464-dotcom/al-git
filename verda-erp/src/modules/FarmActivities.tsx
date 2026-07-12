@@ -7,15 +7,16 @@ import { useLiveData } from "@/lib/useLiveData";
 import { recordFarmActivity, readFarmActivities } from "@/lib/repo";
 import { TODAY_ISO, type FarmActivity, type FarmActivityType } from "@/lib/data";
 
-const TABS: { id: FarmActivityType; label: string; icon: typeof Sprout; tone: "emerald" | "amber" | "sky" }[] = [
-  { id: "fertilizer", label: "Fertilizer", icon: Sprout, tone: "emerald" },
-  { id: "pruning", label: "Pruning", icon: Scissors, tone: "amber" },
-  { id: "self_harvest", label: "Self-Harvest", icon: Package, tone: "sky" },
-];
+const TAB_KEYS = [
+  { id: "fertilizer", labelKey: "farm.fertilizer", icon: Sprout, tone: "emerald" },
+  { id: "pruning", labelKey: "farm.pruning", icon: Scissors, tone: "amber" },
+  { id: "self_harvest", labelKey: "farm.selfHarvest", icon: Package, tone: "sky" },
+] as const;
 
-const FERT_TYPES = ["Urea (46% N)", "MOP (Potash)", "TSP (Phosphate)", "Dolomite", "Organic Compost"];
+const FERT_TYPE_KEYS = ["farm.fertUrea", "farm.fertMop", "farm.fertTsp", "farm.fertDolomite", "farm.fertCompost"] as const;
 const PRUNE_TYPES = ["formative", "light", "medium", "deep", "skiffing"];
-const GRADES = ["Super", "Standard", "Coarse"];
+const PRUNE_TYPE_KEYS = ["farm.formative", "farm.light", "farm.medium", "farm.deep", "farm.skiffing"] as const;
+const GRADE_KEYS = ["farm.gradeSuper", "farm.gradeStandard", "farm.gradeCoarse"] as const;
 
 /**
  * My Farm Activities — the feedback loop for the Smart Advisory Engine.
@@ -37,7 +38,7 @@ export function FarmActivities() {
   // ---- shared form state ----
   const [date, setDate] = useState(TODAY_ISO);
   // fertilizer
-  const [fertType, setFertType] = useState(FERT_TYPES[0]);
+  const [fertType, setFertType] = useState(0);  // index into FERT_TYPE_KEYS
   const [fertQty, setFertQty] = useState(50);
   // pruning
   const [pruneType, setPruneType] = useState<string>(PRUNE_TYPES[3]);
@@ -45,22 +46,22 @@ export function FarmActivities() {
   // self-harvest
   const [field, setField] = useState("");
   const [kg, setKg] = useState(100);
-  const [grade, setGrade] = useState(GRADES[0]);
+  const [gradeIdx, setGradeIdx] = useState(0);  // index into GRADE_KEYS
 
   const save = async () => {
     setBusy(true);
     setError(null);
     try {
       let details: Record<string, unknown> = {};
-      if (tab === "fertilizer") details = { type: fertType, quantityKg: fertQty };
+      if (tab === "fertilizer") details = { type: t(FERT_TYPE_KEYS[fertType]), quantityKg: fertQty };
       else if (tab === "pruning") details = { type: pruneType, areaHa: pruneArea };
-      else details = { field: field.trim() || "—", estimatedKg: kg, grade };
+      else details = { field: field.trim() || "—", estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]) };
 
       await recordFarmActivity(userUid, tab, date, details);
       setDone(true);
       window.setTimeout(() => setDone(false), 2500);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save activity.");
+      setError(e instanceof Error ? e.message : t("farm.saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -72,7 +73,7 @@ export function FarmActivities() {
   return (
     <div>
       <PageHeader
-        eyebrow="VVIP Supplier Portal"
+        eyebrow={t("farm.eyebrow")}
         title={t("farm.title")}
         desc={t("farm.desc")}
         icon={<IconChip icon={Sprout} tone="emerald" className="h-12 w-12" />}
@@ -86,17 +87,17 @@ export function FarmActivities() {
 
       {/* Tabs */}
       <div className="mt-4 grid grid-cols-3 gap-2">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
+        {TAB_KEYS.map((tab2) => {
+          const Icon = tab2.icon;
+          const active = tab === tab2.id;
           return (
             <button
-              key={t.id}
-              onClick={() => { setTab(t.id); setDone(false); setError(null); }}
+              key={tab2.id}
+              onClick={() => { setTab(tab2.id); setDone(false); setError(null); }}
               className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition ${active ? "border-emerald-300 bg-emerald-50" : "border-slate-100 bg-white"}`}
             >
               <Icon className={`h-5 w-5 ${active ? "text-emerald-600" : "text-slate-400"}`} />
-              <span className={`text-[11px] font-semibold ${active ? "text-emerald-700" : "text-slate-500"}`}>{t.label}</span>
+              <span className={`text-[11px] font-semibold ${active ? "text-emerald-700" : "text-slate-500"}`}>{t(tab2.labelKey)}</span>
             </button>
           );
         })}
@@ -106,20 +107,20 @@ export function FarmActivities() {
       <Card className="mt-3 p-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className={labelCls}><CalendarDays className="mr-1 inline h-3 w-3" />Activity Date</label>
+            <label className={labelCls}><CalendarDays className="mr-1 inline h-3 w-3" />{t("farm.activityDate")}</label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
           </div>
 
           {tab === "fertilizer" && (
             <>
               <div className="col-span-2">
-                <label className={labelCls}>Fertilizer Type</label>
-                <select value={fertType} onChange={(e) => setFertType(e.target.value)} className={inputCls}>
-                  {FERT_TYPES.map((f) => <option key={f}>{f}</option>)}
+                <label className={labelCls}>{t("farm.fertilizerType")}</label>
+                <select value={fertType} onChange={(e) => setFertType(+e.target.value)} className={inputCls}>
+                  {FERT_TYPE_KEYS.map((k, idx) => <option key={k} value={idx}>{t(k)}</option>)}
                 </select>
               </div>
               <div className="col-span-2">
-                <label className={labelCls}>Quantity (kg)</label>
+                <label className={labelCls}>{t("farm.quantityKg")}</label>
                 <input type="number" value={fertQty} onChange={(e) => setFertQty(+e.target.value)} className={`${inputCls} tnum`} />
               </div>
             </>
@@ -128,13 +129,13 @@ export function FarmActivities() {
           {tab === "pruning" && (
             <>
               <div className="col-span-2">
-                <label className={labelCls}>Pruning Type</label>
+                <label className={labelCls}>{t("farm.pruningType")}</label>
                 <select value={pruneType} onChange={(e) => setPruneType(e.target.value)} className={inputCls}>
-                  {PRUNE_TYPES.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+                  {PRUNE_TYPES.map((p, idx) => <option key={p} value={p}>{t(PRUNE_TYPE_KEYS[idx])}</option>)}
                 </select>
               </div>
               <div className="col-span-2">
-                <label className={labelCls}>Area Covered (ha)</label>
+                <label className={labelCls}>{t("farm.areaCovered")}</label>
                 <input type="number" step="0.1" value={pruneArea} onChange={(e) => setPruneArea(+e.target.value)} className={`${inputCls} tnum`} />
               </div>
             </>
@@ -143,17 +144,17 @@ export function FarmActivities() {
           {tab === "self_harvest" && (
             <>
               <div>
-                <label className={labelCls}>Field / Block</label>
-                <input value={field} onChange={(e) => setField(e.target.value)} placeholder="e.g. S-01" className={inputCls} />
+                <label className={labelCls}>{t("farm.fieldBlock")}</label>
+                <input value={field} onChange={(e) => setField(e.target.value)} placeholder={t("farm.fieldBlockPh")} className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>Grade</label>
-                <select value={grade} onChange={(e) => setGrade(e.target.value)} className={inputCls}>
-                  {GRADES.map((g) => <option key={g}>{g}</option>)}
+                <label className={labelCls}>{t("farm.grade")}</label>
+                <select value={gradeIdx} onChange={(e) => setGradeIdx(+e.target.value)} className={inputCls}>
+                  {GRADE_KEYS.map((k, idx) => <option key={k} value={idx}>{t(k)}</option>)}
                 </select>
               </div>
               <div className="col-span-2">
-                <label className={labelCls}>Estimated Weight (kg)</label>
+                <label className={labelCls}>{t("farm.estimatedWeight")}</label>
                 <input type="number" value={kg} onChange={(e) => setKg(+e.target.value)} className={`${inputCls} tnum`} />
               </div>
             </>
@@ -176,25 +177,27 @@ export function FarmActivities() {
       <Card className="mt-4 p-4">
         <div className="mb-2 flex items-center gap-2">
           <History className="h-4 w-4 text-slate-400" />
-          <h3 className="font-display text-sm font-bold text-slate-800">Recent Activities</h3>
+          <h3 className="font-display text-sm font-bold text-slate-800">{t("farm.recentActivities")}</h3>
         </div>
         {history.length === 0 ? (
           <p className="py-4 text-center text-sm text-slate-400">{t("farm.noActivities")}</p>
         ) : (
           <div className="space-y-2">
             {history.slice(0, 8).map((a) => {
-              const Icon = TABS.find((t) => t.id === a.activityType)?.icon ?? Package;
+              const tabMeta = TAB_KEYS.find((x) => x.id === a.activityType);
+              const Icon = tabMeta?.icon ?? Package;
+              const label = tabMeta ? t(tabMeta.labelKey) : a.activityType.replace("_", "-");
               const summary =
                 a.activityType === "fertilizer"
-                  ? `${(a.details as { type?: string }).type ?? "—"} · ${(a.details as { quantityKg?: number }).quantityKg ?? 0} kg`
+                  ? t("farm.summaryFertilizer", { type: (a.details as { type?: string }).type ?? "—", qty: String((a.details as { quantityKg?: number }).quantityKg ?? 0) })
                   : a.activityType === "pruning"
-                    ? `${(a.details as { type?: string }).type ?? "—"} prune · ${(a.details as { areaHa?: number }).areaHa ?? 0} ha`
-                    : `${(a.details as { estimatedKg?: number }).estimatedKg ?? 0} kg · ${(a.details as { grade?: string }).grade ?? "—"}`;
+                    ? t("farm.summaryPrune", { type: (a.details as { type?: string }).type ?? "—", area: String((a.details as { areaHa?: number }).areaHa ?? 0) })
+                    : t("farm.summaryHarvest", { qty: String((a.details as { estimatedKg?: number }).estimatedKg ?? 0), grade: (a.details as { grade?: string }).grade ?? "—" });
               return (
                 <div key={a.id} className="flex items-center gap-3 rounded-xl border border-slate-100 p-2.5">
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500"><Icon className="h-4 w-4" /></span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold capitalize text-slate-700">{a.activityType.replace("_", "-")}</p>
+                    <p className="text-sm font-semibold capitalize text-slate-700">{label}</p>
                     <p className="text-[11px] text-slate-400">{summary}</p>
                   </div>
                   <Badge tone="slate">{a.loggedDate}</Badge>

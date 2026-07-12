@@ -1,4 +1,5 @@
 import { Smartphone, Wifi, WifiOff, RefreshCw, Database, BellRing, Cpu } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageHeader, StatCard, Panel, Badge, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 
@@ -36,15 +37,16 @@ const MANIFEST_CODE = `// public/manifest.json
 }`;
 
 export default function MobileOffline() {
+  const { t } = useTranslation();
   const { online, toggleOnline, syncQueue, flushSync } = useApp();
   const queued = syncQueue.filter((q) => q.status === "queued").length;
 
   return (
     <div>
       <PageHeader
-        eyebrow="Mobile & Offline-First"
-        title="Supervisor Sync Engine"
-        desc="Service worker + IndexedDB sync queues that survive network dropouts for field capture."
+        eyebrow={t("mobile.eyebrow")}
+        title={t("mobile.title")}
+        desc={t("mobile.desc")}
         icon={<IconChip icon={Smartphone} tone="emerald" className="h-12 w-12" />}
         actions={
           <button
@@ -52,22 +54,22 @@ export default function MobileOffline() {
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition ${online ? "bg-emerald-600" : "bg-slate-600"}`}
           >
             {online ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-            {online ? "Online" : "Offline"}
+            {online ? t("mobile.online") : t("mobile.offline")}
           </button>
         }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard icon={online ? Wifi : WifiOff} label="Network" value={online ? "Online" : "Offline"} sub={online ? "Live sync active" : "IndexedDB buffering"} tone={online ? "emerald" : "rose"} />
-        <StatCard icon={Database} label="Pending Queue" value={String(queued)} sub="Unsynced mutations" tone="amber" />
-        <StatCard icon={RefreshCw} label="Conflict Policy" value="Last-write" sub="Field-wins merge" tone="sky" />
-        <StatCard icon={BellRing} label="FCM Token" value="Registered" sub="Free push channel" tone="violet" />
+        <StatCard icon={online ? Wifi : WifiOff} label={t("mobile.network")} value={online ? t("mobile.online") : t("mobile.offline")} sub={online ? t("mobile.liveSyncActive") : t("mobile.indexeddbBuffering")} tone={online ? "emerald" : "rose"} />
+        <StatCard icon={Database} label={t("mobile.pendingQueue")} value={String(queued)} sub={t("mobile.unsyncedMutations")} tone="amber" />
+        <StatCard icon={RefreshCw} label={t("mobile.conflictPolicy")} value={t("mobile.lastWrite")} sub={t("mobile.fieldWinsMerge")} tone="sky" />
+        <StatCard icon={BellRing} label={t("mobile.fcmToken")} value={t("mobile.registered")} sub={t("mobile.freePushChannel")} tone="violet" />
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Panel className="lg:col-span-1" title="Sync Queue" subtitle="Live IndexedDB buffer" icon={<IconChip icon={Database} tone="amber" className="h-9 w-9" />} action={queued > 0 ? <button onClick={flushSync} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white"><RefreshCw className="h-3 w-3" /> Flush</button> : <Badge tone="emerald" dot>Synced</Badge>}>
+        <Panel className="lg:col-span-1" title={t("mobile.syncQueue")} subtitle={t("mobile.liveIndexeddbBuffer")} icon={<IconChip icon={Database} tone="amber" className="h-9 w-9" />} action={queued > 0 ? <button onClick={flushSync} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white"><RefreshCw className="h-3 w-3" /> {t("mobile.flush")}</button> : <Badge tone="emerald" dot>{t("common.synced")}</Badge>}>
           <div className="space-y-2">
-            {syncQueue.length === 0 && <p className="py-6 text-center text-sm text-slate-400">Queue empty — all mutations persisted to Firestore ✦</p>}
+            {syncQueue.length === 0 && <p className="py-6 text-center text-sm text-slate-400">{t("mobile.queueEmpty")}</p>}
             {syncQueue.map((q) => (
               <div key={q.id} className="flex items-center gap-3 rounded-lg border border-slate-100 p-2.5">
                 <span className={`flex h-7 w-7 items-center justify-center rounded-md ${q.status === "queued" ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"}`}>
@@ -83,11 +85,11 @@ export default function MobileOffline() {
           </div>
         </Panel>
 
-        <Panel className="lg:col-span-2" title="Service Worker Config" subtitle="public/sw.ts" icon={<IconChip icon={Cpu} tone="emerald" className="h-9 w-9" />}>
+        <Panel className="lg:col-span-2" title={t("mobile.serviceWorkerConfig")} subtitle="public/sw.ts" icon={<IconChip icon={Cpu} tone="emerald" className="h-9 w-9" />}>
           <pre className="overflow-x-auto rounded-xl bg-[#04231a] p-4 text-[11px] leading-relaxed text-emerald-200 no-scrollbar"><code>{SW_CODE}</code></pre>
         </Panel>
 
-        <Panel className="lg:col-span-3" title="PWA Manifest" subtitle="public/manifest.json" icon={<IconChip icon={Smartphone} tone="violet" className="h-9 w-9" />}>
+        <Panel className="lg:col-span-3" title={t("mobile.pwaManifest")} subtitle="public/manifest.json" icon={<IconChip icon={Smartphone} tone="violet" className="h-9 w-9" />}>
           <pre className="overflow-x-auto rounded-xl bg-[#04231a] p-4 text-[11px] leading-relaxed text-emerald-200 no-scrollbar"><code>{MANIFEST_CODE}</code></pre>
         </Panel>
       </div>

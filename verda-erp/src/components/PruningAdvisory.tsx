@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Scissors, CalendarDays, Save, Loader2, Sprout, Sparkles, Droplets, Info } from "lucide-react";
 import { Card, Badge } from "@/components/ui";
 import { recommendPruning, ageBasedFertilizerTrigger, type PruningAdvice, type WeatherDay } from "@/lib/predictive";
@@ -14,6 +15,7 @@ import { useApp } from "@/context/AppContext";
  * - Renders the pruning cycle recommendation + weather-based fertilizer trigger.
  */
 export function PruningAdvisory({ forecast }: { forecast: WeatherDay[] }) {
+  const { t } = useTranslation();
   const { estates, associatedEntityId, notify, userUid } = useApp();
   const estate = estates.find((e) => e.id === associatedEntityId);
 
@@ -40,7 +42,7 @@ export function PruningAdvisory({ forecast }: { forecast: WeatherDay[] }) {
   if (!estate) {
     return (
       <Card className="p-4">
-        <p className="text-sm text-slate-400">No linked estate. Ask your admin to associate you with an estate.</p>
+        <p className="text-sm text-slate-400">{t("supplier.noLinkedEstate")}</p>
       </Card>
     );
   }
@@ -53,10 +55,10 @@ export function PruningAdvisory({ forecast }: { forecast: WeatherDay[] }) {
     setBusy(true);
     try {
       await updateEstatePlantedDate(estate.id, date.trim());
-      notify({ title: "Planted date saved ✅", body: `Advisory recalculated for ${date}.`, tone: "emerald", channel: "system" });
+      notify({ title: t("supplier.plantedDateSaved"), body: t("supplier.plantedDateSavedBody", { date }), tone: "emerald", channel: "system" });
       setEditing(false);
     } catch (e) {
-      notify({ title: "Save failed", body: e instanceof Error ? e.message : "DB error", tone: "rose", channel: "system" });
+      notify({ title: t("supplier.saveFailed"), body: e instanceof Error ? e.message : t("supplier.dbError"), tone: "rose", channel: "system" });
     } finally {
       setBusy(false);
     }
@@ -76,15 +78,15 @@ export function PruningAdvisory({ forecast }: { forecast: WeatherDay[] }) {
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sprout className="h-4 w-4 text-emerald-600" />
-            <h3 className="font-display text-sm font-bold text-slate-800">Plantation Date</h3>
+            <h3 className="font-display text-sm font-bold text-slate-800">{t("supplier.plantationDate")}</h3>
           </div>
-          {advice && <Badge tone="sky">{advice.age.display} old</Badge>}
+          {advice && <Badge tone="sky">{advice.age.display} {t("supplier.ageSuffix")}</Badge>}
         </div>
 
         {editing ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="text-[11px] font-medium text-slate-400">When were the tea plants planted?</label>
+              <label className="text-[11px] font-medium text-slate-400">{t("supplier.plantedPrompt")}</label>
               <input
                 type="date"
                 value={date}
@@ -93,20 +95,20 @@ export function PruningAdvisory({ forecast }: { forecast: WeatherDay[] }) {
               />
             </div>
             <button onClick={save} disabled={busy} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-60">
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} {t("common.save")}
             </button>
-            <button onClick={() => { setEditing(false); setDate(estate.plantedDate ?? ""); }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500">Cancel</button>
+            <button onClick={() => { setEditing(false); setDate(estate.plantedDate ?? ""); }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500">{t("common.cancel")}</button>
           </div>
         ) : (
           <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2.5">
             <div className="flex items-center gap-2 text-sm">
               <CalendarDays className="h-4 w-4 text-slate-400" />
               <span className={estate.plantedDate ? "font-semibold text-slate-700" : "text-slate-400"}>
-                {estate.plantedDate ?? "Not set — add your planted date"}
+                {estate.plantedDate ?? t("supplier.notSetAddDate")}
               </span>
             </div>
             <button onClick={() => { setDate(estate.plantedDate ?? ""); setEditing(true); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-50">
-              {estate.plantedDate ? "Update" : "Set date"}
+              {estate.plantedDate ? t("supplier.update") : t("supplier.setDate")}
             </button>
           </div>
         )}
@@ -118,7 +120,7 @@ export function PruningAdvisory({ forecast }: { forecast: WeatherDay[] }) {
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Scissors className="h-4 w-4 text-emerald-600" />
-              <h3 className="font-display text-sm font-bold text-slate-800">Pruning Recommendation</h3>
+              <h3 className="font-display text-sm font-bold text-slate-800">{t("supplier.pruningRecommendation")}</h3>
             </div>
             <Badge tone={LEVEL_TONE[advice.level] ?? "slate"} dot>{advice.currentCycle}</Badge>
           </div>
@@ -126,9 +128,9 @@ export function PruningAdvisory({ forecast }: { forecast: WeatherDay[] }) {
             <p className="text-sm font-bold text-slate-800">{advice.headline}</p>
             <p className="mt-1 text-xs leading-relaxed text-slate-500">{advice.detail}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge tone="amber"><CalendarDays className="mr-1 inline h-3 w-3" /> Next window: {advice.nextDate}</Badge>
+              <Badge tone="amber"><CalendarDays className="mr-1 inline h-3 w-3" /> {t("supplier.nextWindow")}: {advice.nextDate}</Badge>
               {advice.isPeakYield && (
-                <Badge tone="emerald"><Sparkles className="mr-1 inline h-3 w-3" /> Peak Yield Phase</Badge>
+                <Badge tone="emerald"><Sparkles className="mr-1 inline h-3 w-3" /> {t("supplier.peakYield")}</Badge>
               )}
             </div>
           </div>
@@ -140,7 +142,7 @@ export function PruningAdvisory({ forecast }: { forecast: WeatherDay[] }) {
         <Card className="p-4">
           <div className="mb-1.5 flex items-center gap-2">
             <Droplets className="h-4 w-4 text-sky-600" />
-            <h3 className="font-display text-sm font-bold text-slate-800">Weather-Based Fertilizer Trigger</h3>
+            <h3 className="font-display text-sm font-bold text-slate-800">{t("supplier.fertTrigger")}</h3>
           </div>
           <p className="text-xs leading-relaxed text-slate-500">{fertMsg}</p>
         </Card>
@@ -150,35 +152,33 @@ export function PruningAdvisory({ forecast }: { forecast: WeatherDay[] }) {
       <Card className="p-4">
         <div className="mb-2 flex items-center gap-2">
           <Info className="h-4 w-4 text-violet-600" />
-          <h3 className="font-display text-sm font-bold text-slate-800">Advisory Feedback Loop</h3>
+          <h3 className="font-display text-sm font-bold text-slate-800">{t("supplier.feedbackLoop")}</h3>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-lg bg-slate-50 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-slate-400">Last Fertilizer</p>
+            <p className="text-[10px] uppercase tracking-wide text-slate-400">{t("supplier.lastFertilizer")}</p>
             <p className="text-sm font-bold text-slate-700">
               {latestFert ? latestFert.loggedDate : "—"}
             </p>
             {latestFert && (
               <p className="text-[10px] text-slate-400">
-                {(latestFert.details as { type?: string }).type} · {(latestFert.details as { quantityKg?: number }).quantityKg} kg
+                {(latestFert.details as { type?: string }).type} · {(latestFert.details as { quantityKg?: number }).quantityKg} {t("common.kg")}
               </p>
             )}
           </div>
           <div className="rounded-lg bg-slate-50 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-slate-400">Last Pruning</p>
+            <p className="text-[10px] uppercase tracking-wide text-slate-400">{t("supplier.lastPruning")}</p>
             <p className="text-sm font-bold text-slate-700">
               {latestPrune ? latestPrune.loggedDate : "—"}
             </p>
             {latestPrune && (
               <p className="text-[10px] capitalize text-slate-400">
-                {(latestPrune.details as { type?: string }).type} · {(latestPrune.details as { areaHa?: number }).areaHa} ha
+                {(latestPrune.details as { type?: string }).type} · {(latestPrune.details as { areaHa?: number }).areaHa} {t("common.area")}
               </p>
             )}
           </div>
         </div>
-        <p className="mt-2 text-[11px] text-slate-400">
-          Log new activities in <strong>My Farm Activities</strong> to reset these cycles and refresh your recommendations.
-        </p>
+        <p className="mt-2 text-[11px] text-slate-400" dangerouslySetInnerHTML={{ __html: t("supplier.logToReset") }} />
       </Card>
     </div>
   );

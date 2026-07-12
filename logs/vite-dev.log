@@ -74,3 +74,59 @@ sh: 1: vite: not found
 
   ➜  Local:   http://localhost:3000/
   ➜  Network: http://21.0.15.227:3000/
+5:51:18 AM [vite] (client) page reload src/i18n/locales/en.json
+5:54:06 AM [vite] (client) page reload src/i18n/locales/si.json
+5:57:01 AM [vite] (client) page reload src/i18n/locales/ta.json
+5:57:48 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierPortal.tsx
+5:57:48 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierPortal.tsx
+5:57:48 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierPortal.tsx
+5:57:48 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierPortal.tsx
+5:57:48 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierPortal.tsx
+5:58:37 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierRequest.tsx
+5:58:37 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierRequest.tsx
+5:58:37 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierRequest.tsx
+5:58:47 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierAnnouncements.tsx
+5:58:47 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierAnnouncements.tsx
+5:58:47 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierAnnouncements.tsx
+5:58:47 AM [vite] (client) hmr update /src/index.css, /src/modules/SupplierAnnouncements.tsx
+5:59:30 AM [vite] (client) hmr update /src/index.css, /src/modules/FarmActivities.tsx
+5:59:30 AM [vite] (client) hmr update /src/index.css, /src/modules/FarmActivities.tsx
+5:59:30 AM [vite] (client) hmr update /src/index.css, /src/modules/FarmActivities.tsx
+5:59:30 AM [vite] (client) hmr update /src/index.css, /src/modules/FarmActivities.tsx
+6:00:29 AM [vite] (client) hmr update /src/index.css, /src/modules/ExtensionOfficer.tsx
+6:00:29 AM [vite] (client) hmr update /src/index.css, /src/modules/ExtensionOfficer.tsx
+6:01:05 AM [vite] (client) hmr update /src/index.css, /src/modules/MobileOffline.tsx
+6:01:33 AM [vite] (client) hmr update /src/index.css, /src/modules/MobileOffline.tsx
+6:01:54 AM [vite] (client) hmr update /src/index.css, /src/components/LocationCheckIn.tsx
+6:01:54 AM [vite] (client) hmr update /src/index.css, /src/components/LocationCheckIn.tsx
+6:02:33 AM [vite] (client) hmr update /src/index.css, /src/components/PruningAdvisory.tsx
+6:02:33 AM [vite] (client) hmr update /src/index.css, /src/components/PruningAdvisory.tsx
+6:02:33 AM [vite] (client) hmr update /src/index.css, /src/components/PruningAdvisory.tsx
+6:02:33 AM [vite] (client) hmr update /src/index.css, /src/components/PruningAdvisory.tsx
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+
+  VITE v7.3.2  ready in 247 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://21.0.15.227:3000/
+6:05:19 AM [vite] (client) hmr update /src/components/Login.tsx, /src/index.css
+6:05:19 AM [vite] (client) hmr update /src/components/Login.tsx, /src/index.css
+6:05:19 AM [vite] (client) hmr invalidate /src/components/Login.tsx Could not Fast Refresh ("logoutLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+6:05:19 AM [vite] (client) hmr update /src/App.tsx
+6:05:19 AM [vite] (client) hmr update /src/components/Login.tsx, /src/index.css
+6:05:19 AM [vite] (client) hmr update /src/components/Login.tsx, /src/index.css
+6:05:20 AM [vite] (client) hmr update /src/components/Login.tsx, /src/index.css
+6:05:20 AM [vite] (client) hmr invalidate /src/components/Login.tsx Could not Fast Refresh ("logoutLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+6:05:20 AM [vite] (client) hmr update /src/App.tsx
+6:05:20 AM [vite] (client) hmr update /src/components/Login.tsx, /src/index.css
+6:05:20 AM [vite] (client) hmr invalidate /src/components/Login.tsx Could not Fast Refresh ("logoutLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+6:05:20 AM [vite] (client) hmr update /src/App.tsx
+6:05:30 AM [vite] (client) page reload src/i18n/locales/en.json
+6:05:35 AM [vite] (client) page reload src/i18n/locales/en.json
+6:05:42 AM [vite] (client) page reload src/i18n/locales/si.json
+6:06:16 AM [vite] (client) page reload src/i18n/locales/si.json
+6:06:21 AM [vite] (client) page reload src/i18n/locales/ta.json
+6:06:36 AM [vite] (client) page reload src/i18n/locales/ta.json

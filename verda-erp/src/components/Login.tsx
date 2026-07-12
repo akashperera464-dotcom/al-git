@@ -39,7 +39,7 @@ export function Login() {
       const session = await signInWithEmail(email.trim(), password);
       setSession(session);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed.");
+      setError(err instanceof Error ? err.message : t("auth.signInFailed"));
     } finally {
       setBusy(false);
     }
@@ -115,10 +115,10 @@ export function Login() {
             <span className="absolute -right-1.5 -top-1.5 h-4 w-4 rounded-full bg-amber-400 ring-2 ring-white" />
           </div>
           <h1 className={`font-display text-3xl font-extrabold tracking-tight drop-shadow-md ${textColor}`}>
-            {branding.loginTitle || "Verda ERP"}
+            {branding.loginTitle || t("common.appName")}
           </h1>
           <p className={`mt-1 text-sm drop-shadow ${subTextColor}`}>
-            {branding.loginSubtitle || "Integrated Tea Estate Enterprise Platform"}
+            {branding.loginSubtitle || t("auth.platformSubtitle")}
           </p>
         </div>
 
@@ -131,14 +131,14 @@ export function Login() {
           <div className="mb-5 flex items-center gap-2">
             <ShieldCheck className="h-5 w-5" style={{ color: hasBg ? "#fff" : accent }} />
             <h2 className={`font-display text-lg font-bold ${hasBg ? "text-white" : "text-slate-800"}`}>
-              Sign in to your account
+              {t("auth.signInToAccount")}
             </h2>
           </div>
 
           <form onSubmit={submit} className="space-y-4">
             {/* email */}
             <div>
-              <label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>Email / Username</label>
+              <label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.emailUsername")}</label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -159,7 +159,7 @@ export function Login() {
 
             {/* password */}
             <div>
-              <label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>Password</label>
+              <label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("common.password")}</label>
               <div className="relative">
                 <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -209,7 +209,7 @@ export function Login() {
           {/* footer */}
           <div className="mt-5 border-t pt-4" style={{ borderColor: hasBg ? "rgba(255,255,255,0.1)" : "rgb(241 245 249)" }}>
             <p className={`text-center text-[11px] leading-relaxed ${hasBg ? "text-white/60" : "text-slate-400"}`}>
-              Super Admin, Admin, Supervisor & Supplier — all sign in here.
+              {t("auth.allRolesSignIn")}
               <br />
               {t("auth.accountsCreatedByAdmin")}
             </p>
@@ -217,7 +217,7 @@ export function Login() {
         </div>
 
         <p className={`mt-5 text-center text-[11px] ${hasBg ? "text-white/50" : "text-slate-400"}`}>
-          Secured by Firebase Authentication · Data by Supabase
+          {t("auth.securedBy")}
         </p>
       </div>
     </div>
@@ -225,6 +225,6 @@ export function Login() {
 }
 
 /** Convenience used by the Shell to render a logout control. */
-export function logoutLabel(role: Role): string {
-  return usesAdminShell(role) ? "Exit Admin Panel" : "Sign out";
+export function logoutLabel(role: Role, t: (k: string) => string): string {
+  return usesAdminShell(role) ? t("common.exitAdmin") : t("common.logout");
 }

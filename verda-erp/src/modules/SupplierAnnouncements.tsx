@@ -1,4 +1,5 @@
 import { Newspaper, CalendarDays, Tag } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { PageHeader, Card, Badge, IconChip } from "@/components/ui";
 import { useLiveData } from "@/lib/useLiveData";
 import { crudRead } from "@/lib/repo";
@@ -9,6 +10,7 @@ interface Announcement { id: string; title: string; body: string; imageUrl: stri
 
 /** Supplier · Estate Updates — real-time feed of admin-published articles. */
 export function SupplierAnnouncements() {
+  const { t } = useTranslation();
   const { branding } = useBranding();
   const { data: posts, loading } = useLiveData<Announcement>("announcements", async () => {
     const rows = await crudRead<Record<string, unknown>>("announcements");
@@ -22,18 +24,18 @@ export function SupplierAnnouncements() {
   return (
     <div>
       <PageHeader
-        eyebrow="VVIP Supplier Portal"
-        title="Estate Updates"
-        desc="Latest news, advisories, and announcements from the estate."
+        eyebrow={t("announcements.eyebrow")}
+        title={t("announcements.title")}
+        desc={t("announcements.desc")}
         icon={<IconChip icon={Newspaper} tone="sky" className="h-12 w-12" />}
       />
 
       {loading ? (
-        <Card className="p-8 text-center text-sm text-slate-400">Loading updates…</Card>
+        <Card className="p-8 text-center text-sm text-slate-400">{t("announcements.loading")}</Card>
       ) : posts.length === 0 ? (
         <Card className="p-8 text-center">
           <Newspaper className="mx-auto h-8 w-8 text-slate-300" />
-          <p className="mt-2 text-sm text-slate-400">No updates published yet.</p>
+          <p className="mt-2 text-sm text-slate-400">{t("announcements.noUpdates")}</p>
         </Card>
       ) : (
         <div className="space-y-4">
@@ -68,7 +70,7 @@ export function SupplierAnnouncements() {
                   {/* Footer */}
                   <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-400">
                     <CalendarDays className="h-3.5 w-3.5" />
-                    <span>Published by {branding.companyName || "Estate Admin"}</span>
+                    <span>{t("announcements.publishedBy", { name: branding.companyName || t("announcements.defaultAdmin") })}</span>
                   </div>
                 </div>
               </Card>
