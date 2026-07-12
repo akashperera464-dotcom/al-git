@@ -46,3 +46,31 @@ Error: Port 3000 is already in use
 
   ➜  Local:   http://localhost:3000/
   ➜  Network: http://21.0.19.216:3000/
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+sh: 1: vite: not found
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+sh: 1: vite: not found
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+
+  VITE v7.3.2  ready in 258 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://21.0.15.227:3000/
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+
+  VITE v7.3.2  ready in 258 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://21.0.15.227:3000/
