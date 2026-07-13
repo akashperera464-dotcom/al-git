@@ -1094,3 +1094,467 @@ export async function listStockMovements(stockItemId?: string): Promise<StockMov
     notes: r.notes as string | undefined,
   }));
 }
+
+// ============================================================================
+// 7 · LOYALTY PROGRAM — members + points ledger + rewards + redemptions
+// ============================================================================
+import type {
+  LoyaltyMemberFull, LoyaltyPointsEntry, LoyaltyReward, LoyaltyRedemption,
+  LoyaltyTier, LoyaltyTxnType, RedemptionStatus,
+  tierForPoints, badgeForPoints,
+} from "./data";
+import { tierForPoints as _tierForPoints, badgeForPoints as _badgeForPoints } from "./data";
+
+const mockMembers: LoyaltyMemberFull[] = [];
+const mockLedger: LoyaltyPointsEntry[] = [];
+const mockRewards: LoyaltyReward[] = [
+  { id: "rw1", code: "RWD-TSHIRT",   name: "Branded T-Shirt",         description: "Verda-branded cotton t-shirt",          category: "merchandise", pointsCost: 500,  cashValue: 0,    stockQty: 50, isActive: true, version: 1 },
+  { id: "rw2", code: "RWD-CAP",      name: "Cap",                     description: "Verda-branded cap",                     category: "merchandise", pointsCost: 300,  cashValue: 0,    stockQty: 50, isActive: true, version: 1 },
+  { id: "rw3", code: "RWD-FLASK",    name: "Steel Flask",             description: "500ml insulated steel flask",           category: "merchandise", pointsCost: 800,  cashValue: 0,    stockQty: 30, isActive: true, version: 1 },
+  { id: "rw4", code: "RWD-CASH-500", name: "Rs 500 Cash Bonus",       description: "Cash bonus added to next payroll",      category: "cash",        pointsCost: 1000, cashValue: 500,  stockQty: -1, isActive: true, version: 1 },
+  { id: "rw5", code: "RWD-CASH-1K",  name: "Rs 1,000 Cash Bonus",     description: "Cash bonus added to next payroll",      category: "cash",        pointsCost: 2000, cashValue: 1000, stockQty: -1, isActive: true, version: 1 },
+  { id: "rw6", code: "RWD-Voucher",  name: "Co-op Voucher Rs 750",    description: "Redeemable at estate cooperative shop", category: "voucher",     pointsCost: 1500, cashValue: 750,  stockQty: -1, isActive: true, version: 1 },
+  { id: "rw7", code: "RWD-DAYOFF",   name: "Paid Day Off",            description: "One paid day off — redeem with manager",category: "experience",  pointsCost: 1800, cashValue: 0,    stockQty: -1, isActive: true, version: 1 },
+  { id: "rw8", code: "RWD-LUNCH",    name: "Family Lunch at Factory", description: "Lunch for 4 at factory canteen",        category: "experience",  pointsCost: 1200, cashValue: 0,    stockQty: 20, isActive: true, version: 1 },
+];
+const mockRedemptions: LoyaltyRedemption[] = [];
+
+function rowToMember(r: Record<string, unknown>): LoyaltyMemberFull {
+  return {
+    id: r.id as string,
+    workerId: r.worker_id as string | undefined,
+    workerName: r.worker_name as string,
+    points: Number(r.points ?? 0),
+    tier: r.tier as LoyaltyTier,
+    streakDays: Number(r.streak_days ?? 0),
+    badge: r.badge as string,
+    totalEarned: Number(r.total_earned ?? 0),
+    totalBurned: Number(r.total_burned ?? 0),
+    lastAwardedAt: r.last_awarded_at as string | undefined,
+    lastAwardedReason: r.last_awarded_reason as string | undefined,
+    status: r.status as "active" | "suspended",
+    version: Number(r.version ?? 1),
+    createdAt: r.created_at as string,
+  };
+}
+
+function rowToReward(r: Record<string, unknown>): LoyaltyReward {
+  return {
+    id: r.id as string,
+    code: r.code as string,
+    name: r.name as string,
+    description: r.description as string | undefined,
+    category: r.category as LoyaltyReward["category"],
+    pointsCost: Number(r.points_cost ?? 0),
+    cashValue: Number(r.cash_value ?? 0),
+    stockQty: Number(r.stock_qty ?? -1),
+    imageUrl: r.image_url as string | undefined,
+    isActive: Boolean(r.is_active),
+    estateId: r.estate_id as string | undefined,
+    version: Number(r.version ?? 1),
+  };
+}
+
+function rowToRedemption(r: Record<string, unknown>): LoyaltyRedemption {
+  return {
+    id: r.id as string,
+    redemptionCode: r.redemption_code as string,
+    memberId: r.member_id as string,
+    workerName: r.worker_name as string | undefined,
+    rewardId: r.reward_id as string,
+    rewardName: r.reward_name as string | undefined,
+    pointsCost: Number(r.points_cost ?? 0),
+    cashValue: Number(r.cash_value ?? 0),
+    status: r.status as RedemptionStatus,
+    redeemedAt: r.redeemed_at as string,
+    approvedBy: r.approved_by as string | undefined,
+    approvedAt: r.approved_at as string | undefined,
+    fulfilledAt: r.fulfilled_at as string | undefined,
+    notes: r.notes as string | undefined,
+    version: Number(r.version ?? 1),
+  };
+}
+
+// ----- Members -----
+
+export async function listLoyaltyMembers(): Promise<LoyaltyMemberFull[]> {
+  if (!supabaseConfigured) {
+    return [...mockMembers].sort((a, b) => b.points - a.points);
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("loyalty_members").select("*").order("points", { ascending: false });
+  if (error) throw new Error(`listLoyaltyMembers: ${error.message}`);
+  return (data ?? []).map(rowToMember);
+}
+
+export async function createLoyaltyMember(input: {
+  workerName: string;
+  workerId?: string;
+  estateId?: string;
+  initialPoints?: number;
+}): Promise<LoyaltyMemberFull> {
+  const initialPoints = input.initialPoints ?? 0;
+  const tier = _tierForPoints(initialPoints);
+  const badge = _badgeForPoints(initialPoints);
+  if (!supabaseConfigured) {
+    const m: LoyaltyMemberFull = {
+      id: uid(), workerId: input.workerId, workerName: input.workerName,
+      points: initialPoints, tier, streakDays: 0, badge,
+      totalEarned: initialPoints, totalBurned: 0,
+      status: "active", version: 1, createdAt: now(),
+    };
+    mockMembers.unshift(m);
+    if (initialPoints > 0) {
+      mockLedger.unshift({
+        id: uid(), memberId: m.id, workerName: m.workerName,
+        points: initialPoints, transactionType: "bonus",
+        reason: "Initial signup bonus", referenceType: "manual",
+        awardedAt: now(),
+      });
+    }
+    return m;
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("loyalty_members").insert({
+    worker_name: input.workerName, worker_id: input.workerId, estate_id: input.estateId,
+    points: initialPoints, tier, badge, total_earned: initialPoints,
+    status: "active",
+  }).select().single();
+  if (error) throw new Error(`createLoyaltyMember: ${error.message}`);
+  const member = rowToMember(data);
+  if (initialPoints > 0) {
+    await sb.from("loyalty_points_ledger").insert({
+      member_id: member.id, worker_name: member.workerName,
+      points: initialPoints, transaction_type: "bonus",
+      reason: "Initial signup bonus", reference_type: "manual",
+      awarded_at: now(),
+    });
+  }
+  return member;
+}
+
+/**
+ * Award (or deduct) points to a member.
+ * - Positive `points` = earn
+ * - Negative `points` = burn / deduction
+ * Updates member.points + total_earned/total_burned + tier + badge + last_awarded_*
+ * Logs to loyalty_points_ledger.
+ * Uses optimistic concurrency on member.version.
+ */
+export async function awardPoints(input: {
+  memberId: string;
+  points: number;             // + earn, - burn
+  reason: string;
+  transactionType?: LoyaltyTxnType;
+  referenceType?: string;
+  referenceId?: string;
+  awardedBy?: string;
+  expectedVersion: number;
+}): Promise<OptimisticUpdateResult<LoyaltyMemberFull>> {
+  const txnType = input.transactionType ?? (input.points >= 0 ? "earn" : "burn");
+
+  if (!supabaseConfigured) {
+    const idx = mockMembers.findIndex(m => m.id === input.memberId);
+    if (idx === -1) return { resolution: "not_found" };
+    const m = mockMembers[idx];
+    if (m.version !== input.expectedVersion) return { resolution: "conflict", current: m };
+
+    const newPoints = Math.max(0, m.points + input.points);
+    if (input.points > 0) m.totalEarned += input.points;
+    else m.totalBurned += Math.abs(input.points);
+    m.points = newPoints;
+    m.tier = _tierForPoints(newPoints);
+    m.badge = _badgeForPoints(newPoints);
+    m.lastAwardedAt = now();
+    m.lastAwardedReason = input.reason;
+    m.version += 1;
+
+    mockLedger.unshift({
+      id: uid(), memberId: m.id, workerName: m.workerName,
+      points: input.points, transactionType: txnType,
+      reason: input.reason, referenceType: input.referenceType,
+      referenceId: input.referenceId, awardedBy: input.awardedBy,
+      awardedAt: now(),
+    });
+    return { resolution: "updated", updated: m };
+  }
+
+  const sb = getSupabase()!;
+  // 1) Fetch current
+  const { data: cur } = await sb.from("loyalty_members").select("*").eq("id", input.memberId).single();
+  if (!cur) return { resolution: "not_found" };
+  if (Number(cur.version) !== input.expectedVersion) return { resolution: "conflict", current: rowToMember(cur) };
+
+  const newPoints = Math.max(0, Number(cur.points) + input.points);
+  const newTier = _tierForPoints(newPoints);
+  const newBadge = _badgeForPoints(newPoints);
+  const newEarned = Number(cur.total_earned) + (input.points > 0 ? input.points : 0);
+  const newBurned = Number(cur.total_burned) + (input.points < 0 ? Math.abs(input.points) : 0);
+
+  // 2) Update member (optimistic — WHERE version = expected)
+  const { data: updated, error } = await sb.from("loyalty_members").update({
+    points: newPoints, tier: newTier, badge: newBadge,
+    total_earned: newEarned, total_burned: newBurned,
+    last_awarded_at: now(), last_awarded_reason: input.reason,
+  }).eq("id", input.memberId).eq("version", input.expectedVersion).select().single();
+  if (error) throw new Error(`awardPoints: ${error.message}`);
+  if (!updated) return { resolution: "conflict", current: rowToMember(cur) };
+
+  // 3) Insert ledger entry
+  await sb.from("loyalty_points_ledger").insert({
+    member_id: input.memberId, worker_name: cur.worker_name,
+    points: input.points, transaction_type: txnType,
+    reason: input.reason, reference_type: input.referenceType,
+    reference_id: input.referenceId, awarded_by: input.awardedBy,
+    awarded_at: now(),
+  });
+
+  return { resolution: "updated", updated: rowToMember(updated) };
+}
+
+// ----- Points Ledger -----
+
+export async function listPointsLedger(memberId?: string): Promise<LoyaltyPointsEntry[]> {
+  if (!supabaseConfigured) {
+    return memberId ? mockLedger.filter(l => l.memberId === memberId) : mockLedger;
+  }
+  const sb = getSupabase()!;
+  let q = sb.from("loyalty_points_ledger").select("*").order("awarded_at", { ascending: false });
+  if (memberId) q = q.eq("member_id", memberId);
+  const { data, error } = await q;
+  if (error) throw new Error(`listPointsLedger: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string, memberId: r.member_id as string,
+    workerName: r.worker_name as string | undefined,
+    points: Number(r.points), transactionType: r.transaction_type as LoyaltyTxnType,
+    reason: r.reason as string, referenceType: r.reference_type as string | undefined,
+    referenceId: r.reference_id as string | undefined,
+    awardedBy: r.awarded_by as string | undefined,
+    awardedAt: r.awarded_at as string,
+  }));
+}
+
+// ----- Rewards Catalog -----
+
+export async function listLoyaltyRewards(activeOnly = false): Promise<LoyaltyReward[]> {
+  if (!supabaseConfigured) {
+    return activeOnly ? mockRewards.filter(r => r.isActive) : mockRewards;
+  }
+  const sb = getSupabase()!;
+  let q = sb.from("loyalty_rewards").select("*").order("points_cost", { ascending: true });
+  if (activeOnly) q = q.eq("is_active", true);
+  const { data, error } = await q;
+  if (error) throw new Error(`listLoyaltyRewards: ${error.message}`);
+  return (data ?? []).map(rowToReward);
+}
+
+export async function createLoyaltyReward(input: {
+  code: string; name: string; description?: string;
+  category: LoyaltyReward["category"]; pointsCost: number;
+  cashValue?: number; stockQty?: number; imageUrl?: string;
+}): Promise<LoyaltyReward> {
+  if (!supabaseConfigured) {
+    const r: LoyaltyReward = {
+      id: uid(), code: input.code, name: input.name, description: input.description,
+      category: input.category, pointsCost: input.pointsCost,
+      cashValue: input.cashValue ?? 0, stockQty: input.stockQty ?? -1,
+      imageUrl: input.imageUrl, isActive: true, version: 1,
+    };
+    mockRewards.push(r);
+    return r;
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("loyalty_rewards").insert({
+    code: input.code, name: input.name, description: input.description,
+    category: input.category, points_cost: input.pointsCost,
+    cash_value: input.cashValue ?? 0, stock_qty: input.stockQty ?? -1,
+    image_url: input.imageUrl, is_active: true,
+  }).select().single();
+  if (error) throw new Error(`createLoyaltyReward: ${error.message}`);
+  return rowToReward(data);
+}
+
+export async function toggleRewardActive(rewardId: string, isActive: boolean, expectedVersion: number): Promise<OptimisticUpdateResult<LoyaltyReward>> {
+  if (!supabaseConfigured) {
+    const idx = mockRewards.findIndex(r => r.id === rewardId);
+    if (idx === -1) return { resolution: "not_found" };
+    if (mockRewards[idx].version !== expectedVersion) return { resolution: "conflict", current: mockRewards[idx] };
+    mockRewards[idx].isActive = isActive;
+    mockRewards[idx].version += 1;
+    return { resolution: "updated", updated: mockRewards[idx] };
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("loyalty_rewards")
+    .update({ is_active: isActive }).eq("id", rewardId).eq("version", expectedVersion).select().single();
+  if (error) throw new Error(`toggleRewardActive: ${error.message}`);
+  if (!data) {
+    const { data: cur } = await sb.from("loyalty_rewards").select("*").eq("id", rewardId).single();
+    return { resolution: "conflict", current: cur ? rowToReward(cur) : undefined };
+  }
+  return { resolution: "updated", updated: rowToReward(data) };
+}
+
+// ----- Redemptions -----
+
+export async function listRedemptions(status?: RedemptionStatus): Promise<LoyaltyRedemption[]> {
+  if (!supabaseConfigured) {
+    return status ? mockRedemptions.filter(r => r.status === status) : mockRedemptions;
+  }
+  const sb = getSupabase()!;
+  let q = sb.from("loyalty_redemptions").select("*").order("redeemed_at", { ascending: false });
+  if (status) q = q.eq("status", status);
+  const { data, error } = await q;
+  if (error) throw new Error(`listRedemptions: ${error.message}`);
+  return (data ?? []).map(rowToRedemption);
+}
+
+/**
+ * Member redeems a reward.
+ * 1. Validates member has enough points
+ * 2. Validates reward is active + in stock
+ * 3. Burns points from member (calls awardPoints with negative)
+ * 4. Creates redemption record with status='pending'
+ * 5. (Optionally) decrements reward stock
+ */
+export async function redeemReward(input: {
+  memberId: string;
+  rewardId: string;
+  notes?: string;
+  expectedMemberVersion: number;
+  expectedRewardVersion: number;
+}): Promise<{ ok: boolean; redemption?: LoyaltyRedemption; error?: string }> {
+  // 1) Fetch member + reward
+  const members = await listLoyaltyMembers();
+  const member = members.find(m => m.id === input.memberId);
+  if (!member) return { ok: false, error: "Member not found" };
+
+  const rewards = await listLoyaltyRewards();
+  const reward = rewards.find(r => r.id === input.rewardId);
+  if (!reward) return { ok: false, error: "Reward not found" };
+  if (!reward.isActive) return { ok: false, error: "Reward is not active" };
+  if (member.points < reward.pointsCost) return { ok: false, error: `Insufficient points (need ${reward.pointsCost}, have ${member.points})` };
+  if (reward.stockQty !== -1 && reward.stockQty <= 0) return { ok: false, error: "Reward out of stock" };
+
+  // 2) Burn points from member (optimistic)
+  const burnResult = await awardPoints({
+    memberId: input.memberId,
+    points: -reward.pointsCost,
+    reason: `Redeemed: ${reward.name}`,
+    transactionType: "burn",
+    referenceType: "redemption",
+    awardedBy: member.workerId, // self-service
+    expectedVersion: input.expectedMemberVersion,
+  });
+  if (burnResult.resolution !== "updated") {
+    return { ok: false, error: burnResult.resolution === "conflict" ? "Member record was modified by another user. Please refresh." : "Member not found." };
+  }
+
+  // 3) Create redemption record
+  const redemptionCode = `RDM-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
+  if (!supabaseConfigured) {
+    const r: LoyaltyRedemption = {
+      id: uid(), redemptionCode, memberId: input.memberId,
+      workerName: member.workerName, rewardId: input.rewardId,
+      rewardName: reward.name, pointsCost: reward.pointsCost,
+      cashValue: reward.cashValue, status: "pending",
+      redeemedAt: now(), notes: input.notes, version: 1,
+    };
+    mockRedemptions.unshift(r);
+    // Decrement stock
+    if (reward.stockQty !== -1) {
+      const idx = mockRewards.findIndex(x => x.id === input.rewardId);
+      if (idx !== -1) mockRewards[idx].stockQty -= 1;
+    }
+    return { ok: true, redemption: r };
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("loyalty_redemptions").insert({
+    redemption_code: redemptionCode, member_id: input.memberId,
+    worker_name: member.workerName, reward_id: input.rewardId,
+    reward_name: reward.name, points_cost: reward.pointsCost,
+    cash_value: reward.cashValue, status: "pending",
+    redeemed_at: now(), notes: input.notes,
+  }).select().single();
+  if (error) {
+    // Refund the points if redemption record creation failed
+    await awardPoints({
+      memberId: input.memberId, points: reward.pointsCost,
+      reason: `Refund: redemption failed — ${reward.name}`,
+      transactionType: "adjust", referenceType: "redemption_refund",
+      expectedVersion: burnResult.updated!.version,
+    });
+    return { ok: false, error: `redeemReward: ${error.message}` };
+  }
+  // Decrement stock (if finite)
+  if (reward.stockQty !== -1) {
+    await sb.from("loyalty_rewards").update({ stock_qty: reward.stockQty - 1 })
+      .eq("id", input.rewardId).eq("version", input.expectedRewardVersion);
+  }
+  return { ok: true, redemption: rowToRedemption(data) };
+}
+
+/**
+ * Admin approves / rejects / fulfills a redemption.
+ * Uses optimistic concurrency.
+ */
+export async function decideRedemption(input: {
+  redemptionId: string;
+  decision: "approved" | "rejected" | "fulfilled" | "cancelled";
+  approverUid: string;
+  notes?: string;
+  expectedVersion: number;
+}): Promise<OptimisticUpdateResult<LoyaltyRedemption>> {
+  if (!supabaseConfigured) {
+    const idx = mockRedemptions.findIndex(r => r.id === input.redemptionId);
+    if (idx === -1) return { resolution: "not_found" };
+    if (mockRedemptions[idx].version !== input.expectedVersion) return { resolution: "conflict", current: mockRedemptions[idx] };
+    const r = mockRedemptions[idx];
+    r.status = input.decision;
+    if (input.decision === "approved") r.approvedAt = now();
+    if (input.decision === "fulfilled") r.fulfilledAt = now();
+    if (input.notes) r.notes = input.notes;
+    r.approvedBy = input.approverUid;
+    r.version += 1;
+
+    // If rejected/cancelled → refund points
+    if (input.decision === "rejected" || input.decision === "cancelled") {
+      const member = mockMembers.find(m => m.id === r.memberId);
+      if (member) {
+        await awardPoints({
+          memberId: member.id, points: r.pointsCost,
+          reason: `Refund: redemption ${r.redemptionCode} ${input.decision}`,
+          transactionType: "adjust", referenceType: "redemption_refund",
+          awardedBy: input.approverUid, expectedVersion: member.version,
+        });
+      }
+    }
+    return { resolution: "updated", updated: r };
+  }
+  const sb = getSupabase()!;
+  const patch: Record<string, unknown> = { status: input.decision, approved_by: input.approverUid };
+  if (input.decision === "approved") patch.approved_at = now();
+  if (input.decision === "fulfilled") patch.fulfilled_at = now();
+  if (input.notes) patch.notes = input.notes;
+  const { data, error } = await sb.from("loyalty_redemptions")
+    .update(patch).eq("id", input.redemptionId).eq("version", input.expectedVersion).select().single();
+  if (error) throw new Error(`decideRedemption: ${error.message}`);
+  if (!data) {
+    const { data: cur } = await sb.from("loyalty_redemptions").select("*").eq("id", input.redemptionId).single();
+    return { resolution: "conflict", current: cur ? rowToRedemption(cur) : undefined };
+  }
+  const redemption = rowToRedemption(data);
+
+  // Refund points if rejected/cancelled
+  if (input.decision === "rejected" || input.decision === "cancelled") {
+    const { data: m } = await sb.from("loyalty_members").select("*").eq("id", redemption.memberId).single();
+    if (m) {
+      await awardPoints({
+        memberId: redemption.memberId, points: redemption.pointsCost,
+        reason: `Refund: redemption ${redemption.redemptionCode} ${input.decision}`,
+        transactionType: "adjust", referenceType: "redemption_refund",
+        awardedBy: input.approverUid, expectedVersion: Number(m.version),
+      });
+    }
+  }
+  return { resolution: "updated", updated: redemption };
+}

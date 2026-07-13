@@ -1028,3 +1028,105 @@ export interface OptimisticUpdateResult<T> {
   current?: T;  // server's current row (on conflict)
   updated?: T;  // newly updated row (on success)
 }
+
+// ============================================================================
+// LOYALTY PROGRAM — members, points ledger, rewards, redemptions
+// ============================================================================
+
+export type LoyaltyTier = "Bronze" | "Silver" | "Gold" | "Platinum";
+export type LoyaltyTxnType = "earn" | "burn" | "adjust" | "bonus";
+export type RewardCategory = "merchandise" | "cash" | "voucher" | "experience";
+export type RedemptionStatus = "pending" | "approved" | "rejected" | "fulfilled" | "cancelled";
+
+export interface LoyaltyMemberFull {
+  id: string;
+  workerId?: string;
+  workerName: string;
+  points: number;
+  tier: LoyaltyTier;
+  streakDays: number;
+  badge: string;
+  totalEarned: number;
+  totalBurned: number;
+  lastAwardedAt?: string;
+  lastAwardedReason?: string;
+  status: "active" | "suspended";
+  version: number;
+  createdAt: string;
+}
+
+export interface LoyaltyPointsEntry {
+  id: string;
+  memberId: string;
+  workerName?: string;
+  points: number;              // + earn, - burn
+  transactionType: LoyaltyTxnType;
+  reason: string;
+  referenceType?: string;      // harvest | attendance | payroll | redemption | manual
+  referenceId?: string;
+  awardedBy?: string;
+  awardedAt: string;
+}
+
+export interface LoyaltyReward {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  category: RewardCategory;
+  pointsCost: number;
+  cashValue: number;
+  stockQty: number;            // -1 = unlimited
+  imageUrl?: string;
+  isActive: boolean;
+  estateId?: string;
+  version: number;
+}
+
+export interface LoyaltyRedemption {
+  id: string;
+  redemptionCode: string;
+  memberId: string;
+  workerName?: string;
+  rewardId: string;
+  rewardName?: string;
+  pointsCost: number;
+  cashValue: number;
+  status: RedemptionStatus;
+  redeemedAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  fulfilledAt?: string;
+  notes?: string;
+  version: number;
+}
+
+// Tier thresholds — points needed to reach each tier
+export const TIER_THRESHOLDS: Record<LoyaltyTier, number> = {
+  Bronze: 0,
+  Silver: 800,
+  Gold: 1500,
+  Platinum: 2000,
+};
+
+export function tierForPoints(points: number): LoyaltyTier {
+  if (points >= TIER_THRESHOLDS.Platinum) return "Platinum";
+  if (points >= TIER_THRESHOLDS.Gold) return "Gold";
+  if (points >= TIER_THRESHOLDS.Silver) return "Silver";
+  return "Bronze";
+}
+
+export function badgeForPoints(points: number): string {
+  if (points >= 2000) return "Iron Plucker";
+  if (points >= 1500) return "Top Flush";
+  if (points >= 1000) return "Steady Hand";
+  if (points >= 500) return "Early Bird";
+  return "Rookie";
+}
+
+export function nextTierFrom(points: number): { next: LoyaltyTier; pointsNeeded: number } | null {
+  if (points < TIER_THRESHOLDS.Silver) return { next: "Silver", pointsNeeded: TIER_THRESHOLDS.Silver - points };
+  if (points < TIER_THRESHOLDS.Gold) return { next: "Gold", pointsNeeded: TIER_THRESHOLDS.Gold - points };
+  if (points < TIER_THRESHOLDS.Platinum) return { next: "Platinum", pointsNeeded: TIER_THRESHOLDS.Platinum - points };
+  return null; // already at top tier
+}
