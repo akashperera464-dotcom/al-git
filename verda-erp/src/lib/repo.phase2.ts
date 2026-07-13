@@ -2200,3 +2200,450 @@ export async function generatePayrollRunWithAllowances(input: {
 
   return { run, payslips, consumedAllowances: totalConsumed };
 }
+
+// ============================================================================
+// 9 · WORKER MASTER + ATTENDANCE + LIFECYCLE CRUD
+// ============================================================================
+import type {
+  WorkerFull, DailyAttendance, AttendanceStatus,
+  WorkerTransfer, TransferType, WorkerStatus,
+} from "./data";
+
+const mockWorkersFull: WorkerFull[] = [];
+const mockAttendance: DailyAttendance[] = [];
+const mockTransfers: WorkerTransfer[] = [];
+
+function rowToWorkerFull(r: Record<string, unknown>): WorkerFull {
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    fullName: r.full_name as string | undefined,
+    nic: (r.nic as string) ?? "",
+    division: (r.division as string) ?? "",
+    role: (r.role as string) ?? "Field Worker",
+    estateId: r.estate_id as string | undefined,
+    phone: r.phone as string | undefined,
+    dateOfBirth: r.date_of_birth as string | undefined,
+    gender: r.gender as string | undefined,
+    address: r.address as string | undefined,
+    emergencyContact: r.emergency_contact as string | undefined,
+    hireDate: r.hire_date as string | undefined,
+    terminationDate: r.termination_date as string | undefined,
+    epfNumber: r.epf_number as string | undefined,
+    etfNumber: r.etf_number as string | undefined,
+    bankName: r.bank_name as string | undefined,
+    bankBranch: r.bank_branch as string | undefined,
+    bankAccount: (r.bank_account as string) ?? "",
+    basicSalary: Number(r.basic_salary ?? 0),
+    skillMatrix: (r.skill_matrix as Record<string, number>) ?? {},
+    leaveBalance: (r.leave_balance as { annual: number; sick: number; casual: number }) ?? { annual: 14, sick: 7, casual: 3 },
+    pointsBalance: Number(r.points_balance ?? 0),
+    attendance30d: Number(r.attendance_30d ?? 0),
+    avgKgPerDay: Number(r.avg_kg_per_day ?? 0),
+    present: Boolean(r.present),
+    status: (r.status as WorkerStatus) ?? "active",
+    version: Number(r.version ?? 1),
+    createdAt: r.created_at as string,
+  };
+}
+
+// ----- Worker Master CRUD -----
+
+export async function listWorkersFull(estateId?: string): Promise<WorkerFull[]> {
+  if (!supabaseConfigured) {
+    const list = estateId ? mockWorkersFull.filter(w => w.estateId === estateId) : mockWorkersFull;
+    return [...list].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  const sb = getSupabase()!;
+  let q = sb.from("workers").select("*").order("name");
+  if (estateId) q = q.eq("estate_id", estateId);
+  const { data, error } = await q;
+  if (error) throw new Error(`listWorkersFull: ${error.message}`);
+  return (data ?? []).map(rowToWorkerFull);
+}
+
+export async function createWorkerFull(input: {
+  name: string;
+  fullName?: string;
+  nic?: string;
+  division?: string;
+  role?: string;
+  estateId?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  address?: string;
+  emergencyContact?: string;
+  hireDate?: string;
+  epfNumber?: string;
+  etfNumber?: string;
+  bankName?: string;
+  bankBranch?: string;
+  bankAccount?: string;
+  basicSalary?: number;
+}): Promise<WorkerFull> {
+  if (!supabaseConfigured) {
+    const w: WorkerFull = {
+      id: uid(), name: input.name, fullName: input.fullName,
+      nic: input.nic ?? "", division: input.division ?? "",
+      role: input.role ?? "Field Worker", estateId: input.estateId, phone: input.phone,
+      dateOfBirth: input.dateOfBirth, gender: input.gender, address: input.address,
+      emergencyContact: input.emergencyContact, hireDate: input.hireDate,
+      epfNumber: input.epfNumber, etfNumber: input.etfNumber,
+      bankName: input.bankName, bankBranch: input.bankBranch,
+      bankAccount: input.bankAccount ?? "",
+      basicSalary: input.basicSalary ?? 0,
+      skillMatrix: {}, leaveBalance: { annual: 14, sick: 7, casual: 3 },
+      pointsBalance: 0, attendance30d: 0, avgKgPerDay: 0,
+      present: false, status: "active", version: 1, createdAt: now(),
+    };
+    mockWorkersFull.unshift(w);
+    // Log hire event
+    mockTransfers.unshift({
+      id: uid(), workerId: w.id, workerName: w.name,
+      transferType: "hire", toDivision: w.division, toRole: w.role,
+      effectiveDate: w.hireDate ?? new Date().toISOString().slice(0, 10),
+      reason: "New hire", createdAt: now(),
+    });
+    return w;
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("workers").insert({
+    name: input.name, full_name: input.fullName, nic: input.nic,
+    division: input.division, role: input.role ?? "Field Worker",
+    estate_id: input.estateId, phone: input.phone,
+    date_of_birth: input.dateOfBirth, gender: input.gender,
+    address: input.address, emergency_contact: input.emergencyContact,
+    hire_date: input.hireDate ?? new Date().toISOString().slice(0, 10),
+    epf_number: input.epfNumber, etf_number: input.etfNumber,
+    bank_name: input.bankName, bank_branch: input.bankBranch,
+    bank_account: input.bankAccount, basic_salary: input.basicSalary ?? 0,
+    status: "active",
+  }).select().single();
+  if (error) throw new Error(`createWorkerFull: ${error.message}`);
+  const worker = rowToWorkerFull(data);
+  // Log hire event
+  await sb.from("worker_transfers").insert({
+    worker_id: worker.id, worker_name: worker.name,
+    transfer_type: "hire", to_division: worker.division, to_role: worker.role,
+    effective_date: worker.hireDate ?? new Date().toISOString().slice(0, 10),
+    reason: "New hire",
+  });
+  return worker;
+}
+
+export async function updateWorkerFull(input: {
+  workerId: string;
+  expectedVersion: number;
+  updates: Partial<Omit<WorkerFull, "id" | "version" | "createdAt">>;
+}): Promise<OptimisticUpdateResult<WorkerFull>> {
+  if (!supabaseConfigured) {
+    const idx = mockWorkersFull.findIndex(w => w.id === input.workerId);
+    if (idx === -1) return { resolution: "not_found" };
+    if (mockWorkersFull[idx].version !== input.expectedVersion) return { resolution: "conflict", current: mockWorkersFull[idx] };
+    Object.assign(mockWorkersFull[idx], input.updates);
+    mockWorkersFull[idx].version += 1;
+    return { resolution: "updated", updated: mockWorkersFull[idx] };
+  }
+  const sb = getSupabase()!;
+  const patch: Record<string, unknown> = {};
+  if (input.updates.name !== undefined) patch.name = input.updates.name;
+  if (input.updates.fullName !== undefined) patch.full_name = input.updates.fullName;
+  if (input.updates.nic !== undefined) patch.nic = input.updates.nic;
+  if (input.updates.division !== undefined) patch.division = input.updates.division;
+  if (input.updates.role !== undefined) patch.role = input.updates.role;
+  if (input.updates.phone !== undefined) patch.phone = input.updates.phone;
+  if (input.updates.dateOfBirth !== undefined) patch.date_of_birth = input.updates.dateOfBirth;
+  if (input.updates.gender !== undefined) patch.gender = input.updates.gender;
+  if (input.updates.address !== undefined) patch.address = input.updates.address;
+  if (input.updates.emergencyContact !== undefined) patch.emergency_contact = input.updates.emergencyContact;
+  if (input.updates.hireDate !== undefined) patch.hire_date = input.updates.hireDate;
+  if (input.updates.terminationDate !== undefined) patch.termination_date = input.updates.terminationDate;
+  if (input.updates.epfNumber !== undefined) patch.epf_number = input.updates.epfNumber;
+  if (input.updates.etfNumber !== undefined) patch.etf_number = input.updates.etfNumber;
+  if (input.updates.bankName !== undefined) patch.bank_name = input.updates.bankName;
+  if (input.updates.bankBranch !== undefined) patch.bank_branch = input.updates.bankBranch;
+  if (input.updates.bankAccount !== undefined) patch.bank_account = input.updates.bankAccount;
+  if (input.updates.basicSalary !== undefined) patch.basic_salary = input.updates.basicSalary;
+  if (input.updates.status !== undefined) patch.status = input.updates.status;
+  if (input.updates.skillMatrix !== undefined) patch.skill_matrix = input.updates.skillMatrix;
+  if (input.updates.leaveBalance !== undefined) patch.leave_balance = input.updates.leaveBalance;
+
+  const { data, error } = await sb.from("workers")
+    .update(patch).eq("id", input.workerId).eq("version", input.expectedVersion)
+    .select().single();
+  if (error) throw new Error(`updateWorkerFull: ${error.message}`);
+  if (!data) {
+    const { data: cur } = await sb.from("workers").select("*").eq("id", input.workerId).single();
+    return { resolution: "conflict", current: cur ? rowToWorkerFull(cur) : undefined };
+  }
+  return { resolution: "updated", updated: rowToWorkerFull(data) };
+}
+
+export async function deleteWorkerFull(workerId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!supabaseConfigured) {
+    const idx = mockWorkersFull.findIndex(w => w.id === workerId);
+    if (idx !== -1) mockWorkersFull.splice(idx, 1);
+    return { ok: true };
+  }
+  const sb = getSupabase()!;
+  const { error } = await sb.from("workers").delete().eq("id", workerId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+// ----- Worker Lifecycle (transfer/suspend/retire/terminate) -----
+
+export async function recordWorkerTransfer(input: {
+  workerId: string;
+  workerName?: string;
+  transferType: TransferType;
+  fromDivision?: string;
+  toDivision?: string;
+  fromRole?: string;
+  toRole?: string;
+  effectiveDate?: string;
+  reason?: string;
+  authorizedBy?: string;
+  expectedWorkerVersion: number;
+}): Promise<{ ok: boolean; transfer?: WorkerTransfer; worker?: WorkerFull; error?: string }> {
+  try {
+    const effectiveDate = input.effectiveDate ?? new Date().toISOString().slice(0, 10);
+    // 1) Create transfer record
+    let transfer: WorkerTransfer;
+    if (!supabaseConfigured) {
+      transfer = {
+        id: uid(), workerId: input.workerId, workerName: input.workerName,
+        transferType: input.transferType,
+        fromDivision: input.fromDivision, toDivision: input.toDivision,
+        fromRole: input.fromRole, toRole: input.toRole,
+        effectiveDate, reason: input.reason, authorizedBy: input.authorizedBy,
+        createdAt: now(),
+      };
+      mockTransfers.unshift(transfer);
+    } else {
+      const sb = getSupabase()!;
+      const { data, error } = await sb.from("worker_transfers").insert({
+        worker_id: input.workerId, worker_name: input.workerName,
+        transfer_type: input.transferType,
+        from_division: input.fromDivision, to_division: input.toDivision,
+        from_role: input.fromRole, to_role: input.toRole,
+        effective_date: effectiveDate, reason: input.reason,
+        authorized_by: input.authorizedBy,
+      }).select().single();
+      if (error) throw new Error(`recordWorkerTransfer: ${error.message}`);
+      transfer = {
+        id: data.id, workerId: data.worker_id, workerName: data.worker_name,
+        transferType: data.transfer_type,
+        fromDivision: data.from_division, toDivision: data.to_division,
+        fromRole: data.from_role, toRole: data.to_role,
+        effectiveDate: data.effective_date, reason: data.reason,
+        authorizedBy: data.authorized_by, createdAt: data.created_at,
+      };
+    }
+
+    // 2) Update worker based on transfer type
+    const updates: Partial<WorkerFull> = {};
+    if (input.toDivision) updates.division = input.toDivision;
+    if (input.toRole) updates.role = input.toRole;
+    if (input.transferType === "suspend") updates.status = "suspended";
+    if (input.transferType === "reinstate") updates.status = "active";
+    if (input.transferType === "retire") {
+      updates.status = "retired";
+      updates.terminationDate = effectiveDate;
+    }
+    if (input.transferType === "terminate") {
+      updates.status = "terminated";
+      updates.terminationDate = effectiveDate;
+    }
+
+    let worker: WorkerFull | undefined;
+    if (Object.keys(updates).length > 0) {
+      const res = await updateWorkerFull({
+        workerId: input.workerId,
+        expectedVersion: input.expectedWorkerVersion,
+        updates,
+      });
+      if (res.resolution === "updated") worker = res.updated;
+    }
+    return { ok: true, transfer, worker };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed" };
+  }
+}
+
+export async function listWorkerTransfers(workerId?: string): Promise<WorkerTransfer[]> {
+  if (!supabaseConfigured) {
+    return workerId ? mockTransfers.filter(t => t.workerId === workerId) : mockTransfers;
+  }
+  const sb = getSupabase()!;
+  let q = sb.from("worker_transfers").select("*").order("effective_date", { ascending: false });
+  if (workerId) q = q.eq("worker_id", workerId);
+  const { data, error } = await q;
+  if (error) throw new Error(`listWorkerTransfers: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string, workerId: r.worker_id as string,
+    workerName: r.worker_name as string | undefined,
+    transferType: r.transfer_type as TransferType,
+    fromDivision: r.from_division as string | undefined,
+    toDivision: r.to_division as string | undefined,
+    fromRole: r.from_role as string | undefined,
+    toRole: r.to_role as string | undefined,
+    effectiveDate: r.effective_date as string,
+    reason: r.reason as string | undefined,
+    authorizedBy: r.authorized_by as string | undefined,
+    createdAt: r.created_at as string,
+  }));
+}
+
+// ----- Daily Attendance -----
+
+export async function listAttendance(input: { date?: string; division?: string; workerId?: string }): Promise<DailyAttendance[]> {
+  if (!supabaseConfigured) {
+    let list = mockAttendance;
+    if (input.date) list = list.filter(a => a.attendanceDate === input.date);
+    if (input.division) list = list.filter(a => a.division === input.division);
+    if (input.workerId) list = list.filter(a => a.workerId === input.workerId);
+    return list;
+  }
+  const sb = getSupabase()!;
+  let q = sb.from("daily_attendance").select("*").order("attendance_date", { ascending: false });
+  if (input.date) q = q.eq("attendance_date", input.date);
+  if (input.division) q = q.eq("division", input.division);
+  if (input.workerId) q = q.eq("worker_id", input.workerId);
+  const { data, error } = await q;
+  if (error) throw new Error(`listAttendance: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string, workerId: r.worker_id as string,
+    workerName: r.worker_name as string | undefined,
+    estateId: r.estate_id as string | undefined,
+    division: r.division as string | undefined,
+    attendanceDate: r.attendance_date as string,
+    status: r.status as AttendanceStatus,
+    checkInTime: r.check_in_time as string | undefined,
+    checkOutTime: r.check_out_time as string | undefined,
+    kgPlucked: Number(r.kg_plucked ?? 0),
+    overtimeHours: Number(r.overtime_hours ?? 0),
+    notes: r.notes as string | undefined,
+    markedBy: r.marked_by as string | undefined,
+    version: Number(r.version ?? 1),
+    createdAt: r.created_at as string,
+  }));
+}
+
+/**
+ * Mark attendance for a single worker. Upserts (one row per worker per day).
+ */
+export async function markAttendance(input: {
+  workerId: string;
+  workerName?: string;
+  estateId?: string;
+  division?: string;
+  date?: string;
+  status: AttendanceStatus;
+  kgPlucked?: number;
+  overtimeHours?: number;
+  notes?: string;
+  markedBy?: string;
+}): Promise<DailyAttendance> {
+  const date = input.date ?? new Date().toISOString().slice(0, 10);
+  if (!supabaseConfigured) {
+    // Remove existing for same worker+date
+    const idx = mockAttendance.findIndex(a => a.workerId === input.workerId && a.attendanceDate === date);
+    if (idx !== -1) mockAttendance.splice(idx, 1);
+    const a: DailyAttendance = {
+      id: uid(), workerId: input.workerId, workerName: input.workerName,
+      estateId: input.estateId, division: input.division,
+      attendanceDate: date, status: input.status,
+      kgPlucked: input.kgPlucked ?? 0, overtimeHours: input.overtimeHours ?? 0,
+      notes: input.notes, markedBy: input.markedBy,
+      version: 1, createdAt: now(),
+    };
+    mockAttendance.unshift(a);
+    return a;
+  }
+  const sb = getSupabase()!;
+  // Upsert (unique constraint on worker_id + attendance_date)
+  const { data, error } = await sb.from("daily_attendance").upsert({
+    worker_id: input.workerId, worker_name: input.workerName,
+    estate_id: input.estateId, division: input.division,
+    attendance_date: date, status: input.status,
+    kg_plucked: input.kgPlucked ?? 0, overtime_hours: input.overtimeHours ?? 0,
+    notes: input.notes, marked_by: input.markedBy,
+  }, { onConflict: "worker_id,attendance_date" }).select().single();
+  if (error) throw new Error(`markAttendance: ${error.message}`);
+  return {
+    id: data.id, workerId: data.worker_id, workerName: data.worker_name,
+    estateId: data.estate_id, division: data.division,
+    attendanceDate: data.attendance_date, status: data.status,
+    checkInTime: data.check_in_time, checkOutTime: data.check_out_time,
+    kgPlucked: Number(data.kg_plucked), overtimeHours: Number(data.overtime_hours),
+    notes: data.notes, markedBy: data.marked_by,
+    version: Number(data.version ?? 1), createdAt: data.created_at,
+  };
+}
+
+/**
+ * Bulk mark attendance for multiple workers in one call (e.g. division-wide).
+ */
+export async function bulkMarkAttendance(input: {
+  workers: { workerId: string; workerName?: string; division?: string }[];
+  date?: string;
+  status: AttendanceStatus;
+  markedBy?: string;
+}): Promise<{ marked: number; errors: string[] }> {
+  let marked = 0;
+  const errors: string[] = [];
+  for (const w of input.workers) {
+    try {
+      await markAttendance({
+        workerId: w.workerId, workerName: w.workerName,
+        division: w.division, date: input.date,
+        status: input.status, markedBy: input.markedBy,
+      });
+      marked++;
+    } catch (e) {
+      errors.push(`${w.workerName ?? w.workerId}: ${e instanceof Error ? e.message : "failed"}`);
+    }
+  }
+  return { marked, errors };
+}
+
+/**
+ * Monthly attendance summary for a worker.
+ */
+export async function attendanceSummary(workerId: string, month: number, year: number): Promise<{
+  present: number; absent: number; halfDay: number; leave: number; holiday: number;
+  totalKg: number; totalOvertime: number;
+}> {
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const endDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${String(month).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`;
+  if (!supabaseConfigured) {
+    const records = mockAttendance.filter(a => a.workerId === workerId && a.attendanceDate >= startDate && a.attendanceDate <= endDate);
+    return {
+      present: records.filter(r => r.status === "present").length,
+      absent: records.filter(r => r.status === "absent").length,
+      halfDay: records.filter(r => r.status === "half_day").length,
+      leave: records.filter(r => r.status === "leave").length,
+      holiday: records.filter(r => r.status === "holiday").length,
+      totalKg: records.reduce((s, r) => s + r.kgPlucked, 0),
+      totalOvertime: records.reduce((s, r) => s + r.overtimeHours, 0),
+    };
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("daily_attendance")
+    .select("*").eq("worker_id", workerId)
+    .gte("attendance_date", startDate).lte("attendance_date", endDate);
+  if (error) throw new Error(`attendanceSummary: ${error.message}`);
+  const records = data ?? [];
+  return {
+    present: records.filter((r) => r.status === "present").length,
+    absent: records.filter((r) => r.status === "absent").length,
+    halfDay: records.filter((r) => r.status === "half_day").length,
+    leave: records.filter((r) => r.status === "leave").length,
+    holiday: records.filter((r) => r.status === "holiday").length,
+    totalKg: records.reduce((s, r) => s + Number(r.kg_plucked ?? 0), 0),
+    totalOvertime: records.reduce((s, r) => s + Number(r.overtime_hours ?? 0), 0),
+  };
+}

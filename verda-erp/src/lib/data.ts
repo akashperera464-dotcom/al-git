@@ -1196,3 +1196,79 @@ export const GL_CODES = {
   REPAIRS: "5060",
   TRANSPORT: "5070",
 } as const;
+
+// ============================================================================
+// WORKER MASTER + ATTENDANCE + LIFECYCLE TYPES
+// ============================================================================
+
+export type WorkerStatus = "active" | "suspended" | "terminated" | "retired";
+export type AttendanceStatus = "present" | "absent" | "half_day" | "leave" | "holiday";
+
+export interface WorkerFull {
+  id: string;
+  name: string;
+  fullName?: string;
+  nic: string;
+  division: string;
+  role: string;
+  estateId?: string;
+  phone?: string;
+  // HR fields
+  dateOfBirth?: string;
+  gender?: string;
+  address?: string;
+  emergencyContact?: string;
+  hireDate?: string;
+  terminationDate?: string;
+  epfNumber?: string;
+  etfNumber?: string;
+  bankName?: string;
+  bankBranch?: string;
+  bankAccount?: string;
+  basicSalary: number;
+  skillMatrix: Record<string, number>;
+  leaveBalance: { annual: number; sick: number; casual: number };
+  // Operational
+  pointsBalance: number;
+  attendance30d: number;
+  avgKgPerDay: number;
+  present: boolean;
+  status: WorkerStatus;
+  version: number;
+  createdAt: string;
+}
+
+export interface DailyAttendance {
+  id: string;
+  workerId: string;
+  workerName?: string;
+  estateId?: string;
+  division?: string;
+  attendanceDate: string;
+  status: AttendanceStatus;
+  checkInTime?: string;
+  checkOutTime?: string;
+  kgPlucked: number;
+  overtimeHours: number;
+  notes?: string;
+  markedBy?: string;
+  version: number;
+  createdAt: string;
+}
+
+export type TransferType = "hire" | "transfer" | "promote" | "suspend" | "reinstate" | "retire" | "terminate";
+
+export interface WorkerTransfer {
+  id: string;
+  workerId: string;
+  workerName?: string;
+  transferType: TransferType;
+  fromDivision?: string;
+  toDivision?: string;
+  fromRole?: string;
+  toRole?: string;
+  effectiveDate: string;
+  reason?: string;
+  authorizedBy?: string;
+  createdAt: string;
+}
