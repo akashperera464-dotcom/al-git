@@ -210,9 +210,359 @@ Build එකෙන් self-contained `dist/index.html` (~2.7 MB) file එකක�
 
 ---
 
-## 2 · පළමු පිවිසුම සහ පරිශීලක කළමනාකරණය / First Login & User Management
+## 2 · සම්පූර්ණ නාවිගේෂන් සිතියම / Complete Navigation Map
 
-### 2.1 පළමු Admin Account සෑදීම / Creating the First Admin
+> **මේ කොටස ඕනෑම කෙනෙකුට පද්ධතියේ මොනවා තියෙනවද, මොන නාවිගේෂන් එකෙන් මොකක් කරන්නේද, මොන නාවිගේෂන් එක මොන නාවිගේෂන් එකට සම්බන්ධද කියලා තේරුම් ගන්න උදව් වෙනවා. / This section helps anyone understand what's in the system, what each navigation does, and how navigations connect to each other.**
+
+### 2.1 භූමිකාව අනුව නාවිගේෂන් වෙනස / Navigation Differs by Role
+
+**English:**
+The system shows **different navigation menus** based on who logged in. This is enforced by `src/lib/rbac.ts` — the `modulesForRole()` function filters the master module list per role.
+
+| Role | Layout | Navigation Style | Module Count |
+|------|--------|------------------|--------------|
+| **Super Admin** | Desktop sidebar | Grouped by category, dark sidebar | All admin modules + User Management + Branding |
+| **Admin (Estate Director)** | Desktop sidebar | Grouped by category, dark sidebar | All admin modules (no User Mgmt / Branding) |
+| **Extension Officer** | Mobile shell | Bottom tab bar (2 items) + "More" sheet | Register + Weighing only |
+| **Supplier (VVIP)** | Mobile shell | Bottom tab bar (5 items) + "More" sheet | 7 supplier modules only |
+
+**සිංහල:**
+පද්ධතිය **අලුතින් වෙනස් navigation menus** පෙන්නනවා කවුද login වුණේ කියලා අනුව. මේක `src/lib/rbac.ts` වලින් enforce කරනවා — `modulesForRole()` function එක master module list එක role එකට filter කරනවා.
+
+| භූමිකාව | Layout | Navigation Style | Module ගණන |
+|------|--------|------|------|
+| **Super Admin** | Desktop sidebar | Category අනුව grouped, dark sidebar | Admin මොඩියුල සියල්ල + User Management + Branding |
+| **Admin (වතු අධ්‍යක්ෂ)** | Desktop sidebar | Category අනුව grouped, dark sidebar | Admin මොඩියුල සියල්ල (User Mgmt / Branding නැත) |
+| **Extension Officer** | Mobile shell | Bottom tab bar (items 2) + "More" sheet | Register + Weighing විතරයි |
+| **Supplier (VVIP)** | Mobile shell | Bottom tab bar (items 5) + "More" sheet | Supplier මොඩියුල 7 විතරයි |
+
+### 2.2 Admin සයිඩ්බාර් ව්‍යුහය / Admin Sidebar Structure
+
+**English — When you login as Admin or Super Admin, you see a dark sidebar on the left side grouped into 10 categories:**
+
+```
+┌─────────────────────────────────────────────────┐
+│  🍃 Verda ERP              [language] [avatar]   │ ← Top bar
+├─────────────────────────────────────────────────┤
+│  📊 COMMAND                                      │
+│  ├── Estate Dashboard                            │ ← KPI overview
+│                                                  │
+│  🌱 ESTATE & LAND                                │
+│  ├── Estate Master                               │ ← Estates→Divisions→Fields
+│  ├── Crop Management                             │ ← Cultivar, planting year
+│                                                  │
+│  🌿 FIELD OPERATIONS                             │
+│  ├── Labor Management     → links to Payroll     │ ← Workers + HR + Leave
+│  ├── Harvest Management   → links to Factory     │ ← Daily green-leaf intake
+│  ├── Resource Requisitions                       │ ← Approve supplier tickets
+│                                                  │
+│  🏭 MANUFACTURING                                │
+│  ├── Inventory            → links to Procurement │ ← Stock on hand
+│                                                  │
+│  🧪 INPUTS                                       │
+│  ├── Fertilizer                                  │ ← Fertilizer stock + logs
+│  ├── Agrochemical                                │ ← Spray records
+│                                                  │
+│  👥 PEOPLE & PAY                                  │
+│  ├── Payroll System       ← from Labor           │ ← EPF/ETF monthly
+│  ├── Loans & Advances                            │ ← Worker loans
+│  ├── Loyalty Program      → links to Payroll     │ ← Points + Rewards + Redemptions
+│                                                  │
+│  💰 FINANCE                                      │
+│  ├── Finance & Accounting                        │ ← Double-entry ledger + P&L
+│                                                  │
+│  📡 INTELLIGENCE                                 │
+│  ├── Weather & Environment                       │ ← 7-day forecast
+│                                                  │
+│  ⚙️ ADMINISTRATION                               │
+│  ├── User Management       (Super Admin only)    │ ← Create users
+│  ├── Announcements                               │ ← Publish news → Suppliers
+│  ├── Branding & Settings   (Super Admin only)    │ ← Logo, colors
+│                                                  │
+│  📦 MORE / FUTURE                                │
+│  ├── GPS & GIS Mapping                           │ ← Estate map
+│  ├── Factory Integration  → from Harvest         │ ← Batch tracking
+│  ├── Vehicle & Fuel                              │ ← Fleet
+│  ├── Welfare Management                          │ ← Worker welfare
+│  ├── AI & Analytics       (Premium)              │ ← Smart analytics
+│  ├── Audit & Compliance                          │ ← Audit log
+│  ├── Mobile & Offline                            │ ← Sync engine status
+│  └── Architecture & Docs                         │ ← System blueprint
+└─────────────────────────────────────────────────┘
+```
+
+**සිංහල — Admin හෝ Super Admin විදියට login වුණාම වම් පැත්තේ dark sidebar එකක් පෙන්නනවා, එක category 10කට කොටස් වෙලා:**
+
+(ඉහත diagram එකේ ඇති සියලුම navigation items සිංහල අර්ථ දැක්වීම් සමඟ — එකින් එකට පහත §2.3 සහ §2.4 වලින් විස්තර කරලා තියෙනවා.)
+
+### 2.3 සෑම Admin නාවිගේෂන් එකක්ම කෙටි විස්තරය / Every Admin Navigation Explained
+
+#### 📊 COMMAND / විධානය
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **Estate Dashboard** | අද දින KPI overview — green leaf intake, attendance, weather | Today's KPI overview — green leaf intake, attendance, weather | Source for everything; pulls data from Harvest, Labor, Weather |
+
+#### 🌱 ESTATE & LAND / වත්ත සහ භූමිය
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **Estate Master** | Estates → Divisions → Fields hierarchy manage කරනවා | Manage estates → divisions → fields hierarchy | Base data for Harvest, Labor, Factory |
+| **Crop Management** | වගාව, cultivar, planting year track කරනවා | Track cultivar, planting year, field status | Feeds Smart Advisory engine |
+
+#### 🌿 FIELD OPERATIONS / ක්ෂේත්‍ර මෙහෙයුම්
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **Labor Management** | Worker roster, HR, leave requests | Worker roster + HR fields + leave workflow | Workers here → flow into Payroll (monthly salaries), Loyalty (points), Welfare |
+| **Harvest Management** | දෛනික green-leaf intake per field/supplier | Daily green-leaf intake per field/supplier | Harvest records → flow into Factory (as batch input) + Finance (supplier invoices) |
+| **Resource Requisitions** | Suppliers ගේ ශ්‍රමික/උපකරණ ඉල්ලීම් approve/reject | Approve/reject supplier requisitions for workers/equipment | Supplier raises in supplier-requests module → appears here |
+
+#### 🏭 MANUFACTURING / නිෂ්පාදනය
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **Inventory** | Stock items + PO + GRN + issue | Stock on hand + procurement (PO/GRN/Issue) | Links to Procurement: GRN updates stock → journal entry in Finance. Stock issues → Farm Activities |
+
+#### 🧪 INPUTS / ආදාන
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **Fertilizer** | පොහොර stock + application logs | Fertilizer stock + application logs | Stock from Inventory; logs feed Smart Advisory (last-application date) |
+| **Agrochemical** | කෘෂි රසායනික spray records | Agrochemical stock + spray audit | Stock from Inventory; spray records for compliance |
+
+#### 👥 PEOPLE & PAY / මිනිස්සු සහ වැටුප්
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **Payroll System** | මාසික EPF/ETF payroll generate → approve → pay | Monthly EPF/ETF payroll generation | Pulls worker list + basic_salary from Labor. Outputs payslips + totals → Finance (Wages & Salaries expense) |
+| **Loans & Advances** | ශ්‍රමිකයින්ට දුන් ණය | Worker loans + advances tracking | Loan deductions feed into Payroll (deductions column) |
+| **Loyalty Program** | Points + Tiers + Rewards + Redemptions | Gamified points, tier progression, rewards catalog, redemption workflow | Members link to Workers (Labor). Cash bonus redemptions → Payroll (allowances). Points ledger is audit trail |
+
+#### 💰 FINANCE / මූල්‍ය
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **Finance & Accounting** | Double-entry ledger + chart of accounts + trial balance + P&L | Double-entry general ledger, journal entries, trial balance, P&L | Receives postings from: Payroll (wages), Supplier Invoices (green-leaf cost), Inventory (stock valuation). Source of truth for all money |
+
+#### 📡 INTELLIGENCE / බුද්ධිය
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **Weather & Environment** | දින 7ක forecast + fertilizer timing alerts | 7-day forecast + weather-based alerts | Feeds Smart Advisory engine (fertilizer window + plucking schedule). Suppliers see same forecast in their Smart Alerts |
+
+#### ⚙️ ADMINISTRATION / පරිපාලනය
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **User Management** (Super Admin only) | පරිශීලක accounts හදන්න/edit/suspend | Create/edit/suspend/delete user accounts | Creates Firebase Auth + Supabase users. Required before any login works |
+| **Announcements** | Suppliers ට පුවත් publish කරන්න | Publish news/advisories → all suppliers | Pushes to Supplier's "Estate Updates" module. FCM push fires automatically |
+| **Branding & Settings** (Super Admin only) | Logo, colors, login background change කරන්න | White-label branding (logo, accent color, login bg) | Applies globally — login screen, sidebar, headers all change |
+
+#### 📦 MORE / FUTURE / අතිරේක
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **GPS & GIS Mapping** | වතු polygon map පෙන්නනවා | Decorative estate map view | (Future: block-level productivity heatmap) |
+| **Factory Integration** | Batch tracking withering → dispatch | Track batches through 7 manufacturing stages | Pulls green-leaf input from Harvest. Outputs made-tea → can drive Sales invoices (future) |
+| **Vehicle & Fuel** | වාහන fleet + ඉන්ධන logs | Vehicle roster + fuel logs | (Future: integrate with Finance for transport cost) |
+| **Welfare Management** | ශ්‍රමික සුබසාධන cases | Worker welfare cases (housing, medical) | Links to Workers (Labor). (Stub — full implementation future) |
+| **AI & Analytics** (Premium) | Smart analytics dashboard | Predictive analytics dashboard | (Future: Gemini API integration. Currently deterministic rules in predictive.ts) |
+| **Audit & Compliance** | Audit log + compliance tracking | Audit trail + statutory compliance items | Reads from all modules for audit trail |
+| **Mobile & Offline** | Offline sync engine status | Service worker + IndexedDB queue status | Diagnostic view — shows offline queue, conflict policy, FCM token status |
+| **Architecture & Docs** | පද්ධතියේ blueprint පෙන්නනවා | System architecture blueprint | Reference documentation in-app |
+
+### 2.4 Extension Officer නාවිගේෂන් / Extension Officer Navigation
+
+**English — Mobile-first shell with bottom tab bar (only 2 items):**
+
+```
+┌─────────────────────────────────────┐
+│  Extension Officer · Field          │ ← Header
+├─────────────────────────────────────┤
+│                                     │
+│  [Active module content here]       │
+│                                     │
+├─────────────────────────────────────┤
+│  📝 Register    ⚖️ Weigh            │ ← Bottom tabs (2 only)
+└─────────────────────────────────────┘
+```
+
+| Navigation | සිංහල අරමුණ | English Purpose | Connects to |
+|------|------|------|------|
+| **Register New Supplier** | නව VVIP supplier ලියාපදිංචි කරනවා | Onboard new supplier → Firebase Auth + Supabase profile | Created supplier can immediately login as Supplier role. Linked to an estate + factory |
+| **Leaf Weighing Entry** | Suppliers ගේ green-leaf බර කරනවා | Log green-leaf weights (offline-first) | Each weigh-in → Supplier's "My Leaf Deliveries" updates in real-time + FCM push sent. Aggregates to Harvest + Supplier Invoices (Finance) |
+
+**සිංහල — Mobile-first shell එකේ bottom tab bar (items 2ක් විතරයි):**
+
+(ඉහත diagram සහ table එක බලන්න.)
+
+### 2.5 Supplier (VVIP) නාවිගේෂන් / Supplier Navigation
+
+**English — Mobile-first shell with bottom tab bar (5 primary tabs + "More" sheet for the rest):**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  VVIP Supplier · [Estate Name]              [lang]  │ ← Header
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  [Active module content here]                       │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│ 📦 Deliveries │ 🔔 Alerts │ 💰 Payments │ 🌱 Farm │ 📰 Updates │ ⋯ More │
+└─────────────────────────────────────────────────────┘
+                                                       ↑
+                                                  "More" opens a bottom-sheet with:
+                                                  - Request Resources
+                                                  - (Language switcher in header)
+```
+
+| Bottom Tab | සිංහල අරමුණ | English Purpose | Connects to (data flow) |
+|------|------|------|------|
+| **My Leaf Deliveries** (📦) | තමන්ගේ දෛනික green-leaf භාරදීම් | View daily net weight + grade recorded by officer | **Source:** Extension Officer's Weighing Entry. Real-time sync via Supabase postgres_changes |
+| **Smart Alerts Panel** (🔔) | පොහොර කවචය + කොළ නෙළීමේ කාලසටහන + කප්පාදු උපදේශන | FCM fertilizer cycle + plucking schedule + pruning advisory | **Inputs:** Weather (from admin's Weather module), last-fertilizer-date (from My Farm Activities), plantation date (set here) |
+| **Payment Tracker** (💰) | තමන්ගේ ඉපැයීම් + ගෙවීම් ඉතිහාසය | Earnings + payment history | **Source:** Supplier Invoices created in Finance module by admin |
+| **My Farm Activities** (🌱) | පොහොර/කප්පාදු/self-harvest log කරනවා | Log real field actions (fertilizer, pruning, self-harvest) | **Output:** Feeds back into Smart Advisory (resets fertilizer/pruning cycles). Closed-loop feedback |
+| **Estate Updates** (📰) | Admin එකෙන් publish කරපු පුවත් | Real-time feed of admin-published announcements | **Source:** Admin's Announcements module. Push via FCM |
+| **Request Resources** (in "More") | ශ්‍රමික/උපකරණ සඳහා ටිකට් යොමු කරන්න | Raise requisition tickets (workers/equipment) | **Output:** Appears in Admin's Resource Requisitions module for approval |
+| **Language Switcher** (in header) | EN / සිංහල / தமிழ் මාරු කරන්න | Switch UI language | Persists in localStorage. Applies to all supplier-side modules |
+| **Verify My Location** (button inside Deliveries) | GPS මගින් වත්තේ ස්ථානය තහවුරු කරන්න | GPS geofence verification at estate | Records `supplier_locations` row in Supabase. Admin can view history |
+
+**සිංහල — Mobile-first shell එකේ bottom tab bar (primary tabs 5ක් + "More" sheet එකෙන් ඉතුරු):**
+
+(ඉහත diagram සහ table එක බලන්න — සෑම navigation item එකකටම සිංහල අරමුණු දීලා තියෙනවා.)
+
+### 2.6 අන්තර්-මොඩියුල දත්ත ගලායාම / Inter-Module Data Flow
+
+**English — How modules talk to each other (the data flows that matter):**
+
+```
+                              ┌──────────────────┐
+                              │  Estate Master   │ ← master data
+                              │  (Estates→Div→   │
+                              │   Fields)        │
+                              └────────┬─────────┘
+                                       │
+              ┌────────────────────────┼────────────────────────┐
+              ▼                        ▼                        ▼
+   ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+   │  Labor (Workers) │    │  Harvest         │    │  Factory         │
+   │  + HR + Leave    │    │  (Green Leaf)    │    │  (Batch Tracking)│
+   └────────┬─────────┘    └────────┬─────────┘    └────────┬─────────┘
+            │                       │                       │
+            │                       │ green leaf in         │
+            │                       └────────────►──────────┘
+            │                                   output kg (made tea)
+            │                                            │
+            ▼                                            ▼
+   ┌──────────────────┐                       ┌──────────────────┐
+   │  Payroll         │ ◄── basic_salary      │  Finance         │
+   │  (EPF/ETF)       │     from Labor        │  (Double-Entry   │
+   └────────┬─────────┘                       │   Ledger)        │
+            │                                 └────────▲─────────┘
+            │ wages expense                            │
+            └────────────►────────────────────────────┤
+                                                      │
+   ┌──────────────────┐    green-leaf cost           │
+   │  Supplier        │ ─────────────────────────────┤
+   │  Invoices        │                              │
+   └──────────────────┘                              │
+                                                      │
+   ┌──────────────────┐    stock valuation           │
+   │  Inventory       │ ─────────────────────────────┤
+   │  (PO + GRN)      │                              │
+   └──────────────────┘                              │
+                                                      │
+   ┌──────────────────┐    cash bonus redemptions    │
+   │  Loyalty         │ ─────────────────────────────┤
+   │  Program         │                              │
+   └──────────────────┘                              │
+                                                      │
+                              ┌──────────────────────┴
+                              ▼
+                       ┌──────────────────┐
+                       │  Trial Balance   │ ← sums all posted journals
+                       │  + P&L           │
+                       └──────────────────┘
+```
+
+**සිංහල — මොඩියුල අතර දත්ත ගලායාම (වැදගත් data flows):**
+
+(ඉහත diagram එක බලන්න — මොන මොඩියුලයෙන් මොන මොඩියුලයට දත්ත යනවද පෙන්නනවා.)
+
+### 2.7 සාරාංශ වගුව / Summary Table
+
+**English — Quick reference of every navigation item in the system:**
+
+| # | Navigation | Role | Category | What it does | Connects to |
+|---|------|------|------|------|------|
+| 1 | Estate Dashboard | Admin | Command | Today's KPI overview | Reads from Harvest, Labor, Weather |
+| 2 | Estate Master | Admin | Estate & Land | Manage estates/divisions/fields | Base data for everything |
+| 3 | Crop Management | Admin | Estate & Land | Cultivar + planting year | Feeds Smart Advisory |
+| 4 | Labor Management | Admin | Field Ops | Workers + HR + Leave | → Payroll, Loyalty, Welfare |
+| 5 | Harvest Management | Admin | Field Ops | Daily green-leaf intake | → Factory (batch input), Finance (invoices) |
+| 6 | Resource Requisitions | Admin | Field Ops | Approve supplier tickets | ← Supplier's "Request Resources" |
+| 7 | Inventory | Admin | Manufacturing | Stock + PO + GRN + Issue | → Finance (stock valuation) |
+| 8 | Fertilizer | Admin | Inputs | Fertilizer stock + logs | ← Inventory; → Smart Advisory |
+| 9 | Agrochemical | Admin | Inputs | Spray records | ← Inventory |
+| 10 | Payroll System | Admin | People & Pay | EPF/ETF monthly payroll | ← Labor (salaries); → Finance (wages) |
+| 11 | Loans & Advances | Admin | People & Pay | Worker loans | → Payroll (deductions) |
+| 12 | Loyalty Program | Admin | People & Pay | Points + Rewards + Redemptions | ← Labor (members); → Payroll (cash bonuses) |
+| 13 | Finance & Accounting | Admin | Finance | Double-entry ledger + P&L | Receives from all money modules |
+| 14 | Weather & Environment | Admin | Intelligence | 7-day forecast | → Smart Advisory (supplier side) |
+| 15 | User Management | Super Admin | Administration | Create/edit/suspend users | Creates Firebase + Supabase users |
+| 16 | Announcements | Admin | Administration | Publish news → Suppliers | → Supplier's "Estate Updates" + FCM push |
+| 17 | Branding & Settings | Super Admin | Administration | Logo, colors, login bg | Applies globally |
+| 18 | GPS & GIS Mapping | Admin | More | Estate polygon map | (Future: heatmap) |
+| 19 | Factory Integration | Admin | More | Batch tracking 7 stages | ← Harvest (input); → Sales (future) |
+| 20 | Vehicle & Fuel | Admin | More | Fleet + fuel logs | (Stub) |
+| 21 | Welfare Management | Admin | More | Worker welfare cases | ← Labor (workers) |
+| 22 | AI & Analytics | Admin | More | Smart analytics (Premium) | (Future: Gemini API) |
+| 23 | Audit & Compliance | Admin | More | Audit trail | Reads from all modules |
+| 24 | Mobile & Offline | Admin | More | Sync engine status | Diagnostic view |
+| 25 | Architecture & Docs | Admin | More | System blueprint | Reference docs |
+| 26 | Register New Supplier | Ext. Officer | Field | Onboard new supplier | → User can login as Supplier |
+| 27 | Leaf Weighing Entry | Ext. Officer | Field | Log green-leaf weights | → Supplier "Deliveries" + FCM + Harvest + Finance |
+| 28 | My Leaf Deliveries | Supplier | Supplier | View own deliveries | ← Officer weighing |
+| 29 | Smart Alerts Panel | Supplier | Supplier | Fertilizer + plucking advisory | ← Weather, Farm Activities |
+| 30 | Payment Tracker | Supplier | Supplier | Own earnings + payments | ← Finance (supplier invoices) |
+| 31 | My Farm Activities | Supplier | Supplier | Log fertilizer/pruning/harvest | → Smart Advisory (feedback loop) |
+| 32 | Estate Updates | Supplier | Supplier | Read admin announcements | ← Admin's Announcements |
+| 33 | Request Resources | Supplier | Supplier | Raise worker/equipment tickets | → Admin's Resource Requisitions |
+
+**සිංහල — පද්ධතියේ සෑම navigation item එකකම ඉක්මන් යොමුව:**
+
+(ඉහත table එක බලන්න — සියලුම 33 navigation items, භූමිකාව, category, අරමුණු, සහ සම්බන්ධතා සමඟ.)
+
+### 2.8 Top Bar සහ ගෝලෝක අයිකන / Top Bar & Global Elements
+
+**English — Elements visible on every screen regardless of which module is active:**
+
+| Element | Where | What it does |
+|---------|-------|------|
+| **Language Switcher** (🌐) | Top-right corner | Switch EN / සිංහල / தமிழ். Persists in localStorage |
+| **Role Switcher** (avatar) | Top-right (after language) | Switch role context (Super Admin can impersonate Admin/Officer/Supplier for testing) |
+| **Online/Offline indicator** | Top bar (auto) | Shows green "Online" or amber "Offline" badge. When offline, captures queue in IndexedDB |
+| **Search modules** (🔍) | Top of sidebar (admin only) | Quick-jump to any module by typing |
+| **Sign out** | Avatar dropdown | Logs out of Firebase Auth + clears Supabase session |
+| **Toaster notifications** | Bottom-right (auto) | Success/error toasts after every action (create/update/delete) |
+
+**සිංහල — සෑම screen එකකම පෙන්නන global elements:**
+
+| Element | තැන | අරමුණ |
+|---------|------|------|
+| **Language Switcher** (🌐) | ඉහළ දකුණු කෙළවර | EN / සිංහල / தமிழ் මාරු කරන්න. localStorage එකේ පවතිනවා |
+| **Role Switcher** (avatar) | ඉහළ දකුණු (language එකෙන් පස්සේ) | Role context මාරු කරන්න (Super Admin ට Admin/Officer/Supplier ලෙස test කරන්න පුළුවන්) |
+| **Online/Offline indicator** | Top bar (ස්වයංක්‍රීය) | කොළ "Online" හෝ රන්වන් "Offline" badge. Offline වුණාම IndexedDB එකේ queue වෙනවා |
+| **Search modules** (🔍) | Sidebar එකේ ඉහළ (admin විතරයි) | ටයිප් කරලා ඕනෑම මොඩියුලයකට ඉක්මනින් යන්න |
+| **Sign out** | Avatar dropdown | Firebase Auth එකෙන් logout + Supabase session clear කරනවා |
+| **Toaster notifications** | පහළ දකුණු (ස්වයංක්‍රීය) | සෑම action එකකට පස්සේ success/error toasts |
+
+---
+
+## 3 · පළමු පිවිසුම සහ පරිශීලක කළමනාකරණය / First Login & User Management
+
+### 3.1 පළමු Admin Account සෑදීම / Creating the First Admin
 
 **English:**
 The first user must be created directly in Supabase:
@@ -240,7 +590,7 @@ The first user must be created directly in Supabase:
    ```
 5. දැන් Verda login screen එකේ මේ credentials වලින් පිවිසෙන්න.
 
-### 2.2 පරිශීලක කළමනාකරණ මොඩියුලය / User Management Module
+### 3.2 පරිශීලක කළමනාකරණ මොඩියුලය / User Management Module
 
 **English — Available to: Super Admin, Admin**
 
@@ -272,9 +622,9 @@ Login වුණාට පස්සේ **User Management** මොඩියුල�
 
 ---
 
-## 3 · දෛනික මෙහෙයුම් කාර්ය ප්‍රවාහයන් / Daily Operational Workflows
+## 4 · දෛනික මෙහෙයුම් කාර්ය ප්‍රවාහයන් / Daily Operational Workflows
 
-### 3.1 Extension Officer — නව Supplier ලියාපදිංචි කිරීම / Register New Supplier
+### 4.1 Extension Officer — නව Supplier ලියාපදිංචි කිරීම / Register New Supplier
 
 **English — Workflow:**
 1. Login as Extension Officer
@@ -304,7 +654,7 @@ Login වුණාට පස්සේ **User Management** මොඩියුල�
 5. Supplier Firebase Auth + Supabase දෙකේම හැදෙනවා
 6. Supplier ට ඔවුන්ගේ email + temporary password කියන්න — ඉක්මනින්ම login වෙන්න පුළුවන්
 
-### 3.2 Extension Officer — කොළ බර ඇතුළත් කිරීම / Leaf Weighing Entry
+### 4.2 Extension Officer — කොළ බර ඇතුළත් කිරීම / Leaf Weighing Entry
 
 **English — Workflow:**
 1. Open **"Leaf Weighing Entry"** module
@@ -332,7 +682,7 @@ Login වුණාට පස්සේ **User Management** මොඩියුල�
 
 **වැදගත්:** මේක **offline** වැඩ කරනවා — internet නැත්නම්, weigh-in එක IndexedDB එකේ queue වෙලා internet ආව ගමන් auto sync වෙනවා. Officer කෙනෙකුට තවත් කෙනෙකුගේ weigh-in එක overwrite කරන්න බැහැ — record එකට unique ID එකක් තියෙනවා, version-based optimistic concurrency පාවිච්චි කරනවා.
 
-### 3.3 Supplier (VVIP) — දෛනික කටයුතු / Daily Workflow
+### 4.3 Supplier (VVIP) — දෛනික කටයුතු / Daily Workflow
 
 **English:**
 When a supplier logs in, they see 7 modules in the bottom navigation:
@@ -376,7 +726,7 @@ Supplier login වුණාම bottom navigation එකේ මොඩියුල
 5. පසුගිය සතියේ ගෙවීම settle වුණාද බලන්න **ගෙවීම් ලුහුඬිය** එකේ
 6. Admin නිවේදන කියවන්න **වතු යාවත්කාලීන** වල
 
-### 3.4 Admin — දෛනික Estate කළමනාකරණය / Daily Estate Management
+### 4.4 Admin — දෛනික Estate කළමනාකරණය / Daily Estate Management
 
 **English — Admin sees all 20+ modules:**
 
@@ -418,9 +768,9 @@ Supplier login වුණාම bottom navigation එකේ මොඩියුල
 
 ---
 
-## 4 · මොඩියුල අනුව සවිස්තරාත්මක කාර්ය ප්‍රවාහයන් / Module-by-Module Detailed Workflows
+## 5 · මොඩියුල අනුව සවිස්තරාත්මක කාර්ය ප්‍රවාහයන් / Module-by-Module Detailed Workflows
 
-### 4.1 Factory Floor — Batch Tracking / කර්මාන්තශාලා බිම
+### 5.1 Factory Floor — Batch Tracking / කර්මාන්තශාලා බිම
 
 **English — Full batch lifecycle:**
 
@@ -512,7 +862,7 @@ Green Leaf In (උදා. 500 kg)
 - සාමාන්‍ය tea recovery: **20-25%** (450 kg green leaf → 100 kg made tea)
 - Waste = Green Leaf In − Output (ස්වයංක්‍රීයව පෙන්නනවා)
 
-### 4.2 Finance — Double-Entry Ledger / මූල්‍ය — Double-Entry Ledger
+### 5.2 Finance — Double-Entry Ledger / මූල්‍ය — Double-Entry Ledger
 
 **English — Core concepts:**
 - **Chart of Accounts (GL Accounts)**: 22 pre-seeded accounts (Cash, Bank, Inventory, EPF Payable, Tea Sales Revenue, Wages, etc.)
@@ -558,7 +908,7 @@ Green Leaf In (උදා. 500 kg)
 | Green Leaf Cost (5000) | 50,000 | |
 | Cash on Hand (1000) | | 50,000 |
 
-### 4.3 Payroll — EPF/ETF Statutory / වැටුප් — EPF/ETF නීතික
+### 5.3 Payroll — EPF/ETF Statutory / වැටුප් — EPF/ETF නීතික
 
 **English — Sri Lankan statutory rates:**
 - **EPF Employee deduction**: 8% of gross (deducted from worker's pay)
@@ -600,7 +950,7 @@ So for a worker earning Rs 50,000 gross:
 7. **"Payroll Runs"** tab එකට ගිහින් නව run එක තෝරන්න → **"Approve Run"** click කරන්න
 8. (භෞතික ගෙවීම් වලින් පස්සේ) Paid ලෙස mark කරන්න (Supabase update එකෙන් — UI button එක ඉක්මනින් එයි)
 
-### 4.4 Inventory & Procurement / තොග සහ සැපයුම්
+### 5.4 Inventory & Procurement / තොග සහ සැපයුම්
 
 **English — Three sub-workflows:**
 
@@ -658,7 +1008,7 @@ So for a worker earning Rs 50,000 gross:
 3. "Issue Out" click කරන්න
 4. Stock on hand අඩු වෙනවා, movement log වෙනවා
 
-### 4.5 Labor & HR — Leave Workflow / ශ්‍රම සහ HR — Leave කාර්ය ප්‍රවාහය
+### 5.5 Labor & HR — Leave Workflow / ශ්‍රම සහ HR — Leave කාර්ය ප්‍රවාහය
 
 **English:**
 1. Worker requests leave → admin opens **Labor** module → **"Leave Requests"** tab
@@ -700,7 +1050,7 @@ So for a worker earning Rs 50,000 gross:
 - Skill Matrix (උදා. { plucker: 5, sprayer: 3 })
 - Leave Balance { annual: 14, sick: 7, casual: 3 }
 
-### 4.6 Smart Advisory Engine (Auto-Computed) / බුද්ධිමය උපදේශන එන්ජිමය
+### 5.6 Smart Advisory Engine (Auto-Computed) / බුද්ධිමය උපදේශන එන්ජිමය
 
 **English — How it works:**
 The "AI" in this system is **deterministic rules** (not ML). It runs entirely client-side + server-side Cloud Function — no external AI calls (Gemini API key is optional and blank by default).
@@ -750,9 +1100,9 @@ Supplier කෙනෙක් **මගේ ගොවිපළ කටයුතු** 
 
 ---
 
-## 5 · Android App Build / Android App Build කිරීම
+## 6 · Android App Build / Android App Build කිරීම
 
-### 5.1 Prerequisites
+### 6.1 Prerequisites
 
 **English:**
 - Expo CLI: `npm install -g expo-cli`
@@ -768,7 +1118,7 @@ Supplier කෙනෙක් **මගේ ගොවිපළ කටයුතු** 
 - පරීක්ෂා කිරීමට Android device හෝ emulator
 - (Play Store සඳහා) Google Play Developer account ($25 one-time)
 
-### 5.2 Setup app/.env
+### 6.2 Setup app/.env
 
 **English:**
 ```bash
@@ -790,7 +1140,7 @@ EXPO_PUBLIC_WEB_URL=https://your-tea-erp.vercel.app  # Deployed PWA එකේ UR
 EAS_PROJECT_ID=your-eas-project-id                    # expo.dev එකෙන්
 ```
 
-### 5.3 Install dependencies + prebuild
+### 6.3 Install dependencies + prebuild
 
 **English:**
 ```bash
@@ -806,7 +1156,7 @@ npm install
 npx expo prebuild --clean    # native android/ සහ ios/ folders හදනවා
 ```
 
-### 5.4 Build APK (for testing) / AAB (for Play Store)
+### 6.4 Build APK (for testing) / AAB (for Play Store)
 
 **English:**
 ```bash
@@ -830,7 +1180,7 @@ npm run build:aab
 # → Play Console එකට upload කරන්න
 ```
 
-### 5.5 Native Bridges (Already Wired)
+### 6.5 Native Bridges (Already Wired)
 
 **English — The Android app has these native bridges (in `app/src/native/`):**
 
@@ -874,7 +1224,7 @@ window.ReactNativeWebView?.postMessage(JSON.stringify({
 
 ---
 
-## 6 · Offline-First Behavior / Offline හැසිරීම
+## 7 · Offline-First Behavior / Offline හැසිරීම
 
 **English — How offline works:**
 
@@ -912,7 +1262,7 @@ window.ReactNativeWebView?.postMessage(JSON.stringify({
 
 ---
 
-## 7 · Tri-Lingual Language Switching / ත්‍රි-භාෂා මාරු කිරීම
+## 8 · Tri-Lingual Language Switching / ත්‍රි-භාෂා මාරු කිරීම
 
 **English:**
 - Top-right corner of every screen has a **Language** button (globe icon)
@@ -932,7 +1282,7 @@ window.ReactNativeWebView?.postMessage(JSON.stringify({
 
 ---
 
-## 8 · Branding & White-Label / නාම සලකුණු
+## 9 · Branding & White-Label / නාම සලකුණු
 
 **English:**
 Admin can customize branding via **Branding & Settings** module:
@@ -956,9 +1306,9 @@ Settings Supabase `settings` table එකේ (key='branding') store වෙනව
 
 ---
 
-## 9 · Troubleshooting / ගැටලු විසඳීම
+## 10 · Troubleshooting / ගැටලු විසඳීම
 
-### 9.1 Login fails / Login අසාර්ථකයි
+### 10.1 Login fails / Login අසාර්ථකයි
 
 **English:**
 | Symptom | Fix |
@@ -976,7 +1326,7 @@ Settings Supabase `settings` table එකේ (key='branding') store වෙනව
 | Login වෙනවා ඒත් කිසිවක් පේන්නේ නෑ | User Supabase `users` table එකේ නෑ — manually row එකක් insert කරන්න (§2.1 බලන්න) |
 | Role වැරදියි | Supabase Table Editor එකේ `users.role` update කරන්න |
 
-### 9.2 Supabase connection error / Supabase connection දෝෂයක්
+### 10.2 Supabase connection error / Supabase connection දෝෂයක්
 
 **English:**
 - Open browser DevTools (F12) → Console
@@ -992,7 +1342,7 @@ Settings Supabase `settings` table එකේ (key='branding') store වෙනව
 - "⚠ reachable but REST returned 401" = anon key වැරදියි
 - "connection check failed" = URL වැරදියි හෝ network block කරලා
 
-### 9.3 Push notifications not arriving / Push notifications එන්නේ නෑ
+### 10.3 Push notifications not arriving / Push notifications එන්නේ නෑ
 
 **English:**
 1. Check FCM VAPID key is set in `.env` (`VITE_FIREBASE_VAPID_KEY`)
@@ -1008,7 +1358,7 @@ Settings Supabase `settings` table එකේ (key='branding') store වෙනව
 4. Android native app එකේ FCM token එක first launch එකේදී ස්වයංක්‍රීයව register වෙනවා
 5. Supabase `users.fcm_token` populate වෙලාද බලන්න (run: `select id, fcm_token from users;`)
 
-### 9.4 Build errors / Build දෝෂ
+### 10.4 Build errors / Build දෝෂ
 
 **English:**
 | Error | Fix |
@@ -1026,7 +1376,7 @@ Settings Supabase `settings` table එකේ (key='branding') store වෙනව
 | TypeScript දෝෂ | `npx tsc --noEmit` run කරලා සියලුම type දෝෂ බලන්න |
 | Module not found | `tsconfig.json` paths config + import paths `@/` alias පාවිච්චි කරනවද බලන්න |
 
-### 9.5 SQL migration errors / SQL migration දෝෂ
+### 10.5 SQL migration errors / SQL migration දෝෂ
 
 **English:**
 If you get `column "estate_id" does not exist`:
@@ -1048,7 +1398,7 @@ If you get `relation "X" already exists`:
 
 ---
 
-## 10 · Daily / Monthly / Annual Checklists / දෛනික මාසික වාර්ෂික පරීක්ෂක ලැයිස්තු
+## 11 · Daily / Monthly / Annual Checklists / දෛනික මාසික වාර්ෂික පරීක්ෂක ලැයිස්තු
 
 ### Daily / දෛනික
 
@@ -1106,7 +1456,7 @@ If you get `relation "X" already exists`:
 
 ---
 
-## 11 · File Structure Quick Reference / File ව්‍යුහය ඉක්මන් යොමුව
+## 12 · File Structure Quick Reference / File ව්‍යුහය ඉක්මන් යොමුව
 
 ```
 verda-erp/
@@ -1236,7 +1586,7 @@ verda-erp/
 
 ---
 
-## 12 · Quick Command Reference / ඉක්මන් විධාන යොමුව
+## 13 · Quick Command Reference / ඉක්මන් විධාන යොමුව
 
 ```bash
 # ─── Web App ─────────────────────────────────────────────────────
@@ -1270,7 +1620,7 @@ select id, name, email, role from users;  -- user directory
 
 ---
 
-## 13 · Contact & Handover Notes / සම්බන්ධතා සහ භාරදීම සටහන්
+## 14 · Contact & Handover Notes / සම්බන්ධතා සහ භාරදීම සටහන්
 
 **English:**
 - This document is the **canonical workflow guide** for Verda ERP
