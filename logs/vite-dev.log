@@ -286,3 +286,18 @@ Error: Port 3000 is already in use
 
   ➜  Local:   http://localhost:3000/
   ➜  Network: http://21.0.9.91:3000/
+9:40:53 AM [vite] (client) hmr update /src/index.css, /src/modules/Labor.tsx, /src/modules/Payroll.tsx, /src/modules/Factory.tsx, /src/modules/Inventory.tsx, /src/modules/Finance.tsx, /src/modules/Loyalty.tsx
+9:41:59 AM [vite] (client) hmr update /src/index.css, /src/modules/Payroll.tsx
+9:42:00 AM [vite] (client) hmr update /src/index.css, /src/modules/Payroll.tsx
+9:42:00 AM [vite] (client) hmr update /src/index.css, /src/modules/Payroll.tsx
+9:42:00 AM [vite] (client) hmr update /src/index.css, /src/modules/Payroll.tsx
+9:43:28 AM [vite] (client) hmr update /src/index.css, /src/modules/Payroll.tsx
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+
+  VITE v7.3.2  ready in 240 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://21.0.9.91:3000/

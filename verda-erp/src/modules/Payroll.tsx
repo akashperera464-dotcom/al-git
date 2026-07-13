@@ -7,9 +7,11 @@ import {
   listPayrollRuns, listPayslips, generatePayrollRun, approvePayrollRun,
   generatePayrollRunWithAllowances, approvePayrollRunWithJournal,
   listPayrollAllowances,
+  generatePayrollRunWithAttendance, previewAttendanceForPayroll,
+  listWorkersFull,
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
-import type { PayrollRun, Payslip, Worker } from "@/lib/data";
+import type { PayrollRun, Payslip, WorkerFull } from "@/lib/data";
 
 /**
  * Payroll System — Sri Lankan statutory EPF/ETF.
@@ -36,7 +38,10 @@ export default function Payroll() {
   const [periodYear, setPeriodYear] = useState(now.getFullYear());
   const [runCode, setRunCode] = useState(`PR-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [selectedWorkers, setSelectedWorkers] = useState<Set<string>>(new Set());
-  const [workerSalaryOverrides, setWorkerSalaryOverrides] = useState<Record<string, { basic: number; ot: number; allowances: number; deductions: number; days: number }>>({});
+  const [workerSalaryOverrides, setWorkerSalaryOverrides] = useState<Record<string, { basic: number; ot: number; allowances: number; deductions: number; days: number; otRate: number }>>({});
+  const [rosterWorkers, setRosterWorkers] = useState<WorkerFull[]>([]);
+  const [attendancePreview, setAttendancePreview] = useState<Record<string, { days: number | null; otHours: number; otPay: number; kg: number }>>({});
+  const [useAttendance, setUseAttendance] = useState(true);
 
   const reload = async () => {
     setBusy(true);
@@ -51,6 +56,13 @@ export default function Payroll() {
       // Load pending (unconsumed) allowances — these will auto-flow into next payroll
       const allowances = await listPayrollAllowances(undefined, true);
       setPendingAllowances(allowances.length);
+      // Load worker roster (for the generate form)
+      try {
+        const ws = await listWorkersFull();
+        setRosterWorkers(ws.filter(w => w.status === "active"));
+      } catch {
+        // fall back to seedWorkers if workers table not yet populated
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load payroll");
     } finally {
@@ -79,32 +91,86 @@ export default function Payroll() {
     else next.add(id);
     setSelectedWorkers(next);
     if (!workerSalaryOverrides[id]) {
-      const w = seedWorkers.find(x => x.id === id);
-      setWorkerSalaryOverrides({ ...workerSalaryOverrides, [id]: { basic: w ? 45000 : 0, ot: 0, allowances: 0, deductions: 0, days: 30 } });
+      const w = rosterWorkers.find(x => x.id === id);
+      const basic = w?.basicSalary ?? 45000;
+      setWorkerSalaryOverrides({ ...workerSalaryOverrides, [id]: { basic, ot: 0, allowances: 0, deductions: 0, days: 30, otRate: 250 } });
+      // Fetch attendance preview for this worker
+      if (useAttendance) {
+        void previewAttendanceForPayroll({ workerId: id, periodMonth, periodYear, overtimeRatePerHour: 250 })
+          .then(preview => {
+            setAttendancePreview(prev => ({ ...prev, [id]: { days: preview.daysWorked, otHours: preview.overtimeHours, otPay: preview.overtimePay, kg: preview.kgPlucked } }));
+          });
+      }
+    }
+  };
+
+  const refreshAttendancePreview = async () => {
+    setBusy(true);
+    try {
+      const previews: Record<string, { days: number | null; otHours: number; otPay: number; kg: number }> = {};
+      for (const id of Array.from(selectedWorkers)) {
+        const o = workerSalaryOverrides[id];
+        const otRate = o?.otRate ?? 250;
+        const preview = await previewAttendanceForPayroll({ workerId: id, periodMonth, periodYear, overtimeRatePerHour: otRate });
+        previews[id] = { days: preview.daysWorked, otHours: preview.overtimeHours, otPay: preview.overtimePay, kg: preview.kgPlucked };
+      }
+      setAttendancePreview(previews);
+      setSuccess(`Attendance preview refreshed for ${Object.keys(previews).length} worker(s)`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to refresh attendance");
+    } finally {
+      setBusy(false);
     }
   };
 
   const generate = async () => {
     setError(null);
+    setSuccess(null);
     if (selectedWorkers.size === 0) { setError("Select at least one worker"); return; }
     setBusy(true);
     try {
       const ws = Array.from(selectedWorkers).map(id => {
-        const o = workerSalaryOverrides[id] ?? { basic: 0, ot: 0, allowances: 0, deductions: 0, days: 30 };
-        return { workerId: id, basicSalary: o.basic, overtimePay: o.ot, deductions: o.deductions, daysWorked: o.days };
+        const o = workerSalaryOverrides[id] ?? { basic: 0, ot: 0, allowances: 0, deductions: 0, days: 30, otRate: 250 };
+        return {
+          workerId: id,
+          basicSalary: o.basic,
+          overtimePay: o.ot || undefined,      // manual override (if 0, attendance-derived is used)
+          deductions: o.deductions,
+          daysWorked: o.days === 30 && useAttendance ? undefined : o.days,  // let attendance override if 30 default + useAttendance on
+          overtimeRatePerHour: o.otRate,
+        };
       });
-      // Use enhanced generator — auto-consumes pending allowances (loyalty cash bonuses etc.)
-      const { run, consumedAllowances } = await generatePayrollRunWithAllowances({
-        runCode, periodMonth, periodYear, workers: ws,
-      });
-      await reload();
-      setSelectedRun(run);
-      setTab("runs");
-      const s = await listPayslips(run.id);
-      setPayslips(s);
-      setSelectedWorkers(new Set());
-      if (consumedAllowances > 0) {
-        setSuccess(`Payroll generated — ${consumedAllowances} pending allowance(s) auto-consumed`);
+      if (useAttendance) {
+        // Use attendance-wired generator — auto-fetches daysWorked + OT from daily_attendance
+        const { run, consumedAllowances, attendanceSourced } = await generatePayrollRunWithAttendance({
+          runCode, periodMonth, periodYear, workers: ws,
+        });
+        await reload();
+        setSelectedRun(run);
+        setTab("runs");
+        const s = await listPayslips(run.id);
+        setPayslips(s);
+        setSelectedWorkers(new Set());
+        setAttendancePreview({});
+        const parts: string[] = [];
+        if (attendanceSourced > 0) parts.push(`${attendanceSourced} worker(s) days auto-sourced from attendance`);
+        if (consumedAllowances > 0) parts.push(`${consumedAllowances} pending allowance(s) auto-consumed`);
+        if (parts.length) setSuccess(`Payroll generated — ${parts.join(", ")}`);
+        else setSuccess("Payroll generated");
+      } else {
+        // Use standard enhanced generator (manual daysWorked, no attendance lookup)
+        const { run, consumedAllowances } = await generatePayrollRunWithAllowances({
+          runCode, periodMonth, periodYear,
+          workers: ws.map(w => ({ workerId: w.workerId, basicSalary: w.basicSalary, overtimePay: w.overtimePay, deductions: w.deductions, daysWorked: w.daysWorked })),
+        });
+        await reload();
+        setSelectedRun(run);
+        setTab("runs");
+        const s = await listPayslips(run.id);
+        setPayslips(s);
+        setSelectedWorkers(new Set());
+        setAttendancePreview({});
+        if (consumedAllowances > 0) setSuccess(`Payroll generated — ${consumedAllowances} pending allowance(s) auto-consumed`);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to generate payroll");
@@ -275,49 +341,100 @@ export default function Payroll() {
             </div>
           </div>
 
+          {/* Attendance wire toggle */}
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-sky-50 p-3">
+            <label className="flex items-center gap-2 text-xs font-semibold text-sky-800">
+              <input type="checkbox" checked={useAttendance} onChange={e => setUseAttendance(e.target.checked)} className="accent-sky-600" />
+              <Calendar className="h-3.5 w-3.5" />
+              Auto-fetch days worked + OT from Attendance module
+            </label>
+            {useAttendance && selectedWorkers.size > 0 && (
+              <button onClick={refreshAttendancePreview} disabled={busy}
+                className="rounded-lg bg-sky-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:brightness-110 disabled:opacity-50">
+                Refresh Attendance Preview
+              </button>
+            )}
+            {useAttendance && (
+              <span className="text-[10px] text-sky-600">
+                Days = present + (half_day × 0.5) from {periodYear}-{String(periodMonth).padStart(2, "0")}
+              </span>
+            )}
+          </div>
+
           <div className="mt-4">
-            <p className="mb-2 text-[11px] font-medium text-slate-400">Select workers &amp; enter salary components</p>
+            <p className="mb-2 text-[11px] font-medium text-slate-400">
+              Select workers &amp; enter salary components
+              {rosterWorkers.length > 0
+                ? ` (${rosterWorkers.length} active workers from HR)`
+                : ` (showing ${seedWorkers.length} seed workers — run the worker/attendance SQL migration + add workers in Labor module to see real data)`}
+            </p>
             <div className="space-y-2">
-              {seedWorkers.map(w => {
-                const selected = selectedWorkers.has(w.id);
-                const o = workerSalaryOverrides[w.id] ?? { basic: 45000, ot: 0, allowances: 0, deductions: 0, days: 30 };
+              {(rosterWorkers.length > 0 ? rosterWorkers : seedWorkers).map(w => {
+                const wid = w.id;
+                const selected = selectedWorkers.has(wid);
+                const o = workerSalaryOverrides[wid] ?? { basic: ("basicSalary" in w ? w.basicSalary : 45000) as number, ot: 0, allowances: 0, deductions: 0, days: 30, otRate: 250 };
+                const att = attendancePreview[wid];
                 return (
-                  <div key={w.id} className={`rounded-lg border p-2.5 transition ${selected ? "border-emerald-300 bg-emerald-50/50" : "border-slate-100"}`}>
+                  <div key={wid} className={`rounded-lg border p-2.5 transition ${selected ? "border-emerald-300 bg-emerald-50/50" : "border-slate-100"}`}>
                     <div className="flex items-center justify-between">
                       <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={selected} onChange={() => toggleWorker(w.id)} className="accent-emerald-600" />
+                        <input type="checkbox" checked={selected} onChange={() => toggleWorker(wid)} className="accent-emerald-600" />
                         <span className="text-sm font-semibold text-slate-800">{w.name}</span>
                         <Badge tone="slate">{w.role}</Badge>
+                        {("epfNumber" in w && w.epfNumber) && <span className="text-[10px] text-slate-400">EPF: {w.epfNumber}</span>}
                       </label>
                     </div>
                     {selected && (
-                      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
-                        <div>
-                          <label className="text-[10px] text-slate-400">Basic</label>
-                          <input type="number" value={o.basic} onChange={e => setWorkerSalaryOverrides({ ...workerSalaryOverrides, [w.id]: { ...o, basic: +e.target.value } })}
-                            className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs tnum" />
+                      <>
+                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-6">
+                          <div>
+                            <label className="text-[10px] text-slate-400">Basic</label>
+                            <input type="number" value={o.basic} onChange={e => setWorkerSalaryOverrides({ ...workerSalaryOverrides, [wid]: { ...o, basic: +e.target.value } })}
+                              className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs tnum" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-400">OT Pay (override)</label>
+                            <input type="number" value={o.ot} onChange={e => setWorkerSalaryOverrides({ ...workerSalaryOverrides, [wid]: { ...o, ot: +e.target.value } })}
+                              placeholder={att?.otPay ? `auto: ${att.otPay}` : "0"}
+                              className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs tnum" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-400">OT Rate/hr</label>
+                            <input type="number" value={o.otRate} onChange={e => setWorkerSalaryOverrides({ ...workerSalaryOverrides, [wid]: { ...o, otRate: +e.target.value } })}
+                              className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs tnum" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-400">Deductions</label>
+                            <input type="number" value={o.deductions} onChange={e => setWorkerSalaryOverrides({ ...workerSalaryOverrides, [wid]: { ...o, deductions: +e.target.value } })}
+                              className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs tnum" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-400">Days (override)</label>
+                            <input type="number" value={o.days} onChange={e => setWorkerSalaryOverrides({ ...workerSalaryOverrides, [wid]: { ...o, days: +e.target.value } })}
+                              placeholder={att?.days !== null && att?.days !== undefined ? `auto: ${att.days}` : "30"}
+                              className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs tnum" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-400">Allowances (auto)</label>
+                            <input type="number" value={o.allowances} disabled
+                              className="w-full rounded border border-slate-200 bg-slate-50 px-1.5 py-1 text-xs tnum text-slate-400" />
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-[10px] text-slate-400">OT</label>
-                          <input type="number" value={o.ot} onChange={e => setWorkerSalaryOverrides({ ...workerSalaryOverrides, [w.id]: { ...o, ot: +e.target.value } })}
-                            className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs tnum" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-slate-400">Allowances</label>
-                          <input type="number" value={o.allowances} onChange={e => setWorkerSalaryOverrides({ ...workerSalaryOverrides, [w.id]: { ...o, allowances: +e.target.value } })}
-                            className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs tnum" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-slate-400">Deductions</label>
-                          <input type="number" value={o.deductions} onChange={e => setWorkerSalaryOverrides({ ...workerSalaryOverrides, [w.id]: { ...o, deductions: +e.target.value } })}
-                            className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs tnum" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-slate-400">Days</label>
-                          <input type="number" value={o.days} onChange={e => setWorkerSalaryOverrides({ ...workerSalaryOverrides, [w.id]: { ...o, days: +e.target.value } })}
-                            className="w-full rounded border border-slate-200 px-1.5 py-1 text-xs tnum" />
-                        </div>
-                      </div>
+                        {/* Attendance preview row */}
+                        {useAttendance && att && (
+                          <div className="mt-1.5 flex flex-wrap gap-2 rounded bg-sky-50 px-2 py-1 text-[10px] text-sky-700">
+                            {att.days !== null ? (
+                              <>
+                                <span>📊 Attendance: <strong>{att.days} days</strong> worked</span>
+                                <span>⏱ OT: <strong>{att.otHours}h</strong> → Rs {att.otPay}</span>
+                                {att.kg > 0 && <span>🍃 Plucked: <strong>{att.kg} kg</strong></span>}
+                              </>
+                            ) : (
+                              <span className="text-amber-600">⚠ No attendance records for this period — will default to 30 days</span>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 );
@@ -328,7 +445,7 @@ export default function Payroll() {
           <button onClick={generate} disabled={busy || selectedWorkers.size === 0}
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition enabled:hover:brightness-110 disabled:opacity-50">
             {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
-            Generate Run for {selectedWorkers.size} worker(s)
+            Generate Run for {selectedWorkers.size} worker(s){useAttendance && " (with attendance + allowances auto-sourced)"}
           </button>
         </Card>
       )}

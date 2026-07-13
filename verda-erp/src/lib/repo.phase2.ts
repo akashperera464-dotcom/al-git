@@ -2647,3 +2647,133 @@ export async function attendanceSummary(workerId: string, month: number, year: n
     totalOvertime: records.reduce((s, r) => s + Number(r.overtime_hours ?? 0), 0),
   };
 }
+
+// ============================================================================
+// 10 · ATTENDANCE → PAYROLL WIRE
+// ============================================================================
+// When generating a payroll run, auto-fetch each worker's actual days worked
+// from the daily_attendance table for the payroll period (month/year).
+//
+// daysWorked = present + (half_day × 0.5)   [half day counts as 0.5]
+// overtimePay = totalOvertimeHours × overtimeRatePerHour (if provided)
+//
+// Admin can still override daysWorked per worker — the override takes priority.
+// ============================================================================
+
+export async function generatePayrollRunWithAttendance(input: {
+  runCode: string;
+  estateId?: string;
+  periodMonth: number;
+  periodYear: number;
+  workers: {
+    workerId: string;
+    basicSalary: number;
+    overtimePay?: number;           // manual override (if set, used instead of attendance-derived)
+    deductions?: number;
+    daysWorked?: number;            // manual override (if set, used instead of attendance-derived)
+    overtimeRatePerHour?: number;   // if set, OT computed from attendance OT hours × this rate
+  };
+}): Promise<{ run: PayrollRun; payslips: Payslip[]; consumedAllowances: number; attendanceSourced: number }> {
+  // 1) For each worker, fetch attendance summary for the payroll period
+  const workersWithAttendance = await Promise.all(input.workers.map(async w => {
+    let attDays: number | undefined;
+    let attOvertimeHours = 0;
+    let attKgPlucked = 0;
+    try {
+      const summary = await attendanceSummary(w.workerId, input.periodMonth, input.periodYear);
+      // present counts as 1, half_day counts as 0.5
+      attDays = summary.present + (summary.halfDay * 0.5);
+      attOvertimeHours = summary.totalOvertime;
+      attKgPlucked = summary.totalKg;
+    } catch {
+      // attendance not found → fall back to override or default 30
+    }
+
+    // Priority: manual override > attendance-derived > default 30
+    const finalDaysWorked = w.daysWorked ?? attDays ?? 30;
+
+    // Overtime pay: manual override > attendance-derived (OT hours × rate) > 0
+    let finalOvertimePay = w.overtimePay ?? 0;
+    if (w.overtimePay === undefined && attOvertimeHours > 0 && w.overtimeRatePerHour) {
+      finalOvertimePay = +(attOvertimeHours * w.overtimeRatePerHour).toFixed(2);
+    }
+
+    return {
+      workerId: w.workerId,
+      basicSalary: w.basicSalary,
+      overtimePay: finalOvertimePay,
+      deductions: w.deductions ?? 0,
+      daysWorked: finalDaysWorked,
+      _attendanceSourced: attDays !== undefined,
+      _attOvertimeHours: attOvertimeHours,
+      _attKgPlucked: attKgPlucked,
+    };
+  }));
+
+  const attendanceSourcedCount = workersWithAttendance.filter(w => w._attendanceSourced).length;
+
+  // 2) Call the enhanced generator (with allowances) using attendance-derived values
+  const { run, payslips, consumedAllowances } = await generatePayrollRunWithAllowances({
+    runCode: input.runCode,
+    estateId: input.estateId,
+    periodMonth: input.periodMonth,
+    periodYear: input.periodYear,
+    workers: workersWithAttendance.map(w => ({
+      workerId: w.workerId,
+      basicSalary: w.basicSalary,
+      overtimePay: w.overtimePay,
+      deductions: w.deductions,
+      daysWorked: w.daysWorked,
+    })),
+  });
+
+  return { run, payslips, consumedAllowances, attendanceSourced: attendanceSourcedCount };
+}
+
+/**
+ * Preview — fetch attendance-derived days + OT for a worker before generating
+ * the payroll run. Used by the UI to show the admin what the attendance system
+ * recorded before they confirm.
+ */
+export async function previewAttendanceForPayroll(input: {
+  workerId: string;
+  periodMonth: number;
+  periodYear: number;
+  overtimeRatePerHour?: number;
+}): Promise<{
+  daysWorked: number | null;        // null = no attendance records found
+  overtimeHours: number;
+  overtimePay: number;
+  kgPlucked: number;
+  present: number;
+  halfDay: number;
+  absent: number;
+  leave: number;
+}> {
+  try {
+    const s = await attendanceSummary(input.workerId, input.periodMonth, input.periodYear);
+    const days = s.present + (s.halfDay * 0.5);
+    const otPay = input.overtimeRatePerHour ? +(s.totalOvertime * input.overtimeRatePerHour).toFixed(2) : 0;
+    return {
+      daysWorked: days,
+      overtimeHours: s.totalOvertime,
+      overtimePay: otPay,
+      kgPlucked: s.totalKg,
+      present: s.present,
+      halfDay: s.halfDay,
+      absent: s.absent,
+      leave: s.leave,
+    };
+  } catch {
+    return {
+      daysWorked: null,
+      overtimeHours: 0,
+      overtimePay: 0,
+      kgPlucked: 0,
+      present: 0,
+      halfDay: 0,
+      absent: 0,
+      leave: 0,
+    };
+  }
+}
