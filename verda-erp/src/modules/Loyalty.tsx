@@ -6,6 +6,7 @@ import {
   listLoyaltyMembers, createLoyaltyMember, awardPoints,
   listPointsLedger, listLoyaltyRewards, createLoyaltyReward, toggleRewardActive,
   listRedemptions, redeemReward, decideRedemption,
+  decideRedemptionWithPayrollWire,
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
 import {
@@ -179,11 +180,37 @@ export default function Loyalty() {
   const decideRedemptionAction = async (r: LoyaltyRedemption, decision: "approved" | "rejected" | "fulfilled" | "cancelled") => {
     setBusy(true);
     try {
-      const res = await decideRedemption({
-        redemptionId: r.id, decision, approverUid: userUid, expectedVersion: r.version,
-      });
-      if (res.resolution === "conflict") {
-        setError("Conflict — another admin already acted. Refreshed.");
+      // For cash-category redemptions being approved, use the payroll-wired version
+      // which auto-creates a payroll_allowance for the worker
+      const reward = rewards.find(rw => rw.id === r.rewardId);
+      const member = members.find(m => m.id === r.memberId);
+      const isCashRedemption = reward?.category === "cash" && decision === "approved";
+
+      if (isCashRedemption && member) {
+        // Find the worker in seedWorkers by name (mock) — in production, member.workerId links directly
+        const res = await decideRedemptionWithPayrollWire({
+          redemptionId: r.id,
+          decision,
+          approverUid: userUid,
+          notes: r.notes,
+          expectedVersion: r.version,
+          workerId: member.workerId ?? member.id, // fallback to member.id for mock
+          workerName: member.workerName,
+          cashValue: reward?.cashValue ?? 0,
+        });
+        if (!res.ok) {
+          setError(res.error ?? "Failed to approve with payroll link");
+        } else {
+          setSuccess(`Cash bonus redemption approved — Rs ${reward?.cashValue.toLocaleString()} will auto-flow into ${member.workerName}'s next payroll`);
+        }
+      } else {
+        // Non-cash redemptions: use the standard decide function
+        const res = await decideRedemption({
+          redemptionId: r.id, decision, approverUid: userUid, expectedVersion: r.version,
+        });
+        if (res.resolution === "conflict") {
+          setError("Conflict — another admin already acted. Refreshed.");
+        }
       }
       await reload();
     } catch (e) {

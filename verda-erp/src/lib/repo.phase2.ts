@@ -1558,3 +1558,645 @@ export async function decideRedemption(input: {
   }
   return { resolution: "updated", updated: redemption };
 }
+
+// ============================================================================
+// 8 · INTEGRATION WIRES — auto-posting between modules
+// ============================================================================
+// Each wire connects two modules. When a transaction happens in module A,
+// a journal entry is automatically created in Finance (the source of truth).
+//
+// Wires implemented:
+//   8.1  Payroll → Finance      (on approve: Wages/EPF/ETF/Cash journal)
+//   8.2  Supplier Invoice → Finance (on pay: Green Leaf Cost / Cash journal)
+//   8.3  Inventory GRN → Finance   (on receive: Inventory-Raw / AP journal)
+//   8.4  Inventory Issue → Finance (on issue: COGS / Inventory-Raw journal)
+//   8.5  Factory → Sales Invoice   (on dispatch: create sales invoice from batch)
+//   8.6  Loyalty Cash → Payroll    (on approve redemption: create payroll_allowance)
+// ============================================================================
+
+import type { SalesInvoice, PayrollAllowance, AllowanceSource } from "./data";
+import { GL_CODES } from "./data";
+
+const mockSalesInvoices: SalesInvoice[] = [];
+const mockAllowances: PayrollAllowance[] = [];
+
+// Cache of GL account IDs (loaded lazily)
+let glAccountCache: Record<string, { id: string; name: string }> | null = null;
+
+async function getGlAccountId(code: string): Promise<{ id: string; name: string }> {
+  if (!supabaseConfigured) {
+    // mock — derive ID from code
+    return { id: `gl-${code}`, name: code };
+  }
+  if (!glAccountCache) {
+    const accounts = await listGlAccounts();
+    glAccountCache = {};
+    for (const a of accounts) glAccountCache[a.code] = { id: a.id, name: a.name };
+  }
+  const found = glAccountCache[code];
+  if (!found) throw new Error(`GL account code ${code} not found in chart of accounts`);
+  return found;
+}
+
+/**
+ * Helper: create a balanced journal entry with auto-generated entry_no and
+ * immediately POST it (so it appears in trial balance).
+ */
+async function autoPostJournal(input: {
+  description: string;
+  reference?: string;
+  lines: { code: string; debit?: number; credit?: number }[];
+}): Promise<string> {
+  // Resolve account codes to IDs
+  const linesWithIds = await Promise.all(input.lines.map(async l => {
+    const acc = await getGlAccountId(l.code);
+    return {
+      accountId: acc.id,
+      debit: l.debit ?? 0,
+      credit: l.credit ?? 0,
+      description: `${acc.name} (${l.code})`,
+    };
+  }));
+  const entryNo = `AUTO-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 10000).toString().padStart(4, "0")}`;
+  const entry = await createJournalEntry({
+    entryNo,
+    entryDate: new Date().toISOString().slice(0, 10),
+    description: input.description,
+    reference: input.reference,
+    lines: linesWithIds,
+  });
+  // Auto-post it
+  await postJournalEntry(entry.id, entry.version, "system-auto-post");
+  return entry.id;
+}
+
+// ----------------------------------------------------------------------------
+// 8.1 · Payroll → Finance
+// ----------------------------------------------------------------------------
+// When a payroll run is approved, auto-create a journal entry:
+//   Dr  Wages & Salaries (5010)          totalGross
+//   Dr  EPF Expense - Employer (5020)    totalEmployerEpf
+//   Dr  ETF Expense - Employer (5030)    totalEtf
+//   Cr  EPF Payable (2100)               totalEpf + totalEmployerEpf
+//   Cr  ETF Payable (2110)               totalEtf
+//   Cr  Cash on Hand (1000)              totalNet
+// ----------------------------------------------------------------------------
+
+export async function approvePayrollRunWithJournal(input: {
+  runId: string;
+  expectedVersion: number;
+  approvedBy: string;
+}): Promise<{ ok: boolean; journalId?: string; error?: string }> {
+  try {
+    // 1) Approve the run
+    const res = await approvePayrollRun(input.runId, input.expectedVersion, input.approvedBy);
+    if (res.resolution === "conflict") return { ok: false, error: "Conflict — another user modified this run. Refreshed." };
+    if (res.resolution === "not_found") return { ok: false, error: "Payroll run not found." };
+    const run = res.updated!;
+
+    // 2) Auto-post journal entry
+    const journalId = await autoPostJournal({
+      description: `Payroll — ${run.runCode} (${run.periodYear}-${String(run.periodMonth).padStart(2, "0")})`,
+      reference: run.runCode,
+      lines: [
+        { code: GL_CODES.WAGES,         debit: run.totalGross },
+        { code: GL_CODES.EPF_EXPENSE,   debit: run.totalEmployerEpf },
+        { code: GL_CODES.ETF_EXPENSE,   debit: run.totalEtf },
+        { code: GL_CODES.EPF_PAYABLE,   credit: run.totalEpf + run.totalEmployerEpf },
+        { code: GL_CODES.ETF_PAYABLE,   credit: run.totalEtf },
+        { code: GL_CODES.CASH,          credit: run.totalNet },
+      ],
+    });
+
+    // 3) Link journal_id back to payroll run
+    if (supabaseConfigured) {
+      const sb = getSupabase()!;
+      await sb.from("payroll_runs").update({ journal_id: journalId }).eq("id", run.id);
+    }
+
+    return { ok: true, journalId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to approve payroll with journal" };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 8.2 · Supplier Invoice → Finance
+// ----------------------------------------------------------------------------
+// When a supplier invoice is paid, auto-create a journal entry:
+//   Dr  Green Leaf Cost (5000)           netAmount
+//   Cr  Cash on Hand (1000)              paidAmount
+//   Cr  Accounts Payable (2000)          (netAmount - paidAmount) [if partial]
+// ----------------------------------------------------------------------------
+
+export async function paySupplierInvoiceWithJournal(input: {
+  invoiceId: string;
+  amount: number;
+  expectedVersion: number;
+}): Promise<{ ok: boolean; journalId?: string; error?: string }> {
+  try {
+    // 1) Pay the invoice
+    const res = await paySupplierInvoice(input.invoiceId, input.amount, input.expectedVersion);
+    if (res.resolution === "conflict") return { ok: false, error: "Conflict — another user modified this invoice. Refreshed." };
+    if (res.resolution === "not_found") return { ok: false, error: "Invoice not found." };
+    const inv = res.updated!;
+
+    // 2) Auto-post journal entry
+    const journalId = await autoPostJournal({
+      description: `Supplier payment — ${inv.invoiceNo}`,
+      reference: inv.invoiceNo,
+      lines: [
+        { code: GL_CODES.GREEN_LEAF_COST, debit: inv.netAmount },
+        { code: GL_CODES.CASH,            credit: input.amount },
+        ...(inv.netAmount - input.amount > 0.01
+          ? [{ code: GL_CODES.AP, credit: inv.netAmount - input.amount }]
+          : []),
+      ],
+    });
+
+    // 3) Link journal_id back to invoice
+    if (supabaseConfigured) {
+      const sb = getSupabase()!;
+      await sb.from("supplier_invoices").update({ journal_id: journalId }).eq("id", inv.id);
+    }
+
+    return { ok: true, journalId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to pay invoice with journal" };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 8.3 · Inventory GRN → Finance
+// ----------------------------------------------------------------------------
+// When goods are received (GRN), auto-create a journal entry:
+//   Dr  Inventory - Raw (1200)           totalValue
+//   Cr  Accounts Payable (2000)          totalValue
+// ----------------------------------------------------------------------------
+
+export async function receiveGoodsWithJournal(input: {
+  grnCode: string;
+  poId?: string;
+  receivedBy: string;
+  supplierInvoiceNo?: string;
+  notes?: string;
+  receipts: { stockItemId: string; poLineId?: string; qtyReceived: number; unitCost: number }[];
+}): Promise<{ ok: boolean; grnId?: string; journalId?: string; error?: string }> {
+  try {
+    // 1) Receive goods (existing function — updates stock, creates GRN + movements)
+    const { grn, updatedStock } = await receiveGoods(input);
+
+    // 2) Compute total value
+    const totalValue = input.receipts.reduce((s, r) => s + r.qtyReceived * r.unitCost, 0);
+
+    // 3) Auto-post journal entry
+    const journalId = await autoPostJournal({
+      description: `GRN — ${grn.grnCode} (${input.supplierInvoiceNo ?? "no supplier invoice"})`,
+      reference: grn.grnCode,
+      lines: [
+        { code: GL_CODES.INVENTORY_RAW, debit: totalValue },
+        { code: GL_CODES.AP,            credit: totalValue },
+      ],
+    });
+
+    // 4) Link journal_id to all stock_movements created by this GRN
+    if (supabaseConfigured) {
+      const sb = getSupabase()!;
+      await sb.from("stock_movements")
+        .update({ journal_id: journalId })
+        .eq("reference_type", "grn")
+        .eq("reference_id", grn.id);
+    }
+
+    return { ok: true, grnId: grn.id, journalId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to receive goods with journal" };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 8.4 · Inventory Issue → Finance
+// ----------------------------------------------------------------------------
+// When stock is issued out, auto-create a journal entry:
+//   Dr  Fertilizer & Chemicals (5050)  [or appropriate expense based on category]
+//   Cr  Inventory - Raw (1200)          qty × unitCost
+// ----------------------------------------------------------------------------
+
+export async function issueStockWithJournal(input: {
+  stockItemId: string;
+  qty: number;
+  performedBy: string;
+  referenceType?: string;
+  referenceId?: string;
+  notes?: string;
+}): Promise<{ ok: boolean; journalId?: string; error?: string }> {
+  try {
+    // 1) Issue the stock (existing function)
+    const updated = await issueStock(input);
+    if (!updated) return { ok: false, error: "Stock item not found" };
+
+    // 2) Determine expense account based on category
+    const expenseCode =
+      updated.category === "fertilizer" || updated.category === "agrochemical"
+        ? GL_CODES.FERTILIZER_CHEMICALS
+        : updated.category === "fuel"
+        ? GL_CODES.FACTORY_FUEL
+        : GL_CODES.REPAIRS; // equipment/other
+
+    const totalValue = input.qty * updated.unitCost;
+
+    // 3) Auto-post journal entry
+    const journalId = await autoPostJournal({
+      description: `Stock issue — ${updated.code} (${input.qty} ${updated.unit})`,
+      reference: input.notes,
+      lines: [
+        { code: expenseCode,           debit: totalValue },
+        { code: GL_CODES.INVENTORY_RAW, credit: totalValue },
+      ],
+    });
+
+    // 4) Link journal_id to the stock_movement
+    if (supabaseConfigured) {
+      const sb = getSupabase()!;
+      await sb.from("stock_movements")
+        .update({ journal_id: journalId })
+        .eq("stock_item_id", updated.id)
+        .eq("move_type", "out")
+        .is("journal_id", null)
+        .order("performed_at", { ascending: false })
+        .limit(1);
+    }
+
+    return { ok: true, journalId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to issue stock with journal" };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 8.5 · Factory → Sales Invoice
+// ----------------------------------------------------------------------------
+// When a factory batch reaches "dispatched" status, allow creating a sales
+// invoice from it. The invoice uses the batch's output_kg as qty, and the
+// admin enters buyer + price_per_kg + commission_pct.
+//
+// On creation:
+//   - Sales invoice row created (status = unpaid)
+//   - factory_batches.sales_invoice_id linked
+//   - NO journal entry yet (created on payment — see 8.5b)
+// ----------------------------------------------------------------------------
+
+export async function listSalesInvoices(): Promise<SalesInvoice[]> {
+  if (!supabaseConfigured) return [...mockSalesInvoices];
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("sales_invoices").select("*").order("invoice_date", { ascending: false });
+  if (error) throw new Error(`listSalesInvoices: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    invoiceNo: r.invoice_no as string,
+    batchId: r.batch_id as string | undefined,
+    buyerName: r.buyer_name as string,
+    invoiceDate: r.invoice_date as string,
+    dueDate: r.due_date as string | undefined,
+    gradeCode: r.grade_code as string | undefined,
+    gradeName: r.grade_name as string | undefined,
+    qtyKg: Number(r.qty_kg ?? 0),
+    pricePerKg: Number(r.price_per_kg ?? 0),
+    grossAmount: Number(r.gross_amount ?? 0),
+    commissionPct: Number(r.commission_pct ?? 0),
+    commissionAmt: Number(r.commission_amt ?? 0),
+    netAmount: Number(r.net_amount ?? 0),
+    status: r.status as "unpaid" | "partial" | "paid",
+    paidAmount: Number(r.paid_amount ?? 0),
+    journalId: r.journal_id as string | undefined,
+    version: Number(r.version ?? 1),
+    createdAt: r.created_at as string,
+  }));
+}
+
+export async function createSalesInvoiceFromBatch(input: {
+  batchId: string;
+  buyerName: string;
+  pricePerKg: number;
+  commissionPct?: number;
+  dueDate?: string;
+}): Promise<{ ok: boolean; invoice?: SalesInvoice; error?: string }> {
+  try {
+    // 1) Fetch the batch to get output_kg + grade
+    const batches = await listFactoryBatches();
+    const batch = batches.find(b => b.id === input.batchId);
+    if (!batch) return { ok: false, error: "Batch not found" };
+    if (batch.status !== "completed") return { ok: false, error: "Batch must be dispatched (completed) before invoicing" };
+    if (batch.outputKg <= 0) return { ok: false, error: "Batch has no output kg to sell" };
+
+    const qtyKg = batch.outputKg;
+    const grossAmount = +(qtyKg * input.pricePerKg).toFixed(2);
+    const commissionPct = input.commissionPct ?? 0;
+    const commissionAmt = +(grossAmount * commissionPct / 100).toFixed(2);
+    const netAmount = +(grossAmount - commissionAmt).toFixed(2);
+    const invoiceNo = `SI-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
+
+    if (!supabaseConfigured) {
+      const inv: SalesInvoice = {
+        id: uid(), invoiceNo, batchId: input.batchId, buyerName: input.buyerName,
+        invoiceDate: new Date().toISOString().slice(0, 10), dueDate: input.dueDate,
+        gradeCode: batch.gradeCode, gradeName: batch.gradeName,
+        qtyKg, pricePerKg: input.pricePerKg, grossAmount,
+        commissionPct, commissionAmt, netAmount,
+        status: "unpaid", paidAmount: 0, version: 1, createdAt: now(),
+      };
+      mockSalesInvoices.unshift(inv);
+      return { ok: true, invoice: inv };
+    }
+
+    const sb = getSupabase()!;
+    const { data, error } = await sb.from("sales_invoices").insert({
+      invoice_no: invoiceNo, batch_id: input.batchId, buyer_name: input.buyerName,
+      invoice_date: new Date().toISOString().slice(0, 10), due_date: input.dueDate,
+      grade_code: batch.gradeCode, grade_name: batch.gradeName,
+      qty_kg: qtyKg, price_per_kg: input.pricePerKg,
+      gross_amount: grossAmount, commission_pct: commissionPct,
+      commission_amt: commissionAmt, net_amount: netAmount,
+      status: "unpaid",
+    }).select().single();
+    if (error) throw new Error(`createSalesInvoice: ${error.message}`);
+
+    // Link invoice back to batch
+    await sb.from("factory_batches").update({ sales_invoice_id: data.id }).eq("id", input.batchId);
+
+    const invoice: SalesInvoice = {
+      id: data.id, invoiceNo: data.invoice_no, batchId: data.batch_id,
+      buyerName: data.buyer_name, invoiceDate: data.invoice_date,
+      dueDate: data.due_date, gradeCode: data.grade_code, gradeName: data.grade_name,
+      qtyKg: Number(data.qty_kg), pricePerKg: Number(data.price_per_kg),
+      grossAmount: Number(data.gross_amount), commissionPct: Number(data.commission_pct),
+      commissionAmt: Number(data.commission_amt), netAmount: Number(data.net_amount),
+      status: data.status, paidAmount: Number(data.paid_amount),
+      journalId: data.journal_id, version: 1, createdAt: data.created_at,
+    };
+    return { ok: true, invoice };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to create sales invoice" };
+  }
+}
+
+/**
+ * 8.5b — When a sales invoice is paid, auto-create journal entry:
+ *   Dr  Cash on Hand (1000)              paidAmount
+ *   Dr  Accounts Receivable (1100)       (netAmount - paidAmount) [if partial]
+ *   Cr  Tea Sales Revenue (4000)         netAmount
+ *   Cr  Accounts Payable (2000)          commissionAmt [broker commission owed]
+ */
+export async function paySalesInvoiceWithJournal(input: {
+  invoiceId: string;
+  amount: number;
+  expectedVersion: number;
+}): Promise<{ ok: boolean; journalId?: string; error?: string }> {
+  try {
+    if (!supabaseConfigured) {
+      const idx = mockSalesInvoices.findIndex(i => i.id === input.invoiceId);
+      if (idx === -1) return { ok: false, error: "Invoice not found" };
+      const inv = mockSalesInvoices[idx];
+      if (inv.version !== input.expectedVersion) return { ok: false, error: "Conflict" };
+      inv.paidAmount += input.amount;
+      inv.status = inv.paidAmount >= inv.netAmount ? "paid" : "partial";
+      inv.version += 1;
+      // mock journal
+      const journalId = `je-mock-${uid()}`;
+      return { ok: true, journalId };
+    }
+    const sb = getSupabase()!;
+    // Fetch current
+    const { data: cur } = await sb.from("sales_invoices").select("*").eq("id", input.invoiceId).single();
+    if (!cur) return { ok: false, error: "Invoice not found" };
+    if (Number(cur.version) !== input.expectedVersion) return { ok: false, error: "Conflict" };
+    const newPaid = Number(cur.paid_amount) + input.amount;
+    const newStatus = newPaid >= Number(cur.net_amount) ? "paid" : "partial";
+    const { data: updated, error: updErr } = await sb.from("sales_invoices")
+      .update({ paid_amount: newPaid, status: newStatus })
+      .eq("id", input.invoiceId).eq("version", input.expectedVersion).select().single();
+    if (updErr || !updated) return { ok: false, error: updErr?.message ?? "Conflict" };
+
+    const netAmount = Number(cur.net_amount);
+    const commissionAmt = Number(cur.commission_amt);
+
+    // Auto-post journal
+    const journalId = await autoPostJournal({
+      description: `Sales payment — ${cur.invoice_no} (${cur.buyer_name})`,
+      reference: cur.invoice_no as string,
+      lines: [
+        { code: GL_CODES.CASH,   debit: input.amount },
+        ...(netAmount - input.amount > 0.01
+          ? [{ code: GL_CODES.AR, debit: netAmount - input.amount }]
+          : []),
+        { code: GL_CODES.TEA_SALES,  credit: netAmount },
+        ...(commissionAmt > 0.01
+          ? [{ code: GL_CODES.AP, credit: commissionAmt }]
+          : []),
+      ],
+    });
+
+    // Link journal_id
+    await sb.from("sales_invoices").update({ journal_id: journalId }).eq("id", input.invoiceId);
+    return { ok: true, journalId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to pay sales invoice" };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 8.6 · Loyalty Cash Bonus → Payroll
+// ----------------------------------------------------------------------------
+// When a loyalty redemption with category="cash" is APPROVED, automatically
+// create a payroll_allowance row that will be consumed by the next payroll
+// run for that worker.
+//
+// The allowance is "consumed" when generatePayrollRun() picks it up — see
+// the enhanced generatePayrollRunWithAllowances() below.
+// ----------------------------------------------------------------------------
+
+export async function listPayrollAllowances(workerId?: string, unconsumedOnly = false): Promise<PayrollAllowance[]> {
+  if (!supabaseConfigured) {
+    let list = workerId ? mockAllowances.filter(a => a.workerId === workerId) : mockAllowances;
+    if (unconsumedOnly) list = list.filter(a => !a.consumedByRun);
+    return list;
+  }
+  const sb = getSupabase()!;
+  let q = sb.from("payroll_allowances").select("*").order("created_at", { ascending: false });
+  if (workerId) q = q.eq("worker_id", workerId);
+  if (unconsumedOnly) q = q.is("consumed_by_run", null);
+  const { data, error } = await q;
+  if (error) throw new Error(`listPayrollAllowances: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    workerId: r.worker_id as string,
+    workerName: r.worker_name as string | undefined,
+    sourceType: r.source_type as AllowanceSource,
+    sourceId: r.source_id as string | undefined,
+    description: r.description as string,
+    amount: Number(r.amount ?? 0),
+    periodMonth: r.period_month as number | undefined,
+    periodYear: r.period_year as number | undefined,
+    consumedByRun: r.consumed_by_run as string | undefined,
+    consumedAt: r.consumed_at as string | undefined,
+    createdAt: r.created_at as string,
+  }));
+}
+
+/**
+ * Create a payroll allowance (used by loyalty cash-redemption wire + manual
+ * admin bonus entry).
+ */
+export async function createPayrollAllowance(input: {
+  workerId: string;
+  workerName?: string;
+  sourceType: AllowanceSource;
+  sourceId?: string;
+  description: string;
+  amount: number;
+  periodMonth?: number;
+  periodYear?: number;
+}): Promise<PayrollAllowance> {
+  if (!supabaseConfigured) {
+    const a: PayrollAllowance = {
+      id: uid(), workerId: input.workerId, workerName: input.workerName,
+      sourceType: input.sourceType, sourceId: input.sourceId,
+      description: input.description, amount: input.amount,
+      periodMonth: input.periodMonth, periodYear: input.periodYear,
+      createdAt: now(),
+    };
+    mockAllowances.unshift(a);
+    return a;
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("payroll_allowances").insert({
+    worker_id: input.workerId, worker_name: input.workerName,
+    source_type: input.sourceType, source_id: input.sourceId,
+    description: input.description, amount: input.amount,
+    period_month: input.periodMonth, period_year: input.periodYear,
+  }).select().single();
+  if (error) throw new Error(`createPayrollAllowance: ${error.message}`);
+  return {
+    id: data.id, workerId: data.worker_id, workerName: data.worker_name,
+    sourceType: data.source_type, sourceId: data.source_id,
+    description: data.description, amount: Number(data.amount),
+    periodMonth: data.period_month, periodYear: data.period_year,
+    consumedByRun: data.consumed_by_run, consumedAt: data.consumed_at,
+    createdAt: data.created_at,
+  };
+}
+
+/**
+ * Enhanced decideRedemption — when a "cash" category redemption is approved,
+ * auto-create a payroll_allowance + link it back to the redemption.
+ *
+ * Use this INSTEAD of decideRedemption() when you want the loyalty→payroll wire.
+ */
+export async function decideRedemptionWithPayrollWire(input: {
+  redemptionId: string;
+  decision: "approved" | "rejected" | "fulfilled" | "cancelled";
+  approverUid: string;
+  notes?: string;
+  expectedVersion: number;
+  // For cash-category redemptions being approved:
+  workerId?: string;       // worker to receive the cash bonus
+  workerName?: string;
+  cashValue?: number;      // from the redemption's reward
+}): Promise<{ ok: boolean; allowanceId?: string; error?: string }> {
+  try {
+    // 1) Decide the redemption (existing function)
+    const res = await decideRedemption({
+      redemptionId: input.redemptionId,
+      decision: input.decision,
+      approverUid: input.approverUid,
+      notes: input.notes,
+      expectedVersion: input.expectedVersion,
+    });
+    if (res.resolution !== "updated") {
+      return { ok: false, error: res.resolution === "conflict" ? "Conflict — refresh" : "Redemption not found" };
+    }
+
+    // 2) If approved + has cash value → create payroll allowance
+    if (input.decision === "approved" && input.cashValue && input.cashValue > 0 && input.workerId) {
+      const allowance = await createPayrollAllowance({
+        workerId: input.workerId,
+        workerName: input.workerName,
+        sourceType: "loyalty_redemption",
+        sourceId: input.redemptionId,
+        description: `Loyalty cash bonus — redemption ${res.updated!.redemptionCode}`,
+        amount: input.cashValue,
+      });
+
+      // Link allowance back to redemption
+      if (supabaseConfigured) {
+        const sb = getSupabase()!;
+        await sb.from("loyalty_redemptions").update({ payroll_allowance_id: allowance.id }).eq("id", input.redemptionId);
+      }
+      return { ok: true, allowanceId: allowance.id };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed" };
+  }
+}
+
+/**
+ * Enhanced generatePayrollRun — automatically consumes unconsumed payroll_allowances
+ * for each selected worker, adding them to the allowances column of the payslip.
+ *
+ * Use this INSTEAD of generatePayrollRun() when you want loyalty/manual bonuses
+ * to flow into payroll.
+ */
+export async function generatePayrollRunWithAllowances(input: {
+  runCode: string;
+  estateId?: string;
+  periodMonth: number;
+  periodYear: number;
+  workers: { workerId: string; basicSalary: number; overtimePay?: number; deductions?: number; daysWorked?: number }[];
+}): Promise<{ run: PayrollRun; payslips: Payslip[]; consumedAllowances: number }> {
+  // 1) For each worker, fetch unconsumed allowances
+  let totalConsumed = 0;
+  const workersWithAllowances = await Promise.all(input.workers.map(async w => {
+    const allowances = await listPayrollAllowances(w.workerId, true);
+    const allowanceTotal = allowances.reduce((s, a) => s + a.amount, 0);
+    return { ...w, allowances, allowanceTotal };
+  }));
+
+  // 2) Call the original generatePayrollRun with allowances added
+  const { run, payslips } = await generatePayrollRun({
+    runCode: input.runCode,
+    estateId: input.estateId,
+    periodMonth: input.periodMonth,
+    periodYear: input.periodYear,
+    workers: workersWithAllowances.map(w => ({
+      workerId: w.workerId,
+      basicSalary: w.basicSalary,
+      overtimePay: w.overtimePay ?? 0,
+      allowances: w.allowanceTotal, // <-- loyalty/manual bonuses flow in here
+      deductions: w.deductions ?? 0,
+      daysWorked: w.daysWorked ?? 30,
+    })),
+  });
+
+  // 3) Mark all consumed allowances with the run ID
+  for (const w of workersWithAllowances) {
+    for (const a of w.allowances) {
+      totalConsumed++;
+      if (supabaseConfigured) {
+        const sb = getSupabase()!;
+        await sb.from("payroll_allowances").update({
+          consumed_by_run: run.id,
+          consumed_at: now(),
+        }).eq("id", a.id);
+      } else {
+        const idx = mockAllowances.findIndex(x => x.id === a.id);
+        if (idx !== -1) {
+          mockAllowances[idx].consumedByRun = run.id;
+          mockAllowances[idx].consumedAt = now();
+        }
+      }
+    }
+  }
+
+  return { run, payslips, consumedAllowances: totalConsumed };
+}

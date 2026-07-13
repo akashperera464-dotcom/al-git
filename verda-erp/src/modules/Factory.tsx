@@ -5,9 +5,10 @@ import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtNum } from "@/lib/data";
 import {
   listFactoryBatches, createFactoryBatch, advanceBatchStage, listStageLogs,
+  createSalesInvoiceFromBatch, listSalesInvoices,
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
-import type { FactoryBatch, FactoryStageLog, FactoryStage, BatchStatus } from "@/lib/data";
+import type { FactoryBatch, FactoryStageLog, FactoryStage, BatchStatus, SalesInvoice } from "@/lib/data";
 
 const STAGE_ORDER: FactoryStage[] = ["withering", "rolling", "fermentation", "drying", "sorting", "packing", "dispatched"];
 const STAGE_LABEL: Record<FactoryStage, string> = {
@@ -32,6 +33,7 @@ export default function Factory() {
   const [logs, setLogs] = useState<Record<string, FactoryStageLog[]>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [tab, setTab] = useState<"active" | "create">("active");
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -45,6 +47,11 @@ export default function Factory() {
   const [advancingBatch, setAdvancingBatch] = useState<FactoryBatch | null>(null);
   const [advanceForm, setAdvanceForm] = useState({ toStage: "rolling" as FactoryStage, outputKg: 0, moisturePct: 0, temperatureC: 0, humidityPct: 0, gradeCode: "", gradeName: "", notes: "" });
 
+  // Sales invoice form state
+  const [salesBatch, setSalesBatch] = useState<FactoryBatch | null>(null);
+  const [salesForm, setSalesForm] = useState({ buyerName: "", pricePerKg: 0, commissionPct: 0, dueDate: "" });
+  const [salesInvoices, setSalesInvoices] = useState<SalesInvoice[]>([]);
+
   const reload = async () => {
     setBusy(true);
     try {
@@ -56,6 +63,8 @@ export default function Factory() {
         logMap[b.id] = await listStageLogs(b.id);
       }
       setLogs(logMap);
+      // Load sales invoices
+      setSalesInvoices(await listSalesInvoices());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load batches");
     } finally {
@@ -83,6 +92,35 @@ export default function Factory() {
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create batch");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createSalesInvoice = async () => {
+    if (!salesBatch) return;
+    setError(null);
+    if (!salesForm.buyerName.trim()) { setError("Buyer name required"); return; }
+    if (salesForm.pricePerKg <= 0) { setError("Price per kg must be > 0"); return; }
+    setBusy(true);
+    try {
+      const res = await createSalesInvoiceFromBatch({
+        batchId: salesBatch.id,
+        buyerName: salesForm.buyerName.trim(),
+        pricePerKg: salesForm.pricePerKg,
+        commissionPct: salesForm.commissionPct,
+        dueDate: salesForm.dueDate || undefined,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Failed to create sales invoice");
+      } else {
+        setSuccess(`Sales invoice ${res.invoice?.invoiceNo} created — ${res.invoice?.qtyKg} kg × Rs ${res.invoice?.pricePerKg}/kg = Rs ${res.invoice?.grossAmount.toLocaleString()} gross`);
+        setSalesBatch(null);
+        setSalesForm({ buyerName: "", pricePerKg: 0, commissionPct: 0, dueDate: "" });
+        await reload();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setBusy(false);
     }
@@ -146,6 +184,7 @@ export default function Factory() {
       />
 
       {error && <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>}
+      {success && <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{success}</div>}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard icon={FactoryIcon} label="Active Batches" value={String(activeBatches.length)} tone="amber" />
@@ -203,6 +242,16 @@ export default function Factory() {
                           Advance to {STAGE_LABEL[nextStage]} <ArrowRight className="h-3 w-3" />
                         </button>
                       )}
+                      {b.status === "completed" && !salesInvoices.some(si => si.batchId === b.id) && (
+                        <button onClick={() => { setSalesBatch(b); setSalesForm({ buyerName: "", pricePerKg: 0, commissionPct: 0, dueDate: "" }); }}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110">
+                          <Package className="h-3 w-3" /> Create Sales Invoice
+                        </button>
+                      )}
+                      {b.status === "completed" && salesInvoices.some(si => si.batchId === b.id) && (() => {
+                        const si = salesInvoices.find(x => x.batchId === b.id);
+                        return si ? <Badge tone="sky">Invoiced: {si.invoiceNo}</Badge> : null;
+                      })()}
                       <button onClick={() => setExpanded(isExpanded ? null : b.id)}
                         className="text-xs text-emerald-600 hover:underline">
                         {isExpanded ? "Hide" : "Show"} log
@@ -367,6 +416,64 @@ export default function Factory() {
                 <button onClick={confirmAdvance} disabled={busy}
                   className="flex-1 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-50">
                   {busy ? "Advancing…" : `Advance to ${STAGE_LABEL[advanceForm.toStage]}`}
+                </button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Sales Invoice Modal */}
+      {salesBatch && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={() => setSalesBatch(null)}>
+          <Card className="w-full max-w-lg p-4">
+            <div onClick={e => e.stopPropagation()}>
+              <h3 className="font-display text-sm font-bold text-slate-800">Create Sales Invoice — {salesBatch.batchCode}</h3>
+              <p className="text-[11px] text-slate-400">
+                Output: {fmtNum(salesBatch.outputKg)} kg · Grade: {salesBatch.gradeCode}
+                {salesBatch.gradeName && ` · ${salesBatch.gradeName}`}
+              </p>
+
+              <div className="mt-3 space-y-2">
+                <div>
+                  <label className="text-[11px] text-slate-400">Buyer Name *</label>
+                  <input value={salesForm.buyerName} onChange={e => setSalesForm({ ...salesForm, buyerName: e.target.value })}
+                    placeholder="e.g. Akbar Brothers Ltd" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-slate-400">Price per kg (Rs) *</label>
+                    <input type="number" value={salesForm.pricePerKg || ""} onChange={e => setSalesForm({ ...salesForm, pricePerKg: +e.target.value })}
+                      placeholder="e.g. 950" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-400">Broker Commission %</label>
+                    <input type="number" step="0.5" value={salesForm.commissionPct || ""} onChange={e => setSalesForm({ ...salesForm, commissionPct: +e.target.value })}
+                      placeholder="e.g. 1.5" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Due Date (optional)</label>
+                  <input type="date" value={salesForm.dueDate} onChange={e => setSalesForm({ ...salesForm, dueDate: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                </div>
+              </div>
+
+              {salesForm.pricePerKg > 0 && (
+                <div className="mt-3 rounded-lg bg-sky-50 p-2 text-xs text-sky-700">
+                  <p>Gross: Rs {(salesBatch.outputKg * salesForm.pricePerKg).toLocaleString()} ({fmtNum(salesBatch.outputKg)} kg × Rs {salesForm.pricePerKg})</p>
+                  {salesForm.commissionPct > 0 && (
+                    <p>Commission: Rs {((salesBatch.outputKg * salesForm.pricePerKg) * salesForm.commissionPct / 100).toLocaleString()} ({salesForm.commissionPct}%)</p>
+                  )}
+                  <p className="font-bold">Net: Rs {(salesBatch.outputKg * salesForm.pricePerKg * (1 - salesForm.commissionPct / 100)).toLocaleString()}</p>
+                </div>
+              )}
+
+              <div className="mt-4 flex gap-2">
+                <button onClick={() => setSalesBatch(null)} className="flex-1 rounded-lg border border-slate-200 py-2 text-xs font-semibold text-slate-500">Cancel</button>
+                <button onClick={createSalesInvoice} disabled={busy}
+                  className="flex-1 rounded-lg bg-sky-600 py-2 text-xs font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-50">
+                  {busy ? "Creating…" : "Create Invoice"}
                 </button>
               </div>
             </div>

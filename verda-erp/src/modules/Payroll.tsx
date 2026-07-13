@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Wallet, Plus, Loader2, CheckCircle2, Calendar, Users, FileText, Play, Check } from "lucide-react";
+import { Wallet, Plus, Loader2, CheckCircle2, Calendar, Users, FileText, Play, Check, Trophy } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtLKR, fmtLKRShort, workers as seedWorkers } from "@/lib/data";
 import {
   listPayrollRuns, listPayslips, generatePayrollRun, approvePayrollRun,
+  generatePayrollRunWithAllowances, approvePayrollRunWithJournal,
+  listPayrollAllowances,
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
 import type { PayrollRun, Payslip, Worker } from "@/lib/data";
@@ -24,7 +26,9 @@ export default function Payroll() {
   const [selectedRun, setSelectedRun] = useState<PayrollRun | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [tab, setTab] = useState<"runs" | "generate">("runs");
+  const [pendingAllowances, setPendingAllowances] = useState(0);
 
   // Generate-form state
   const now = new Date();
@@ -44,6 +48,9 @@ export default function Payroll() {
         const slips = await listPayslips(r[0].id);
         setPayslips(slips);
       }
+      // Load pending (unconsumed) allowances — these will auto-flow into next payroll
+      const allowances = await listPayrollAllowances(undefined, true);
+      setPendingAllowances(allowances.length);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load payroll");
     } finally {
@@ -84,9 +91,10 @@ export default function Payroll() {
     try {
       const ws = Array.from(selectedWorkers).map(id => {
         const o = workerSalaryOverrides[id] ?? { basic: 0, ot: 0, allowances: 0, deductions: 0, days: 30 };
-        return { workerId: id, basicSalary: o.basic, overtimePay: o.ot, allowances: o.allowances, deductions: o.deductions, daysWorked: o.days };
+        return { workerId: id, basicSalary: o.basic, overtimePay: o.ot, deductions: o.deductions, daysWorked: o.days };
       });
-      const { run } = await generatePayrollRun({
+      // Use enhanced generator — auto-consumes pending allowances (loyalty cash bonuses etc.)
+      const { run, consumedAllowances } = await generatePayrollRunWithAllowances({
         runCode, periodMonth, periodYear, workers: ws,
       });
       await reload();
@@ -95,6 +103,9 @@ export default function Payroll() {
       const s = await listPayslips(run.id);
       setPayslips(s);
       setSelectedWorkers(new Set());
+      if (consumedAllowances > 0) {
+        setSuccess(`Payroll generated — ${consumedAllowances} pending allowance(s) auto-consumed`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to generate payroll");
     } finally {
@@ -106,11 +117,17 @@ export default function Payroll() {
     if (!selectedRun) return;
     setBusy(true);
     try {
-      const res = await approvePayrollRun(selectedRun.id, selectedRun.version, userUid);
-      if (res.resolution === "conflict") {
-        setError("Conflict — another user modified this run. Refreshed.");
+      // Use enhanced approver — auto-posts journal entry to Finance
+      const res = await approvePayrollRunWithJournal({
+        runId: selectedRun.id,
+        expectedVersion: selectedRun.version,
+        approvedBy: userUid,
+      });
+      if (!res.ok) {
+        setError(res.error ?? "Failed to approve run");
         await reload();
       } else {
+        setSuccess(`Payroll approved — journal entry auto-posted to Finance (Wages/EPF/ETF/Cash)`);
         await reload();
       }
     } catch (e) {
@@ -130,6 +147,13 @@ export default function Payroll() {
       />
 
       {error && <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>}
+      {success && <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{success}</div>}
+      {pendingAllowances > 0 && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-700">
+          <Trophy className="h-3.5 w-3.5" />
+          <span><strong>{pendingAllowances}</strong> pending allowance(s) (loyalty cash bonuses / manual) will auto-flow into the next payroll run.</span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mt-4 flex gap-2">

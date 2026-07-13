@@ -1130,3 +1130,69 @@ export function nextTierFrom(points: number): { next: LoyaltyTier; pointsNeeded:
   if (points < TIER_THRESHOLDS.Platinum) return { next: "Platinum", pointsNeeded: TIER_THRESHOLDS.Platinum - points };
   return null; // already at top tier
 }
+
+// ============================================================================
+// INTEGRATION TYPES — Sales Invoices + Payroll Allowances (auto-post wires)
+// ============================================================================
+
+export interface SalesInvoice {
+  id: string;
+  invoiceNo: string;
+  batchId?: string;
+  buyerName: string;
+  invoiceDate: string;
+  dueDate?: string;
+  gradeCode?: string;
+  gradeName?: string;
+  qtyKg: number;
+  pricePerKg: number;
+  grossAmount: number;
+  commissionPct: number;
+  commissionAmt: number;
+  netAmount: number;
+  status: "unpaid" | "partial" | "paid";
+  paidAmount: number;
+  journalId?: string;
+  version: number;
+  createdAt: string;
+}
+
+export type AllowanceSource = "loyalty_redemption" | "manual" | "bonus";
+
+export interface PayrollAllowance {
+  id: string;
+  workerId: string;
+  workerName?: string;
+  sourceType: AllowanceSource;
+  sourceId?: string;
+  description: string;
+  amount: number;
+  periodMonth?: number;
+  periodYear?: number;
+  consumedByRun?: string;
+  consumedAt?: string;
+  createdAt: string;
+}
+
+// GL account code constants (must match supabase_migration_fix3.sql seed)
+export const GL_CODES = {
+  CASH: "1000",
+  BANK: "1010",
+  AR: "1100",
+  INVENTORY_RAW: "1200",
+  INVENTORY_FINISHED: "1210",
+  AP: "2000",
+  EPF_PAYABLE: "2100",
+  ETF_PAYABLE: "2110",
+  SUPPLIER_ADVANCES: "2200",
+  TEA_SALES: "4000",
+  BYPRODUCT_SALES: "4010",
+  GREEN_LEAF_COST: "5000",
+  WAGES: "5010",
+  EPF_EXPENSE: "5020",
+  ETF_EXPENSE: "5030",
+  FACTORY_FUEL: "5040",
+  FERTILIZER_CHEMICALS: "5050",
+  REPAIRS: "5060",
+  TRANSPORT: "5070",
+} as const;
