@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Trophy, Plus, Loader2, Gift, History, Award, ArrowUp, ArrowDown, Star, Crown, Medal, Sparkles, CheckCircle2, XCircle, Package } from "lucide-react";
+import { Trophy, Plus, Loader2, Gift, History, Award, ArrowUp, ArrowDown, Star, Crown, Medal, Sparkles, CheckCircle2, XCircle, Package, FileDown } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
+import { exportObjectsToCSV } from "@/lib/csvExport";
 import {
   listLoyaltyMembers, createLoyaltyMember, awardPoints,
   listPointsLedger, listLoyaltyRewards, createLoyaltyReward, toggleRewardActive,
@@ -374,7 +375,13 @@ export default function Loyalty() {
 
           {/* Right: Members list */}
           <Card className="lg:col-span-2 p-3">
-            <h3 className="mb-2 px-1 font-display text-sm font-bold text-slate-800">All Members ({members.length})</h3>
+            <div className="mb-2 flex items-center justify-between px-1">
+              <h3 className="font-display text-sm font-bold text-slate-800">All Members ({members.length})</h3>
+              {members.length > 0 && (
+                <button onClick={() => exportObjectsToCSV("loyalty_members", members.map(m => ({ name: m.workerName, points: m.points, tier: m.tier, badge: m.badge, streak: m.streakDays, earned: m.totalEarned, burned: m.totalBurned, status: m.status })))}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"><FileDown className="h-3 w-3" /> CSV</button>
+              )}
+            </div>
             {members.length === 0 ? (
               <p className="py-8 text-center text-sm text-slate-400">No members yet.</p>
             ) : (

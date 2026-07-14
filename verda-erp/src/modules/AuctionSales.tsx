@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Gavel, Plus, Loader2, TrendingUp, CheckCircle2, DollarSign } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtLKR, fmtLKRShort, fmtNum, type AuctionBatch, type AuctionStatus } from "@/lib/data";
-import { listAuctionBatches, createAuctionBatch, recordAuctionSale } from "@/lib/repo.phase2";
+import { listAuctionBatches, createAuctionBatch, recordAuctionSale, recordAuctionSaleWithJournal } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
 
 export default function AuctionSales() {
@@ -59,14 +59,20 @@ export default function AuctionSales() {
     if (!sellingAuction) return;
     setBusy(true);
     try {
-      const res = await recordAuctionSale({
+      const res = await recordAuctionSaleWithJournal({
         auctionId: sellingAuction.id, soldPriceKg: soldPrice, expectedVersion: sellingAuction.version,
       });
-      if (res.resolution === "conflict") {
-        setError("Conflict — refresh");
-      } else if (res.resolution === "updated") {
-        const a = res.updated;
-        setSuccess(`Lot ${a.lotNumber} sold at Rs ${a.soldPriceKg}/kg — Gross ${fmtLKRShort(a.grossSales)}, Brokerage (1%) ${fmtLKRShort(a.brokerageAmount)}, Net ${fmtLKRShort(a.netAmount)}`);
+      if (!res.ok) {
+        setError(res.error ?? "Failed to record sale");
+      } else {
+        // Reload to get the updated auction with calculated values
+        await reload();
+        const a = auctions.find(x => x.id === sellingAuction.id);
+        if (a) {
+          setSuccess(`Lot ${a.lotNumber} sold at Rs ${soldPrice}/kg — Gross ${fmtLKRShort(a.grossSales || soldPrice * a.qtyKg)}, Brokerage (1%) ${fmtLKRShort((a.grossSales || soldPrice * a.qtyKg) * 0.01)}, Net ${fmtLKRShort((a.grossSales || soldPrice * a.qtyKg) * 0.99)}. Journal auto-posted to Finance ✅`);
+        } else {
+          setSuccess(`Sale recorded — journal auto-posted to Finance ✅`);
+        }
       }
       setSellingAuction(null);
       setSoldPrice(0);

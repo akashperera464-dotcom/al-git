@@ -3161,3 +3161,197 @@ export async function recordAuctionSale(input: {
     journalId: data.journal_id, version: Number(data.version), createdAt: data.created_at,
   }};
 }
+
+// ============================================================================
+// 12 · REMAINING AUTO-JOURNAL WIRES + ENHANCED PAYROLL WITH LOAN DEDUCTIONS
+// ============================================================================
+
+/**
+ * Auto-journal: Auction Sale → Finance
+ * When auction lot is sold + marked as paid:
+ *   Dr Cash (1000)               netAmount (after brokerage)
+ *   Dr AP (2000)                  brokerageAmount (owed to broker)
+ *   Cr Tea Sales Revenue (4000)   grossSales
+ */
+export async function recordAuctionSaleWithJournal(input: {
+  auctionId: string;
+  soldPriceKg: number;
+  expectedVersion: number;
+}): Promise<{ ok: boolean; journalId?: string; error?: string }> {
+  try {
+    const res = await recordAuctionSale(input);
+    if (res.resolution !== "updated" || !res.updated) {
+      return { ok: false, error: res.resolution === "conflict" ? "Conflict — refresh" : "Auction not found" };
+    }
+    const a = res.updated;
+    if (a.grossSales <= 0) return { ok: true }; // nothing to journal
+
+    const journalId = await autoPostJournal({
+      description: `Auction sale — Lot ${a.lotNumber} (${a.brokerName})`,
+      reference: a.lotNumber,
+      lines: [
+        { code: GL_CODES.CASH,     debit: a.netAmount },
+        { code: GL_CODES.AP,       debit: a.brokerageAmount },
+        { code: GL_CODES.TEA_SALES, credit: a.grossSales },
+      ],
+    });
+
+    if (supabaseConfigured) {
+      const sb = getSupabase()!;
+      await sb.from("auction_batches").update({ journal_id: journalId }).eq("id", a.id);
+    }
+    return { ok: true, journalId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed" };
+  }
+}
+
+/**
+ * Auto-journal: Vehicle Fuel Log → Finance
+ *   Dr Transport Cost (5070)      totalCost
+ *   Cr Cash (1000)                totalCost
+ */
+export async function logFuelWithJournal(input: {
+  vehicleReg: string; litres: number; costPerLitre: number;
+  odometer?: number; station?: string; slip?: string;
+  vehicleId?: string; loggedBy?: string;
+}): Promise<{ ok: boolean; journalId?: string; error?: string }> {
+  try {
+    const total = +(input.litres * input.costPerLitre).toFixed(2);
+    // 1) Insert fuel log
+    if (supabaseConfigured) {
+      const sb = getSupabase()!;
+      const { error: e } = await sb.from("fuel_logs").insert({
+        vehicle_reg: input.vehicleReg, vehicle_id: input.vehicleId,
+        log_date: new Date().toISOString().slice(0, 10),
+        litres: input.litres, cost_per_litre: input.costPerLitre,
+        total_cost: total, odometer_km: input.odometer || null,
+        fuel_station: input.station, slip_ref: input.slip, logged_by: input.loggedBy,
+      });
+      if (e) throw e;
+    }
+    // 2) Auto-post journal
+    const journalId = await autoPostJournal({
+      description: `Fuel — ${input.vehicleReg} (${input.litres}L × Rs ${input.costPerLitre})`,
+      reference: input.slip,
+      lines: [
+        { code: GL_CODES.TRANSPORT, debit: total },
+        { code: GL_CODES.CASH,      credit: total },
+      ],
+    });
+    return { ok: true, journalId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed" };
+  }
+}
+
+/**
+ * Auto-journal: Welfare Case → Finance (when case is resolved with a cost)
+ *   Dr Welfare Expense (5060 — using Repairs & Maintenance as proxy; in production add 'Welfare Expense' account)
+ *   Cr Cash (1000)
+ * NOTE: Using 5060 (Repairs & Maintenance) as a proxy until a dedicated Welfare Expense GL account is added.
+ *       The GL code can be changed to a new '5080 Welfare Expense' account once added to the chart of accounts.
+ */
+export async function resolveWelfareCaseWithJournal(input: {
+  caseId: string; cost: number;
+}): Promise<{ ok: boolean; journalId?: string; error?: string }> {
+  try {
+    if (input.cost <= 0) {
+      // No cost — just resolve the case without journal
+      if (supabaseConfigured) {
+        const sb = getSupabase()!;
+        await sb.from("welfare_cases").update({ status: "settled" }).eq("id", input.caseId);
+      }
+      return { ok: true };
+    }
+    // 1) Resolve the case
+    if (supabaseConfigured) {
+      const sb = getSupabase()!;
+      await sb.from("welfare_cases").update({ status: "settled", cost: input.cost }).eq("id", input.caseId);
+    }
+    // 2) Auto-post journal (using Repairs & Maintenance 5060 as proxy for Welfare Expense)
+    const journalId = await autoPostJournal({
+      description: `Welfare case resolved — ${input.caseId}`,
+      lines: [
+        { code: GL_CODES.REPAIRS, debit: input.cost },
+        { code: GL_CODES.CASH,    credit: input.cost },
+      ],
+    });
+    return { ok: true, journalId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed" };
+  }
+}
+
+/**
+ * Enhanced Payroll Generator with Worker Loan Deductions
+ * Auto-fetches active worker loans and deducts monthly_installment from each worker's payslip.
+ * Uses the existing generatePayrollRunWithAttendance + adds loan deductions.
+ */
+export async function generatePayrollWithLoans(input: {
+  runCode: string;
+  estateId?: string;
+  periodMonth: number;
+  periodYear: number;
+  workers: { workerId: string; basicSalary: number; overtimePay?: number; deductions?: number; daysWorked?: number; overtimeRatePerHour?: number }[];
+}): Promise<{ run: PayrollRun; payslips: Payslip[]; consumedAllowances: number; attendanceSourced: number; loanDeductions: number }> {
+  // 1) Fetch active worker loans
+  const loanDeductionMap = new Map<string, number>();
+  if (supabaseConfigured) {
+    const sb = getSupabase()!;
+    const { data: loans } = await sb.from("loans")
+      .select("worker_id, monthly_deduction, balance, status")
+      .eq("status", "on-track");
+    for (const l of loans ?? []) {
+      const wid = l.worker_id as string;
+      const deduct = Math.min(Number(l.monthly_deduction), Number(l.balance));
+      loanDeductionMap.set(wid, (loanDeductionMap.get(wid) ?? 0) + deduct);
+    }
+  }
+
+  // 2) Merge loan deductions into each worker's deductions
+  let loanDeductionsTotal = 0;
+  const workersWithLoans = input.workers.map(w => {
+    const loanDeduction = loanDeductionMap.get(w.workerId) ?? 0;
+    loanDeductionsTotal += loanDeduction;
+    return {
+      ...w,
+      deductions: (w.deductions ?? 0) + loanDeduction,
+    };
+  });
+
+  // 3) Call attendance-wired generator (which also auto-consumes allowances)
+  const result = await generatePayrollRunWithAttendance({
+    runCode: input.runCode,
+    estateId: input.estateId,
+    periodMonth: input.periodMonth,
+    periodYear: input.periodYear,
+    workers: workersWithLoans,
+  });
+
+  // 4) After payroll is generated, update loan balances
+  if (supabaseConfigured && loanDeductionsTotal > 0) {
+    const sb = getSupabase()!;
+    for (const [workerId, deduction] of loanDeductionMap) {
+      if (deduction <= 0) continue;
+      const { data: loan } = await sb.from("loans")
+        .select("id, balance, installments_paid")
+        .eq("worker_id", workerId)
+        .eq("status", "on-track")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (loan) {
+        const newBalance = Math.max(0, Number(loan.balance) - deduction);
+        const newStatus = newBalance <= 0.01 ? "cleared" : "on-track";
+        await sb.from("loans").update({
+          balance: newBalance,
+          installments_paid: Number(loan.installments_paid ?? 0) + 1,
+          status: newStatus,
+        }).eq("id", loan.id);
+      }
+    }
+  }
+
+  return { ...result, loanDeductions: loanDeductionsTotal };
+}

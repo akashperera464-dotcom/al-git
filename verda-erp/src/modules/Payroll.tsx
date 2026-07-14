@@ -10,6 +10,7 @@ import {
   listPayrollAllowances,
   generatePayrollRunWithAttendance, previewAttendanceForPayroll,
   listWorkersFull,
+  generatePayrollWithLoans,
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
 import type { PayrollRun, Payslip, WorkerFull } from "@/lib/data";
@@ -143,7 +144,7 @@ export default function Payroll() {
       });
       if (useAttendance) {
         // Use attendance-wired generator — auto-fetches daysWorked + OT from daily_attendance
-        const { run, consumedAllowances, attendanceSourced } = await generatePayrollRunWithAttendance({
+        const { run, consumedAllowances, attendanceSourced, loanDeductions } = await generatePayrollWithLoans({
           runCode, periodMonth, periodYear, workers: ws,
         });
         await reload();
@@ -156,6 +157,7 @@ export default function Payroll() {
         const parts: string[] = [];
         if (attendanceSourced > 0) parts.push(`${attendanceSourced} worker(s) days auto-sourced from attendance`);
         if (consumedAllowances > 0) parts.push(`${consumedAllowances} pending allowance(s) auto-consumed`);
+        if (loanDeductions > 0) parts.push(`Rs ${loanDeductions.toLocaleString()} loan deductions applied`);
         if (parts.length) setSuccess(`Payroll generated — ${parts.join(", ")}`);
         else setSuccess("Payroll generated");
       } else {

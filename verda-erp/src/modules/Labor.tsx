@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Users, Plus, Loader2, CalendarDays, CheckCircle2, XCircle, Phone, CreditCard,
-  UserPlus, Edit2, Trash2, ArrowRightLeft, Ban, RotateCcw, LogOut, TrendingUp, Clock, Award,
+  UserPlus, Edit2, Trash2, ArrowRightLeft, Ban, RotateCcw, LogOut, TrendingUp, Clock, Award, FileDown,
 } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtLKR, fmtLKRShort, type LeaveType, type LeaveStatus, type LeaveRequest, type WorkerFull, type WorkerStatus, type AttendanceStatus, type WorkerTransfer, type TransferType } from "@/lib/data";
+import { exportObjectsToCSV } from "@/lib/csvExport";
 import {
   listLeaveRequests, createLeaveRequest, decideLeaveRequest,
   listWorkersFull, createWorkerFull, updateWorkerFull, deleteWorkerFull,
@@ -339,7 +340,13 @@ export default function Labor() {
           </Card>
 
           <Card className="lg:col-span-2 p-3">
-            <h3 className="mb-2 px-1 font-display text-sm font-bold text-slate-800">Roster ({workers.length})</h3>
+            <div className="mb-2 flex items-center justify-between px-1">
+              <h3 className="font-display text-sm font-bold text-slate-800">Roster ({workers.length})</h3>
+              {workers.length > 0 && (
+                <button onClick={() => exportObjectsToCSV("workers", workers.map(w => ({ name: w.name, nic: w.nic, division: w.division, role: w.role, epf: w.epfNumber ?? "", basic_salary: w.basicSalary, status: w.status, phone: w.phone ?? "" })))}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"><FileDown className="h-3 w-3" /> CSV</button>
+              )}
+            </div>
             <div className="space-y-1.5 max-h-[650px] overflow-y-auto">
               {workers.map(w => (
                 <div key={w.id} className={`rounded-lg border p-2.5 transition ${selected?.id === w.id ? "border-emerald-300 bg-emerald-50" : "border-slate-100 hover:bg-slate-50"} ${w.status !== "active" ? "opacity-60" : ""}`}>

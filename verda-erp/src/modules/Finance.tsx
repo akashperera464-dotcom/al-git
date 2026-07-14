@@ -156,11 +156,17 @@ export default function Finance() {
       {/* Tab: Ledger */}
       {tab === "ledger" && (
         <Card className="mt-4 p-4">
+          <div className="mb-3">
+            <DateRangeFilter onChange={(start, end) => setDateRange({ start, end })} />
+          </div>
           {entries.length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-400">No journal entries yet. Create one in the New Entry tab.</p>
           ) : (
             <div className="space-y-3">
-              {entries.map(je => (
+              {entries.filter(je => {
+                if (!dateRange.start || !dateRange.end) return true;
+                return je.entryDate >= dateRange.start && je.entryDate <= dateRange.end;
+              }).map(je => (
                 <div key={je.id} className="rounded-xl border border-slate-100 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>

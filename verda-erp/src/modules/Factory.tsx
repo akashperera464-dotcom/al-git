@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Factory as FactoryIcon, Plus, Loader2, ArrowRight, Thermometer, Droplets, Package, Scale, Clock, History, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Factory as FactoryIcon, Plus, Loader2, ArrowRight, Thermometer, Droplets, Package, Scale, Clock, History, AlertTriangle, CheckCircle2, FileDown } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtNum } from "@/lib/data";
+import { exportObjectsToCSV } from "@/lib/csvExport";
 import {
   listFactoryBatches, createFactoryBatch, advanceBatchStage, listStageLogs,
   createSalesInvoiceFromBatch, listSalesInvoices,
@@ -245,6 +246,12 @@ export default function Factory() {
       {/* Tab: Active Batches */}
       {tab === "active" && (
         <div className="mt-4 space-y-3">
+          {batches.length > 0 && (
+            <div className="flex justify-end">
+              <button onClick={() => exportObjectsToCSV("factory_batches", batches.map(b => ({ batch_code: b.batchCode, grade: b.gradeCode, green_leaf_in: b.greenLeafInKg, output: b.outputKg, waste: b.wasteKg, stage: b.currentStage, status: b.status, recovery_pct: b.greenLeafInKg > 0 ? +((b.outputKg / b.greenLeafInKg) * 100).toFixed(1) : 0 })))}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"><FileDown className="h-3 w-3" /> Export CSV</button>
+            </div>
+          )}
           {batches.length === 0 ? (
             <Card className="p-8 text-center text-sm text-slate-400">No batches yet. Create one in the New Batch tab.</Card>
           ) : (
