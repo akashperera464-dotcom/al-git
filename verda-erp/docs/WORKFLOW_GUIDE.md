@@ -1293,13 +1293,135 @@ Supplier කෙනෙක් **මගේ ගොවිපළ කටයුතු** 
   - **Brokerage Commission** = strict 1% (කොළඹ තේ වෙන්දේසි ප්‍රමිතිය)
   - **Net to Factory** = gross − brokerage
 
+### 5.15 Field Tools — Soil Tests, Disease Reports & Site Visits / ක්ෂේත්‍ර මෙවලම්
+
+**English — 3-tab module in Operations category:**
+
+1. **Soil Tests** — Log pH, N/P/K (ppm), organic matter % per field. **Auto-alert if pH < 4.5** (acidic — common in tea, needs dolomite). History list with acidic/normal badges. CSV export.
+
+2. **Disease Reports** — Report leaf diseases with severity: Blister Blight / Red Rust / Helopeltis / Shot Hole / Others. Severity levels: low / medium / high / critical. Treatment notes field. Status: open → treating → resolved. CSV export.
+
+3. **Site Visits** — GPS-tagged farm visits. Auto-detect GPS on button click (or manual entry). Notes + follow-up date. Google Maps link for each visit. CSV export.
+
+**සිංහල — Operations category එකේ මොඩියුලය (tabs 3ක්):**
+
+1. **Soil Tests** — pH, N/P/K, organic matter log කරන්න. **pH 4.5 ට අඩු නම් auto-alert** (අම්ල මෘදුකාරක — ඩොලමයිට් යෙදිය යුතුයි). CSV export.
+2. **Disease Reports** — පත්‍ර රෝග වාර්තා: Blister Blight / Red Rust / Helopeltis. බරපතලතාව: low/medium/high/critical. ප්‍රතිකාර notes. CSV export.
+3. **Site Visits** — GPS-tagged ගොවිපළ සංචාර. GPS auto-detect. Notes + follow-up date. Google Maps link. CSV export.
+
+### 5.16 Live Dashboard (Real Data) / සජීවී උපකරණ පුවරුව
+
+**English — Dashboard now pulls REAL data from Supabase (no more mock charts):**
+
+| KPI | Source |
+|-----|--------|
+| Green Leaf Today (kg) | `SELECT SUM(net_kg) FROM harvest_records WHERE weighed_at = TODAY` |
+| Active Suppliers Today | `COUNT DISTINCT supplier_id FROM harvest_records WHERE weighed_at = TODAY` |
+| Recovery % | `SUM(output_kg) / SUM(green_leaf_in_kg) × 100` from factory_batches |
+| Revenue (MTD) | `SUM(credit - debit) FROM journal_lines WHERE type='revenue' AND status='posted'` |
+| Net P&L (MTD) | Revenue MTD − Expenses MTD from posted journals |
+| 14-day Harvest Trend | Real daily `SUM(net_kg)` for last 14 days — line chart |
+| Division Performance | Real field `last_yield_kg` vs `area_ha × 540` target — bar chart |
+| Revenue Mix Donut | Real Tea Sales Revenue vs Green Leaf Cost from posted journal lines |
+
+- **Loading skeletons** (gray pulsing shapes) during data fetch — no more blank screen → pop-in
+- **Empty states** with icons + helpful messages ("No field yield data yet. Add fields in Estate Master.")
+
+**සිංහල — Dashboard එකේ දැන් සජීවී data Supabase එකෙන් එනවා (mock charts නෑ):**
+
+(ඉහත table එක බලන්න — සෑම KPI එකක්ම ඇත්තම database query එකකින් එනවා.)
+
+### 5.17 Daily Tea Prices (Supplier Portal) / දෛනික තේ මිල
+
+**English:**
+- Supplier Portal now shows a **Daily Tea Price Card** at the top of "My Leaf Deliveries"
+- 3 colored cards: **Super** (green) / **Standard** (amber) / **Coarse** (rose)
+- Reads from `daily_tea_prices` table (admin sets daily price per grade)
+- Seeded with: Super = Rs 1,100/kg, Standard = Rs 950/kg, Coarse = Rs 750/kg
+
+**සිංහල:**
+- Supplier Portal එකේ **දෛනික තේ මිල කාඩ්පත** දැන් පෙන්නනවා
+- කාඩ්පත් 3ක්: **Super** (කොළ) / **Standard** (රන්වන්) / **Coarse** (රතු)
+- `daily_tea_prices` table එකෙන් කියවනවා (admin දෛනිකව මිල සකසනවා)
+
+### 5.18 Multi-Trip Weighing Counter / බහු-සංචාර බර කිරීම
+
+**English:**
+- Extension Officer's weighing form now shows: **"Trip #N today · N total weigh-ins"**
+- Trip number auto-increments after each save
+- Same supplier bringing leaf 3 times a day → counter shows "Trip 3"
+- `trip_number` column added to `harvest_records` table
+
+**සිංහල:**
+- Extension Officer ගේ බර කිරීමේ form එකේ: **"Trip #N today · N total weigh-ins"** පෙන්නනවා
+- සෑම save එකකින් පස්සේ trip number එක වැඩි වෙනවා
+- `harvest_records` table එකට `trip_number` column එකක් එකතු කරලා තියෙනවා
+
+### 5.19 CSV Export & Date-Range Filtering / CSV නිර්යාත සහ දින පරාස පෙරහන
+
+**English:**
+- **CSV export** buttons on: Finance (Trial Balance), Payroll (Payslips), Inventory (Stock Items), Factory (Batches), Labor (Workers), Loyalty (Members), Field Tools (Soil/Disease/Visits)
+- One-click download — uses browser Blob + download attribute
+- **Date-range filter** on Finance ledger list — with presets (Today / 7 days / 30 days / 90 days / This year) + Clear button
+
+**සිංහල:**
+- **CSV export** buttons: Finance, Payroll, Inventory, Factory, Labor, Loyalty, Field Tools වල
+- එක් click එකකින් download — browser Blob + download
+- **දින පරාස පෙරහන** Finance ledger list එකේ — presets (අද / දින 7 / දින 30 / දින 90 / මෙම වසර) + Clear button
+
+### 5.20 PDF Export Templates / PDF නිර්යාත අච්චු
+
+**English — 3 professional PDF templates with branded header + footer:**
+
+1. **Payslip PDF** — worker name, period, earnings/deductions table (Basic, OT, Allowances, EPF 8%, Other Deductions, Gross, Net Pay), employer contributions (EPF 12% + ETF 3%)
+2. **Trial Balance PDF** — all GL accounts with code, name, type, debit, credit + total row
+3. **Auction Settlement PDF** — lot number, broker, date, grade, qty, sold price/kg, gross sales, brokerage (1%), net to factory
+
+All PDFs have: emerald header bar with "Verda ERP" + title + subtitle, gray footer with timestamp + page number.
+
+**සිංහල — branded header + footer සහිත PDF අච්චු 3ක්:**
+
+1. **Payslip PDF** — worker, period, earnings/deductions table, employer contributions
+2. **Trial Balance PDF** — සියලුම GL accounts, debit/credit totals
+3. **Auction Settlement PDF** — lot, broker, grade, qty, sold price, gross/brokerage/net
+
+### 5.21 Balance Sheet & Budget vs Actual / ශේෂ පත්‍රය සහ අයවැය එදිරව සත්‍ය
+
+**English — 2 new tabs in Finance module:**
+
+1. **Balance Sheet** — Assets / Liabilities / Equity in 3 columns. Each account shows debit-credit net. Balance check badge: "✓ Balanced: Assets = Liabilities + Equity" or "⚠ Out of balance by Rs X"
+
+2. **Budget vs Actual** — Revenue and expense accounts with actual amounts from posted journals. Variance column. (Budget entries set via `budgets` table — admin sets monthly budget per GL account.)
+
+**සිංහල — Finance මොඩියුලයේ නව tabs 2ක්:**
+
+1. **Balance Sheet** — Assets / Liabilities / Equity 3 columns. Balance check: "✓ Balanced" හෝ "⚠ Out of balance"
+2. **Budget vs Actual** — Revenue/expense accounts, actual amounts from journals, variance
+
+### 5.22 Additional Auto-Journal Wires / අතිරේක ස්වයංක්‍රීය ජර්නල සම්බන්ධතා
+
+**English — 4 new auto-journal wires added to the existing 6:**
+
+| # | Action | Auto-created Journal Entry |
+|---|--------|---------------------------|
+| **7** | **Record Auction Sale** | Dr Cash (net) + Dr AP (brokerage 1%), Cr Tea Sales Revenue (gross) |
+| **8** | **Log Vehicle Fuel** | Dr Transport Cost (5070), Cr Cash (1000) |
+| **9** | **Resolve Welfare Case (with cost)** | Dr Welfare Expense (5060), Cr Cash (1000) |
+| **10** | **Generate Payroll** | Worker loan `monthly_deduction` auto-deducted from payslip + loan balance updated |
+
+**Total auto-journal wires: 10** (6 original + 4 new)
+
+**සිංහල — නව ස්වයංක්‍රීය journal wires 4ක් එකතු වුණා (දැන් මුළුම්නුව 10ක්):**
+
+(ඉහත table එක බලන්න — Auction, Fuel, Welfare, Worker Loans සියල්ලම ස්වයංක්‍රීයව Finance එකට wire වෙනවා.)
+
 ---
 
 ## 6 · Auto-Posting Integration Wires / ස්වයංක්‍රීය ජර්නල පෝස්ටින් සම්බන්ධතා
 
 > **මේ කොටස පද්ධතියේ වැදගත්ම feature එක විස්තර කරනවා — සෑම මුදල් ගනුදෙනුවක්ම ස්වයංක්‍රීයව Finance මොඩියුලයේ journal entry එකක් බවට පත් වෙනවා. / This section describes the system's most important feature — every financial transaction automatically becomes a journal entry in the Finance module.**
 
-### 6.1 The 6 Integration Wires / සම්බන්ධතා 6ක්
+### 6.1 The 10 Integration Wires / සම්බන්ධතා 10ක්
 
 **English — When you perform these actions, a journal entry is automatically created and posted in Finance:**
 
@@ -1311,6 +1433,10 @@ Supplier කෙනෙක් **මගේ ගොවිපළ කටයුතු** 
 | **4** | **Issue Stock** | Dr Fertilizer & Chemicals (5050) [or Factory Fuel/Repairs based on category], Cr Inventory-Raw (1200) |
 | **5** | **Pay Sales Invoice** (made-tea sold) | Dr Cash (1000) + Dr Accounts Receivable (1100) if partial, Cr Tea Sales Revenue (4000) + Cr Accounts Payable (2000) for broker commission |
 | **6** | **Approve Loyalty Cash Redemption** | Auto-creates a `payroll_allowance` row → flows into next payroll run as an allowance for that worker |
+| **7** | **Record Auction Sale** | Dr Cash (net) + Dr AP (brokerage 1%), Cr Tea Sales Revenue (gross) |
+| **8** | **Log Vehicle Fuel** | Dr Transport Cost (5070), Cr Cash (1000) |
+| **9** | **Resolve Welfare Case (with cost)** | Dr Welfare Expense (5060), Cr Cash (1000) |
+| **10** | **Generate Payroll (with loans)** | Worker loan `monthly_deduction` auto-deducted from payslip + loan balance updated |
 
 **සිංහල — මේ ක්‍රියාවන් කළ විට, Finance මොඩියුලයේ ස්වයංක්‍රීයව journal entry එකක් හැදෙනවා:**
 
@@ -1322,6 +1448,10 @@ Supplier කෙනෙක් **මගේ ගොවිපළ කටයුතු** 
 | **4** | **Stock Issue කිරීම** | Dr Fertilizer & Chemicals [හෝ category අනුව], Cr Inventory-Raw |
 | **5** | **Sales Invoice ගෙවීම** (made-tea) | Dr Cash + Dr AR, Cr Tea Sales Revenue + Cr AP (commission) |
 | **6** | **Loyalty Cash Redemption Approve කිරීම** | `payroll_allowance` row එකක් හැදෙනවා → ඊළඟ payroll run එකට auto-flow වෙනවා |
+| **7** | **Auction Sale Record කිරීම** | Dr Cash (net) + Dr AP (brokerage 1%), Cr Tea Sales Revenue (gross) |
+| **8** | **Vehicle Fuel Log කිරීම** | Dr Transport Cost (5070), Cr Cash (1000) |
+| **9** | **Welfare Case Resolve කිරීම (cost සහිතව)** | Dr Welfare Expense (5060), Cr Cash (1000) |
+| **10** | **Payroll Generate කිරීම (loans සහිතව)** | Worker loan `monthly_deduction` payslip එකෙන් auto-deduct + loan balance update |
 
 ### 6.2 Attendance → Payroll Wire / පැමිණීම → වැටුප් සම්බන්ධතාව
 
