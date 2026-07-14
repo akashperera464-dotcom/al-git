@@ -49,7 +49,7 @@ alter table welfare_cases add column if not exists worker_id     uuid;
 alter table welfare_cases add column if not exists estate_id     uuid;
 alter table welfare_cases add column if not exists priority      text not null default 'normal'; -- low | normal | high | urgent
 alter table welfare_cases add column if not exists assigned_to   text;
-alter table welfare_cases add column if notExists resolved_at    timestamptz;
+alter table welfare_cases add column if not exists resolved_at    timestamptz;
 alter table welfare_cases add column if not exists cost          numeric(12,2) not null default 0;
 alter table welfare_cases add column if not exists version       integer not null default 1;
 alter table welfare_cases add column if not exists updated_by_uid text;
