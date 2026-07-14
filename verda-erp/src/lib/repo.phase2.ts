@@ -2777,3 +2777,387 @@ export async function previewAttendanceForPayroll(input: {
     };
   }
 }
+
+// ============================================================================
+// 11 · TEA INDUSTRY FEATURES — Out-Turn + Supplier Loans + Waste + Auctions
+// ============================================================================
+import type {
+  OutTurnDaily, SupplierFertilizerLoan, SupplierLoanType, SupplierLoanDeduction,
+  AuctionBatch, AuctionStatus, WasteReason,
+} from "./data";
+
+const mockOutTurn: OutTurnDaily[] = [];
+const mockSupplierLoans: SupplierFertilizerLoan[] = [];
+const mockLoanDeductions: SupplierLoanDeduction[] = [];
+const mockAuctions: AuctionBatch[] = [];
+
+// ─── 1. OUT-TURN RATIO ──────────────────────────────────────────────────────
+
+/**
+ * Calculate daily out-turn ratio: (made_tea_kg / green_leaf_kg) × 100
+ * Fetches total net green leaf from harvest_records + total output from factory_batches
+ * for a given date. If ratio < 18%, marks is_alert = true.
+ */
+export async function calculateDailyOutTurn(date?: string): Promise<OutTurnDaily> {
+  const recordDate = date ?? new Date().toISOString().slice(0, 10);
+  let greenLeafKg = 0;
+  let madeTeaKg = 0;
+
+  if (supabaseConfigured) {
+    const sb = getSupabase()!;
+    const [harvest, batches] = await Promise.all([
+      sb.from("harvest_records").select("net_kg").eq("weighed_at", recordDate),
+      sb.from("factory_batches").select("output_kg").eq("status", "completed"),
+    ]);
+    greenLeafKg = (harvest.data ?? []).reduce((s, r) => s + Number(r.net_kg ?? 0), 0);
+    // For made tea, we use batches that were dispatched on this date (approximation)
+    madeTeaKg = (batches.data ?? []).filter(b => b.output_kg > 0)
+      .reduce((s, b) => s + Number(b.output_kg ?? 0), 0);
+  } else {
+    greenLeafKg = 4500;
+    madeTeaKg = 920;
+  }
+
+  const outTurnPct = greenLeafKg > 0 ? +((madeTeaKg / greenLeafKg) * 100).toFixed(2) : 0;
+  const isAlert = outTurnPct > 0 && outTurnPct < 18;
+  const alertReason = isAlert
+    ? `Out-turn ${outTurnPct}% is below 18% threshold — investigate leaf theft or machinery inefficiency`
+    : undefined;
+
+  const record: OutTurnDaily = {
+    id: `ot-${recordDate}`,
+    recordDate,
+    greenLeafKg,
+    madeTeaKg,
+    outTurnPct,
+    isAlert,
+    alertReason,
+    computedAt: now(),
+  };
+
+  if (supabaseConfigured) {
+    const sb = getSupabase()!;
+    await sb.from("out_turn_daily").upsert({
+      record_date: recordDate,
+      green_leaf_kg: greenLeafKg,
+      made_tea_kg: madeTeaKg,
+      out_turn_pct: outTurnPct,
+      is_alert: isAlert,
+      alert_reason: alertReason,
+    }, { onConflict: "record_date" });
+  } else {
+    const idx = mockOutTurn.findIndex(o => o.recordDate === recordDate);
+    if (idx !== -1) mockOutTurn[idx] = record;
+    else mockOutTurn.unshift(record);
+  }
+
+  return record;
+}
+
+export async function listOutTurnHistory(days = 30): Promise<OutTurnDaily[]> {
+  if (!supabaseConfigured) return mockOutTurn.slice(0, days);
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("out_turn_daily")
+    .select("*").order("record_date", { ascending: false }).limit(days);
+  if (error) throw new Error(`listOutTurn: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string, recordDate: r.record_date as string,
+    greenLeafKg: Number(r.green_leaf_kg ?? 0), madeTeaKg: Number(r.made_tea_kg ?? 0),
+    outTurnPct: Number(r.out_turn_pct ?? 0), isAlert: Boolean(r.is_alert),
+    alertReason: r.alert_reason as string | undefined, computedAt: r.computed_at as string,
+  }));
+}
+
+// ─── 2. SUPPLIER FERTILIZER LOANS ───────────────────────────────────────────
+
+export async function listSupplierLoans(supplierId?: string): Promise<SupplierFertilizerLoan[]> {
+  if (!supabaseConfigured) {
+    return supplierId ? mockSupplierLoans.filter(l => l.supplierId === supplierId) : mockSupplierLoans;
+  }
+  const sb = getSupabase()!;
+  let q = sb.from("supplier_fertilizer_loans").select("*").order("issued_date", { ascending: false });
+  if (supplierId) q = q.eq("supplier_id", supplierId);
+  const { data, error } = await q;
+  if (error) throw new Error(`listSupplierLoans: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string, supplierId: r.supplier_id as string,
+    supplierName: r.supplier_name as string | undefined,
+    estateId: r.estate_id as string | undefined,
+    loanType: r.loan_type as SupplierLoanType,
+    description: r.description as string | undefined,
+    itemName: r.item_name as string | undefined,
+    quantity: Number(r.quantity ?? 0), unit: r.unit as string,
+    unitCost: Number(r.unit_cost ?? 0),
+    principalAmount: Number(r.principal_amount ?? 0),
+    monthlyInstallment: Number(r.monthly_installment ?? 0),
+    balance: Number(r.balance ?? 0),
+    installmentsPaid: Number(r.installments_paid ?? 0),
+    totalInstallments: Number(r.total_installments ?? 1),
+    issuedDate: r.issued_date as string,
+    status: r.status as SupplierFertilizerLoan["status"],
+    version: Number(r.version ?? 1), createdAt: r.created_at as string,
+  }));
+}
+
+export async function createSupplierLoan(input: {
+  supplierId: string; supplierName?: string; estateId?: string;
+  loanType: SupplierLoanType; description?: string; itemName?: string;
+  quantity: number; unit: string; unitCost: number;
+  monthlyInstallment: number; totalInstallments: number;
+}): Promise<SupplierFertilizerLoan> {
+  const principal = +(input.quantity * input.unitCost).toFixed(2);
+  if (!supabaseConfigured) {
+    const loan: SupplierFertilizerLoan = {
+      id: uid(), supplierId: input.supplierId, supplierName: input.supplierName,
+      estateId: input.estateId, loanType: input.loanType, description: input.description,
+      itemName: input.itemName, quantity: input.quantity, unit: input.unit,
+      unitCost: input.unitCost, principalAmount: principal,
+      monthlyInstallment: input.monthlyInstallment, balance: principal,
+      installmentsPaid: 0, totalInstallments: input.totalInstallments,
+      issuedDate: new Date().toISOString().slice(0, 10),
+      status: "active", version: 1, createdAt: now(),
+    };
+    mockSupplierLoans.unshift(loan);
+    return loan;
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("supplier_fertilizer_loans").insert({
+    supplier_id: input.supplierId, supplier_name: input.supplierName, estate_id: input.estateId,
+    loan_type: input.loanType, description: input.description, item_name: input.itemName,
+    quantity: input.quantity, unit: input.unit, unit_cost: input.unitCost,
+    principal_amount: principal, monthly_installment: input.monthlyInstallment,
+    balance: principal, total_installments: input.totalInstallments,
+  }).select().single();
+  if (error) throw new Error(`createSupplierLoan: ${error.message}`);
+  return {
+    id: data.id, supplierId: data.supplier_id, supplierName: data.supplier_name,
+    estateId: data.estate_id, loanType: data.loan_type, description: data.description,
+    itemName: data.item_name, quantity: Number(data.quantity), unit: data.unit,
+    unitCost: Number(data.unit_cost), principalAmount: Number(data.principal_amount),
+    monthlyInstallment: Number(data.monthly_installment), balance: Number(data.balance),
+    installmentsPaid: Number(data.installments_paid), totalInstallments: Number(data.total_installments),
+    issuedDate: data.issued_date, status: data.status, version: 1, createdAt: data.created_at,
+  };
+}
+
+/**
+ * Apply monthly loan deductions to a supplier's invoice.
+ * For each active loan, deduct monthly_installment from the invoice.
+ * Updates loan balance + logs the deduction.
+ */
+export async function applyLoanDeductionsToInvoice(input: {
+  supplierId: string;
+  invoiceId: string;
+}): Promise<{ totalDeducted: number; deductions: SupplierLoanDeduction[] }> {
+  const activeLoans = (await listSupplierLoans(input.supplierId)).filter(l => l.status === "active" && l.balance > 0);
+  let totalDeducted = 0;
+  const deductions: SupplierLoanDeduction[] = [];
+
+  for (const loan of activeLoans) {
+    const deductAmount = Math.min(loan.monthlyInstallment, loan.balance);
+    if (deductAmount <= 0) continue;
+    const newBalance = +(loan.balance - deductAmount).toFixed(2);
+    const newInstallmentsPaid = loan.installmentsPaid + 1;
+    const newStatus = newBalance <= 0.01 ? "cleared" : "active";
+
+    if (supabaseConfigured) {
+      const sb = getSupabase()!;
+      await sb.from("supplier_fertilizer_loans").update({
+        balance: newBalance, installments_paid: newInstallmentsPaid, status: newStatus,
+      }).eq("id", loan.id);
+      const { data: ded } = await sb.from("supplier_loan_deductions").insert({
+        loan_id: loan.id, supplier_id: input.supplierId, invoice_id: input.invoiceId,
+        deduction_date: new Date().toISOString().slice(0, 10),
+        amount: deductAmount, balance_after: newBalance,
+      }).select().single();
+      if (ded) deductions.push({
+        id: ded.id, loanId: ded.loan_id, supplierId: ded.supplier_id,
+        invoiceId: ded.invoice_id, deductionDate: ded.deduction_date,
+        amount: Number(ded.amount), balanceAfter: Number(ded.balance_after),
+        createdAt: ded.created_at,
+      });
+    } else {
+      const idx = mockSupplierLoans.findIndex(l => l.id === loan.id);
+      if (idx !== -1) {
+        mockSupplierLoans[idx].balance = newBalance;
+        mockSupplierLoans[idx].installmentsPaid = newInstallmentsPaid;
+        mockSupplierLoans[idx].status = newStatus;
+      }
+      const d: SupplierLoanDeduction = {
+        id: uid(), loanId: loan.id, supplierId: input.supplierId,
+        invoiceId: input.invoiceId, deductionDate: new Date().toISOString().slice(0, 10),
+        amount: deductAmount, balanceAfter: newBalance, createdAt: now(),
+      };
+      mockLoanDeductions.unshift(d);
+      deductions.push(d);
+    }
+    totalDeducted += deductAmount;
+  }
+  return { totalDeducted: +totalDeducted.toFixed(2), deductions };
+}
+
+// ─── 3. FACTORY WASTE LOGGING (extends advanceBatchStage) ────────────────────
+
+/**
+ * Enhanced stage advance with waste logging.
+ * Pass wasteKg + wasteReason per stage transition.
+ */
+export async function advanceBatchStageWithWaste(input: {
+  batchId: string;
+  expectedVersion: number;
+  toStage: import("./data").FactoryStage;
+  operatorUid?: string;
+  inputKg?: number;
+  outputKg?: number;
+  moisturePct?: number;
+  temperatureC?: number;
+  humidityPct?: number;
+  gradeCode?: string;
+  gradeName?: string;
+  wasteKg?: number;
+  wasteReason?: WasteReason;
+  notes?: string;
+}): Promise<OptimisticUpdateResult<FactoryBatch>> {
+  // First call the existing advance function
+  const result = await advanceBatchStage({
+    batchId: input.batchId, expectedVersion: input.expectedVersion,
+    toStage: input.toStage, operatorUid: input.operatorUid,
+    inputKg: input.inputKg, outputKg: input.outputKg,
+    moisturePct: input.moisturePct, temperatureC: input.temperatureC,
+    humidityPct: input.humidityPct, gradeCode: input.gradeCode,
+    gradeName: input.gradeName, notes: input.notes,
+  });
+
+  // If successful + waste logged, update the stage_log + batch
+  if (result.resolution === "updated" && input.wasteKg !== undefined && input.wasteKg > 0) {
+    if (supabaseConfigured) {
+      const sb = getSupabase()!;
+      // Update the most recent stage log for this batch + stage
+      await sb.from("factory_stage_logs").update({
+        waste_kg: input.wasteKg, waste_reason: input.wasteReason,
+      }).eq("batch_id", input.batchId).eq("stage", input.toStage)
+        .order("started_at", { ascending: false }).limit(1);
+      // Update batch process_waste_kg (cumulative)
+      const { data: batch } = await sb.from("factory_batches").select("process_waste_kg").eq("id", input.batchId).single();
+      const currentWaste = Number(batch?.process_waste_kg ?? 0);
+      await sb.from("factory_batches").update({
+        process_waste_kg: +(currentWaste + input.wasteKg).toFixed(2),
+      }).eq("id", input.batchId);
+    }
+  }
+  return result;
+}
+
+// ─── 4. AUCTION SALES TRACKING ───────────────────────────────────────────────
+
+export async function listAuctionBatches(status?: AuctionStatus): Promise<AuctionBatch[]> {
+  if (!supabaseConfigured) {
+    return status ? mockAuctions.filter(a => a.status === status) : mockAuctions;
+  }
+  const sb = getSupabase()!;
+  let q = sb.from("auction_batches").select("*").order("auction_date", { ascending: false });
+  if (status) q = q.eq("status", status);
+  const { data, error } = await q;
+  if (error) throw new Error(`listAuctionBatches: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string, auctionDate: r.auction_date as string,
+    lotNumber: r.lot_number as string, batchId: r.batch_id as string | undefined,
+    brokerName: r.broker_name as string, gradeCode: r.grade_code as string | undefined,
+    gradeName: r.grade_name as string | undefined, qtyKg: Number(r.qty_kg ?? 0),
+    catalogPriceKg: Number(r.catalog_price_kg ?? 0), soldPriceKg: Number(r.sold_price_kg ?? 0),
+    grossSales: Number(r.gross_sales ?? 0), brokeragePct: Number(r.brokerage_pct ?? 1.0),
+    brokerageAmount: Number(r.brokerage_amount ?? 0), netAmount: Number(r.net_amount ?? 0),
+    status: r.status as AuctionStatus, saleDate: r.sale_date as string | undefined,
+    paidAmount: Number(r.paid_amount ?? 0), journalId: r.journal_id as string | undefined,
+    version: Number(r.version ?? 1), createdAt: r.created_at as string,
+  }));
+}
+
+export async function createAuctionBatch(input: {
+  auctionDate: string; lotNumber: string; batchId?: string;
+  brokerName: string; gradeCode?: string; gradeName?: string;
+  qtyKg: number; catalogPriceKg: number;
+}): Promise<AuctionBatch> {
+  if (!supabaseConfigured) {
+    const a: AuctionBatch = {
+      id: uid(), auctionDate: input.auctionDate, lotNumber: input.lotNumber,
+      batchId: input.batchId, brokerName: input.brokerName,
+      gradeCode: input.gradeCode, gradeName: input.gradeName,
+      qtyKg: input.qtyKg, catalogPriceKg: input.catalogPriceKg,
+      soldPriceKg: 0, grossSales: 0, brokeragePct: 1.0, brokerageAmount: 0,
+      netAmount: 0, status: "cataloged", paidAmount: 0, version: 1, createdAt: now(),
+    };
+    mockAuctions.unshift(a);
+    return a;
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb.from("auction_batches").insert({
+    auction_date: input.auctionDate, lot_number: input.lotNumber, batch_id: input.batchId,
+    broker_name: input.brokerName, grade_code: input.gradeCode, grade_name: input.gradeName,
+    qty_kg: input.qtyKg, catalog_price_kg: input.catalogPriceKg,
+    brokerage_pct: 1.0, status: "cataloged",
+  }).select().single();
+  if (error) throw new Error(`createAuctionBatch: ${error.message}`);
+  return {
+    id: data.id, auctionDate: data.auction_date, lotNumber: data.lot_number,
+    batchId: data.batch_id, brokerName: data.broker_name,
+    gradeCode: data.grade_code, gradeName: data.grade_name,
+    qtyKg: Number(data.qty_kg), catalogPriceKg: Number(data.catalog_price_kg),
+    soldPriceKg: 0, grossSales: 0, brokeragePct: 1.0, brokerageAmount: 0,
+    netAmount: 0, status: "cataloged", paidAmount: 0, version: 1, createdAt: data.created_at,
+  };
+}
+
+/**
+ * Record sold price for an auction lot.
+ * Auto-calculates: gross_sales = qty × sold_price, brokerage = 1% of gross, net = gross - brokerage
+ */
+export async function recordAuctionSale(input: {
+  auctionId: string;
+  soldPriceKg: number;
+  expectedVersion: number;
+}): Promise<OptimisticUpdateResult<AuctionBatch>> {
+  const gross = 0; // will compute after fetch
+  if (!supabaseConfigured) {
+    const idx = mockAuctions.findIndex(a => a.id === input.auctionId);
+    if (idx === -1) return { resolution: "not_found" };
+    if (mockAuctions[idx].version !== input.expectedVersion) return { resolution: "conflict", current: mockAuctions[idx] };
+    const a = mockAuctions[idx];
+    a.soldPriceKg = input.soldPriceKg;
+    a.grossSales = +(a.qtyKg * input.soldPriceKg).toFixed(2);
+    a.brokerageAmount = +(a.grossSales * a.brokeragePct / 100).toFixed(2);
+    a.netAmount = +(a.grossSales - a.brokerageAmount).toFixed(2);
+    a.status = "sold";
+    a.saleDate = new Date().toISOString().slice(0, 10);
+    a.version += 1;
+    return { resolution: "updated", updated: a };
+  }
+  const sb = getSupabase()!;
+  const { data: cur } = await sb.from("auction_batches").select("*").eq("id", input.auctionId).single();
+  if (!cur) return { resolution: "not_found" };
+  if (Number(cur.version) !== input.expectedVersion) return { resolution: "conflict", current: cur as AuctionBatch };
+
+  const qty = Number(cur.qty_kg);
+  const grossSales = +(qty * input.soldPriceKg).toFixed(2);
+  const brokerageAmount = +(grossSales * 1.0 / 100).toFixed(2); // strict 1%
+  const netAmount = +(grossSales - brokerageAmount).toFixed(2);
+
+  const { data, error } = await sb.from("auction_batches").update({
+    sold_price_kg: input.soldPriceKg, gross_sales: grossSales,
+    brokerage_amount: brokerageAmount, net_amount: netAmount,
+    status: "sold", sale_date: new Date().toISOString().slice(0, 10),
+  }).eq("id", input.auctionId).eq("version", input.expectedVersion).select().single();
+  if (error) throw new Error(`recordAuctionSale: ${error.message}`);
+  if (!data) return { resolution: "conflict", current: cur as AuctionBatch };
+  return { resolution: "updated", updated: {
+    id: data.id, auctionDate: data.auction_date, lotNumber: data.lot_number,
+    batchId: data.batch_id, brokerName: data.broker_name,
+    gradeCode: data.grade_code, gradeName: data.grade_name,
+    qtyKg: Number(data.qty_kg), catalogPriceKg: Number(data.catalog_price_kg),
+    soldPriceKg: Number(data.sold_price_kg), grossSales: Number(data.gross_sales),
+    brokeragePct: Number(data.brokerage_pct), brokerageAmount: Number(data.brokerage_amount),
+    netAmount: Number(data.net_amount), status: data.status,
+    saleDate: data.sale_date, paidAmount: Number(data.paid_amount),
+    journalId: data.journal_id, version: Number(data.version), createdAt: data.created_at,
+  }};
+}

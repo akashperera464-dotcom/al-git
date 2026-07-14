@@ -22,6 +22,8 @@ import AuditCompliance from "./AuditCompliance";
 import Architecture from "./Architecture";
 import UserManagement from "./UserManagement";
 import Settings from "./Settings";
+import SupplierLoans from "./SupplierLoans";
+import AuctionSales from "./AuctionSales";
 import { EoRegisterSupplier, EoWeighing } from "./ExtensionOfficer";
 import { SupplierDeliveries, SupplierAlerts, SupplierPayments } from "./SupplierPortal";
 import { FarmActivities } from "./FarmActivities";
@@ -55,6 +57,10 @@ export const REGISTRY: Record<string, ComponentType> = {
   architecture: Architecture,
   "user-management": UserManagement,
   announcements: Announcements,
+
+  // Tea Industry — supplier loans + auction sales
+  "supplier-loans": SupplierLoans,
+  "auction-sales": AuctionSales,
 
   // Extension Officer — register suppliers + log weights
   "eo-register": EoRegisterSupplier,

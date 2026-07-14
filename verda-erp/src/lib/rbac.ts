@@ -41,6 +41,8 @@ import {
   BellRing,
   Palette,
   Newspaper,
+  Gavel,
+  Sprout,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./data";
@@ -72,6 +74,8 @@ export type Capability =
   | "platform.view"
   | "requests.manage"
   | "settings.manage"
+  | "supplier.loans"
+  | "auction.sales"
   // extension officer (field) — register suppliers + log weights
   | "weighing.capture"
   | "supplier.register"
@@ -168,6 +172,8 @@ export const MODULES: NavItem[] = [
   { key: "architecture", label: "Architecture & Docs", short: "Blueprint", icon: Workflow, category: "more", roles: ["admin"], capability: "platform.view" },
   { key: "user-management", label: "User Management", short: "Users", icon: UserCog, category: "administration", roles: ["admin"], capability: "users.manage" },
   { key: "announcements", label: "Announcements", short: "Posts", icon: Newspaper, category: "administration", roles: ["admin"], capability: "announcements.manage" },
+  { key: "supplier-loans", label: "Supplier Loans", short: "S Loans", icon: Sprout, category: "finance", roles: ["admin"], capability: "supplier.loans" },
+  { key: "auction-sales", label: "Auction Sales", short: "Auction", icon: Gavel, category: "finance", roles: ["admin"], capability: "auction.sales" },
   { key: "settings", label: "Branding & Settings", short: "Settings", icon: Palette, category: "administration", roles: ["super_admin"], capability: "settings.manage" },
 
   /* ---- Extension Officer (mobile): register suppliers + log weights ---- */

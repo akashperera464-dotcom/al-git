@@ -1272,3 +1272,85 @@ export interface WorkerTransfer {
   authorizedBy?: string;
   createdAt: string;
 }
+
+// ============================================================================
+// TEA INDUSTRY FEATURE TYPES
+// ============================================================================
+
+// 1. Out-Turn Ratio
+export interface OutTurnDaily {
+  id: string;
+  recordDate: string;
+  estateId?: string;
+  greenLeafKg: number;
+  madeTeaKg: number;
+  outTurnPct: number;
+  isAlert: boolean;
+  alertReason?: string;
+  computedAt: string;
+}
+
+// 2. Supplier Fertilizer Loans
+export type SupplierLoanType = "fertilizer" | "agrochemical" | "tea_packet" | "cash_advance";
+
+export interface SupplierFertilizerLoan {
+  id: string;
+  supplierId: string;
+  supplierName?: string;
+  estateId?: string;
+  loanType: SupplierLoanType;
+  description?: string;
+  itemName?: string;
+  quantity: number;
+  unit: string;
+  unitCost: number;
+  principalAmount: number;
+  monthlyInstallment: number;
+  balance: number;
+  installmentsPaid: number;
+  totalInstallments: number;
+  issuedDate: string;
+  status: "active" | "cleared" | "defaulted";
+  version: number;
+  createdAt: string;
+}
+
+export interface SupplierLoanDeduction {
+  id: string;
+  loanId: string;
+  supplierId: string;
+  invoiceId?: string;
+  deductionDate: string;
+  amount: number;
+  balanceAfter: number;
+  createdAt: string;
+}
+
+// 3. Factory Wastage (extends factory_stage_logs)
+export type WasteReason = "over_withering" | "spillage" | "fermentation_failure" | "drying_burn" | "sorting_reject" | "moisture_loss" | "other";
+
+// 4. Auction Sales
+export type AuctionStatus = "cataloged" | "sold" | "unsold" | "paid";
+
+export interface AuctionBatch {
+  id: string;
+  auctionDate: string;
+  lotNumber: string;
+  batchId?: string;
+  brokerName: string;
+  gradeCode?: string;
+  gradeName?: string;
+  qtyKg: number;
+  catalogPriceKg: number;
+  soldPriceKg: number;
+  grossSales: number;
+  brokeragePct: number;   // default 1.0
+  brokerageAmount: number;
+  netAmount: number;
+  status: AuctionStatus;
+  saleDate?: string;
+  paidAmount: number;
+  journalId?: string;
+  version: number;
+  createdAt: string;
+}

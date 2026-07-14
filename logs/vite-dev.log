@@ -334,3 +334,18 @@ Error: Port 3000 is already in use
 8:53:53 AM [vite] (client) hmr update /src/index.css
 8:53:53 AM [vite] (client) hmr update /src/index.css
 8:53:53 AM [vite] (client) hmr update /src/index.css
+9:30:29 AM [vite] (client) hmr update /src/index.css, /src/context/AppContext.tsx, /src/lib/branding.tsx, /src/App.tsx, /src/components/Login.tsx, /src/modules/UserManagement.tsx, /src/modules/ExtensionOfficer.tsx, /src/modules/SupplierPortal.tsx, /src/modules/FarmActivities.tsx, /src/modules/Announcements.tsx, /src/modules/SupplierAnnouncements.tsx, /src/components/EstateMap.tsx, /src/components/CrudPanel.tsx, /src/components/LocationCheckIn.tsx, /src/components/PruningAdvisory.tsx, /src/modules/Dashboard.tsx, /src/modules/EstateMaster.tsx, /src/modules/Labor.tsx, /src/modules/Loans.tsx, /src/modules/Payroll.tsx, /src/modules/Fertilizer.tsx, /src/modules/Harvest.tsx, /src/modules/Factory.tsx, /src/modules/Inventory.tsx, /src/modules/Finance.tsx, /src/modules/Loyalty.tsx, /src/modules/Welfare.tsx, /src/modules/GisMap.tsx, /src/modules/Weather.tsx, /src/modules/AuditCompliance.tsx, /src/modules/SupplierRequest.tsx, /src/modules/ResourceRequests.tsx, /src/modules/AiAnalytics.tsx, /src/modules/Vehicles.tsx
+9:31:40 AM [vite] (client) hmr update /src/index.css, /src/modules/Labor.tsx, /src/modules/Payroll.tsx, /src/modules/Factory.tsx, /src/modules/Inventory.tsx, /src/modules/Finance.tsx, /src/modules/Loyalty.tsx
+9:32:33 AM [vite] (client) hmr update /src/index.css, /src/modules/Factory.tsx
+9:32:33 AM [vite] (client) hmr update /src/index.css, /src/modules/Factory.tsx
+9:33:53 AM [vite] (client) hmr update /src/index.css, /src/modules/Factory.tsx
+9:34:13 AM [vite] (client) hmr update /src/index.css, /src/modules/Factory.tsx
+9:34:44 AM [vite] (client) hmr update /src/index.css, /src/modules/Factory.tsx
+9:35:28 AM [vite] (client) hmr update /src/index.css, /src/modules/Factory.tsx
+9:36:44 AM [vite] (client) hmr update /src/index.css, /src/modules/Factory.tsx
+9:38:59 AM [vite] (client) hmr update /src/App.tsx, /src/index.css
+9:39:07 AM [vite] (client) hmr update /src/App.tsx, /src/index.css
+9:39:57 AM [vite] (client) hmr update /src/App.tsx, /src/context/AppContext.tsx, /src/components/RouteGuard.tsx, /src/components/Login.tsx, /src/components/Shell.tsx, /src/index.css
+9:41:03 AM [vite] (client) hmr update /src/App.tsx, /src/context/AppContext.tsx, /src/components/RouteGuard.tsx, /src/components/Login.tsx, /src/components/Shell.tsx, /src/index.css
+9:41:16 AM [vite] (client) hmr update /src/App.tsx, /src/context/AppContext.tsx, /src/components/RouteGuard.tsx, /src/components/Login.tsx, /src/components/Shell.tsx, /src/index.css
+9:43:20 AM [vite] (client) hmr update /src/index.css

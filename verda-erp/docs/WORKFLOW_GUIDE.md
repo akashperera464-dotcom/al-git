@@ -1221,6 +1221,78 @@ Supplier කෙනෙක් **මගේ ගොවිපළ කටයුතු** 
 3. **Audit Log** — සත්‍ය audit trail: created/updated/deleted actions, entity, performer, timestamp, details
 4. **Add Standard** — Form: Standard Name, Status, Score, Expiry, Cert Body, Notes
 
+### 5.12 Out-Turn Ratio & Factory Wastage / නිෂ්පාදන පරිවර්තන අනුපාතය සහ හානිය
+
+**English — 2 features inside Factory module:**
+
+**A) Daily Out-Turn Ratio Calculator**
+- Formula: `Out-Turn % = (Total Made Tea Weight / Total Net Green Leaf Weight) × 100`
+- Normal range: 20-22% (100kg green leaf → ~20-22kg made tea)
+- Auto-calculated daily from `harvest_records.net_kg` vs `factory_batches.output_kg`
+- **Alert if < 18%** — red banner with AlertTriangle icon: "⚠ Out-Turn Ratio Alert: 15% — investigate leaf theft or machinery inefficiency"
+- Green banner when within normal range: "Out-Turn Today: 21% — Green Leaf 4500 kg → Made Tea 920 kg"
+
+**B) Factory Floor Wastage Logging (per-stage)**
+- Every stage transition (withering→rolling→...→packing) now logs:
+  - `waste_kg` — leaf mass lost in that stage
+  - `waste_reason` — dropdown: Over-withering / Spillage / Fermentation failure / Drying burn / Sorting reject / Moisture loss / Other
+- Cumulative `process_waste_kg` on the batch tracks total factory-floor waste
+- Waste fields appear in the "Advance to [Stage]" modal alongside output/moisture/temp
+
+**සිංහල — Factory මොඩියුලයේ විශේෂාංග 2ක්:**
+
+**A) දෛනික Out-Turn අනුපාතය**
+- සූත්‍රය: `Out-Turn % = (මුළු Made Tea බර / මුළු Net Green Leaf බර) × 100`
+- සාමාන්‍ය: 20-22%
+- දෛනිකව ස්වයංක්‍රීයව calculate වෙනවා `harvest_records` vs `factory_batches` එකෙන්
+- **18% ට අඩු නම් alert** — රතු banner: "⚠ Out-Turn Ratio Alert: 15% — leaf theft හෝ machinery inefficiency පරීක්ෂා කරන්න"
+- සාමාන්‍ය පරාසයේ නම් කොළ banner පෙන්නනවා
+
+**B) කර්මාන්තශාලා හානිය ලොගින් කිරීම (අදියර අනුව)**
+- සෑම අදියර මාරුවකදීම `waste_kg` + `waste_reason` log වෙනවා
+- හේතු: Over-withering / Spillage / Fermentation failure / Drying burn / Sorting reject / Moisture loss / Other
+- Advance modal එකේ waste ක්ෂේත්‍ර දෙකක් එකතු වෙලා තියෙනවා
+
+### 5.13 Supplier Fertilizer & Chemical Loans / සැපයුම්කරු පොහොර සහ රසායනික ණය
+
+**English — New module in Finance category:**
+
+- Issue loans to suppliers for: Fertilizer / Agrochemical / Tea Packets / Cash Advances
+- Track: item name, quantity, unit cost, principal amount, monthly installment, balance, installments paid
+- **Auto-deduct** monthly installment from supplier's green-leaf payout invoice via `applyLoanDeductionsToInvoice()`
+- Each deduction logged in `supplier_loan_deductions` table (audit trail)
+- Loan status: active → cleared (when balance = 0) → defaulted
+- Stats: Active Loans count, Total Balance, Monthly Deductions total, Cleared count
+
+**සිංහල — Finance category එකේ නව මොඩියුලය:**
+
+- Suppliers ට ණය දීම: පොහොර / කෘෂි රසායනික / තේ පැකේජ / මුදල් අතිරික්ත
+- Track: item, qty, cost, principal, monthly installment, balance, installments paid
+- **ස්වයංක්‍රීයව** monthly installment supplier ගේ green-leaf payout invoice එකෙන් අඩු වෙනවා
+- සෑම deduction එකක්ම `supplier_loan_deductions` table එකේ log වෙනවා
+
+### 5.14 Colombo Tea Auction Sales / කොළඹ තේ වෙන්දේසි විකුණුම්
+
+**English — New module in Finance category:**
+
+- Catalog made-tea lots for the Colombo Tea Auction
+- Record: Auction Date, Lot Number, Broker Name, Grade, Qty (kg), Catalog Price/kg
+- When lot sells: enter Sold Price/kg → system auto-calculates:
+  - **Gross Sales** = qty × sold_price
+  - **Brokerage Commission** = strict 1% of gross (Colombo Tea Auction standard)
+  - **Net to Factory** = gross − brokerage
+- Stats: Cataloged count, Total Gross Sales, Total Brokerage (1%), Net Received
+- Sale recording modal shows live calculation preview
+
+**සිංහල — Finance category එකේ නව මොඩියුලය:**
+
+- කොළඹ තේ වෙන්දේසිය සඳහා made-tea lots catalog කිරීම
+- Record: වෙන්දේසි දිනය, Lot Number, Broker Name, Grade, Qty, Catalog Price/kg
+- විකුණුවා ගත් විට: Sold Price/kg දාන්න → ස්වයංක්‍රීයව:
+  - **Gross Sales** = qty × sold_price
+  - **Brokerage Commission** = strict 1% (කොළඹ තේ වෙන්දේසි ප්‍රමිතිය)
+  - **Net to Factory** = gross − brokerage
+
 ---
 
 ## 6 · Auto-Posting Integration Wires / ස්වයංක්‍රීය ජර්නල පෝස්ටින් සම්බන්ධතා

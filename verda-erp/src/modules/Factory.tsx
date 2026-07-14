@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Factory as FactoryIcon, Plus, Loader2, ArrowRight, Thermometer, Droplets, Package, Scale, Clock, History } from "lucide-react";
+import { Factory as FactoryIcon, Plus, Loader2, ArrowRight, Thermometer, Droplets, Package, Scale, Clock, History, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtNum } from "@/lib/data";
 import {
   listFactoryBatches, createFactoryBatch, advanceBatchStage, listStageLogs,
   createSalesInvoiceFromBatch, listSalesInvoices,
+  calculateDailyOutTurn, listOutTurnHistory, advanceBatchStageWithWaste,
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
 import type { FactoryBatch, FactoryStageLog, FactoryStage, BatchStatus, SalesInvoice } from "@/lib/data";
@@ -45,12 +46,13 @@ export default function Factory() {
 
   // Stage-advance modal state
   const [advancingBatch, setAdvancingBatch] = useState<FactoryBatch | null>(null);
-  const [advanceForm, setAdvanceForm] = useState({ toStage: "rolling" as FactoryStage, outputKg: 0, moisturePct: 0, temperatureC: 0, humidityPct: 0, gradeCode: "", gradeName: "", notes: "" });
+  const [advanceForm, setAdvanceForm] = useState({ toStage: "rolling" as FactoryStage, outputKg: 0, moisturePct: 0, temperatureC: 0, humidityPct: 0, gradeCode: "", gradeName: "", notes: "", wasteKg: 0, wasteReason: "" });
 
   // Sales invoice form state
   const [salesBatch, setSalesBatch] = useState<FactoryBatch | null>(null);
   const [salesForm, setSalesForm] = useState({ buyerName: "", pricePerKg: 0, commissionPct: 0, dueDate: "" });
   const [salesInvoices, setSalesInvoices] = useState<SalesInvoice[]>([]);
+  const [outTurnToday, setOutTurnToday] = useState<{ greenLeafKg: number; madeTeaKg: number; outTurnPct: number; isAlert: boolean; alertReason?: string } | null>(null);
 
   const reload = async () => {
     setBusy(true);
@@ -65,6 +67,11 @@ export default function Factory() {
       setLogs(logMap);
       // Load sales invoices
       setSalesInvoices(await listSalesInvoices());
+      // Calculate today's out-turn ratio
+      try {
+        const ot = await calculateDailyOutTurn();
+        setOutTurnToday(ot);
+      } catch { /* ignore */ }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load batches");
     } finally {
@@ -132,7 +139,7 @@ export default function Factory() {
     setAdvancingBatch(b);
     setAdvanceForm({
       toStage: nextStage, outputKg: 0, moisturePct: 0, temperatureC: 0, humidityPct: 0,
-      gradeCode: b.gradeCode, gradeName: b.gradeName ?? "", notes: "",
+      gradeCode: b.gradeCode, gradeName: b.gradeName ?? "", notes: "", wasteKg: 0, wasteReason: "",
     });
   };
 
@@ -140,7 +147,7 @@ export default function Factory() {
     if (!advancingBatch) return;
     setBusy(true);
     try {
-      const res = await advanceBatchStage({
+      const res = await advanceBatchStageWithWaste({
         batchId: advancingBatch.id,
         expectedVersion: advancingBatch.version,
         toStage: advanceForm.toStage,
@@ -151,6 +158,8 @@ export default function Factory() {
         humidityPct: advanceForm.humidityPct || undefined,
         gradeCode: advanceForm.gradeCode || undefined,
         gradeName: advanceForm.gradeName || undefined,
+        wasteKg: advanceForm.wasteKg || undefined,
+        wasteReason: (advanceForm.wasteReason || undefined) as any,
         notes: advanceForm.notes || undefined,
       });
       if (res.resolution === "conflict") {
@@ -190,8 +199,32 @@ export default function Factory() {
         <StatCard icon={FactoryIcon} label="Active Batches" value={String(activeBatches.length)} tone="amber" />
         <StatCard icon={Package} label="Completed" value={String(completedToday.length)} tone="emerald" />
         <StatCard icon={Scale} label="Green Leaf In" value={`${fmtNum(totalGreenLeaf)} kg`} tone="sky" />
-        <StatCard icon={Scale} label="Recovery %" value={`${recoveryPct.toFixed(1)}%`} tone="violet" />
+        <StatCard icon={Scale} label="Recovery %" value={`${recoveryPct.toFixed(1)}%`} tone={recoveryPct < 18 ? "rose" : "violet"} />
       </div>
+
+      {/* Daily Out-Turn Ratio Alert */}
+      {outTurnToday && outTurnToday.isAlert && (
+        <div className="mt-3 flex items-center gap-3 rounded-xl border border-rose-300 bg-gradient-to-r from-rose-50 to-red-50 px-4 py-3 shadow-sm">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100">
+            <AlertTriangle className="h-5 w-5 text-rose-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-rose-800">⚠ Out-Turn Ratio Alert: {outTurnToday.outTurnPct}%</p>
+            <p className="text-[11px] text-rose-600">{outTurnToday.alertReason}</p>
+            <p className="text-[10px] text-rose-400">Green Leaf: {fmtNum(outTurnToday.greenLeafKg)} kg · Made Tea: {fmtNum(outTurnToday.madeTeaKg)} kg</p>
+          </div>
+        </div>
+      )}
+      {outTurnToday && !outTurnToday.isAlert && outTurnToday.outTurnPct > 0 && (
+        <div className="mt-3 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          </div>
+          <p className="text-xs text-emerald-700">
+            <strong>Out-Turn Today: {outTurnToday.outTurnPct}%</strong> — Green Leaf {fmtNum(outTurnToday.greenLeafKg)} kg → Made Tea {fmtNum(outTurnToday.madeTeaKg)} kg. Within normal range (18-25%).
+          </p>
+        </div>
+      )}
 
       <div className="mt-4 flex gap-2">
         {([
@@ -408,6 +441,26 @@ export default function Factory() {
                   <label className="text-[11px] text-slate-400">Notes</label>
                   <textarea value={advanceForm.notes} onChange={e => setAdvanceForm({ ...advanceForm, notes: e.target.value })} rows={2}
                     className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm" />
+                </div>
+                {/* Waste logging */}
+                <div>
+                  <label className="text-[11px] text-slate-400">Waste (kg)</label>
+                  <input type="number" step="0.1" value={advanceForm.wasteKg || ""} onChange={e => setAdvanceForm({ ...advanceForm, wasteKg: +e.target.value })}
+                    placeholder="0" className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm tnum" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Waste Reason</label>
+                  <select value={advanceForm.wasteReason} onChange={e => setAdvanceForm({ ...advanceForm, wasteReason: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm">
+                    <option value="">— none —</option>
+                    <option value="over_withering">Over-withering</option>
+                    <option value="spillage">Spillage</option>
+                    <option value="fermentation_failure">Fermentation failure</option>
+                    <option value="drying_burn">Drying burn</option>
+                    <option value="sorting_reject">Sorting reject</option>
+                    <option value="moisture_loss">Moisture loss</option>
+                    <option value="other">Other</option>
+                  </select>
                 </div>
               </div>
 
