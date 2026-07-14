@@ -183,9 +183,16 @@ create table if not exists tea_board_returns (
 alter table harvest_records add column if not exists trip_number integer not null default 1;
 alter table harvest_records add column if not exists leaf_photo_url text;
 
--- 12 · DATA VALIDATION — CHECK constraints
-alter table harvest_records add constraint if not exists chk_gross_positive check (gross_kg >= 0);
-alter table harvest_records add constraint if not exists chk_net_le_gross check (net_kg <= gross_kg);
+-- 12 · DATA VALIDATION — CHECK constraints (use DO block — PG doesn't support IF NOT EXISTS on constraints)
+do $$
+begin
+  if not exists (select 1 from information_schema.table_constraints where constraint_name = 'chk_gross_positive' and table_name = 'harvest_records') then
+    alter table harvest_records add constraint chk_gross_positive check (gross_kg >= 0);
+  end if;
+  if not exists (select 1 from information_schema.table_constraints where constraint_name = 'chk_net_le_gross' and table_name = 'harvest_records') then
+    alter table harvest_records add constraint chk_net_le_gross check (net_kg <= gross_kg);
+  end if;
+end $$;
 
 -- 13 · RLS for all new tables
 do $$
