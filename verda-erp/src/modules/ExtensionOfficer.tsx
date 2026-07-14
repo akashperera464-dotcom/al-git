@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Scale, Loader2, CheckCircle2, Building2, Layers, Phone } from "lucide-react";
+import { UserPlus, Scale, Loader2, CheckCircle2, Building2, Layers, Phone, WifiOff, RefreshCw } from "lucide-react";
 import { PageHeader, StatCard, Card, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
-import { readEstateOptions, readDivisionOptions, saveLeafWeighing } from "@/lib/repo";
+import { readEstateOptions, readDivisionOptions, saveLeafWeighing, type WeighInResult } from "@/lib/repo";
 import { provisionUser } from "@/lib/auth.hybrid";
 import { useLiveData } from "@/lib/useLiveData";
 import { createAlert } from "@/lib/notifications";
@@ -131,7 +131,7 @@ export function EoRegisterSupplier() {
 
 export function EoWeighing() {
   const { t } = useTranslation();
-  const { estates, notify } = useApp();
+  const { estates, notify, syncQueue, enqueueSync } = useApp();
   const [gross, setGross] = useState(0);
   const [ded, setDed] = useState(4);
   const [grade, setGrade] = useState("Standard");
@@ -142,6 +142,9 @@ export function EoWeighing() {
   const estate = estates[0];
   const estateId = estate?.id ?? "";
 
+  // Count of pending offline mutations (for the badge)
+  const pendingSyncCount = syncQueue.filter(q => q.status === "queued").length;
+
   const save = async () => {
     if (gross <= 0) {
       notify({ title: t("officer.errInvalidWeight"), body: t("officer.errInvalidWeightBody"), tone: "rose", channel: "system" });
@@ -149,21 +152,42 @@ export function EoWeighing() {
     }
     setBusy(true);
     try {
-      await saveLeafWeighing("extension_officer", {
+      const result: WeighInResult = await saveLeafWeighing("extension_officer", {
         fieldId: estateId,
         grossKg: gross,
         netKg: net,
         grade,
       });
+
       setSavedCount((c) => c + 1);
-      notify({ title: t("officer.weighInSaved"), body: t("officer.weighInSavedBody", { net: String(net), grade }), tone: "emerald", channel: "system" });
-      // Alert all suppliers linked to this estate about the new weigh-in.
-      void createAlert({
-        targetUserId: estateId,
-        title: t("officer.weighInRecorded"),
-        body: t("officer.weighInAlertBody", { net: String(net), grade, estate: estate?.name ?? "" }),
-        type: "delivery",
-      });
+
+      if (result.status === "online") {
+        // Saved successfully to Supabase — green toast
+        notify({
+          title: t("officer.weighInSaved"),
+          body: t("officer.weighInSavedBody", { net: String(net), grade }),
+          tone: "emerald",
+          channel: "system",
+        });
+        // Alert all suppliers linked to this estate about the new weigh-in.
+        void createAlert({
+          targetUserId: estateId,
+          title: t("officer.weighInRecorded"),
+          body: t("officer.weighInAlertBody", { net: String(net), grade, estate: estate?.name ?? "" }),
+          type: "delivery",
+        });
+      } else if (result.status === "queued_offline") {
+        // No signal — saved locally to localStorage queue, will auto-sync later
+        notify({
+          title: "📭 No Signal! Saved Locally",
+          body: `${net} kg (${grade}) saved offline. Will sync automatically when connection returns. (${result.id?.slice(0, 12)}…)`,
+          tone: "amber",
+          channel: "system",
+        });
+        // Refresh the queue display
+        enqueueSync("Weigh-in queued offline");
+      }
+
       setGross(0);
       setDed(4);
     } catch (e) {
@@ -181,6 +205,34 @@ export function EoWeighing() {
         desc={t("officer.weighingDesc")}
         icon={<IconChip icon={Scale} tone="emerald" className="h-12 w-12" />}
       />
+
+      {/* Pending Offline Sync Banner */}
+      {pendingSyncCount > 0 && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 shadow-sm">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+            <WifiOff className="h-5 w-5 text-amber-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-800">
+              {pendingSyncCount} record{pendingSyncCount > 1 ? "s" : ""} pending sync
+            </p>
+            <p className="text-[11px] text-amber-600">
+              Saved locally while offline. Will auto-sync when connection returns.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {syncQueue.filter(q => q.status === "queued").map(q => (
+              <span key={q.id} className="inline-flex items-center gap-1 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-800" title={`${q.label}${q.lastError ? ` — ${q.lastError}` : ""}${q.attempts ? ` (attempt ${q.attempts}/5)` : ""}`}>
+                {q.attempts ? `⚠ ${q.attempts}` : "⏳"} {q.label.slice(0, 20)}…
+              </span>
+            )).slice(0, 3)}
+            {pendingSyncCount > 3 && (
+              <span className="text-[10px] font-semibold text-amber-600">+{pendingSyncCount - 3} more</span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-2.5">
         <StatCard icon={Scale} label={t("officer.todayNet")} value={net > 0 ? `${net}` : "—"} sub={t("common.kg")} tone="emerald" />
         <StatCard icon={CheckCircle2} label={t("officer.weighed")} value={String(savedCount)} tone="sky" />

@@ -16,6 +16,7 @@
  */
 import { getSupabase, supabaseConfigured } from "./supabase";
 import { requireEstateAdmin, requireOwnerOrAdmin, AuthorizationError } from "./identity";
+import { enqueueMutation } from "./offlineQueue";
 import {
   estates as seedEstates,
   managedUsers as seedUsers,
@@ -255,7 +256,22 @@ function relativeTime(iso: string | null | undefined): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-/** Supervisor saves a daily leaf weigh-in. Supplier reads are owner-scoped. */
+/** Result type for saveLeafWeighing — caller checks .status to show appropriate UI. */
+export interface WeighInResult {
+  success: boolean;
+  status: "online" | "queued_offline" | "error";
+  id?: string;
+  error?: string;
+}
+
+/**
+ * Supervisor saves a daily leaf weigh-in. Supplier reads are owner-scoped.
+ *
+ * OFFLINE-FIRST: If the Supabase insert fails (network error, no signal),
+ * the mutation is enqueued in localStorage ("verda:offline_queue") and
+ * auto-synced when connectivity returns. The caller receives
+ * `{ status: 'queued_offline' }` so it can notify the officer.
+ */
 export async function saveLeafWeighing(role: Role, input: {
   workerId?: string;
   fieldId: string;
@@ -263,24 +279,60 @@ export async function saveLeafWeighing(role: Role, input: {
   grossKg: number;
   netKg: number;
   grade: string;
-}): Promise<string> {
-  if (!supabaseConfigured) return mockCreate("harvest_records", input);
+}): Promise<WeighInResult> {
+  void role; // RLS enforces supervisor/admin writes server-side
+
+  // Demo mode (no Supabase configured) — always succeed with mock
+  if (!supabaseConfigured) {
+    return { success: true, status: "online", id: mockCreate("harvest_records", input) };
+  }
+
   const sb = getSupabase()!;
-  const { data: row, error } = await sb
-    .from("harvest_records")
-    .insert({
+  try {
+    const { data: row, error } = await sb
+      .from("harvest_records")
+      .insert({
+        worker_id: input.workerId ?? null,
+        field_id: input.fieldId,
+        center_id: input.centerId ?? null,
+        gross_kg: input.grossKg,
+        net_kg: input.netKg,
+        grade: input.grade,
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    return { success: true, status: "online", id: row.id };
+  } catch (err) {
+    // Network failure or Supabase error — enqueue for offline sync
+    const errorMsg = err instanceof Error ? err.message : "Network error — possibly offline";
+    console.warn(`[saveLeafWeighing] Supabase insert failed, enqueuing offline: ${errorMsg}`);
+
+    const payload: Record<string, unknown> = {
       worker_id: input.workerId ?? null,
       field_id: input.fieldId,
       center_id: input.centerId ?? null,
       gross_kg: input.grossKg,
       net_kg: input.netKg,
       grade: input.grade,
-    })
-    .select("id")
-    .single();
-  if (error) throw error;
-  void role; // RLS enforces supervisor/admin writes server-side
-  return row.id;
+      weighed_at: new Date().toISOString().slice(0, 10),
+    };
+
+    const queuedId = enqueueMutation({
+      table: "harvest_records",
+      operation: "insert",
+      payload,
+      label: `Weigh-in · ${input.grossKg}kg gross · ${input.grade}`,
+    });
+
+    return {
+      success: true,
+      status: "queued_offline",
+      id: queuedId,
+      error: errorMsg,
+    };
+  }
 }
 
 /** My Leaf Deliveries — scoped to the caller's uid AND linked estate (rule #2 + #3). */

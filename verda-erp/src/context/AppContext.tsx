@@ -8,12 +8,16 @@ import { sendFcmToSupplier } from "@/lib/fcm";
 import { createAlert } from "@/lib/notifications";
 import { createEstate as repoCreateEstate, createDivision as repoCreateDivision, createField as repoCreateField } from "@/lib/repo";
 import { signOutFirebase, watchHybridSession, type AuthState } from "@/lib/auth.hybrid";
+import { flushQueue, getQueueLength, getQueuedItems, clearQueue, type QueuedMutation } from "@/lib/offlineQueue";
 
 export interface SyncItem {
   id: string;
   label: string;
   time: string;
   status: "queued" | "synced";
+  table?: string;
+  attempts?: number;
+  lastError?: string;
 }
 
 export interface UserProfile {
@@ -120,17 +124,25 @@ interface AppState {
 
 const AppContext = createContext<AppState | null>(null);
 
-const INITIAL_QUEUE: SyncItem[] = [
-  { id: "q1", label: "Weigh-in · Craighead CC", time: "06:42", status: "queued" },
-  { id: "q2", label: "Attendance · 6 workers", time: "06:30", status: "queued" },
-];
+/** Convert QueuedMutation[] from offlineQueue to SyncItem[] for UI display. */
+function queuedToSyncItems(items: QueuedMutation[]): SyncItem[] {
+  return items.map(m => ({
+    id: m.id,
+    label: m.label,
+    time: new Date(m.queuedAt).toLocaleTimeString("en-LK", { hour: "2-digit", minute: "2-digit" }),
+    status: "queued" as const,
+    table: m.table,
+    attempts: m.attempts,
+    lastError: m.lastError,
+  }));
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<AuthState | null>(null);
   const [previewRole, setPreviewRole] = useState<Role>("admin");
   const [activeModule, setActiveModule] = useState<string>("dashboard");
   const [online, setOnline] = useState<boolean>(true);
-  const [syncQueue, setSyncQueue] = useState<SyncItem[]>(INITIAL_QUEUE);
+  const [syncQueue, setSyncQueue] = useState<SyncItem[]>(queuedToSyncItems(getQueuedItems()));
   const [authReady, setAuthReady] = useState<boolean>(false);
 
   const [resourceRequests, setResourceRequests] = useState<ResourceRequest[]>(seedResourceRequests);
@@ -166,14 +178,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toggleOnline = useCallback(() => setOnline((o) => !o), []);
 
   const enqueueSync = useCallback((label: string) => {
-    const time = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
-    const item: SyncItem = { id: `q-${Date.now()}`, label, time, status: "queued" };
-    setSyncQueue((q) => [item, ...q].slice(0, 12));
+    // Refresh queue display from the real localStorage-backed queue
+    setSyncQueue(queuedToSyncItems(getQueuedItems()));
   }, []);
 
-  const flushSync = useCallback(() => {
-    setSyncQueue((q) => q.map((i): SyncItem => ({ ...i, status: "synced" })));
-    window.setTimeout(() => setSyncQueue([]), 1600);
+  const flushSync = useCallback(async () => {
+    // Actually attempt to flush the real offline queue to Supabase
+    const result = await flushQueue();
+    // Update the UI with the remaining items
+    setSyncQueue(queuedToSyncItems(getQueuedItems()));
+    // If items were synced, show a toast
+    if (result.succeeded > 0) {
+      const id = `t-${Date.now()}`;
+      setToasts((ts) => [...ts, {
+        id,
+        title: "Offline Queue Synced",
+        body: `${result.succeeded} record(s) synced to database successfully ✅`,
+        tone: "emerald",
+        channel: "system",
+      }]);
+      window.setTimeout(() => setToasts((ts) => ts.filter((x) => x.id !== id)), 4000);
+    }
+    if (result.deadLettered > 0) {
+      const id = `t-${Date.now()}-dl`;
+      setToasts((ts) => [...ts, {
+        id,
+        title: "Sync Failed — Records Lost",
+        body: `${result.deadLettered} record(s) exceeded max retry attempts and were removed from queue.`,
+        tone: "rose",
+        channel: "system",
+      }]);
+    }
   }, []);
 
   const notify = useCallback((t: Omit<Toast, "id">) => {
@@ -230,10 +265,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Auto-flush the offline queue when connectivity returns.
   useEffect(() => {
     if (online && syncQueue.some((q) => q.status === "queued")) {
-      const t = window.setTimeout(() => flushSync(), 1200);
+      const t = window.setTimeout(() => void flushSync(), 1200);
       return () => window.clearTimeout(t);
     }
   }, [online, syncQueue, flushSync]);
+
+  // Listen for queue-updated events from offlineQueue.ts (fired on enqueue)
+  useEffect(() => {
+    const handler = () => setSyncQueue(queuedToSyncItems(getQueuedItems()));
+    window.addEventListener("verda:queue-updated", handler);
+    return () => window.removeEventListener("verda:queue-updated", handler);
+  }, []);
 
   const submitRequest = useCallback(
     (input: Omit<ResourceRequest, "id" | "supplierId" | "supplierName" | "status" | "adminNotes" | "timestamp">) => {

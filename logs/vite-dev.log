@@ -301,3 +301,12 @@ Error: Port 3000 is already in use
 
   ➜  Local:   http://localhost:3000/
   ➜  Network: http://21.0.9.91:3000/
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+
+  VITE v7.3.2  ready in 262 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://21.0.11.18:3000/
