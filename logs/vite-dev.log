@@ -310,3 +310,15 @@ Error: Port 3000 is already in use
 
   ➜  Local:   http://localhost:3000/
   ➜  Network: http://21.0.11.18:3000/
+8:42:00 AM [vite] (client) hmr update /src/index.css, /src/modules/Vehicles.tsx
+8:43:06 AM [vite] (client) hmr update /src/index.css, /src/modules/Welfare.tsx
+8:44:26 AM [vite] (client) hmr update /src/index.css, /src/modules/AuditCompliance.tsx
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+
+  VITE v7.3.2  ready in 300 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://21.0.11.18:3000/
