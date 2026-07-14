@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Package, Plus, Loader2, Truck, ArrowDownCircle, ArrowUpCircle, AlertTriangle, History } from "lucide-react";
+import { Package, Plus, Loader2, Truck, ArrowDownCircle, ArrowUpCircle, AlertTriangle, History, FileDown } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtLKR, fmtNum, type StockItem, type PurchaseOrder, type StockMovement } from "@/lib/data";
+import { exportObjectsToCSV } from "@/lib/csvExport";
 import {
   listStockItems, createStockItem, listPurchaseOrders, createPurchaseOrder,
   receiveGoods, issueStock, listStockMovements,
@@ -223,7 +224,13 @@ export default function Inventory() {
           </Card>
 
           <Card className="lg:col-span-2 p-4">
-            <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Stock On Hand</h3>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-display text-sm font-bold text-slate-800">Stock On Hand</h3>
+              {stock.length > 0 && (
+                <button onClick={() => exportObjectsToCSV("stock_items", stock.map(s => ({ code: s.code, name: s.name, category: s.category, qty: s.qtyOnHand, unit: s.unit, unit_cost: s.unitCost, value: s.qtyOnHand * s.unitCost })))}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"><FileDown className="h-3 w-3" /> CSV</button>
+              )}
+            </div>
             {stock.length === 0 ? (
               <p className="py-8 text-center text-sm text-slate-400">No stock items yet.</p>
             ) : (

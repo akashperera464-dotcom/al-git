@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Wallet, Plus, Loader2, CheckCircle2, Calendar, Users, FileText, Play, Check, Trophy } from "lucide-react";
+import { Wallet, Plus, Loader2, CheckCircle2, Calendar, Users, FileText, Play, Check, Trophy, FileDown } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtLKR, fmtLKRShort, workers as seedWorkers } from "@/lib/data";
+import { exportObjectsToCSV } from "@/lib/csvExport";
 import {
   listPayrollRuns, listPayslips, generatePayrollRun, approvePayrollRun,
   generatePayrollRunWithAllowances, approvePayrollRunWithJournal,
@@ -286,7 +287,21 @@ export default function Payroll() {
                   <StatCard icon={Wallet} label="ETF (Er 3%)" value={fmtLKRShort(selectedRun.totalEtf)} tone="amber" />
                 </div>
 
-                <div className="mt-4 overflow-x-auto">
+                <div className="mt-4 flex items-center justify-between">
+                  <h3 className="font-display text-sm font-bold text-slate-800">Payslips</h3>
+                  {payslips.length > 0 && (
+                    <button onClick={() => exportObjectsToCSV(`payslips_${selectedRun?.runCode ?? ""}`, payslips.map(p => ({
+                      worker_id: p.workerId, basic: p.basicSalary, ot: p.overtimePay,
+                      allowances: p.allowances, gross: p.grossPay, epf_emp: p.epfEmployee,
+                      epf_er: p.epfEmployer, etf_er: p.etfEmployer, deductions: p.deductions,
+                      net: p.netPay, days: p.daysWorked,
+                    })))}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                      <FileDown className="h-3 w-3" /> Export CSV
+                    </button>
+                  )}
+                </div>
+                <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">

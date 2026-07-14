@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Calculator, BookOpen, Plus, FileText, Scale, TrendingUp, TrendingDown, CheckCircle2, Loader2 } from "lucide-react";
+import { Calculator, BookOpen, Plus, FileText, Scale, TrendingUp, TrendingDown, CheckCircle2, Loader2, FileDown, Target } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip, Panel, DataTable } from "@/components/ui";
 import { fmtLKR, fmtLKRShort } from "@/lib/data";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { exportObjectsToCSV } from "@/lib/csvExport";
 import {
   listGlAccounts, listJournalEntries, createJournalEntry, postJournalEntry, trialBalance,
 } from "@/lib/repo.phase2";
@@ -24,9 +26,10 @@ export default function Finance() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [balance, setBalance] = useState<{ account: GlAccount; debit: number; credit: number }[]>([]);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"ledger" | "newEntry" | "trialBalance">("ledger");
+  const [tab, setTab] = useState<"ledger" | "newEntry" | "trialBalance" | "balanceSheet" | "budget">("ledger");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
 
   // New entry form state
   const [entryNo, setEntryNo] = useState(`JE-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`);
@@ -136,6 +139,8 @@ export default function Finance() {
           { id: "ledger", label: "Journal Entries", icon: BookOpen },
           { id: "newEntry", label: "New Entry", icon: Plus },
           { id: "trialBalance", label: "Trial Balance", icon: Scale },
+          { id: "balanceSheet", label: "Balance Sheet", icon: FileText },
+          { id: "budget", label: "Budget vs Actual", icon: Target },
         ] as const).map(t2 => {
           const Icon = t2.icon;
           const active = tab === t2.id;
@@ -316,6 +321,117 @@ export default function Finance() {
           {balance.filter(b => b.debit !== 0 || b.credit !== 0).length === 0 && (
             <p className="py-6 text-center text-sm text-slate-400">No posted journal entries yet.</p>
           )}
+          <button onClick={() => exportObjectsToCSV("trial_balance", balance.filter(b => b.debit !== 0 || b.credit !== 0).map(b => ({
+            code: b.account.code, account: b.account.name, type: b.account.type,
+            debit: b.debit, credit: b.credit,
+          })))}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+            <FileDown className="h-3 w-3" /> Export CSV
+          </button>
+        </Card>
+      )}
+
+      {/* Balance Sheet */}
+      {tab === "balanceSheet" && (
+        <Card className="mt-4 p-4">
+          <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Balance Sheet (from posted entries)</h3>
+          {(() => {
+            const assets = balance.filter(b => b.account.type === "asset");
+            const liabilities = balance.filter(b => b.account.type === "liability");
+            const equity = balance.filter(b => b.account.type === "equity");
+            const totalAssets = assets.reduce((s, b) => s + b.debit - b.credit, 0);
+            const totalLiabilities = liabilities.reduce((s, b) => s + b.credit - b.debit, 0);
+            const totalEquity = equity.reduce((s, b) => s + b.credit - b.debit, 0);
+            const balanced = Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01;
+            return (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div>
+                  <h4 className="mb-2 text-xs font-bold uppercase text-sky-600">Assets</h4>
+                  {assets.filter(b => b.debit !== 0 || b.credit !== 0).map(b => (
+                    <div key={b.account.id} className="flex justify-between border-b border-slate-50 py-1.5 text-xs">
+                      <span className="text-slate-600">{b.account.code} · {b.account.name}</span>
+                      <span className="font-mono text-slate-800">{fmtLKR(b.debit - b.credit)}</span>
+                    </div>
+                  ))}
+                  <div className="mt-2 flex justify-between border-t-2 border-slate-200 pt-2 text-sm font-bold">
+                    <span>Total Assets</span>
+                    <span className="text-sky-700">{fmtLKR(totalAssets)}</span>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="mb-2 text-xs font-bold uppercase text-amber-600">Liabilities</h4>
+                  {liabilities.filter(b => b.debit !== 0 || b.credit !== 0).map(b => (
+                    <div key={b.account.id} className="flex justify-between border-b border-slate-50 py-1.5 text-xs">
+                      <span className="text-slate-600">{b.account.code} · {b.account.name}</span>
+                      <span className="font-mono text-slate-800">{fmtLKR(b.credit - b.debit)}</span>
+                    </div>
+                  ))}
+                  <div className="mt-2 flex justify-between border-t-2 border-slate-200 pt-2 text-sm font-bold">
+                    <span>Total Liabilities</span>
+                    <span className="text-amber-700">{fmtLKR(totalLiabilities)}</span>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="mb-2 text-xs font-bold uppercase text-emerald-600">Equity</h4>
+                  {equity.filter(b => b.debit !== 0 || b.credit !== 0).map(b => (
+                    <div key={b.account.id} className="flex justify-between border-b border-slate-50 py-1.5 text-xs">
+                      <span className="text-slate-600">{b.account.code} · {b.account.name}</span>
+                      <span className="font-mono text-slate-800">{fmtLKR(b.credit - b.debit)}</span>
+                    </div>
+                  ))}
+                  <div className="mt-2 flex justify-between border-t-2 border-slate-200 pt-2 text-sm font-bold">
+                    <span>Total Equity</span>
+                    <span className="text-emerald-700">{fmtLKR(totalEquity)}</span>
+                  </div>
+                </div>
+                <div className="lg:col-span-3 mt-2 rounded-lg p-3 text-center text-sm">
+                  {balanced ? (
+                    <Badge tone="emerald" dot>✓ Balanced: Assets ({fmtLKRShort(totalAssets)}) = Liabilities ({fmtLKRShort(totalLiabilities)}) + Equity ({fmtLKRShort(totalEquity)})</Badge>
+                  ) : (
+                    <Badge tone="rose" dot>⚠ Out of balance by {fmtLKR(Math.abs(totalAssets - totalLiabilities - totalEquity))}</Badge>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </Card>
+      )}
+
+      {/* Budget vs Actual */}
+      {tab === "budget" && (
+        <Card className="mt-4 p-4">
+          <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Budget vs Actual (this month)</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+                  <th className="pb-2">Account</th>
+                  <th className="pb-2">Type</th>
+                  <th className="pb-2 text-right">Actual</th>
+                  <th className="pb-2 text-center">Variance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {balance.filter(b => b.account.type === "revenue" || b.account.type === "expense").map(b => {
+                  const actual = b.account.type === "revenue" ? b.credit - b.debit : b.debit - b.credit;
+                  return (
+                    <tr key={b.account.id} className="border-t border-slate-100">
+                      <td className="py-2 font-semibold text-slate-800">{b.account.code} · {b.account.name}</td>
+                      <td className="py-2"><Badge tone={b.account.type === "revenue" ? "emerald" : "rose"}>{b.account.type}</Badge></td>
+                      <td className="py-2 text-right tnum">{actual > 0 ? fmtLKR(actual) : "—"}</td>
+                      <td className="py-2 text-center">
+                        {actual > 0 ? <Badge tone="slate">{b.account.type === "revenue" ? "Revenue" : "Cost"}</Badge> : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">
+            💡 Set monthly budgets per GL account in the <code>budgets</code> table to see budget vs actual variance.
+            Budget entries can be added via Supabase Table Editor or a future budget form.
+          </p>
         </Card>
       )}
     </div>

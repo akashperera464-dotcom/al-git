@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Package, BellRing, Wallet, Leaf, TrendingUp, CalendarCheck, Droplets, Sparkles, Building2 } from "lucide-react";
+import { Package, BellRing, Wallet, Leaf, TrendingUp, CalendarCheck, Droplets, Sparkles, Building2, Tag } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { Icon } from "@/components/Icon";
 import { evaluateFertilizerWindow, recommendPlucking, type AdviceLevel } from "@/lib/predictive";
@@ -11,7 +11,38 @@ import { fetchForecast, getMockForecast } from "@/lib/weather";
 import { useApp } from "@/context/AppContext";
 import { LocationCheckIn } from "@/components/LocationCheckIn";
 import { PruningAdvisory } from "@/components/PruningAdvisory";
+import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 import type { SupplyRecord } from "@/lib/data";
+
+/** Daily Tea Prices card — shows today's price per kg per grade. */
+function DailyPriceCard() {
+  const [prices, setPrices] = useState<{ grade: string; pricePerKg: number }[]>([]);
+  useEffect(() => {
+    if (!supabaseConfigured) return;
+    const sb = getSupabase()!;
+    void (async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const { data } = await sb.from("daily_tea_prices").select("grade, price_per_kg").eq("price_date", today);
+        if (data) setPrices(data.map((r: Record<string, unknown>) => ({ grade: r.grade as string, pricePerKg: Number(r.price_per_kg) })));
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  if (prices.length === 0) return null;
+  const toneMap: Record<string, "emerald" | "amber" | "rose"> = { Super: "emerald", Standard: "amber", Coarse: "rose" };
+  return (
+    <div className="mb-4 grid grid-cols-3 gap-2">
+      {prices.map(p => (
+        <div key={p.grade} className="rounded-xl border border-slate-200 bg-white p-3 text-center">
+          <Badge tone={toneMap[p.grade] ?? "slate"}>{p.grade}</Badge>
+          <p className="mt-1.5 font-display text-lg font-bold text-slate-800">Rs {p.pricePerKg.toLocaleString()}</p>
+          <p className="text-[10px] text-slate-400">per kg · today</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const LEVEL_COLOR: Record<AdviceLevel, string> = { critical: "#f43f5e", due: "#f59e0b", optimal: "#10b981", hold: "#0ea5e9", info: "#38bdf8" };
 const GRADE_TONE: Record<string, "emerald" | "amber" | "rose"> = { Super: "emerald", Standard: "amber", Coarse: "rose" };
@@ -62,6 +93,7 @@ export function SupplierDeliveries() {
         icon={<IconChip icon={Package} tone="emerald" className="h-12 w-12" />}
       />
       <LinkedEstateBanner />
+      <DailyPriceCard />
       <div className="grid grid-cols-3 gap-2.5">
         <StatCard icon={Package} label={t("supplier.netSupplied")} value={fmtNum(totalNet)} sub={t("supplier.kgNet")} tone="emerald" />
         <StatCard icon={Leaf} label={t("supplier.deliveriesCount")} value={String(records.length)} tone="sky" />

@@ -136,6 +136,7 @@ export function EoWeighing() {
   const [ded, setDed] = useState(4);
   const [grade, setGrade] = useState("Standard");
   const [savedCount, setSavedCount] = useState(0);
+  const [tripNumber, setTripNumber] = useState(1);
   const [busy, setBusy] = useState(false);
   const net = +(gross * (1 - ded / 100)).toFixed(1);
 
@@ -160,6 +161,7 @@ export function EoWeighing() {
       });
 
       setSavedCount((c) => c + 1);
+      setTripNumber(t => t + 1);
 
       if (result.status === "online") {
         // Saved successfully to Supabase — green toast
@@ -263,6 +265,11 @@ export function EoWeighing() {
           <span className="font-display text-xl font-bold text-emerald-700 tnum">{net} {t("common.kg")}</span>
         </div>
         <div className="mt-3">
+          {tripNumber > 1 && (
+            <div className="mb-2 text-center text-xs font-semibold text-slate-500">
+              Trip #{tripNumber} today · {savedCount} total weigh-ins
+            </div>
+          )}
           <button
             onClick={save}
             disabled={busy || gross <= 0}
