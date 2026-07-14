@@ -1098,11 +1098,400 @@ When a supplier logs a new activity in **My Farm Activities** (fertilizer applie
 **Closed-loop feedback:**
 Supplier කෙනෙක් **මගේ ගොවිපළ කටයුතු** වල නව activity එකක් log කරද්දී (පොහොර යෙදුවා, කප්පාදු කළා, self-harvest), advisory engines නව data පාවිච්චි කරලා ස්වයංක්‍රීයව recompute කරනවා. මේක UI එකේ සඳහන් "feedback loop" එකයි.
 
+### 5.7 Loyalty Program (Gamified Rewards) / පක්ෂපාතිත්ව වැඩසටහන
+
+**English — Full gamified points + tier + rewards + redemption system:**
+
+**5 tabs:**
+1. **Leaderboard** — ranked members with tier badges (Bronze → Silver → Gold → Platinum), streak, earned/burned totals, progress bar to next tier
+2. **Members** — add new member + award/deduct points with reason + select member to manage
+3. **Rewards Catalog** — CRUD redeemable items (merchandise/cash/voucher/experience) + activate/deactivate. 8 seeded rewards (T-shirt, Cap, Flask, Cash Bonus Rs 500/1000, Co-op Voucher, Paid Day Off, Family Lunch)
+4. **Redemptions** — create new redemption (member redeems reward) + approve/reject/fulfill pending + full history. If rejected → auto-refund points.
+5. **Points Ledger** — full audit log of every earn/burn/adjust/bonus transaction
+
+**Tier system (auto-computed from points):**
+| Tier | Min Points | Badge |
+|------|-----------|-------|
+| Bronze | 0 | Rookie |
+| Silver | 800 | Early Bird |
+| Gold | 1,500 | Steady Hand / Top Flush |
+| Platinum | 2,000 | Iron Plucker |
+
+**සිංහල — සම්පූර්ණ gamified points + tier + rewards + redemption පද්ධතිය:**
+
+**Tabs 5ක්:**
+1. **Leaderboard** — ranked members, tier badges (Bronze → Platinum), streak, earned/burned totals, ඊළඟ tier එකට progress bar
+2. **Members** — නව member එකක් එකතු කිරීම + points award/deduct (reason සහිතව) + member select කරලා manage කිරීම
+3. **Rewards Catalog** — redeemable items CRUD (merchandise/cash/voucher/experience) + activate/deactivate. Seeded rewards 8ක්
+4. **Redemptions** — නව redemption එකක් හැදීම + pending approve/reject/fulfill + සම්පූර්ණ ඉතිහාසය. Reject කරාම → auto-refund points
+5. **Points Ledger** — සෑම earn/burn/adjust/bonus transaction එකකම සම්පූර්ණ audit log එක
+
+### 5.8 Worker Master + Attendance + Lifecycle / ශ්‍රමික මාස්ටර් + පැමිණීම + ජීවන චක්‍රය
+
+**English — Labor & HR Management has 4 tabs:**
+
+1. **Worker Roster** (full CRUD) — Add/Edit/Delete workers with ALL HR fields:
+   - Name, Full Name, NIC, Division, Role, Phone
+   - Date of Birth, Gender, Address, Emergency Contact
+   - Hire Date, EPF Number, ETF Number
+   - Bank Name, Bank Branch, Bank Account
+   - Basic Salary
+   - Status: active / suspended / terminated / retired
+
+2. **Daily Attendance** — Date picker + division filter. Per-worker status buttons: **P** (present) / **½** (half-day) / **A** (absent) / **L** (leave). Bulk mark all present/absent. Each mark upserts a `daily_attendance` row (unique per worker per date).
+
+3. **Leave Requests** — Submit leave (annual/sick/casual/maternity/nopay) + approve/reject workflow
+
+4. **Lifecycle / Transfers** — Record lifecycle events:
+   - **Transfer** (division change) / **Promote** (role change)
+   - **Suspend** / **Reinstate**
+   - **Retire** / **Terminate** (sets termination_date + status)
+   - Full lifecycle history with badges (hire=green, retire/terminate=red, suspend=amber)
+
+**සිංහල — Labor & HR Management එකේ tabs 4ක්:**
+
+1. **Worker Roster** (සම්පූර්ණ CRUD) — workers එකතු කිරීම/edit/delete, සියලුම HR fields සහිතව:
+   - Name, Full Name, NIC, Division, Role, Phone
+   - Date of Birth, Gender, Address, Emergency Contact
+   - Hire Date, EPF Number, ETF Number
+   - Bank Name, Bank Branch, Bank Account
+   - Basic Salary
+   - Status: active / suspended / terminated / retired
+
+2. **Daily Attendance** — Date picker + division filter. Worker ට එකින් එක: **P** (present) / **½** (half-day) / **A** (absent) / **L** (leave). "Mark All Present" / "Mark All Absent" bulk buttons.
+
+3. **Leave Requests** — Leave submit කිරීම (annual/sick/casual/maternity/nopay) + approve/reject
+
+4. **Lifecycle / Transfers** — Lifecycle events record කිරීම:
+   - **Transfer** (division change) / **Promote** (role change)
+   - **Suspend** / **Reinstate**
+   - **Retire** / **Terminate** (termination_date + status set වෙනවා)
+   - සම්පූර්ණ lifecycle history
+
+### 5.9 Vehicle & Fuel Management / වාහන සහ ඉන්ධන කළමනාකරණය
+
+**English — 3 tabs:**
+
+1. **Fleet Roster** — full table: Reg No, Type (Lorry/Tractor/Pickup/Motorcycle), Driver, Mileage, Fuel, Last Service, Status badge (active/idle/service). Reads from Supabase.
+
+2. **Fuel Logs** — Log fuel form: select vehicle, litres, cost/L, odometer, station, slip ref. Auto-computes total cost. Updates vehicle mileage on save. Fuel history list with per-entry cost. Stats: Fleet Size, Active, In Service, Fuel Cost MTD.
+
+3. **Add Vehicle** — Form: Reg, Type (6 dropdown options), Driver, Status. Inserts to Supabase.
+
+**සිංහල — Tabs 3ක්:**
+
+1. **Fleet Roster** — සම්පූර්ණ table: Reg No, Type, Driver, Mileage, Fuel, Last Service, Status badge
+2. **Fuel Logs** — Fuel log කිරීම: vehicle, litres, cost/L, odometer, station, slip. Auto total cost. Vehicle mileage update. Fuel history + cost.
+3. **Add Vehicle** — Form: Reg, Type, Driver, Status
+
+### 5.10 Welfare Management / සුබසාධන කළමනාකරණය
+
+**English — 3 tabs:**
+
+1. **Welfare Cases** — List with type-specific icons (Stethoscope for Clinic, GraduationCap for Scholarship, Baby for Maternity). "Resolve" button on open cases. Status badges (open=amber, settled=emerald).
+
+2. **Housing Units** — Table: Block Name, Families count, Condition badge (Good/Needs Repair/Priority).
+
+3. **Add Case / Unit** — Two forms:
+   - **Add Welfare Case**: type (Clinic Visit/Scholarship/Maternity/Housing Repair), person, detail, priority (low/normal/high/urgent), cost
+   - **Add Housing Unit**: block name, unit type (line_room/family_quarter/dormitory), families, occupants, condition
+
+**සිංහල — Tabs 3ක්:**
+
+1. **Welfare Cases** — Type-specific icons සහිතව list. Open cases වල "Resolve" button. Status badges.
+2. **Housing Units** — Table: Block Name, Families, Condition badge
+3. **Add Case / Unit** — ආකර දෙකක්: Welfare case එකක් හෝ Housing unit එකක් එකතු කිරීම
+
+### 5.11 Audit & Compliance / විගණනය සහ අනුකූලතාව
+
+**English — 4 tabs:**
+
+1. **Overview** — Compliance posture panel (score meters + expiry countdown per standard) + documentation vault (Rainforest Alliance, Fairtrade, ISO 22000, ETP) + ETP checklist. Reads from real `compliance_items` table.
+
+2. **Compliance Items** (CRUD) — Each item: standard name, score, expiry date, cert body, notes. Dropdown to change status (Certified/In Audit/Action Needed/Expired). Every status change logged to audit trail.
+
+3. **Audit Log** — Real audit trail: every action (created/updated/deleted) on compliance items, with entity type, entity ID, performer, timestamp, JSON details. Last 50 entries.
+
+4. **Add Standard** — Form: Standard Name, Status, Score, Expiry Date, Certification Body, Notes. Inserts to Supabase + logs creation to audit trail.
+
+**සිංහල — Tabs 4ක්:**
+
+1. **Overview** — Compliance posture (score meters + expiry countdown) + documentation vault + ETP checklist
+2. **Compliance Items** (CRUD) — standard, score, expiry, cert body, notes. Status change dropdown. සෑම change එකක්ම audit trail එකට log වෙනවා
+3. **Audit Log** — සත්‍ය audit trail: created/updated/deleted actions, entity, performer, timestamp, details
+4. **Add Standard** — Form: Standard Name, Status, Score, Expiry, Cert Body, Notes
+
 ---
 
-## 6 · Android App Build / Android App Build කිරීම
+## 6 · Auto-Posting Integration Wires / ස්වයංක්‍රීය ජර්නල පෝස්ටින් සම්බන්ධතා
 
-### 6.1 Prerequisites
+> **මේ කොටස පද්ධතියේ වැදගත්ම feature එක විස්තර කරනවා — සෑම මුදල් ගනුදෙනුවක්ම ස්වයංක්‍රීයව Finance මොඩියුලයේ journal entry එකක් බවට පත් වෙනවා. / This section describes the system's most important feature — every financial transaction automatically becomes a journal entry in the Finance module.**
+
+### 6.1 The 6 Integration Wires / සම්බන්ධතා 6ක්
+
+**English — When you perform these actions, a journal entry is automatically created and posted in Finance:**
+
+| # | Action | Auto-created Journal Entry |
+|---|--------|---------------------------|
+| **1** | **Approve Payroll Run** | Dr Wages & Salaries (5010) + Dr EPF Expense (5020) + Dr ETF Expense (5030), Cr EPF Payable (2100) + Cr ETF Payable (2110) + Cr Cash (1000) |
+| **2** | **Pay Supplier Invoice** | Dr Green Leaf Cost (5000), Cr Cash (1000) + Cr Accounts Payable (2000) if partial |
+| **3** | **Receive Goods (GRN)** | Dr Inventory-Raw (1200), Cr Accounts Payable (2000) |
+| **4** | **Issue Stock** | Dr Fertilizer & Chemicals (5050) [or Factory Fuel/Repairs based on category], Cr Inventory-Raw (1200) |
+| **5** | **Pay Sales Invoice** (made-tea sold) | Dr Cash (1000) + Dr Accounts Receivable (1100) if partial, Cr Tea Sales Revenue (4000) + Cr Accounts Payable (2000) for broker commission |
+| **6** | **Approve Loyalty Cash Redemption** | Auto-creates a `payroll_allowance` row → flows into next payroll run as an allowance for that worker |
+
+**සිංහල — මේ ක්‍රියාවන් කළ විට, Finance මොඩියුලයේ ස්වයංක්‍රීයව journal entry එකක් හැදෙනවා:**
+
+| # | ක්‍රියාව | ස්වයංක්‍රීය Journal Entry |
+|---|--------|---------------------------|
+| **1** | **Payroll Run Approve කිරීම** | Dr Wages & Salaries + Dr EPF/ETF Expense, Cr EPF/ETF Payable + Cr Cash |
+| **2** | **Supplier Invoice ගෙවීම** | Dr Green Leaf Cost, Cr Cash + Cr Accounts Payable |
+| **3** | **Goods Receipt (GRN)** | Dr Inventory-Raw, Cr Accounts Payable |
+| **4** | **Stock Issue කිරීම** | Dr Fertilizer & Chemicals [හෝ category අනුව], Cr Inventory-Raw |
+| **5** | **Sales Invoice ගෙවීම** (made-tea) | Dr Cash + Dr AR, Cr Tea Sales Revenue + Cr AP (commission) |
+| **6** | **Loyalty Cash Redemption Approve කිරීම** | `payroll_allowance` row එකක් හැදෙනවා → ඊළඟ payroll run එකට auto-flow වෙනවා |
+
+### 6.2 Attendance → Payroll Wire / පැමිණීම → වැටුප් සම්බන්ධතාව
+
+**English — When generating a payroll run with "Auto-fetch from Attendance" enabled:**
+
+1. For each selected worker, the system fetches their attendance from `daily_attendance` table for the payroll period
+2. Computes: `daysWorked = present + (half_day × 0.5)` — half-days count as 0.5
+3. Computes: `overtimePay = totalOvertimeHours × overtimeRatePerHour` (admin-configurable, default Rs 250/hr)
+4. Also auto-consumes any pending allowances (loyalty cash bonuses) from `payroll_allowances` table
+5. The UI shows a sky-blue attendance preview per worker: "📊 Attendance: 26 days worked · ⏱ OT: 8h → Rs 2,000"
+
+**Priority for daysWorked:**
+1. Manual override (if admin enters a non-30 value)
+2. Attendance-derived (from daily_attendance records)
+3. Default 30 (fallback)
+
+**සිංහල — "Auto-fetch from Attendance" enabled කරලා payroll run එකක් generate කරද්දී:**
+
+1. සෑම selected worker ටම `daily_attendance` table එකෙන් පැමිණීම ගලනවා
+2. `daysWorked = present + (half_day × 0.5)` — half-day 0.5 ක් විදියට ගණන් වෙනවා
+3. `overtimePay = OT hours × OT rate/hr` (default Rs 250/hr)
+4. Pending allowances (loyalty cash bonuses) නිකම්ම auto-consume වෙනවා
+5. UI එකේ sky-blue attendance preview එක පෙන්නනවා: "📊 Attendance: 26 days · ⏱ OT: 8h → Rs 2,000"
+
+### 6.3 Factory → Sales Invoice Wire / කර්මාන්තශාලා → අලෙවි ඉන්වොයිස් සම්බන්ධතාව
+
+**English — When a factory batch reaches "Dispatched" status:**
+
+1. A **"Create Sales Invoice"** button appears on the completed batch (sky-blue)
+2. Click → modal opens with: buyer name, price per kg, broker commission %, due date
+3. Live preview shows: Gross (output kg × price), Commission, Net
+4. Click "Create Invoice" → sales invoice created (status = unpaid) + linked back to batch
+5. Batch now shows "Invoiced: SI-YYYYMMDD-NNN" badge
+6. When buyer pays → admin records payment → auto-creates journal entry (Dr Cash, Cr Tea Sales Revenue + Cr AP for commission)
+
+**සිංහල — Factory batch එකක් "Dispatched" වුණාම:**
+
+1. **"Create Sales Invoice"** button එකක් පෙන්නනවා (sky-blue)
+2. Click කරද්දී modal එකක් විවෘත වෙනවා: buyer name, price/kg, commission %, due date
+3. Live preview: Gross, Commission, Net
+4. "Create Invoice" → sales invoice එක හැදෙනවා (status = unpaid) + batch එකට link වෙනවා
+5. Batch එකේ "Invoiced: SI-YYYYMMDD-NNN" badge එක පෙන්නනවා
+6. Buyer ගෙව්වාම → auto journal entry (Dr Cash, Cr Tea Sales Revenue + Cr AP)
+
+### 6.4 Full Data Flow Diagram (Updated) / සම්පූර්ණ දත්ත ගලායාම (යාවත්කාලීන)
+
+```
+                    ┌──────────────────┐
+                    │  Estate Master   │
+                    │  (Estates→Div→   │
+                    │   Fields)        │
+                    └────────┬─────────┘
+                             │
+         ┌───────────────────┼───────────────────┐
+         ▼                   ▼                   ▼
+  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+  │ Labor (HR)   │  │ Harvest      │  │ Factory      │
+  │ + Attendance │  │ (Green Leaf) │  │ (Batch Track)│
+  │ + Leave      │  │              │  │              │
+  │ + Lifecycle  │  │              │  │              │
+  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+         │                 │                  │
+         │ daysWorked      │ green leaf in    │ output kg
+         │ from attendance │──────────────────│ (made tea)
+         │                 │                  │
+         ▼                 ▼                  ▼
+  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+  │ Payroll      │  │ Supplier     │  │ Sales        │
+  │ + EPF/ETF    │  │ Invoices     │  │ Invoices     │
+  │ + Allowances │  │              │  │ (from batch) │
+  │   (loyalty)  │  │              │  │              │
+  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+         │                 │                  │
+         │ wages           │ green-leaf cost  │ tea sales
+         └────────────────┬┴──────────────────┘
+                          ▼
+                   ┌──────────────┐
+                   │  Finance     │ ← ALL auto-posted
+                   │  (Journal    │   via integration
+                   │   Entries)   │   wires
+                   └──────┬───────┘
+                          │
+                   ┌──────────────┐
+                   │ Trial Balance│
+                   │ + P&L        │
+                   └──────────────┘
+```
+
+**සිංහල — සම්පූර්ණ දත්ත ගලායාම (යාවත්කාලීන):**
+
+(ඉහත diagram එක බලන්න — දැන් attendance → payroll → finance, harvest → supplier invoices → finance, factory → sales invoices → finance, loyalty → payroll → finance, inventory → finance සියල්ලම auto-wire වෙලා තියෙනවා.)
+
+---
+
+## 7 · Offline Data Logging & Auto-Sync (Fixed) / නොබැඳි දත්ත ලොගින් සහ ස්වයං සමමුහුර්තය
+
+> **මේ කොටස Extension Officer ට අන්තර්ජාලය නැති විට data නැති නොවන ආකාරය විස්තර කරනවා. / This section describes how the Extension Officer's data is never lost even without internet.**
+
+### 7.1 The Problem We Fixed / අපි විසඳපු ගැටලුව
+
+**English:**
+Previously, when an Extension Officer weighed leaf in a no-signal area:
+1. `saveLeafWeighing()` tried to insert into Supabase
+2. The fetch failed (no network)
+3. The error was thrown → **the weigh-in was silently lost**
+
+This was a **critical silent data loss bug**. Weigh-ins in remote field areas were permanently lost.
+
+### 7.2 The Fix — How It Works Now / විසඳුම — දැන් ක්‍රියාත්මක වන ආකාරය
+
+**English — The full offline data flow:**
+
+```
+Extension Officer taps "Save & sync"
+    │
+    ├── tries Supabase insert ── succeeds ──► green toast:
+    │                                         "Weigh-in saved ✅"
+    │                                         + FCM push to supplier
+    │
+    └── Supabase fails (no signal) ──► catch error
+                                         │
+                                         ▼
+                              enqueueMutation() → localStorage
+                              ("verda:offline_queue")
+                                         │
+                                         ▼
+                              amber toast:
+                              "📭 No Signal! Saved Locally.
+                               Will sync automatically later"
+                                         │
+                                         ▼
+                              Pending Sync banner appears
+                              (amber, shows queue count + items)
+
+═══ Later, when connection returns ═══
+
+AppContext detects online = true
+    │
+    ▼
+Auto-flush triggers (1.2s delay)
+    │
+    ▼
+flushQueue() — replays all pending mutations to Supabase
+    │
+    ├── succeeds → remove from queue + green toast
+    └── fails → increment attempts, keep queued
+        └── if attempts >= 5 → dead-letter (remove + red toast)
+```
+
+**සිංහල — සම්පූර්ණ offline data flow:**
+
+```
+Extension Officer "Save & sync" ඔබයි
+    │
+    ├── Supabase insert සාර්ථක ──► කොළ toast: "Weigh-in saved ✅"
+    │                                + supplier ට FCM push
+    │
+    └── Supabase අසාර්ථක (no signal) ──► error catch
+                                              │
+                                              ▼
+                                   enqueueMutation() → localStorage
+                                   ("verda:offline_queue")
+                                              │
+                                              ▼
+                                   රන්වන් toast:
+                                   "📭 No Signal! Saved Locally.
+                                    Will sync automatically later"
+                                              │
+                                              ▼
+                                   Pending Sync banner පෙන්නනවා
+                                   (රන්වන්, queue count + items පෙන්නනවා)
+
+═══ පසුව, internet ආව විට ═══
+
+AppContext online = true detect කරයි
+    │
+    ▼
+Auto-flush (1.2s delay)
+    │
+    ▼
+flushQueue() — සියලුම pending mutations Supabase ට යවයි
+    │
+    ├── සාර්ථක → queue එකෙන් ඉවත් කරයි + කොළ toast
+    └── අසාර්ථක → attempts++ , queue එකේ තියෙනවා
+        └── attempts >= 5 නම් → dead-letter (ඉවත් කරයි + රතු toast)
+```
+
+### 7.3 UI Features in Weighing Screen / බර කිරීමේ තිරයේ UI විශේෂාංග
+
+**English:**
+
+1. **Online save** → green toast: "Weigh-in saved ✅ — 12.5 kg net (Super) saved to database"
+2. **Offline save** → amber toast: "📭 No Signal! Saved Locally — 12.5 kg (Super) saved offline. Will sync automatically when connection returns."
+3. **Pending Sync banner** (only visible when queue > 0):
+   - Amber gradient background with WifiOff icon
+   - Bold text: "N records pending sync"
+   - Subtext: "Saved locally while offline. Will auto-sync when connection returns."
+   - Per-item chips (max 3): ⏳ icon + truncated label. If retried: ⚠ icon + attempt count
+   - "+N more" if more than 3 items queued
+4. **Auto-sync toast** (when connection returns): "Offline Queue Synced — N record(s) synced to database successfully ✅"
+5. **Dead-letter toast** (if 5 attempts fail): "Sync Failed — Records Lost" (red)
+
+**සිංහල:**
+
+1. **Online save** → කොළ toast: "Weigh-in saved ✅"
+2. **Offline save** → රන්වන් toast: "📭 No Signal! Saved Locally. Will sync automatically later"
+3. **Pending Sync banner** (queue > 0 නම් පමණක්):
+   - රන්වන් gradient + WifiOff icon
+   - "N records pending sync"
+   - "Saved locally while offline. Will auto-sync when connection returns."
+   - Per-item chips (max 3): ⏳ + label. Retried නම්: ⚠ + attempt count
+4. **Auto-sync toast** (internet ආව විට): "Offline Queue Synced — N record(s) synced ✅"
+5. **Dead-letter toast** (5 attempts අසාර්ථක නම්): "Sync Failed — Records Lost" (රතු)
+
+### 7.4 Safety Guarantees / ආරක්ෂිතතා සහතික
+
+**English:**
+
+| Scenario | What happens |
+|----------|------|
+| Officer saves while offline | Mutation stored in `localStorage["verda:offline_queue"]`. Amber toast + pending badge. **No data lost.** |
+| Connection returns | Auto-flush after 1.2s. All pending mutations replayed to Supabase. Success toast. |
+| Flush fails (still bad signal) | Mutation stays queued with `attempts++`. Will retry on next flush. |
+| 5 consecutive failures | Mutation dead-lettered (removed). Red toast. Error logged. |
+| Multiple officers offline simultaneously | Each has their own localStorage queue. No collision. |
+| Optimistic concurrency on updates | Version mismatch → treated as failure + retry. |
+
+**සිංහල:**
+
+| තත්වය | විස්තර |
+|--------|------|
+| Officer offline විට save කරද්දී | localStorage එකේ store වෙනවා. රන්වන් toast + badge. **Data නැති නොවේ.** |
+| Internet ආව විට | Auto-flush (1.2s). සියලුම pending Supabase ට යවනවා. කොළ toast. |
+| Flush අසාර්ථක | Queue එකේ තියෙනවා, attempts++ වෙනවා. ඊළඟ flush එකේ retry. |
+| 5 වරක් අසාර්ථක | Dead-letter (ඉවත්). රතු toast. |
+| Officers කිහිප දෙනෙක් offline | එක් එක් ගේ තමන්ගේ queue. Collision නෑ. |
+
+---
+
+## 8 · Android App Build / Android App Build කිරීම
+
+### 8.1 Prerequisites
 
 **English:**
 - Expo CLI: `npm install -g expo-cli`
@@ -1118,7 +1507,7 @@ Supplier කෙනෙක් **මගේ ගොවිපළ කටයුතු** 
 - පරීක්ෂා කිරීමට Android device හෝ emulator
 - (Play Store සඳහා) Google Play Developer account ($25 one-time)
 
-### 6.2 Setup app/.env
+### 8.2 Setup app/.env
 
 **English:**
 ```bash
@@ -1140,7 +1529,7 @@ EXPO_PUBLIC_WEB_URL=https://your-tea-erp.vercel.app  # Deployed PWA එකේ UR
 EAS_PROJECT_ID=your-eas-project-id                    # expo.dev එකෙන්
 ```
 
-### 6.3 Install dependencies + prebuild
+### 8.3 Install dependencies + prebuild
 
 **English:**
 ```bash
@@ -1156,7 +1545,7 @@ npm install
 npx expo prebuild --clean    # native android/ සහ ios/ folders හදනවා
 ```
 
-### 6.4 Build APK (for testing) / AAB (for Play Store)
+### 8.4 Build APK (for testing) / AAB (for Play Store)
 
 **English:**
 ```bash
@@ -1180,7 +1569,7 @@ npm run build:aab
 # → Play Console එකට upload කරන්න
 ```
 
-### 6.5 Native Bridges (Already Wired)
+### 8.5 Native Bridges (Already Wired)
 
 **English — The Android app has these native bridges (in `app/src/native/`):**
 
@@ -1224,7 +1613,7 @@ window.ReactNativeWebView?.postMessage(JSON.stringify({
 
 ---
 
-## 7 · Offline-First Behavior / Offline හැසිරීම
+## 9 · Offline-First Behavior / Offline හැසිරීම
 
 **English — How offline works:**
 
@@ -1262,7 +1651,7 @@ window.ReactNativeWebView?.postMessage(JSON.stringify({
 
 ---
 
-## 8 · Tri-Lingual Language Switching / ත්‍රි-භාෂා මාරු කිරීම
+## 10 · Tri-Lingual Language Switching / ත්‍රි-භාෂා මාරු කිරීම
 
 **English:**
 - Top-right corner of every screen has a **Language** button (globe icon)
@@ -1282,7 +1671,7 @@ window.ReactNativeWebView?.postMessage(JSON.stringify({
 
 ---
 
-## 9 · Branding & White-Label / නාම සලකුණු
+## 11 · Branding & White-Label / නාම සලකුණු
 
 **English:**
 Admin can customize branding via **Branding & Settings** module:
@@ -1306,9 +1695,9 @@ Settings Supabase `settings` table එකේ (key='branding') store වෙනව
 
 ---
 
-## 10 · Troubleshooting / ගැටලු විසඳීම
+## 12 · Troubleshooting / ගැටලු විසඳීම
 
-### 10.1 Login fails / Login අසාර්ථකයි
+### 12.1 Login fails / Login අසාර්ථකයි
 
 **English:**
 | Symptom | Fix |
@@ -1326,7 +1715,7 @@ Settings Supabase `settings` table එකේ (key='branding') store වෙනව
 | Login වෙනවා ඒත් කිසිවක් පේන්නේ නෑ | User Supabase `users` table එකේ නෑ — manually row එකක් insert කරන්න (§2.1 බලන්න) |
 | Role වැරදියි | Supabase Table Editor එකේ `users.role` update කරන්න |
 
-### 10.2 Supabase connection error / Supabase connection දෝෂයක්
+### 12.2 Supabase connection error / Supabase connection දෝෂයක්
 
 **English:**
 - Open browser DevTools (F12) → Console
@@ -1342,7 +1731,7 @@ Settings Supabase `settings` table එකේ (key='branding') store වෙනව
 - "⚠ reachable but REST returned 401" = anon key වැරදියි
 - "connection check failed" = URL වැරදියි හෝ network block කරලා
 
-### 10.3 Push notifications not arriving / Push notifications එන්නේ නෑ
+### 12.3 Push notifications not arriving / Push notifications එන්නේ නෑ
 
 **English:**
 1. Check FCM VAPID key is set in `.env` (`VITE_FIREBASE_VAPID_KEY`)
@@ -1358,7 +1747,7 @@ Settings Supabase `settings` table එකේ (key='branding') store වෙනව
 4. Android native app එකේ FCM token එක first launch එකේදී ස්වයංක්‍රීයව register වෙනවා
 5. Supabase `users.fcm_token` populate වෙලාද බලන්න (run: `select id, fcm_token from users;`)
 
-### 10.4 Build errors / Build දෝෂ
+### 12.4 Build errors / Build දෝෂ
 
 **English:**
 | Error | Fix |
@@ -1376,7 +1765,7 @@ Settings Supabase `settings` table එකේ (key='branding') store වෙනව
 | TypeScript දෝෂ | `npx tsc --noEmit` run කරලා සියලුම type දෝෂ බලන්න |
 | Module not found | `tsconfig.json` paths config + import paths `@/` alias පාවිච්චි කරනවද බලන්න |
 
-### 10.5 SQL migration errors / SQL migration දෝෂ
+### 12.5 SQL migration errors / SQL migration දෝෂ
 
 **English:**
 If you get `column "estate_id" does not exist`:
@@ -1398,7 +1787,7 @@ If you get `relation "X" already exists`:
 
 ---
 
-## 11 · Daily / Monthly / Annual Checklists / දෛනික මාසික වාර්ෂික පරීක්ෂක ලැයිස්තු
+## 13 · Daily / Monthly / Annual Checklists / දෛනික මාසික වාර්ෂික පරීක්ෂක ලැයිස්තු
 
 ### Daily / දෛනික
 
@@ -1456,7 +1845,7 @@ If you get `relation "X" already exists`:
 
 ---
 
-## 12 · File Structure Quick Reference / File ව්‍යුහය ඉක්මන් යොමුව
+## 14 · File Structure Quick Reference / File ව්‍යුහය ඉක්මන් යොමුව
 
 ```
 verda-erp/
@@ -1586,7 +1975,7 @@ verda-erp/
 
 ---
 
-## 13 · Quick Command Reference / ඉක්මන් විධාන යොමුව
+## 15 · Quick Command Reference / ඉක්මන් විධාන යොමුව
 
 ```bash
 # ─── Web App ─────────────────────────────────────────────────────
@@ -1620,7 +2009,7 @@ select id, name, email, role from users;  -- user directory
 
 ---
 
-## 14 · Contact & Handover Notes / සම්බන්ධතා සහ භාරදීම සටහන්
+## 16 · Contact & Handover Notes / සම්බන්ධතා සහ භාරදීම සටහන්
 
 **English:**
 - This document is the **canonical workflow guide** for Verda ERP
