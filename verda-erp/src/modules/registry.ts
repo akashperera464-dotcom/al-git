@@ -24,6 +24,7 @@ import UserManagement from "./UserManagement";
 import Settings from "./Settings";
 import SupplierLoans from "./SupplierLoans";
 import AuctionSales from "./AuctionSales";
+import FieldTools from "./FieldTools";
 import { EoRegisterSupplier, EoWeighing } from "./ExtensionOfficer";
 import { SupplierDeliveries, SupplierAlerts, SupplierPayments } from "./SupplierPortal";
 import { FarmActivities } from "./FarmActivities";
@@ -61,6 +62,7 @@ export const REGISTRY: Record<string, ComponentType> = {
   // Tea Industry — supplier loans + auction sales
   "supplier-loans": SupplierLoans,
   "auction-sales": AuctionSales,
+  "field-tools": FieldTools,
 
   // Extension Officer — register suppliers + log weights
   "eo-register": EoRegisterSupplier,

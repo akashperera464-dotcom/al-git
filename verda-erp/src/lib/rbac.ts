@@ -76,6 +76,7 @@ export type Capability =
   | "settings.manage"
   | "supplier.loans"
   | "auction.sales"
+  | "field.tools"
   // extension officer (field) — register suppliers + log weights
   | "weighing.capture"
   | "supplier.register"
@@ -174,6 +175,7 @@ export const MODULES: NavItem[] = [
   { key: "announcements", label: "Announcements", short: "Posts", icon: Newspaper, category: "administration", roles: ["admin"], capability: "announcements.manage" },
   { key: "supplier-loans", label: "Supplier Loans", short: "S Loans", icon: Sprout, category: "finance", roles: ["admin"], capability: "supplier.loans" },
   { key: "auction-sales", label: "Auction Sales", short: "Auction", icon: Gavel, category: "finance", roles: ["admin"], capability: "auction.sales" },
+  { key: "field-tools", label: "Field Tools", short: "Tools", icon: FlaskConical, category: "operations", roles: ["admin"], capability: "field.tools" },
   { key: "settings", label: "Branding & Settings", short: "Settings", icon: Palette, category: "administration", roles: ["super_admin"], capability: "settings.manage" },
 
   /* ---- Extension Officer (mobile): register suppliers + log weights ---- */
