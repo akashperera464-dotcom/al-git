@@ -349,3 +349,17 @@ Error: Port 3000 is already in use
 9:41:03 AM [vite] (client) hmr update /src/App.tsx, /src/context/AppContext.tsx, /src/components/RouteGuard.tsx, /src/components/Login.tsx, /src/components/Shell.tsx, /src/index.css
 9:41:16 AM [vite] (client) hmr update /src/App.tsx, /src/context/AppContext.tsx, /src/components/RouteGuard.tsx, /src/components/Login.tsx, /src/components/Shell.tsx, /src/index.css
 9:43:20 AM [vite] (client) hmr update /src/index.css
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+sh: 1: vite: not found
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+
+  VITE v7.3.2  ready in 331 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://21.0.2.47:3000/
