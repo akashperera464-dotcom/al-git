@@ -372,3 +372,15 @@ sh: 1: vite: not found
 
   ➜  Local:   http://localhost:3000/
   ➜  Network: http://21.0.7.107:3000/
+5:52:36 AM [vite] (client) hmr update /src/components/Shell.tsx, /src/index.css
+5:52:43 AM [vite] (client) hmr update /src/components/Shell.tsx, /src/index.css
+5:52:51 AM [vite] (client) hmr update /src/components/Shell.tsx, /src/index.css
+
+> react-vite-tailwind@0.0.0 dev
+> vite --host 0.0.0.0 --port 3000 --strictPort
+
+
+  VITE v7.3.2  ready in 230 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://21.0.7.107:3000/

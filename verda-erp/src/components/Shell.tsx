@@ -313,7 +313,7 @@ function AdminShell({ children }: { children: ReactNode }) {
       {/* Mobile drawer */}
       {drawer && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setDrawer(false)} />
+          <div className="absolute inset-0 bg-slate-900/60" onClick={() => setDrawer(false)} />
           <aside className="absolute left-0 top-0 h-full w-72 animate-fade-in bg-gradient-to-b from-pine-950 to-pine-900">
             <button onClick={() => setDrawer(false)} className="absolute right-3 top-4 text-emerald-200">
               <X className="h-5 w-5" />
@@ -341,9 +341,6 @@ function AdminShell({ children }: { children: ReactNode }) {
               <span className="text-xs font-bold text-slate-700">21°C</span>
             </div>
             <NotificationBell />
-            <div className="hidden w-48 sm:block">
-              <RoleSwitcher />
-            </div>
             <div className="hidden w-48 sm:block">
               <RoleSwitcher />
             </div>
@@ -406,7 +403,7 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const items = modulesForRole(role);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm animate-fade-in" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-900/60 animate-fade-in" onClick={onClose} />
       <div className="relative m-3 w-full max-w-md animate-fade-up rounded-3xl bg-white p-5 shadow-2xl">
         <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-200" />
         <div className="mb-3 flex items-center justify-between">
