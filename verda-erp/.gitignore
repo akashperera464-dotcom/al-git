@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+.vercel
+
+# Files with API keys / secrets
+.env
+.env.example
+.env.local
+app/.env
+app/.env.example
+docs/AI_STUDIO_RECREATION_PROMPT.md
+docs/FRONTEND_RECREATION_PROMPT.md
+docs/MOBILE_APP_RECREATION_PROMPT.md
+docs/HYBRID_MIGRATION.md
+docs/GETTING_STARTED.md
+docs/WORKFLOW_GUIDE.md
+app/google-services.json
+SYSTEM_ARCHITECTURE_AND_WORKFLOW.md

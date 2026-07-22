@@ -6,7 +6,7 @@
  *   Firebase  → Authentication (Phone OTP) + Cloud Messaging (FCM) only.
  *   Supabase  → ALL business logic, master data & transactional tables.
  *
- * CONNECTED PROJECT: KDU ERP (id: lfeowzotqcrdximicoar)
+ * CONNECTED PROJECT: KDU ERP
  *
  * A Firebase-authenticated user's `uid` becomes the PRIMARY KEY (`id`) of the
  * Supabase `users` table (see auth.hybrid.ts). Supabase RLS then authorizes
@@ -74,7 +74,7 @@ export async function pingSupabase(): Promise<{ ok: boolean; project?: string }>
     // eslint-disable-next-line no-console
     console.info(
       ok
-        ? `%c[Supabase] ✓ connected to KDU ERP (lfeowzotqcrdximicoar) — REST ${res.status}`
+        ? `%c[Supabase] ✓ connected to KDU ERP (YOUR-PROJECT-ID) — REST ${res.status}`
         : `[Supabase] ⚠ reachable but REST returned ${res.status}`,
       ok ? "color:#10b981;font-weight:700" : "color:#f59e0b"
     );
@@ -89,7 +89,7 @@ export async function pingSupabase(): Promise<{ ok: boolean; project?: string }>
 /** Connection metadata surfaced to the UI (e.g. the Architecture/Backend panel). */
 export const SUPABASE_META = {
   projectName: "KDU ERP",
-  projectId: "lfeowzotqcrdximicoar",
+  projectId: "YOUR-PROJECT-ID",
   region: "ap-southeast-1",
-  restUrl: "https://lfeowzotqcrdximicoar.supabase.co/rest/v1/",
+  restUrl: "https://YOUR-PROJECT.supabase.co/rest/v1/",
 };
