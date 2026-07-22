@@ -1354,3 +1354,34 @@ export interface AuctionBatch {
   version: number;
   createdAt: string;
 }
+
+// ============================================================================
+// RESOURCE FULFILLMENT TYPES
+// ============================================================================
+
+export type RequestType = "Workers" | "Equipment" | "Fertilizer" | "Agrochemical";
+export type FulfillmentStatus = "pending" | "approved" | "fulfilled" | "completed" | "rejected";
+
+export interface WorkerAssignment {
+  id: string;
+  requestId: string;
+  workerId: string;
+  workerName?: string;
+  supplierId?: string;
+  supplierName?: string;
+  assignedDate: string;
+  expectedReturn?: string;
+  actualReturn?: string;
+  status: "assigned" | "returned";
+  assignedBy?: string;
+  returnedAt?: string;
+}
+
+export interface RealAvailability {
+  type: "Workers" | "Equipment" | "Fertilizer" | "Agrochemical";
+  itemName: string;
+  available: number;
+  total: number;
+  unit: string;
+  stockItemId?: string;
+}
