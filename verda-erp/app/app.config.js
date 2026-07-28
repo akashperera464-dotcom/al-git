@@ -115,7 +115,7 @@ export default {
     extra: {
       // Exposed to app code via Constants.expoConfig.extra
       webUrl: process.env.EXPO_PUBLIC_WEB_URL || "https://your-tea-erp.vercel.app",
-      eas: { projectId: process.env.EAS_PROJECT_ID || "your-eas-project-id" },
+      eas: { projectId: "71a981ec-8fd6-4e73-bbf2-58996a4f112e" },
     },
   },
 };

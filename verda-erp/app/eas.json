@@ -4,14 +4,12 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
-        "abi": ["arm64-v8a"]
+        "buildType": "apk"
       }
     },
     "production": {
       "android": {
-        "buildType": "apk",
-        "abi": ["arm64-v8a"]
+        "buildType": "apk"
       }
     }
   }
