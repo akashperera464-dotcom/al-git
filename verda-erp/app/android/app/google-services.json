@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "806242492907",
+    "project_id": "kdu-feedback-app",
+    "storage_bucket": "kdu-feedback-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:806242492907:android:60ea598505b3edd63f39ae",
+        "android_client_info": {
+          "package_name": "KDU.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVTac7XzuwccccPutl6qBKUNAEoz11QL4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:806242492907:android:13845eda1ef4ae033f39ae",
+        "android_client_info": {
+          "package_name": "com.kdu.feedback"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVTac7XzuwccccPutl6qBKUNAEoz11QL4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
