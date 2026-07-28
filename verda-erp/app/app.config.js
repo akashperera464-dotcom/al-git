@@ -57,6 +57,15 @@ export default {
       intentFilters: [
         { action: "VIEW", autoVerify: false, data: { scheme: "https" } },
       ],
+      // Bump Gradle memory to prevent OOM during dexing of large dependency set.
+      gradle: {
+        properties: {
+          "org.gradle.jvmargs":
+            "-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dkotlin.daemon.jvm.options=-Xmx2048m",
+          "org.gradle.parallel": "true",
+          "org.gradle.caching": "true",
+        },
+      },
     },
     web: { favicon: "./assets/favicon.png", bundling: true },
     plugins: [
