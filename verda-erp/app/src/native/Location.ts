@@ -12,10 +12,11 @@
  *     locationAlwaysAndWhenInUsePermission: "Verda uses your location to verify you are at the estate during deliveries."
  *   }]
  *
- * Background geofence task is registered via BackgroundGeofenceTask below.
+ * NOTE: Background geofence task (which used expo-task-manager) was removed
+ * because expo-task-manager had a Gradle incompatibility with RN 0.74.
+ * Foreground location verification still works fully.
  */
 import * as Location from "expo-location";
-import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 
 export interface EstateGeofence {
@@ -126,56 +127,22 @@ export async function verifyEstateGeofence(
  * whether the device is inside any of the registered estate geofences.
  * Used to log attendance + trigger arrival/departure alerts.
  *
- * The task posts results to the WebView via the global bridge.
+ * NOTE: Background geofence tracking was disabled (expo-task-manager
+ * had a Gradle incompatibility with RN 0.74). Returns false to indicate
+ * background tracking is unavailable. The PWA can use the Geolocation
+ * API in the foreground instead.
+ *
+ * To re-enable later: install expo-task-manager + expo-background-fetch
+ * with versions known compatible with RN 0.74, then restore the
+ * TaskManager.defineTask + Location.startLocationUpdatesAsync code.
  */
 export async function startBackgroundGeofence(
-  estates: EstateGeofence[]
+  _estates: EstateGeofence[]
 ): Promise<boolean> {
-  if (Platform.OS === "android") {
-    const bg = await Location.requestBackgroundPermissionsAsync();
-    if (bg.status !== "granted") return false;
-  }
-
-  // Define the headless task (idempotent — define only once)
-  if (!TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK)) {
-    TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
-      if (error) return false;
-      const loc = data as Location.LocationObject;
-      // Check each geofence
-      for (const estate of estates) {
-        const dist = haversineMeters(
-          loc.coords.latitude, loc.coords.longitude,
-          estate.latitude, estate.longitude
-        );
-        if (dist <= estate.radiusMeters) {
-          // Inside estate — emit event for the bridge
-          (globalThis as any).VerdaGeofenceEvent?.({
-            estateId: estate.estateId,
-            estateName: estate.estateName,
-            inside: true,
-            distance: dist,
-            timestamp: new Date(loc.timestamp).toISOString(),
-          });
-        }
-      }
-      return true;
-    });
-  }
-
-  await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-    accuracy: Location.Accuracy.Balanced,
-    timeInterval: 300000,   // 5 min
-    distanceInterval: 50,   // or every 50m movement
-    deferredUpdatesInterval: 600000,
-    showsBackgroundNotification: true,
-    notificationTitle: "Verda ERP",
-    notificationBody: "Verifying your estate location",
-  });
-  return true;
+  // Background geofence tracking disabled — see file header.
+  return false;
 }
 
 export async function stopBackgroundGeofence(): Promise<void> {
-  if (await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK)) {
-    await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
-  }
+  // No-op — background tracking disabled.
 }

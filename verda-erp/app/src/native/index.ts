@@ -9,13 +9,9 @@
  *     ...
  *   }))
  *
- * Install all required native modules:
- *   npx expo install expo-camera expo-image-picker expo-media-library \
- *     expo-location expo-secure-store expo-notifications \
- *     expo-background-fetch expo-task-manager @react-native-async-storage/async-storage \
- *     expo-file-system
- *
- * Then in app.config.js, add the plugins array (see app.config.js updates).
+ * NOTE: Background sync (expo-background-fetch + expo-task-manager) was
+ * removed because the plugins had a Gradle incompatibility with RN 0.74.
+ * The PWA Service Worker now handles background sync via web APIs.
  */
 export {
   captureReceipt, pickFromGallery, saveOffline, listOfflineImages,
@@ -40,17 +36,9 @@ export {
   type PushTokenResult,
 } from "./Notifications";
 
-export {
-  registerBackgroundSync, startBackgroundSync, stopBackgroundSync,
-  flushQueueNow, enqueueMutation, getQueueLength,
-  FLUSH_QUEUE_TASK,
-  type QueuedMutation,
-} from "./BackgroundSync";
-
 import { captureReceipt, pickFromGallery } from "./Camera";
 import { getCurrentPosition, verifyEstateGeofence, type EstateGeofence } from "./Location";
 import { setSecure, getSecure, clearAllSecure } from "./SecureStorage";
-import { flushQueueNow, enqueueMutation, getQueueLength } from "./BackgroundSync";
 
 /**
  * Handle a message posted from the PWA's WebView.
@@ -98,20 +86,8 @@ export async function handleBridgeMessage(req: {
         return { ok: true, data: val };
       }
       case "clearAllSecure": {
-        await clearAllSecure();
+        clearAllSecure();
         return { ok: true };
-      }
-      case "flushQueueNow": {
-        const result = await flushQueueNow();
-        return { ok: true, data: result };
-      }
-      case "enqueueMutation": {
-        await enqueueMutation(req.payload as any);
-        return { ok: true };
-      }
-      case "getQueueLength": {
-        const len = await getQueueLength();
-        return { ok: true, data: len };
       }
       default:
         return { ok: false, error: `Unknown bridge type: ${req.type}` };

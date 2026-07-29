@@ -104,12 +104,6 @@ export default {
         "expo-secure-store",
         { faceIDPermission: "Verda uses Face ID to securely unlock your account." },
       ],
-      // Background fetch for both the agri advisory engine + the offline sync queue.
-      [
-        "expo-background-fetch",
-        { backgroundTaskName: "verda-flush-queue" },
-      ],
-      "expo-task-manager",
       "expo-file-system",
       // expo-notifications plugin — configures FCM at build time.
       [
