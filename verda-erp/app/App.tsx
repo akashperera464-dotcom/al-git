@@ -6,15 +6,19 @@ import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { LoadingScreen } from "./src/components/LoadingScreen";
 import { OfflineScreen } from "./src/components/OfflineScreen";
 import { LanguageSwitcher } from "./src/components/LanguageSwitcher";
+import { usePushNotifications } from "./src/hooks/usePushNotifications";
 import { WEB_URL, BOOTSTRAP_JS } from "./src/config";
 import type { LanguageCode } from "./src/i18n";
 import "./src/i18n"; // global i18next init (en/si/ta)
 
 /**
- * Verda · Minimal Native Shell (React Native + WebView)
+ * Verda · Native Hybrid Shell (React Native + Expo)
  * ------------------------------------------------------------------
- * Loads the deployed Verda PWA in a full-screen WebView.
- * NO native plugins. NO FCM. NO camera/location. Pure RN + WebView.
+ * Loads the deployed Verda PWA in a full-screen WebView while:
+ *   • showing a branded loader until the first paint,
+ *   • surfacing a native "You are offline" screen with Retry,
+ *   • capturing the FCM device token & forwarding push notifications
+ *     into the WebView bridge (see src/hooks/usePushNotifications.ts).
  */
 export default function App() {
   return (
@@ -34,6 +38,10 @@ function Shell() {
   const [retrying, setRetrying] = useState<boolean>(false);
   const [reloadKey, setReloadKey] = useState<number>(0);
 
+  // Subscribe to the FCM token + notification listeners.
+  usePushNotifications(webViewRef);
+
+  // ---- Connectivity: persistent NetInfo subscription ---------------------
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
       const connected = Boolean(state.isConnected && state.isInternetReachable);
@@ -48,10 +56,13 @@ function Shell() {
     const state = await NetInfo.fetch();
     const connected = Boolean(state.isConnected && state.isInternetReachable);
     setOnline(connected);
-    if (connected) setReloadKey((k) => k + 1);
+    if (connected) setReloadKey((k) => k + 1); // force WebView remount + fresh load
     setRetrying(false);
   }, []);
 
+  // ---- Sync the native language choice into the embedded PWA ---------------
+  // Writes the same 'verda.lang' localStorage key the web LanguageDetector reads,
+  // then reloads so the PWA re-renders in the chosen language.
   const onLanguageChange = useCallback(
     (code: LanguageCode) => {
       webViewRef.current?.injectJavaScript(
@@ -61,10 +72,21 @@ function Shell() {
     []
   );
 
-  const onMessage = useCallback((_event: WebViewMessageEvent) => {
-    /* Bridge messages from the PWA are ignored in the minimal shell. */
+  // ---- WebView ↔ PWA bridge messages -------------------------------------
+  const onMessage = useCallback((event: WebViewMessageEvent) => {
+    // The PWA can postMessage() out — e.g. request a fresh token re-forward
+    // or trigger a native share sheet. Unknown/non-JSON payloads are ignored.
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg?.type === "verda:request-fcm-token") {
+        // Token listeners re-fire on next foreground; nothing to do here.
+      }
+    } catch {
+      /* ignore non-JSON bridge messages */
+    }
   }, []);
 
+  // Offline takes priority over the WebView — show the native screen.
   if (!online) {
     return <OfflineScreen retrying={retrying} onRetry={checkConnection} />;
   }
@@ -75,6 +97,7 @@ function Shell() {
         key={reloadKey}
         ref={webViewRef}
         source={{ uri: WEB_URL }}
+        // Inject the native-shell flag before page scripts run.
         injectedJavaScriptBeforeContentLoaded={BOOTSTRAP_JS}
         onMessage={onMessage}
         onLoadStart={() => setLoaded(false)}
@@ -97,9 +120,11 @@ function Shell() {
         mediaPlaybackRequiresUserAction={false}
         style={styles.webview}
       />
+      {/* Floating language switcher (syncs choice to the PWA via the bridge). */}
       <View style={[styles.switcherWrap, { top: insets.top + 8 }]}>
         <LanguageSwitcher onLanguageChange={onLanguageChange} />
       </View>
+      {/* Branded fade-over while the PWA paints its very first frame. */}
       {!loaded && (
         <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
           <LoadingScreen />
