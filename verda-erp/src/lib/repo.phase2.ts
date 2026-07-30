@@ -828,12 +828,13 @@ export async function listStockItems(estateId?: string): Promise<StockItem[]> {
 
 export async function createStockItem(input: {
   code: string; name: string; category: string; unit: string;
-  reorderLevel?: number; unitCost?: number; estateId?: string;
+  qtyOnHand?: number; reorderLevel?: number; unitCost?: number; estateId?: string;
 }): Promise<StockItem> {
+  const openingQty = input.qtyOnHand ?? 0;
   if (!supabaseConfigured) {
     const s: StockItem = {
       id: uid(), code: input.code, name: input.name, category: input.category,
-      unit: input.unit, qtyOnHand: 0,
+      unit: input.unit, qtyOnHand: openingQty,
       reorderLevel: input.reorderLevel ?? 0, unitCost: input.unitCost ?? 0,
       estateId: input.estateId, version: 1,
     };
@@ -843,6 +844,7 @@ export async function createStockItem(input: {
   const sb = getSupabase()!;
   const { data, error } = await sb.from("stock_items").insert({
     code: input.code, name: input.name, category: input.category, unit: input.unit,
+    qty_on_hand: openingQty,                  // opening balance
     reorder_level: input.reorderLevel ?? 0, unit_cost: input.unitCost ?? 0,
     estate_id: input.estateId,
   }).select().single();

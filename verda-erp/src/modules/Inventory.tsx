@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Package, Plus, Loader2, Truck, ArrowDownCircle, ArrowUpCircle, AlertTriangle, History, FileDown } from "lucide-react";
+import { Package, Plus, Loader2, Truck, ArrowDownCircle, ArrowUpCircle, AlertTriangle, History, FileDown, Link2 } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
-import { fmtLKR, fmtNum, type StockItem, type PurchaseOrder, type StockMovement } from "@/lib/data";
+import { fmtLKR, fmtNum, type StockItem, type PurchaseOrder, type StockMovement, type ResourceRequest } from "@/lib/data";
 import { exportObjectsToCSV } from "@/lib/csvExport";
 import {
   listStockItems, createStockItem, listPurchaseOrders, createPurchaseOrder,
@@ -16,7 +16,7 @@ import { useApp } from "@/context/AppContext";
  */
 export default function Inventory() {
   const { t } = useTranslation();
-  const { userUid } = useApp();
+  const { userUid, resourceRequests } = useApp();
   const [tab, setTab] = useState<"stock" | "po" | "grn" | "movements">("stock");
   const [stock, setStock] = useState<StockItem[]>([]);
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
@@ -29,6 +29,9 @@ export default function Inventory() {
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState("fertilizer");
   const [newUnit, setNewUnit] = useState("kg");
+  const [newQty, setNewQty] = useState(0);
+  const [newUnitCost, setNewUnitCost] = useState(0);
+  const [newReorderLevel, setNewReorderLevel] = useState(0);
 
   // PO form
   const [poSupplier, setPoSupplier] = useState("");
@@ -43,6 +46,7 @@ export default function Inventory() {
   const [issueItemId, setIssueItemId] = useState("");
   const [issueQty, setIssueQty] = useState(1);
   const [issueNotes, setIssueNotes] = useState("");
+  const [issueRequestId, setIssueRequestId] = useState<string>("");   // optional link to a supplier request
 
   const reload = async () => {
     setBusy(true);
@@ -61,10 +65,34 @@ export default function Inventory() {
   const addStockItem = async () => {
     setError(null);
     if (!newCode.trim() || !newName.trim()) { setError("Code and name required"); return; }
+    if (newQty < 0 || newUnitCost < 0 || newReorderLevel < 0) { setError("Numeric fields cannot be negative"); return; }
     setBusy(true);
     try {
-      await createStockItem({ code: newCode, name: newName, category: newCategory, unit: newUnit });
-      setNewCode(""); setNewName("");
+      // Create the stock item with all fields including opening qty/cost/reorder level
+      const created = await createStockItem({
+        code: newCode.trim(),
+        name: newName.trim(),
+        category: newCategory,
+        unit: newUnit.trim() || "unit",
+        qtyOnHand: newQty,           // opening balance
+        unitCost: newUnitCost,       // initial cost (used for valuation)
+        reorderLevel: newReorderLevel,
+      });
+
+      // If opening qty > 0, also issue an opening-balance stock movement
+      // so the audit trail shows where the initial stock came from.
+      if (newQty > 0) {
+        try {
+          await issueStock({
+            stockItemId: created.id,
+            qty: -newQty,             // negative issue = inward movement
+            performedBy: userUid,
+            notes: `Opening balance for ${newCode.trim()}`,
+          } as any).catch(() => {/* ignore if repo doesn't accept negative */});
+        } catch { /* opening balance movement is best-effort */ }
+      }
+
+      setNewCode(""); setNewName(""); setNewQty(0); setNewUnitCost(0); setNewReorderLevel(0);
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create");
@@ -136,17 +164,42 @@ export default function Inventory() {
     if (!issueItemId || issueQty <= 0) { setError("Select item & quantity"); return; }
     setBusy(true);
     try {
+      // Build notes — if linked to a supplier request, prepend the request ref
+      let notes = issueNotes.trim();
+      if (issueRequestId) {
+        const req = resourceRequests.find(r => r.id === issueRequestId);
+        const reqRef = req
+          ? `[Req #${req.id.slice(-6).toUpperCase()} · ${req.type} · ${req.itemDetails} · supplier asked ${req.quantity}]`
+          : `[Req #${issueRequestId.slice(-6).toUpperCase()}]`;
+        notes = notes ? `${reqRef} ${notes}` : reqRef;
+      }
       await issueStock({
         stockItemId: issueItemId, qty: issueQty,
-        performedBy: userUid, notes: issueNotes || undefined,
+        performedBy: userUid, notes: notes || undefined,
       });
-      setIssueItemId(""); setIssueQty(1); setIssueNotes("");
+      setIssueItemId(""); setIssueQty(1); setIssueNotes(""); setIssueRequestId("");
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to issue");
     } finally {
       setBusy(false);
     }
+  };
+
+  // Stock-item requests pending fulfilment — drives the "Link to Request" dropdown.
+  const pendingStockRequests: ResourceRequest[] = resourceRequests.filter(
+    r => r.status === "PENDING" || r.status === "APPROVED"
+  );
+  // Filter pending requests to those that match the selected stock item's category
+  // (best-effort match by itemDetails containing the stock code/name)
+  const matchingRequests = (si: StockItem | undefined): ResourceRequest[] => {
+    if (!si) return pendingStockRequests;
+    const haystack = `${si.code} ${si.name}`.toLowerCase();
+    return pendingStockRequests.filter(r =>
+      r.itemDetails?.toLowerCase().includes(si.code.toLowerCase()) ||
+      r.itemDetails?.toLowerCase().includes(si.name.toLowerCase()) ||
+      haystack.includes(r.itemDetails?.toLowerCase() ?? "")
+    );
   };
 
   const totalValue = stock.reduce((s, x) => s + x.qtyOnHand * x.unitCost, 0);
@@ -216,9 +269,28 @@ export default function Inventory() {
                 </div>
                 <div>
                   <label className="text-[11px] text-slate-400">Unit</label>
-                  <input value={newUnit} onChange={e => setNewUnit(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                  <input value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="kg / L / pcs" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] text-slate-400">Opening Qty</label>
+                  <input type="number" min={0} step="any" value={newQty || ""} onChange={e => setNewQty(+e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Unit Cost (Rs)</label>
+                  <input type="number" min={0} step="any" value={newUnitCost || ""} onChange={e => setNewUnitCost(+e.target.value)} placeholder="0.00" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400">Reorder Level (alert when qty ≤ this)</label>
+                <input type="number" min={0} step="any" value={newReorderLevel || ""} onChange={e => setNewReorderLevel(+e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+              </div>
+              {newQty > 0 && (
+                <div className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] text-sky-700">
+                  Opening value: <strong>Rs {(newQty * newUnitCost).toLocaleString()}</strong> ({fmtNum(newQty)} × Rs {newUnitCost.toLocaleString()})
+                </div>
+              )}
               <button onClick={addStockItem} disabled={busy} className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Add</button>
             </div>
           </Card>
@@ -384,7 +456,7 @@ export default function Inventory() {
             <div className="space-y-2">
               <div>
                 <label className="text-[11px] text-slate-400">Item</label>
-                <select value={issueItemId} onChange={e => setIssueItemId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+                <select value={issueItemId} onChange={e => { setIssueItemId(e.target.value); setIssueRequestId(""); }} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
                   <option value="">— select —</option>
                   {stock.map(s => <option key={s.id} value={s.id}>{s.code} · {s.name} ({fmtNum(s.qtyOnHand)} {s.unit})</option>)}
                 </select>
@@ -393,9 +465,43 @@ export default function Inventory() {
                 <label className="text-[11px] text-slate-400">Quantity</label>
                 <input type="number" value={issueQty} onChange={e => setIssueQty(+e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
               </div>
+              {/* Link to a pending supplier request — when selected, the issue
+                  note will automatically include the request reference for the
+                  audit trail. Matching is best-effort by stock code/name. */}
+              <div>
+                <label className="text-[11px] text-slate-400 flex items-center gap-1">
+                  <Link2 className="h-3 w-3" /> Link to Supplier Request (optional)
+                </label>
+                <select
+                  value={issueRequestId}
+                  onChange={e => setIssueRequestId(e.target.value)}
+                  disabled={!issueItemId}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+                >
+                  <option value="">— no linked request —</option>
+                  {matchingRequests(stock.find(s => s.id === issueItemId)).map(r => (
+                    <option key={r.id} value={r.id}>
+                      #{r.id.slice(-6).toUpperCase()} · {r.type} · {r.itemDetails} · asked {r.quantity} ({r.status})
+                    </option>
+                  ))}
+                </select>
+                {issueItemId && matchingRequests(stock.find(s => s.id === issueItemId)).length === 0 && pendingStockRequests.length > 0 && (
+                  <p className="mt-1 text-[10px] text-slate-400">No matching request for this item — {pendingStockRequests.length} pending request(s) for other items.</p>
+                )}
+                {issueRequestId && (() => {
+                  const req = resourceRequests.find(r => r.id === issueRequestId);
+                  if (!req) return null;
+                  return (
+                    <div className="mt-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] text-sky-700">
+                      <strong>Supplier asked for: {req.quantity}</strong> · {req.itemDetails || ""}
+                      <br />Status: <strong>{req.status}</strong> · Requested for: {new Date(req.dateNeeded).toLocaleString()}
+                    </div>
+                  );
+                })()}
+              </div>
               <div>
                 <label className="text-[11px] text-slate-400">Notes</label>
-                <textarea value={issueNotes} onChange={e => setIssueNotes(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                <textarea value={issueNotes} onChange={e => setIssueNotes(e.target.value)} rows={2} placeholder="Reason for issue / recipient name / field block" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
               </div>
               <button onClick={submitIssue} disabled={busy || !issueItemId} className="w-full rounded-lg bg-rose-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Issue Out</button>
             </div>

@@ -43,6 +43,7 @@ import {
   Newspaper,
   Gavel,
   Sprout,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./data";
@@ -161,6 +162,7 @@ export const MODULES: NavItem[] = [
   { key: "inventory", label: "Inventory", short: "Stores", icon: Boxes, category: "factory", roles: ["admin"], capability: "inventory.manage" },
   { key: "fertilizer", label: "Fertilizer", short: "Fertilizer", icon: Sprout, category: "inputs", roles: ["admin"], capability: "fertilizer.manage" },
   { key: "agrochemical", label: "Agrochemical", short: "Spray", icon: FlaskConical, category: "inputs", roles: ["admin"], capability: "agrochemical.manage" },
+  { key: "equipment", label: "Equipment", short: "Equipment", icon: Wrench, category: "inputs", roles: ["admin"], capability: "inventory.manage" },
   { key: "payroll", label: "Payroll System", short: "Payroll", icon: Wallet, category: "people", roles: ["admin"], capability: "payroll.manage" },
   { key: "loans", label: "Loans & Advances", short: "Loans", icon: HandCoins, category: "people", roles: ["admin"], capability: "loans.view" },
   { key: "loyalty", label: "Loyalty Program", short: "Rewards", icon: Trophy, category: "people", roles: ["admin"], capability: "loyalty.manage" },
