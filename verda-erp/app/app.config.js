@@ -105,6 +105,7 @@ export default {
         { faceIDPermission: "Verda uses Face ID to securely unlock your account." },
       ],
       "expo-file-system",
+      "expo-font", // peer dep of @expo/vector-icons — required for native build
       // expo-notifications plugin — configures FCM at build time.
       [
         "expo-notifications",
