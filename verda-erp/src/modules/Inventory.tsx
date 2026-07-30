@@ -68,29 +68,17 @@ export default function Inventory() {
     if (newQty < 0 || newUnitCost < 0 || newReorderLevel < 0) { setError("Numeric fields cannot be negative"); return; }
     setBusy(true);
     try {
-      // Create the stock item with all fields including opening qty/cost/reorder level
-      const created = await createStockItem({
+      // Create the stock item with all fields including opening qty/cost/reorder level.
+      // The qty_on_hand column already exists in the stock_items table — no SQL migration needed.
+      await createStockItem({
         code: newCode.trim(),
         name: newName.trim(),
         category: newCategory,
         unit: newUnit.trim() || "unit",
-        qtyOnHand: newQty,           // opening balance
-        unitCost: newUnitCost,       // initial cost (used for valuation)
+        qtyOnHand: newQty,           // opening balance (stored directly in stock_items.qty_on_hand)
+        unitCost: newUnitCost,       // initial cost (used for moving-average valuation)
         reorderLevel: newReorderLevel,
       });
-
-      // If opening qty > 0, also issue an opening-balance stock movement
-      // so the audit trail shows where the initial stock came from.
-      if (newQty > 0) {
-        try {
-          await issueStock({
-            stockItemId: created.id,
-            qty: -newQty,             // negative issue = inward movement
-            performedBy: userUid,
-            notes: `Opening balance for ${newCode.trim()}`,
-          } as any).catch(() => {/* ignore if repo doesn't accept negative */});
-        } catch { /* opening balance movement is best-effort */ }
-      }
 
       setNewCode(""); setNewName(""); setNewQty(0); setNewUnitCost(0); setNewReorderLevel(0);
       await reload();
