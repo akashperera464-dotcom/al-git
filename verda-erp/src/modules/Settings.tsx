@@ -39,7 +39,7 @@ export default function Settings() {
   const reset = async () => {
     setDraft(DEFAULT_BRANDING);
     const ok = await resetBranding();
-    notify({ title: ok ? "Branding reset" : "Reset failed", body: ok ? "Restored to default Verda branding." : syncError ?? "DB error", tone: ok ? "amber" : "rose", channel: "system" });
+    notify({ title: ok ? "Branding reset" : "Reset failed", body: ok ? "Restored to default KDU TEA FACTORY branding." : syncError ?? "DB error", tone: ok ? "amber" : "rose", channel: "system" });
   };
 
   const inputCls = "mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm";
@@ -76,7 +76,7 @@ export default function Settings() {
               <MediaField label="Company Logo URL" icon={ImageIcon} hint="Cloudinary image. Shown in app headers. Empty = default leaf badge." value={draft.companyLogoUrl} onChange={(v) => update("companyLogoUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="logo" />
               <div className="sm:col-span-1">
                 <label className={labelCls}>Company Name</label>
-                <input value={draft.companyName} onChange={(e) => update("companyName", e.target.value)} className={inputCls} placeholder="Verda" />
+                <input value={draft.companyName} onChange={(e) => update("companyName", e.target.value)} className={inputCls} placeholder="KDU TEA FACTORY" />
               </div>
               <div className="sm:col-span-1">
                 <label className={labelCls}>Tagline</label>
@@ -94,7 +94,7 @@ export default function Settings() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelCls}><Type className="mr-1 inline h-3 w-3" />Login Title</label>
-                <input value={draft.loginTitle} onChange={(e) => update("loginTitle", e.target.value)} className={inputCls} placeholder="Verda ERP" />
+                <input value={draft.loginTitle} onChange={(e) => update("loginTitle", e.target.value)} className={inputCls} placeholder="KDU TEA FACTORY" />
               </div>
               <div>
                 <label className={labelCls}><Type className="mr-1 inline h-3 w-3" />Login Subtitle</label>
@@ -175,7 +175,7 @@ export default function Settings() {
                     <Leaf className="h-7 w-7" />
                   )}
                 </div>
-                <h2 className="font-display text-xl font-extrabold drop-shadow">{draft.loginTitle || "Verda ERP"}</h2>
+                <h2 className="font-display text-xl font-extrabold drop-shadow">{draft.loginTitle || "KDU TEA FACTORY"}</h2>
                 <p className="text-xs text-white/80 drop-shadow">{draft.loginSubtitle}</p>
                 <div className="mt-2 w-full max-w-[160px] rounded-lg px-3 py-2 text-center text-[11px] font-semibold text-white shadow" style={{ background: draft.accentColor }}>
                   Sign in
@@ -194,7 +194,7 @@ export default function Settings() {
                 )}
               </span>
               <div className="leading-tight">
-                <p className="font-display text-sm font-bold text-white">{draft.companyName || "Verda"}</p>
+                <p className="font-display text-sm font-bold text-white">{draft.companyName || "KDU TEA FACTORY"}</p>
                 <p className="text-[9px] text-emerald-300/80">{draft.companyTagline}</p>
               </div>
             </div>

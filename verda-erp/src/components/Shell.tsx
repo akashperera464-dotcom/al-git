@@ -42,7 +42,7 @@ function Brand({ compact }: { compact?: boolean }) {
       </span>
       {!compact && (
         <div className="leading-tight">
-          <p className="font-display text-[15px] font-extrabold tracking-tight text-white">{branding.companyName || "Verda"}</p>
+          <p className="font-display text-[15px] font-extrabold tracking-tight text-white">{branding.companyName || "KDU TEA FACTORY"}</p>
           <p className="text-[10px] font-medium text-emerald-300/80">{branding.companyTagline}</p>
         </div>
       )}
@@ -330,7 +330,7 @@ function AdminShell({ children }: { children: ReactNode }) {
             <Menu className="h-5 w-5" />
           </button>
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-slate-400">Verda ERP</p>
+            <p className="text-[11px] font-medium text-slate-400">KDU TEA FACTORY</p>
             <h1 className="font-display text-base font-bold tracking-tight text-slate-900 sm:text-lg">{current ? moduleLabel(t, current.key) : t("common.home")}</h1>
           </div>
           <div className="ml-auto flex items-center gap-2">

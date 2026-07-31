@@ -40,7 +40,7 @@ export function exportTablePDF(opts: PDFExportOptions) {
     subtitle,
     columns,
     rows,
-    companyName = "Verda ERP",
+    companyName = "KDU TEA FACTORY",
     accentColor = [16, 185, 129], // emerald
     orientation = "l",
   } = opts;

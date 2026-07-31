@@ -1,5 +1,5 @@
 /**
- * Verda ERP · PDF Export Templates
+ * KDU TEA FACTORY · PDF Export Templates
  * ------------------------------------------------------------------
  * Generates professional PDFs using jsPDF + jspdf-autotable.
  * Templates: Payslip, Trial Balance, Auction Settlement.
@@ -17,7 +17,7 @@ function header(doc: jsPDF, title: string, subtitle: string) {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Verda ERP", 14, 12);
+  doc.text("KDU TEA FACTORY", 14, 12);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.text(title, 14, 18);
@@ -29,7 +29,7 @@ function footer(doc: jsPDF) {
   const pageHeight = doc.internal.pageSize.height;
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.text(`Generated ${new Date().toLocaleString()} · Verda ERP`, 14, pageHeight - 8);
+  doc.text(`Generated ${new Date().toLocaleString()} · KDU TEA FACTORY`, 14, pageHeight - 8);
   doc.text("Page 1", 196, pageHeight - 8, { align: "right" });
 }
 

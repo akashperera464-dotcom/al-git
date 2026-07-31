@@ -23,8 +23,8 @@ self.addEventListener("sync", (e) => {
 
 const MANIFEST_CODE = `// public/manifest.json
 {
-  "name": "Verda · Tea Estate ERP",
-  "short_name": "Verda",
+  "name": "KDU TEA FACTORY · Tea Estate ERP",
+  "short_name": "KDU",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#04231a",

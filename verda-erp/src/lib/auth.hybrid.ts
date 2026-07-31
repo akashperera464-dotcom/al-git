@@ -439,7 +439,7 @@ function toAuthState(row: UserRow): AuthState {
   return {
     uid: row.id,
     email: row.email,
-    name: row.name ?? "Verda User",
+    name: row.name ?? "KDU User",
     phone: row.phone ?? null,
     role: canonicalRole(row.role ?? undefined),
     associatedEntityId: row.associated_entity_id,
@@ -454,7 +454,7 @@ function demoAuthStateFromEmail(uid: string, email: string | null, name: string 
   return {
     uid,
     email,
-    name: name ?? "Verda User",
+    name: name ?? "KDU User",
     phone: null,
     role,
     associatedEntityId: role === "supplier" ? "est-glenview" : null,

@@ -1,14 +1,14 @@
 /**
- * Verda · Native shell configuration
+ * KDU TEA FACTORY · Native shell configuration
  * ------------------------------------------------------------------
  * The deployed PWA URL. Set via EXPO_PUBLIC_WEB_URL in .env (app/.env),
- * otherwise falls back to the placeholder for local development.
+ * otherwise falls back to the live production URL.
  *
  * Expo v0.74+ exposes `process.env.EXPO_PUBLIC_*` to app code.
  */
 export const WEB_URL: string =
   (process.env.EXPO_PUBLIC_WEB_URL as string | undefined) ??
-  "https://your-tea-erp.vercel.app";
+  "https://akashpereraproject24.vercel.app";
 
 /**
  * Namespace for the WebView ↔ PWA message bridge. The native shell injects

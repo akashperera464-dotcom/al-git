@@ -72,7 +72,7 @@ self.addEventListener("sync", (event) => {
 self.addEventListener("push", (event) => {
   const payload = event.data ? event.data.json() : {};
   event.waitUntil(
-    self.registration.showNotification(payload.title || "Verda ERP", {
+    self.registration.showNotification(payload.title || "KDU TEA FACTORY", {
       body: payload.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",

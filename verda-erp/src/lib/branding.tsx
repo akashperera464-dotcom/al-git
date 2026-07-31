@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { readBrandingFromDb, writeBrandingToDb } from "./repo";
 
 /**
- * Verda · Branding / White-label settings (Super Admin controlled)
+ * KDU TEA FACTORY · Branding / White-label settings (Super Admin controlled)
  * ------------------------------------------------------------------
  * PERSISTED TO THE DATABASE (Supabase `settings` table, key='branding') so the
  * branding is shared across ALL devices, browsers, and users — and survives
@@ -27,18 +27,18 @@ export interface Branding {
 }
 
 export const DEFAULT_BRANDING: Branding = {
-  companyName: "Verda",
+  companyName: "KDU TEA FACTORY",
   companyTagline: "Tea Estate ERP",
-  companyLogoUrl: "",
-  loginTitle: "Verda ERP",
+  companyLogoUrl: "https://res.cloudinary.com/dhd06wdov/image/upload/v1781669562/logokdu_xo5m6f.png",
+  loginTitle: "KDU TEA FACTORY",
   loginSubtitle: "Integrated Tea Estate Enterprise Platform",
-  loginLogoUrl: "",
+  loginLogoUrl: "https://res.cloudinary.com/dhd06wdov/image/upload/v1781669562/logokdu_xo5m6f.png",
   loginBackgroundUrl: "",
   loginScrimOpacity: 70,
   accentColor: "#10b981",
 };
 
-const CACHE_KEY = "verda.branding.cache";
+const CACHE_KEY = "kdu.branding.cache";
 
 interface BrandingContextValue {
   branding: Branding;

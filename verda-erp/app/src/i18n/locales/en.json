@@ -1,12 +1,12 @@
 {
   "common": {
-    "appName": "Verda ERP",
+    "appName": "KDU TEA FACTORY",
     "loadingConsole": "Loading your estate console…",
     "online": "Online",
     "offline": "Offline",
     "retry": "Retry connection",
     "youAreOffline": "You are offline",
-    "offlineMsg": "Verda couldn't reach the estate server. Your field captures are safe and will sync automatically the moment you reconnect.",
+    "offlineMsg": "KDU TEA FACTORY couldn't reach the estate server. Your field captures are safe and will sync automatically the moment you reconnect.",
     "language": "Language"
   },
   "lang": {

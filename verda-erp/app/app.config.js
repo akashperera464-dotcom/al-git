@@ -1,12 +1,16 @@
 /**
- * Verda · Dynamic Expo config (app.config.js)
+ * KDU TEA FACTORY · Dynamic Expo config (app.config.js)
  * ------------------------------------------------------------------
  * app.json stays static for tooling; app.config.js layers on the
  * environment-dependent bits (PWA URL, FCM, notification icon).
+ *
+ * NOTE: slug + package stay as 'verda-tea-erp' / 'com.kdu.feedback' so the
+ * new APK can update over the existing install. Only user-visible name
+ * + branding changes.
  */
 export default {
   expo: {
-    name: "Verda Tea Estate ERP",
+    name: "KDU TEA FACTORY",
     slug: "verda-tea-erp",
     version: "1.0.0",
     orientation: "default",
@@ -23,10 +27,10 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.verda.teaerp",
       infoPlist: {
-        NSCameraUsageDescription: "Verda uses the camera to capture receipts and scan worker QR badges for attendance.",
-        NSLocationWhenInUseUsageDescription: "Verda uses your location to verify your check-in at the estate.",
-        NSLocationAlwaysAndWhenInUseUsageDescription: "Verda uses background location to verify estate attendance during deliveries.",
-        NSPhotoLibraryUsageDescription: "Verda needs photo library access to attach saved receipt images.",
+        NSCameraUsageDescription: "KDU TEA FACTORY uses the camera to capture receipts and scan worker QR badges for attendance.",
+        NSLocationWhenInUseUsageDescription: "KDU TEA FACTORY uses your location to verify your check-in at the estate.",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "KDU TEA FACTORY uses background location to verify estate attendance during deliveries.",
+        NSPhotoLibraryUsageDescription: "KDU TEA FACTORY needs photo library access to attach saved receipt images.",
       },
       // APNs / Firebase for push on iOS
       googleServicesFile: "./GoogleService-Info.plist",
@@ -72,21 +76,21 @@ export default {
       [
         "expo-camera",
         {
-          cameraPermission: "Verda needs camera access to capture receipts, documents, and scan worker QR badges for attendance.",
+          cameraPermission: "KDU TEA FACTORY needs camera access to capture receipts, documents, and scan worker QR badges for attendance.",
           microphonePermission: false,
         },
       ],
       [
         "expo-image-picker",
         {
-          photosPermission: "Verda needs photo library access to attach saved receipt images.",
-          cameraPermission: "Verda needs camera access to capture receipts and field documents.",
+          photosPermission: "KDU TEA FACTORY needs photo library access to attach saved receipt images.",
+          cameraPermission: "KDU TEA FACTORY needs camera access to capture receipts and field documents.",
         },
       ],
       [
         "expo-media-library",
         {
-          photosPermission: "Verda saves captured documents to your photo library for offline reference.",
+          photosPermission: "KDU TEA FACTORY saves captured documents to your photo library for offline reference.",
           savePhotosPermission: false,
           isAccessMediaLocationEnabled: true,
         },
@@ -94,15 +98,15 @@ export default {
       [
         "expo-location",
         {
-          locationAlwaysAndWhenInUsePermission: "Verda uses your location to verify estate check-ins during deliveries, even when the app is closed.",
-          locationWhenInUsePermission: "Verda uses your location to verify your check-in at the estate.",
+          locationAlwaysAndWhenInUsePermission: "KDU TEA FACTORY uses your location to verify estate check-ins during deliveries, even when the app is closed.",
+          locationWhenInUsePermission: "KDU TEA FACTORY uses your location to verify your check-in at the estate.",
           isAndroidBackgroundLocationEnabled: true,
           androidBackgroundLocationMode: "fusedLocationProvider",
         },
       ],
       [
         "expo-secure-store",
-        { faceIDPermission: "Verda uses Face ID to securely unlock your account." },
+        { faceIDPermission: "KDU TEA FACTORY uses Face ID to securely unlock your account." },
       ],
       "expo-file-system",
       "expo-font", // peer dep of @expo/vector-icons — required for native build
@@ -118,7 +122,7 @@ export default {
     ],
     extra: {
       // Exposed to app code via Constants.expoConfig.extra
-      webUrl: process.env.EXPO_PUBLIC_WEB_URL || "https://your-tea-erp.vercel.app",
+      webUrl: process.env.EXPO_PUBLIC_WEB_URL || "https://akashpereraproject24.vercel.app",
       eas: { projectId: "71a981ec-8fd6-4e73-bbf2-58996a4f112e" },
     },
   },

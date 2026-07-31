@@ -203,7 +203,7 @@ export async function readUsersForAdmin(): Promise<ManagedUser[]> {
   if (error) throw new Error(`Could not load users: ${error.message}`);
   return (data ?? []).map((u): ManagedUser => ({
     id: u.id,
-    name: u.name ?? "Verda User",
+    name: u.name ?? "KDU User",
     email: u.email ?? undefined,
     role: (u.role ?? "supplier") as Role,
     phone: u.phone ?? undefined,

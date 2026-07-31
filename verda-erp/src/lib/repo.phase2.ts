@@ -1110,8 +1110,8 @@ import { tierForPoints as _tierForPoints, badgeForPoints as _badgeForPoints } fr
 const mockMembers: LoyaltyMemberFull[] = [];
 const mockLedger: LoyaltyPointsEntry[] = [];
 const mockRewards: LoyaltyReward[] = [
-  { id: "rw1", code: "RWD-TSHIRT",   name: "Branded T-Shirt",         description: "Verda-branded cotton t-shirt",          category: "merchandise", pointsCost: 500,  cashValue: 0,    stockQty: 50, isActive: true, version: 1 },
-  { id: "rw2", code: "RWD-CAP",      name: "Cap",                     description: "Verda-branded cap",                     category: "merchandise", pointsCost: 300,  cashValue: 0,    stockQty: 50, isActive: true, version: 1 },
+  { id: "rw1", code: "RWD-TSHIRT",   name: "Branded T-Shirt",         description: "KDU-branded cotton t-shirt",          category: "merchandise", pointsCost: 500,  cashValue: 0,    stockQty: 50, isActive: true, version: 1 },
+  { id: "rw2", code: "RWD-CAP",      name: "Cap",                     description: "KDU-branded cap",                     category: "merchandise", pointsCost: 300,  cashValue: 0,    stockQty: 50, isActive: true, version: 1 },
   { id: "rw3", code: "RWD-FLASK",    name: "Steel Flask",             description: "500ml insulated steel flask",           category: "merchandise", pointsCost: 800,  cashValue: 0,    stockQty: 30, isActive: true, version: 1 },
   { id: "rw4", code: "RWD-CASH-500", name: "Rs 500 Cash Bonus",       description: "Cash bonus added to next payroll",      category: "cash",        pointsCost: 1000, cashValue: 500,  stockQty: -1, isActive: true, version: 1 },
   { id: "rw5", code: "RWD-CASH-1K",  name: "Rs 1,000 Cash Bonus",     description: "Cash bonus added to next payroll",      category: "cash",        pointsCost: 2000, cashValue: 1000, stockQty: -1, isActive: true, version: 1 },
