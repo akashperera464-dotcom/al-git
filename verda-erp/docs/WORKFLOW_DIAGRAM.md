@@ -779,4 +779,243 @@ SUPPLIER (Mobile App):
 
 ---
 
-*End of Workflow Diagram. Last updated: July 2026. KDU TEA FACTORY rebrand + Equipment module + Add Stock form improvements + Push Notifications documentation + Mobile App Architecture + Branding System.*
+## 16. Sir's Phase 1 Spec — New Modules & Updates (August 2026)
+
+> **Purpose / අරමුණ:** Implementation of 6 specific feature requests from Sir, August 2026.
+
+### 16.1 Labor Management — Phase 1 Changes / කම්කරු කළමනාකරණය
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                 LABOR MODULE — 5 TABS (Phase 1)                  │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌─────────┐ ┌────────────┐ ┌─────────┐ ┌──────────┐ ┌─────────┐│
+│  │ Roster  │ │ Attendance│ │ Leave   │ │Lifecycle │ │  Daily  ││
+│  │         │ │            │ │Requests │ │/Transfers│ │  Cost   ││
+│  │ Workers │ │ Mark daily │ │ Approve │ │ Hire/    │ │  NEW    ││
+│  │ CRUD    │ │ attendance │ │/reject  │ │Retire/   │ │         ││
+│  │         │ │            │ │         │ │Transfer  │ │ Calc +  ││
+│  │         │ │            │ │         │ │          │ │ Save    ││
+│  └─────────┘ └────────────┘ └─────────┘ └──────────┘ └─────────┘│
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Phase 1 — Labor Request DISABLED for Suppliers:**
+- Suppliers can no longer request labor via the Supplier Portal
+- Available request types now: Equipment / Fertilizer / Agrochemical only
+- Labor management is admin-only via the Labor module
+
+**New Daily Labor Cost Calculator:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Daily Labor Cost Calculator                                    │
+├─────────────────────────────────────────────────────────────────┤
+│  Date: [2026-08-05]   Division: [Sutton ▼]                     │
+│                                                                 │
+│  👷 8 workers in roster for Sutton division                    │
+│                                                                 │
+│  ┌──────────────┬───────────┬──────────────┬───┐               │
+│  │ Category     │ Headcount │ Daily Wage   │ × │               │
+│  ├──────────────┼───────────┼──────────────┼───┤               │
+│  │ Mason        │     3     │   Rs 2,500   │ × │               │
+│  │ Goaly        │     3     │   Rs 1,800   │ × │               │
+│  │ Kankanam     │     1     │   Rs 1,800   │ × │               │
+│  │ + Add line                                                     │
+│  └─────────────────────────────────────────────┘                │
+│                                                                 │
+│  ┌─────────────────────────────────────────────┐                │
+│  │ Total Daily Labor Cost: Rs 16,500           │                │
+│  │ Total Headcount: 7                          │                │
+│  │                              [Save Snapshot]│                │
+│  └─────────────────────────────────────────────┘                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Labor Categories (per Sir's spec):**
+
+| Category | Sinhala | Default Daily Wage |
+|----------|---------|-------------------|
+| Kankanam | කන්කානම්ලා | Rs 1,800 |
+| Casual Plucking | වත්තේ සේවකයෝ | Rs 1,500 |
+| Temporary | තාලික | Rs 1,200 |
+| Mason | මේසන් බාස්ලා | Rs 2,500 |
+| Goaly | ගෝලයෝ | Rs 1,800 |
+| Sprayer | පොහොර විදින්නන් | Rs 2,000 |
+| Factory Hand | කම්හලේ සේවකයෝ | Rs 1,700 |
+| Field Worker | ක්ෂේත්‍ර සේවකයෝ | Rs 1,500 |
+| Supervisor | අධීක්ෂණය | Rs 3,500 |
+| Manager | කළමනාකරු | Rs 8,000 |
+
+**Phase 2 (future):** Persist snapshots to Supabase + post journal entry to Finance.
+
+---
+
+### 16.2 Equipment Requests — Standalone Module / උපකරණ ඉල්ලීම්
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  📋 Equipment Requests (separate icon in sidebar)                │
+├─────────────────────────────────────────────────────────────────┤
+│  [Pending: 3]  [Approved: 5]  [Rejected: 1]                     │
+│                                                                 │
+│  ┌─────────────────────────┐  ┌──────────────────────────┐     │
+│  │  New Equipment Request  │  │  All Requests            │     │
+│  │                         │  │                          │     │
+│  │  Category: [Plucking    │  │  2× Honda Plucking       │     │
+│  │   Machine ▼] (7 types)  │  │  Machine GX35 (PENDING)  │     │
+│  │  Item: [Honda GX35]     │  │  [✓ Approve] [✗ Reject]  │     │
+│  │  Qty: [2]               │  │                          │     │
+│  │  Date: [2026-08-06      │  │  1× Stihl Spray Machine  │     │
+│  │   T06:00]               │  │  SG51 (APPROVED)         │     │
+│  │  Duration: [3 days]     │  │                          │     │
+│  │  Note: [...]            │  │  50× Goni Bags           │     │
+│  │  [Submit Request]       │  │  (PENDING)               │     │
+│  └─────────────────────────┘  └──────────────────────────┘     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Equipment Categories (per Sir's spec):**
+
+| Category | Sinhala |
+|----------|---------|
+| Plucking Machine | දලු කඩන මැෂින් |
+| Spray Machine | තෙල්/පොහොර විදින මැෂින් |
+| Bag (Goni) | ගෝනි |
+| Pruning Shears | කප්පාදු කතුරු |
+| Knapsack Sprayer | නාක්සැක් ස්ප්‍රේයර් |
+| Plucking Basket | ප්ලකිං බාස්කට් |
+| Other | වෙනත් |
+
+**Phase 1:** localStorage-backed request list with admin approve/reject.
+**Phase 2 (future):** Sync to Supabase `equipment_requests` table + auto-issue from Inventory on approval.
+
+---
+
+### 16.3 Weather — Location-Based Forecasts / ස්ථාන අනුව කාලගුණය
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🌦️ Weather & Environment · Glenview Estate                     │
+│  ─────────────────────────────────────────────────────────────  │
+│  Status: ● Live · OpenWeatherMap   📍 6.9679, 80.7618           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation status:**
+- ✅ Already uses estate.latitude + estate.longitude for per-estate forecasts
+- ✅ Real OpenWeatherMap API (cached 10 minutes per lat/lon)
+- ✅ Falls back to Nuwara Eliya defaults if estate has no coordinates
+- ✅ Falls back to demo data if VITE_OW_API_KEY not configured
+- ✅ NEW: Coordinate display badge on Weather page header (so admin can verify location)
+
+**Geographic verification** (Sir's spec #3): The same estate coordinates drive both weather forecasts AND supplier GPS check-in verification (via expo-location in the APK).
+
+---
+
+### 16.4 Stock Auto-Deduct + Division Summary / තොග ස්වයං-අවලම්බනය
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Issue 700kg of Urea Fertilizer to Kiriwallapatana Lower         │
+├─────────────────────────────────────────────────────────────────┤
+│  Stock before: 1,250 kg                                        │
+│  Issue qty:    700 kg                                          │
+│  Stock after:  550 kg ← Auto-deducted ✅                        │
+│  Movement log: +1 entry (move_type='out', notes contains         │
+│  'Kiriwallapatana Lower' for division attribution)              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**New: Fertilizer Issued by Division (last 30 days) — on Fertilizer module:**
+
+```
+| Division                | Qty Issued | Lines | Value      |
+|------------------------|------------|-------|------------|
+| Kiriwallapatana Upper  |    480 kg  |   5   | Rs 45,600  |
+| Kiriwallapatana Lower  |    220 kg  |   3   | Rs 20,900  |
+| Sutton                 |    150 kg  |   2   | Rs 27,000  |
+| Factory                |      0 kg  |   0   | Rs 0       |
+```
+
+The summary reads from `stock_movements` joined with `stock_items` (category='fertilizer') and parses the division name from the movement notes. For accurate attribution, mention the division name in the Issue Stock notes field.
+
+---
+
+### 16.5 Acreage & Bush Count Tracking / අක්කර සහ ගස් ගණන
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🏛️ Estate: Glenview Estate                                     │
+│  Nuwara Eliya · 412 ha · 1890 m                                  │
+│  📍 6.9679, 80.7618                                              │
+│  🌳 540,000 bushes · 1,018 acres · 530 bushes/acre              │
+├─────────────────────────────────────────────────────────────────┤
+│  🌳 Bush count re-verification due                              │
+│  Last verified 7 month(s) ago. Plants may have died or been     │
+│  replanted — please re-count. Tap "Verify Now" to mark today's  │
+│  date as the new verified snapshot.                             │
+│  [Verify Now]                                                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**New fields:**
+- `Field.bushCount` — per-field tea bush count (optional)
+- `Field.bushCountVerifiedAt` — last verification date
+- `Estate.totalBushCount` — sum across all fields
+- `Estate.totalAreaAcres` — auto-converted from hectares (× 2.471)
+
+**Bush Count Reminder Logic:**
+- 6 months after last verification → reminder banner appears
+- "Verify Now" button saves today's date to localStorage (Phase 1)
+- Phase 2: persist verifiedAt to Supabase + trigger FCM push reminder
+
+**Estate Creation Form now includes:**
+- Total Bush Count (initial) — drives 6-month re-verify cycle
+- Acreage auto-calculated from hectares input
+
+---
+
+### 16.6 Motivational Tips on Dashboard / දිරිගැන්වීම් උපදෙස්
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🌱 අක්කරයකට උපරිම අස්වැන්න · Max yield per acre              │
+│  ───────────────────────────────────────────────────────────    │
+│  සාමාන්‍යයෙන් පහතරට තේ අක්කරයකින් දලු කිලෝ 1500ක් කඩාගත හැක.   │
+│  ඒ සඳහා නිවැරදි පොහොර භාවිතය සහ දලු රවුම් පවත්වාගන්න.         │
+│  (Low-country: up to ~1500 kg green leaf per acre per year.)    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**5 rotating tips (changes daily based on day-of-year):**
+
+| Tip | Topic | Tone |
+|-----|-------|------|
+| 1 | Max yield per acre (low-country: ~1500 kg/acre/year) | emerald |
+| 2 | Fertilizer mix (Urea 50kg + TSP 25kg + MOP 25kg per acre/year) | amber |
+| 3 | Pruning cycle (every 3-4 years boosts yield ~20%) | sky |
+| 4 | Plucking rounds (7-10 day cycles for consistent quality) | violet |
+| 5 | Bush count re-verify (every 6 months) | rose |
+
+Each tip includes English + Sinhala text, sourced from Sri Lankan tea agronomy best practices.
+
+---
+
+## 17. Phase 2 — Future Service Roadmap / අනාගත සේවා පාරිභෝගික මාර්ගෝපදේශය
+
+> **Purpose / අරමුණ:** Items Sir wants implemented in Phase 2 (after Phase 1 stabilization).
+
+| Phase 2 Item | Description | Complexity |
+|--------------|-------------|------------|
+| **Labor Request (re-enabled)** | Proper supplier portal feature with admin approval workflow, linked to the Daily Labor Cost calculator | Medium |
+| **Equipment Request → Supabase** | Sync to `equipment_requests` table + auto-issue from Inventory on approval | Medium |
+| **Bush Count verifiedAt → Supabase + FCM** | Persist verification date + trigger 6-month FCM push reminder | Medium |
+| **Daily Labor Cost → Supabase + GL journal** | Persist snapshots to Supabase + auto-post double-entry journal (Dr Labor Expense / Cr Cash) | Medium |
+| **Activity Types extended** | Add 'replanting' + 'fertilizer_application' as distinct FarmActivity types with separate tabs in FarmActivities module | Low |
+| **Weather-based alerts** | Auto-trigger weather alerts when forecast predicts rain/drought for a specific estate location | Low |
+| **Per-field bush count** | Extend Field creation form to capture bush count per field (not just estate-wide total) | Low |
+
+---
+
+*End of Workflow Diagram. Last updated: August 2026. KDU TEA FACTORY rebrand + Equipment module + Add Stock form improvements + Push Notifications documentation + Mobile App Architecture + Branding System + Sir's Phase 1 Spec (Labor Categories, Equipment Requests, Location-based Weather, Stock Auto-Deduct, Acreage/Bush Count, Motivational Tips).*
