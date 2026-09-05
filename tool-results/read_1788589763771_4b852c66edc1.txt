@@ -1,0 +1,525 @@
+     1→import { useEffect, useState } from "react";
+     2→import { useTranslation } from "react-i18next";
+     3→import { Package, Plus, Loader2, Truck, ArrowDownCircle, ArrowUpCircle, AlertTriangle, History, FileDown, Link2 } from "lucide-react";
+     4→import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
+     5→import { fmtLKR, fmtNum, type StockItem, type PurchaseOrder, type StockMovement, type ResourceRequest } from "@/lib/data";
+     6→import { exportObjectsToCSV } from "@/lib/csvExport";
+     7→import {
+     8→  listStockItems, createStockItem, listPurchaseOrders, createPurchaseOrder,
+     9→  receiveGoods, issueStock, listStockMovements,
+    10→} from "@/lib/repo.phase2";
+    11→import { useApp } from "@/context/AppContext";
+    12→
+    13→/**
+    14→ * Inventory & Procurement — stock items with moving-average valuation,
+    15→ * purchase orders, goods-receipt notes (GRN), and stock movements audit log.
+    16→ */
+    17→export default function Inventory() {
+    18→  const { t } = useTranslation();
+    19→  const { userUid, resourceRequests } = useApp();
+    20→  const [tab, setTab] = useState<"stock" | "po" | "grn" | "movements">("stock");
+    21→  const [stock, setStock] = useState<StockItem[]>([]);
+    22→  const [pos, setPos] = useState<PurchaseOrder[]>([]);
+    23→  const [moves, setMoves] = useState<StockMovement[]>([]);
+    24→  const [busy, setBusy] = useState(false);
+    25→  const [error, setError] = useState<string | null>(null);
+    26→
+    27→  // Stock-item form
+    28→  const [newCode, setNewCode] = useState("");
+    29→  const [newName, setNewName] = useState("");
+    30→  const [newCategory, setNewCategory] = useState("fertilizer");
+    31→  const [newUnit, setNewUnit] = useState("kg");
+    32→  const [newQty, setNewQty] = useState(0);
+    33→  const [newUnitCost, setNewUnitCost] = useState(0);
+    34→  const [newReorderLevel, setNewReorderLevel] = useState(0);
+    35→
+    36→  // PO form
+    37→  const [poSupplier, setPoSupplier] = useState("");
+    38→  const [poLines, setPoLines] = useState<{ stockItemId: string; qtyOrdered: number; unitCost: number }[]>([{ stockItemId: "", qtyOrdered: 1, unitCost: 0 }]);
+    39→
+    40→  // GRN form
+    41→  const [grnPoId, setGrnPoId] = useState("");
+    42→  const [grnSupplierInvoice, setGrnSupplierInvoice] = useState("");
+    43→  const [grnLines, setGrnLines] = useState<{ stockItemId: string; poLineId?: string; qtyReceived: number; unitCost: number }[]>([]);
+    44→
+    45→  // Issue form
+    46→  const [issueItemId, setIssueItemId] = useState("");
+    47→  const [issueQty, setIssueQty] = useState(1);
+    48→  const [issueNotes, setIssueNotes] = useState("");
+    49→  const [issueRequestId, setIssueRequestId] = useState<string>("");   // optional link to a supplier request
+    50→
+    51→  const reload = async () => {
+    52→    setBusy(true);
+    53→    try {
+    54→      const [s, p, m] = await Promise.all([listStockItems(), listPurchaseOrders(), listStockMovements()]);
+    55→      setStock(s); setPos(p); setMoves(m);
+    56→    } catch (e) {
+    57→      setError(e instanceof Error ? e.message : "Failed to load inventory");
+    58→    } finally {
+    59→      setBusy(false);
+    60→    }
+    61→  };
+    62→
+    63→  useEffect(() => { void reload(); }, []);
+    64→
+    65→  const addStockItem = async () => {
+    66→    setError(null);
+    67→    if (!newCode.trim() || !newName.trim()) { setError("Code and name required"); return; }
+    68→    if (newQty < 0 || newUnitCost < 0 || newReorderLevel < 0) { setError("Numeric fields cannot be negative"); return; }
+    69→    setBusy(true);
+    70→    try {
+    71→      // Create the stock item with all fields including opening qty/cost/reorder level.
+    72→      // The qty_on_hand column already exists in the stock_items table — no SQL migration needed.
+    73→      await createStockItem({
+    74→        code: newCode.trim(),
+    75→        name: newName.trim(),
+    76→        category: newCategory,
+    77→        unit: newUnit.trim() || "unit",
+    78→        qtyOnHand: newQty,           // opening balance (stored directly in stock_items.qty_on_hand)
+    79→        unitCost: newUnitCost,       // initial cost (used for moving-average valuation)
+    80→        reorderLevel: newReorderLevel,
+    81→      });
+    82→
+    83→      setNewCode(""); setNewName(""); setNewQty(0); setNewUnitCost(0); setNewReorderLevel(0);
+    84→      await reload();
+    85→    } catch (e) {
+    86→      setError(e instanceof Error ? e.message : "Failed to create");
+    87→    } finally {
+    88→      setBusy(false);
+    89→    }
+    90→  };
+    91→
+    92→  const addPoLine = () => setPoLines([...poLines, { stockItemId: "", qtyOrdered: 1, unitCost: 0 }]);
+    93→  const removePoLine = (idx: number) => poLines.length > 1 && setPoLines(poLines.filter((_, i) => i !== idx));
+    94→
+    95→  const submitPo = async () => {
+    96→    setError(null);
+    97→    if (!poSupplier.trim()) { setError("Supplier name required"); return; }
+    98→    if (poLines.some(l => !l.stockItemId)) { setError("All lines need a stock item"); return; }
+    99→    setBusy(true);
+   100→    try {
+   101→      const poCode = `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 100)}`;
+   102→      await createPurchaseOrder({
+   103→        poCode, supplierName: poSupplier.trim(),
+   104→        orderDate: new Date().toISOString().slice(0, 10),
+   105→        lines: poLines.map(l => ({ stockItemId: l.stockItemId, qtyOrdered: l.qtyOrdered, unitCost: l.unitCost })),
+   106→      });
+   107→      setPoSupplier(""); setPoLines([{ stockItemId: "", qtyOrdered: 1, unitCost: 0 }]);
+   108→      await reload();
+   109→    } catch (e) {
+   110→      setError(e instanceof Error ? e.message : "Failed to create PO");
+   111→    } finally {
+   112→      setBusy(false);
+   113→    }
+   114→  };
+   115→
+   116→  const loadGrnFromPo = (poId: string) => {
+   117→    setGrnPoId(poId);
+   118→    const po = pos.find(p => p.id === poId);
+   119→    if (po) {
+   120→      setGrnLines(po.lines.filter(l => l.qtyReceived < l.qtyOrdered).map(l => ({
+   121→        stockItemId: l.stockItemId, poLineId: l.id,
+   122→        qtyReceived: l.qtyOrdered - l.qtyReceived, unitCost: l.unitCost,
+   123→      })));
+   124→    } else {
+   125→      setGrnLines([]);
+   126→    }
+   127→  };
+   128→
+   129→  const submitGrn = async () => {
+   130→    setError(null);
+   131→    if (grnLines.length === 0) { setError("No lines to receive"); return; }
+   132→    setBusy(true);
+   133→    try {
+   134→      const grnCode = `GRN-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 100)}`;
+   135→      await receiveGoods({
+   136→        grnCode, poId: grnPoId || undefined,
+   137→        receivedBy: userUid,
+   138→        supplierInvoiceNo: grnSupplierInvoice || undefined,
+   139→        receipts: grnLines.map(l => ({ stockItemId: l.stockItemId, poLineId: l.poLineId, qtyReceived: l.qtyReceived, unitCost: l.unitCost })),
+   140→      });
+   141→      setGrnPoId(""); setGrnSupplierInvoice(""); setGrnLines([]);
+   142→      await reload();
+   143→    } catch (e) {
+   144→      setError(e instanceof Error ? e.message : "Failed to receive goods");
+   145→    } finally {
+   146→      setBusy(false);
+   147→    }
+   148→  };
+   149→
+   150→  const submitIssue = async () => {
+   151→    setError(null);
+   152→    if (!issueItemId || issueQty <= 0) { setError("Select item & quantity"); return; }
+   153→    setBusy(true);
+   154→    try {
+   155→      // Build notes — if linked to a supplier request, prepend the request ref
+   156→      let notes = issueNotes.trim();
+   157→      if (issueRequestId) {
+   158→        const req = resourceRequests.find(r => r.id === issueRequestId);
+   159→        const reqRef = req
+   160→          ? `[Req #${req.id.slice(-6).toUpperCase()} · ${req.type} · ${req.itemDetails} · supplier asked ${req.quantity}]`
+   161→          : `[Req #${issueRequestId.slice(-6).toUpperCase()}]`;
+   162→        notes = notes ? `${reqRef} ${notes}` : reqRef;
+   163→      }
+   164→      await issueStock({
+   165→        stockItemId: issueItemId, qty: issueQty,
+   166→        performedBy: userUid, notes: notes || undefined,
+   167→      });
+   168→      setIssueItemId(""); setIssueQty(1); setIssueNotes(""); setIssueRequestId("");
+   169→      await reload();
+   170→    } catch (e) {
+   171→      setError(e instanceof Error ? e.message : "Failed to issue");
+   172→    } finally {
+   173→      setBusy(false);
+   174→    }
+   175→  };
+   176→
+   177→  // Stock-item requests pending fulfilment — drives the "Link to Request" dropdown.
+   178→  const pendingStockRequests: ResourceRequest[] = resourceRequests.filter(
+   179→    r => r.status === "PENDING" || r.status === "APPROVED"
+   180→  );
+   181→  // Filter pending requests to those that match the selected stock item's category
+   182→  // (best-effort match by itemDetails containing the stock code/name)
+   183→  const matchingRequests = (si: StockItem | undefined): ResourceRequest[] => {
+   184→    if (!si) return pendingStockRequests;
+   185→    const haystack = `${si.code} ${si.name}`.toLowerCase();
+   186→    return pendingStockRequests.filter(r =>
+   187→      r.itemDetails?.toLowerCase().includes(si.code.toLowerCase()) ||
+   188→      r.itemDetails?.toLowerCase().includes(si.name.toLowerCase()) ||
+   189→      haystack.includes(r.itemDetails?.toLowerCase() ?? "")
+   190→    );
+   191→  };
+   192→
+   193→  const totalValue = stock.reduce((s, x) => s + x.qtyOnHand * x.unitCost, 0);
+   194→  const lowStock = stock.filter(x => x.qtyOnHand <= x.reorderLevel);
+   195→  const openPOs = pos.filter(p => p.status === "draft" || p.status === "sent" || p.status === "partially_received");
+   196→
+   197→  return (
+   198→    <div>
+   199→      <PageHeader
+   200→        eyebrow="Operations"
+   201→        title="Inventory & Procurement"
+   202→        desc="Stock items with moving-average valuation, purchase orders, goods-receipt notes, and issue tracking."
+   203→        icon={<IconChip icon={Package} tone="emerald" className="h-12 w-12" />}
+   204→      />
+   205→
+   206→      {error && <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>}
+   207→
+   208→      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   209→        <StatCard icon={Package} label="Stock Items" value={String(stock.length)} tone="sky" />
+   210→        <StatCard icon={Truck} label="Open POs" value={String(openPOs.length)} tone="amber" />
+   211→        <StatCard icon={AlertTriangle} label="Low Stock" value={String(lowStock.length)} tone="rose" />
+   212→        <StatCard icon={Package} label="Stock Value" value={fmtLKR(totalValue)} tone="emerald" />
+   213→      </div>
+   214→
+   215→      <div className="mt-4 flex flex-wrap gap-2">
+   216→        {([
+   217→          { id: "stock", label: "Stock Items", icon: Package },
+   218→          { id: "po", label: "Purchase Orders", icon: Truck },
+   219→          { id: "grn", label: "Receive Goods (GRN)", icon: ArrowDownCircle },
+   220→          { id: "movements", label: "Issue / Movements", icon: ArrowUpCircle },
+   221→        ] as const).map(t2 => {
+   222→          const Icon = t2.icon;
+   223→          const active = tab === t2.id;
+   224→          return (
+   225→            <button key={t2.id} onClick={() => setTab(t2.id)}
+   226→              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${active ? "bg-emerald-600 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+   227→              <Icon className="h-3.5 w-3.5" /> {t2.label}
+   228→            </button>
+   229→          );
+   230→        })}
+   231→      </div>
+   232→
+   233→      {/* Tab: Stock Items */}
+   234→      {tab === "stock" && (
+   235→        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+   236→          <Card className="lg:col-span-1 p-4">
+   237→            <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Add Stock Item</h3>
+   238→            <div className="space-y-2">
+   239→              <div>
+   240→                <label className="text-[11px] text-slate-400">Code</label>
+   241→                <input value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="e.g. FERT-UREA" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   242→              </div>
+   243→              <div>
+   244→                <label className="text-[11px] text-slate-400">Name</label>
+   245→                <input value={newName} onChange={e => setNewName(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   246→              </div>
+   247→              <div className="grid grid-cols-2 gap-2">
+   248→                <div>
+   249→                  <label className="text-[11px] text-slate-400">Category</label>
+   250→                  <select value={newCategory} onChange={e => setNewCategory(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   251→                    <option value="fertilizer">Fertilizer</option>
+   252→                    <option value="agrochemical">Agrochemical</option>
+   253→                    <option value="fuel">Fuel</option>
+   254→                    <option value="equipment">Equipment</option>
+   255→                    <option value="other">Other</option>
+   256→                  </select>
+   257→                </div>
+   258→                <div>
+   259→                  <label className="text-[11px] text-slate-400">Unit</label>
+   260→                  <input value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="kg / L / pcs" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   261→                </div>
+   262→              </div>
+   263→              <div className="grid grid-cols-2 gap-2">
+   264→                <div>
+   265→                  <label className="text-[11px] text-slate-400">Opening Qty</label>
+   266→                  <input type="number" min={0} step="any" value={newQty || ""} onChange={e => setNewQty(+e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+   267→                </div>
+   268→                <div>
+   269→                  <label className="text-[11px] text-slate-400">Unit Cost (Rs)</label>
+   270→                  <input type="number" min={0} step="any" value={newUnitCost || ""} onChange={e => setNewUnitCost(+e.target.value)} placeholder="0.00" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+   271→                </div>
+   272→              </div>
+   273→              <div>
+   274→                <label className="text-[11px] text-slate-400">Reorder Level (alert when qty ≤ this)</label>
+   275→                <input type="number" min={0} step="any" value={newReorderLevel || ""} onChange={e => setNewReorderLevel(+e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+   276→              </div>
+   277→              {newQty > 0 && (
+   278→                <div className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] text-sky-700">
+   279→                  Opening value: <strong>Rs {(newQty * newUnitCost).toLocaleString()}</strong> ({fmtNum(newQty)} × Rs {newUnitCost.toLocaleString()})
+   280→                </div>
+   281→              )}
+   282→              <button onClick={addStockItem} disabled={busy} className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Add</button>
+   283→            </div>
+   284→          </Card>
+   285→
+   286→          <Card className="lg:col-span-2 p-4">
+   287→            <div className="mb-3 flex items-center justify-between">
+   288→              <h3 className="font-display text-sm font-bold text-slate-800">Stock On Hand</h3>
+   289→              {stock.length > 0 && (
+   290→                <button onClick={() => exportObjectsToCSV("stock_items", stock.map(s => ({ code: s.code, name: s.name, category: s.category, qty: s.qtyOnHand, unit: s.unit, unit_cost: s.unitCost, value: s.qtyOnHand * s.unitCost })))}
+   291→                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"><FileDown className="h-3 w-3" /> CSV</button>
+   292→              )}
+   293→            </div>
+   294→            {stock.length === 0 ? (
+   295→              <p className="py-8 text-center text-sm text-slate-400">No stock items yet.</p>
+   296→            ) : (
+   297→              <div className="overflow-x-auto">
+   298→                <table className="w-full text-sm">
+   299→                  <thead>
+   300→                    <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+   301→                      <th className="pb-2">Code</th>
+   302→                      <th className="pb-2">Name</th>
+   303→                      <th className="pb-2 text-right">Qty</th>
+   304→                      <th className="pb-2 text-right">Unit Cost</th>
+   305→                      <th className="pb-2 text-right">Value</th>
+   306→                      <th className="pb-2 text-center">Status</th>
+   307→                    </tr>
+   308→                  </thead>
+   309→                  <tbody>
+   310→                    {stock.map(s => (
+   311→                      <tr key={s.id} className="border-t border-slate-100">
+   312→                        <td className="py-2 font-mono text-xs">{s.code}</td>
+   313→                        <td className="py-2 font-semibold text-slate-800">{s.name}</td>
+   314→                        <td className="py-2 text-right tnum">{fmtNum(s.qtyOnHand)} {s.unit}</td>
+   315→                        <td className="py-2 text-right tnum">{fmtLKR(s.unitCost)}</td>
+   316→                        <td className="py-2 text-right tnum font-semibold">{fmtLKR(s.qtyOnHand * s.unitCost)}</td>
+   317→                        <td className="py-2 text-center">
+   318→                          {s.qtyOnHand <= s.reorderLevel ? (
+   319→                            <Badge tone="rose" dot>Low</Badge>
+   320→                          ) : (
+   321→                            <Badge tone="emerald" dot>OK</Badge>
+   322→                          )}
+   323→                        </td>
+   324→                      </tr>
+   325→                    ))}
+   326→                  </tbody>
+   327→                </table>
+   328→              </div>
+   329→            )}
+   330→          </Card>
+   331→        </div>
+   332→      )}
+   333→
+   334→      {/* Tab: POs */}
+   335→      {tab === "po" && (
+   336→        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+   337→          <Card className="p-4">
+   338→            <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Create Purchase Order</h3>
+   339→            <div>
+   340→              <label className="text-[11px] text-slate-400">Supplier Name</label>
+   341→              <input value={poSupplier} onChange={e => setPoSupplier(e.target.value)} placeholder="e.g. CIC Fertilizers Ltd" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   342→            </div>
+   343→            <div className="mt-3">
+   344→              <p className="text-[11px] text-slate-400">Lines</p>
+   345→              <div className="space-y-2">
+   346→                {poLines.map((l, idx) => (
+   347→                  <div key={idx} className="grid grid-cols-12 gap-1">
+   348→                    <select value={l.stockItemId} onChange={e => setPoLines(poLines.map((x, i) => i === idx ? { ...x, stockItemId: e.target.value } : x))}
+   349→                      className="col-span-6 rounded border border-slate-200 px-1.5 py-1.5 text-xs">
+   350→                      <option value="">— select —</option>
+   351→                      {stock.map(s => <option key={s.id} value={s.id}>{s.code} · {s.name}</option>)}
+   352→                    </select>
+   353→                    <input type="number" value={l.qtyOrdered || ""} onChange={e => setPoLines(poLines.map((x, i) => i === idx ? { ...x, qtyOrdered: +e.target.value } : x))} placeholder="Qty" className="col-span-2 rounded border border-slate-200 px-1.5 py-1.5 text-xs tnum" />
+   354→                    <input type="number" value={l.unitCost || ""} onChange={e => setPoLines(poLines.map((x, i) => i === idx ? { ...x, unitCost: +e.target.value } : x))} placeholder="Cost" className="col-span-3 rounded border border-slate-200 px-1.5 py-1.5 text-xs tnum" />
+   355→                    <button onClick={() => removePoLine(idx)} className="col-span-1 text-rose-500 hover:text-rose-700">×</button>
+   356→                  </div>
+   357→                ))}
+   358→              </div>
+   359→              <button onClick={addPoLine} className="mt-2 text-xs font-semibold text-emerald-600 hover:underline">+ Add line</button>
+   360→            </div>
+   361→            <button onClick={submitPo} disabled={busy} className="mt-3 w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Create PO</button>
+   362→          </Card>
+   363→
+   364→          <Card className="p-4">
+   365→            <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Purchase Orders</h3>
+   366→            {pos.length === 0 ? (
+   367→              <p className="py-8 text-center text-sm text-slate-400">No POs yet.</p>
+   368→            ) : (
+   369→              <div className="space-y-2">
+   370→                {pos.map(p => (
+   371→                  <div key={p.id} className="rounded-lg border border-slate-100 p-3">
+   372→                    <div className="flex items-center justify-between">
+   373→                      <div>
+   374→                        <p className="text-sm font-bold text-slate-800">{p.poCode}</p>
+   375→                        <p className="text-[11px] text-slate-400">{p.supplierName} · {p.orderDate}</p>
+   376→                      </div>
+   377→                      <div className="flex items-center gap-2">
+   378→                        <Badge tone={p.status === "received" ? "emerald" : p.status === "partially_received" ? "amber" : "sky"} dot>{p.status}</Badge>
+   379→                        <span className="font-bold text-slate-700">{fmtLKR(p.totalAmount)}</span>
+   380→                      </div>
+   381→                    </div>
+   382→                    <div className="mt-1 text-[11px] text-slate-400">
+   383→                      {p.lines.length} line(s) · {p.lines.reduce((s, l) => s + l.qtyReceived, 0)}/{p.lines.reduce((s, l) => s + l.qtyOrdered, 0)} units received
+   384→                    </div>
+   385→                  </div>
+   386→                ))}
+   387→              </div>
+   388→            )}
+   389→          </Card>
+   390→        </div>
+   391→      )}
+   392→
+   393→      {/* Tab: GRN */}
+   394→      {tab === "grn" && (
+   395→        <Card className="mt-4 p-4">
+   396→          <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Receive Goods (GRN)</h3>
+   397→          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+   398→            <div>
+   399→              <label className="text-[11px] text-slate-400">Against PO (optional)</label>
+   400→              <select value={grnPoId} onChange={e => loadGrnFromPo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   401→                <option value="">— direct receipt (no PO) —</option>
+   402→                {pos.filter(p => p.status !== "received" && p.status !== "cancelled").map(p => (
+   403→                  <option key={p.id} value={p.id}>{p.poCode} · {p.supplierName}</option>
+   404→                ))}
+   405→              </select>
+   406→            </div>
+   407→            <div>
+   408→              <label className="text-[11px] text-slate-400">Supplier Invoice No</label>
+   409→              <input value={grnSupplierInvoice} onChange={e => setGrnSupplierInvoice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   410→            </div>
+   411→          </div>
+   412→
+   413→          <div className="mt-3">
+   414→            <p className="text-[11px] text-slate-400">Receipt Lines</p>
+   415→            {grnLines.length === 0 ? (
+   416→              <p className="mt-1 text-xs text-slate-400">Select a PO above to auto-fill lines (or add lines manually below).</p>
+   417→            ) : (
+   418→              <div className="mt-2 space-y-2">
+   419→                {grnLines.map((l, idx) => {
+   420→                  const s = stock.find(x => x.id === l.stockItemId);
+   421→                  return (
+   422→                    <div key={idx} className="grid grid-cols-12 gap-1">
+   423→                      <span className="col-span-6 self-center text-xs">{s?.code ?? "—"} · {s?.name ?? l.stockItemId}</span>
+   424→                      <input type="number" value={l.qtyReceived || ""} onChange={e => setGrnLines(grnLines.map((x, i) => i === idx ? { ...x, qtyReceived: +e.target.value } : x))} placeholder="Qty" className="col-span-2 rounded border border-slate-200 px-1.5 py-1.5 text-xs tnum" />
+   425→                      <input type="number" value={l.unitCost || ""} onChange={e => setGrnLines(grnLines.map((x, i) => i === idx ? { ...x, unitCost: +e.target.value } : x))} placeholder="Cost" className="col-span-3 rounded border border-slate-200 px-1.5 py-1.5 text-xs tnum" />
+   426→                    </div>
+   427→                  );
+   428→                })}
+   429→              </div>
+   430→            )}
+   431→          </div>
+   432→
+   433→          <button onClick={submitGrn} disabled={busy || grnLines.length === 0} className="mt-4 w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">
+   434→            Receive &amp; Update Stock
+   435→          </button>
+   436→        </Card>
+   437→      )}
+   438→
+   439→      {/* Tab: Movements */}
+   440→      {tab === "movements" && (
+   441→        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+   442→          <Card className="p-4">
+   443→            <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Issue Stock</h3>
+   444→            <div className="space-y-2">
+   445→              <div>
+   446→                <label className="text-[11px] text-slate-400">Item</label>
+   447→                <select value={issueItemId} onChange={e => { setIssueItemId(e.target.value); setIssueRequestId(""); }} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   448→                  <option value="">— select —</option>
+   449→                  {stock.map(s => <option key={s.id} value={s.id}>{s.code} · {s.name} ({fmtNum(s.qtyOnHand)} {s.unit})</option>)}
+   450→                </select>
+   451→              </div>
+   452→              <div>
+   453→                <label className="text-[11px] text-slate-400">Quantity</label>
+   454→                <input type="number" value={issueQty} onChange={e => setIssueQty(+e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+   455→              </div>
+   456→              {/* Link to a pending supplier request — when selected, the issue
+   457→                  note will automatically include the request reference for the
+   458→                  audit trail. Matching is best-effort by stock code/name. */}
+   459→              <div>
+   460→                <label className="text-[11px] text-slate-400 flex items-center gap-1">
+   461→                  <Link2 className="h-3 w-3" /> Link to Supplier Request (optional)
+   462→                </label>
+   463→                <select
+   464→                  value={issueRequestId}
+   465→                  onChange={e => setIssueRequestId(e.target.value)}
+   466→                  disabled={!issueItemId}
+   467→                  className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+   468→                >
+   469→                  <option value="">— no linked request —</option>
+   470→                  {matchingRequests(stock.find(s => s.id === issueItemId)).map(r => (
+   471→                    <option key={r.id} value={r.id}>
+   472→                      #{r.id.slice(-6).toUpperCase()} · {r.type} · {r.itemDetails} · asked {r.quantity} ({r.status})
+   473→                    </option>
+   474→                  ))}
+   475→                </select>
+   476→                {issueItemId && matchingRequests(stock.find(s => s.id === issueItemId)).length === 0 && pendingStockRequests.length > 0 && (
+   477→                  <p className="mt-1 text-[10px] text-slate-400">No matching request for this item — {pendingStockRequests.length} pending request(s) for other items.</p>
+   478→                )}
+   479→                {issueRequestId && (() => {
+   480→                  const req = resourceRequests.find(r => r.id === issueRequestId);
+   481→                  if (!req) return null;
+   482→                  return (
+   483→                    <div className="mt-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] text-sky-700">
+   484→                      <strong>Supplier asked for: {req.quantity}</strong> · {req.itemDetails || ""}
+   485→                      <br />Status: <strong>{req.status}</strong> · Requested for: {new Date(req.dateNeeded).toLocaleString()}
+   486→                    </div>
+   487→                  );
+   488→                })()}
+   489→              </div>
+   490→              <div>
+   491→                <label className="text-[11px] text-slate-400">Notes</label>
+   492→                <textarea value={issueNotes} onChange={e => setIssueNotes(e.target.value)} rows={2} placeholder="Reason for issue / recipient name / field block" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   493→              </div>
+   494→              <button onClick={submitIssue} disabled={busy || !issueItemId} className="w-full rounded-lg bg-rose-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Issue Out</button>
+   495→            </div>
+   496→          </Card>
+   497→
+   498→          <Card className="lg:col-span-2 p-4">
+   499→            <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Movement History</h3>
+   500→            {moves.length === 0 ? (
+   501→              <p className="py-8 text-center text-sm text-slate-400">No movements yet.</p>
+   502→            ) : (
+   503→              <div className="space-y-1.5 max-h-96 overflow-y-auto">
+   504→                {moves.map(m => {
+   505→                  const s = stock.find(x => x.id === m.stockItemId);
+   506→                  return (
+   507→                    <div key={m.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-2 text-xs">
+   508→                      <div className="flex items-center gap-2">
+   509→                        <Badge tone={m.moveType === "in" ? "emerald" : m.moveType === "out" ? "rose" : "amber"}>{m.moveType}</Badge>
+   510→                        <span className="font-semibold text-slate-800">{s?.code ?? m.stockItemId}</span>
+   511→                        <span className="text-slate-400">{fmtNum(m.qty)} {s?.unit}</span>
+   512→                      </div>
+   513→                      <span className="text-[10px] text-slate-400">{new Date(m.performedAt).toLocaleString()}</span>
+   514→                    </div>
+   515→                  );
+   516→                })}
+   517→              </div>
+   518→            )}
+   519→          </Card>
+   520→        </div>
+   521→      )}
+   522→    </div>
+   523→  );
+   524→}
+   525→

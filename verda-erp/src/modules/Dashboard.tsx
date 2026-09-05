@@ -228,6 +228,9 @@ export default function Dashboard() {
         }
       />
 
+      {/* Motivational Tip — Sir's spec #6: per-acre yield guidance */}
+      <MotivationalTipBanner />
+
       {/* KPI grid — real data */}
       {d.loading ? (
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -356,3 +359,54 @@ const ACT_TONE: Record<string, string> = {
   sky: "bg-sky-50 text-sky-600",
   violet: "bg-violet-50 text-violet-600",
 };
+
+/* ----------------------------------------------------------------------------
+ * MotivationalTipBanner — Sir's spec #6:
+ *   Show yield-per-acre guidance based on Sri Lankan low-country / mid-country /
+ *   up-country tea agronomy. Rotates daily. Helps farmers understand the
+ *   potential of their land + actionable tips.
+ * ---------------------------------------------------------------------------- */
+const MOTIVATIONAL_TIPS = [
+  {
+    title: "අක්කරයකට උපරිම අස්වැන්න · Max yield per acre",
+    body: "සාමාන්‍යයෙන් පහතරට තේ අක්කරයකින් දලු කිලෝ 1500ක් කඩාගත හැක. ඒ සඳහා නිවැරදි පොහොර භාවිතය සහ දලු රවුම් පවත්වාගන්න. (Low-country: up to ~1500 kg green leaf per acre per year.)",
+    tone: "emerald",
+  },
+  {
+    title: "පොහොර වර්ග · Fertilizer mix",
+    body: "තේ වත්තක නිසි වර්ධනයට වර්ෂයකට අක්කරයකට Urea 50kg + TSP 25kg + MOP 25kg යෙදීම නිර්දේශිතයි. Apply Urea 50kg + TSP 25kg + MOP 25kg per acre per year for healthy bushes.",
+    tone: "amber",
+  },
+  {
+    title: "කප්පාදු චක්‍රය · Pruning cycle",
+    body: "තේ පැළ වසර 3-4 කට සැරයක් කප්පාදු කළ යුතුය. නිසි කප්පාදුව අස්වැන්න 20%කින් වැඩි කරයි. Prune every 3-4 years; correct pruning boosts yield by ~20%.",
+    tone: "sky",
+  },
+  {
+    title: "දලු රවුම් · Plucking rounds",
+    body: "දලු රවුම් 7-10 දිනකට සැරයක් පවත්වාගෙන යාම මගින් අස්වැන්න ස්ථාවරව පවතියි. Maintain 7-10 day plucking rounds for consistent yield quality.",
+    tone: "violet",
+  },
+  {
+    title: "පැළ ගණන නැවත පරීක්ෂා කිරීම · Re-verify bush count",
+    body: "මස 6කට සැරයක් ඔබේ වත්තේ ගස් ගණන නැවත පරීක්ෂා කරන්න. පැළ මැරීම හෝ අලුතින් සිටුවීම නිසා ගස් ගණන වෙනස් වී ඇත්නම් යාවත්කාලීන කරන්න. Re-verify bush count every 6 months — update if bushes died or were replanted.",
+    tone: "rose",
+  },
+];
+
+function MotivationalTipBanner() {
+  // Rotate tip daily based on day-of-year
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  const tip = MOTIVATIONAL_TIPS[dayOfYear % MOTIVATIONAL_TIPS.length];
+  const toneCls = tip.tone === "emerald" ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+    : tip.tone === "amber" ? "bg-amber-50 border-amber-200 text-amber-700"
+    : tip.tone === "rose" ? "bg-rose-50 border-rose-200 text-rose-700"
+    : tip.tone === "violet" ? "bg-violet-50 border-violet-200 text-violet-700"
+    : "bg-sky-50 border-sky-200 text-sky-700";
+  return (
+    <div className={`mt-3 rounded-xl border p-4 ${toneCls}`}>
+      <p className="text-sm font-bold mb-1">🌱 {tip.title}</p>
+      <p className="text-xs leading-relaxed">{tip.body}</p>
+    </div>
+  );
+}

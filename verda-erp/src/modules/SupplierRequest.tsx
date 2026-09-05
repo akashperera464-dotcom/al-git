@@ -33,7 +33,7 @@ function timeAgo(ts: number, t: (k: string, opts?: Record<string, unknown>) => s
 export function SupplierRequestForm() {
   const { t } = useTranslation();
   const { resourceRequests, submitRequest, notify } = useApp();
-  const [type, setType] = useState<RequestType>("Workers");
+  const [type, setType] = useState<RequestType>("Equipment");
   const [item, setItem] = useState(workerRoleOptions[0]);
   const [quantity, setQuantity] = useState(4);
   const [dateNeeded, setDateNeeded] = useState(`${addDays(TODAY_ISO, 1)}T06:00`);
@@ -91,15 +91,15 @@ export function SupplierRequestForm() {
   const approved = mine.filter((r) => r.status === "APPROVED").length;
   const rejected = mine.filter((r) => r.status === "REJECTED").length;
 
+  // Phase 1: Labor Request removed per Sir's spec — Labor is now managed via Labor Management
+  // module (admin side). Suppliers can request: Equipment / Fertilizer / Agrochemical only.
   const typeOptions = availabilities.length > 0
     ? [
-        { value: "Workers", label: t("request.workers"), icon: <Users className="h-3.5 w-3.5" /> },
         { value: "Equipment", label: t("request.equipment"), icon: <Wrench className="h-3.5 w-3.5" /> },
         { value: "Fertilizer", label: "Fertilizer", icon: <Sprout className="h-3.5 w-3.5" /> },
         { value: "Agrochemical", label: "Agrochemical", icon: <FlaskConical className="h-3.5 w-3.5" /> },
       ]
     : [
-        { value: "Workers", label: t("request.workers"), icon: <Users className="h-3.5 w-3.5" /> },
         { value: "Equipment", label: t("request.equipment"), icon: <Wrench className="h-3.5 w-3.5" /> },
       ];
 

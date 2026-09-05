@@ -66,6 +66,11 @@ export default function Weather() {
             <Badge tone={source === "live" ? "emerald" : "amber"} dot>
               {weatherConfigured ? (source === "live" ? "Live · OpenWeatherMap" : "Loading live…") : "Demo data"}
             </Badge>
+            {selectedEstate?.latitude !== undefined && selectedEstate?.longitude !== undefined && (
+              <span className="text-[10px] text-slate-500">
+                📍 {selectedEstate.latitude.toFixed(4)}, {selectedEstate.longitude.toFixed(4)}
+              </span>
+            )}
           </div>
         }
       />

@@ -29,6 +29,7 @@ function FieldTable({ fields }: { fields: Field[] }) {
         { key: "cultivar", header: "Cultivar", render: (f) => <span className="text-slate-500">{f.cultivar}</span> },
         { key: "plantingYear", header: "Planted", align: "center" },
         { key: "areaHa", header: "Area (ha)", align: "right", render: (f) => fmtNum(f.areaHa) },
+        { key: "bushCount", header: "Bushes", align: "right", render: (f) => f.bushCount ? <span className="tnum">{fmtNum(f.bushCount)}</span> : <span className="text-slate-400 italic">—</span> },
         { key: "status", header: "Status", align: "center", render: (f) => <Badge tone={STATUS_TONE[f.status]} dot>{f.status}</Badge> },
       ]}
     />
@@ -50,6 +51,7 @@ function CreationPanel() {
   const [ePlanted, setEPlanted] = useState("");
   const [eLat, setELat] = useState("");
   const [eLon, setELon] = useState("");
+  const [eBushCount, setEBushCount] = useState(0);
   // division fields
   const [dEstate, setDEstate] = useState("");
   const [dName, setDName] = useState("");
@@ -73,9 +75,9 @@ function CreationPanel() {
       if (!eName.trim()) return;
       const latNum = eLat.trim() ? parseFloat(eLat.trim()) : undefined;
       const lonNum = eLon.trim() ? parseFloat(eLon.trim()) : undefined;
-      const e = await addEstate({ name: eName.trim(), region: eRegion.trim() || "—", totalAreaHa: eArea || 0, elevationM: eElev || 0, googleMapsEmbedUrl: eMap.trim(), plantedDate: ePlanted || undefined, latitude: latNum, longitude: lonNum });
-      setSaved(`Estate “${e.name}” created (${e.id})`);
-      setEName(""); setERegion(""); setEArea(0); setEElev(0); setEMap(""); setEPlanted(""); setELat(""); setELon("");
+      const e = await addEstate({ name: eName.trim(), region: eRegion.trim() || "—", totalAreaHa: eArea || 0, elevationM: eElev || 0, googleMapsEmbedUrl: eMap.trim(), plantedDate: ePlanted || undefined, latitude: latNum, longitude: lonNum, totalBushCount: eBushCount || undefined, totalAreaAcres: eArea ? +(eArea * 2.471).toFixed(2) : undefined });
+      setSaved(`Estate "${e.name}" created (${e.id})`);
+      setEName(""); setERegion(""); setEArea(0); setEElev(0); setEMap(""); setEPlanted(""); setELat(""); setELon(""); setEBushCount(0);
     } else if (type === "division") {
       if (!dEstate || !dName.trim()) return;
       const d = await addDivision(dEstate, { name: dName.trim(), manager: dManager.trim() || "—", areaHa: dArea || 0 });
@@ -125,6 +127,7 @@ function CreationPanel() {
           <div><label className={labelCls}>Latitude</label><input type="number" step="any" value={eLat} onChange={(e) => setELat(e.target.value)} placeholder="6.9679" className={`${inputCls} tnum`} /></div>
           <div><label className={labelCls}>Longitude</label><input type="number" step="any" value={eLon} onChange={(e) => setELon(e.target.value)} placeholder="80.7618" className={`${inputCls} tnum`} /></div>
           <div className="col-span-2"><p className="text-[10px] text-slate-400">📍 Tip: open Google Maps, right-click the estate location, copy the lat,lon (first number = latitude, second = longitude). These drive per-estate weather forecasts.</p></div>
+          <div className="col-span-2"><label className={labelCls}>Total Bush Count (initial)</label><input type="number" min={0} value={eBushCount || ""} onChange={(e) => setEBushCount(+e.target.value)} placeholder="e.g. 540000" className={`${inputCls} tnum`} /><p className="mt-1 text-[10px] text-slate-400">🌳 Total tea bushes across the estate. Drives 6-month re-verify reminders. Acreage auto-converts from hectares (acres = ha × 2.471).</p></div>
         </div>
       )}
 
@@ -245,9 +248,17 @@ export default function EstateMaster() {
                       📍 {selected.latitude ?? "—"}, {selected.longitude ?? "—"}
                       {!selected.latitude && " (no coordinates set — weather uses default)"}
                     </p>
+                    {selected.totalBushCount !== undefined && selected.totalBushCount > 0 && (
+                      <p className="mt-1 text-xs text-emerald-200/90">
+                        🌳 {fmtNum(selected.totalBushCount)} bushes · {(selected.totalAreaAcres ?? +(selected.totalAreaHa * 2.471).toFixed(2)).toLocaleString()} acres · {(selected.totalBushCount / (selected.totalAreaAcres ?? selected.totalAreaHa * 2.471)).toFixed(0)} bushes/acre
+                      </p>
+                    )}
                   </div>
                   <MapPin className="h-9 w-9 text-emerald-200" />
                 </div>
+
+                {/* Bush count re-verify reminder — Sir's spec #5 */}
+                <BushCountReminder estate={selected} />
               </div>
 
               {/* Coordinates editor */}
@@ -395,6 +406,58 @@ function CoordEditor({ estate, onSaved }: { estate: Estate; onSaved: () => void 
         </button>
         <button onClick={() => setEditing(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500">Cancel</button>
       </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+ * BushCountReminder — Sir's spec #5:
+ *   Show a 6-month re-verify reminder for bush count. If the last verified
+ *   date is older than 6 months, show an alert banner with "Verify now" button
+ *   that updates the verifiedAt timestamp (Phase 1: localStorage only).
+ * ---------------------------------------------------------------------------- */
+function BushCountReminder({ estate }: { estate: Estate }) {
+  const [verifiedAt, setVerifiedAt] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(`verda.bush_count.${estate.id}.verifiedAt`);
+    } catch { return null; }
+  });
+
+  // Check every minute
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const lastDate = verifiedAt ? new Date(verifiedAt) : null;
+  const SIX_MONTHS_MS = 6 * 30 * 86400_000;
+  const isStale = !lastDate || (now - lastDate.getTime()) > SIX_MONTHS_MS;
+  const monthsAgo = lastDate ? Math.floor((now - lastDate.getTime()) / (30 * 86400_000)) : null;
+
+  if (!isStale) return null; // hidden when within 6 months
+
+  const verifyNow = () => {
+    const iso = new Date().toISOString();
+    setVerifiedAt(iso);
+    try { localStorage.setItem(`verda.bush_count.${estate.id}.verifiedAt`, iso); } catch { /* ignore */ }
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-800">
+      <p className="text-xs font-bold mb-1">🌳 Bush count re-verification due</p>
+      <p className="text-[11px] leading-relaxed">
+        {monthsAgo === null
+          ? "Bush count has never been verified. Set an initial count and verify it now."
+          : `Last verified ${monthsAgo} month(s) ago. Plants may have died or been replanted — please re-count.`}
+        {" "}Tap "Verify Now" to mark today's date as the new verified snapshot.
+      </p>
+      <button
+        onClick={verifyNow}
+        className="mt-2 rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-amber-700"
+      >
+        Verify Now
+      </button>
     </div>
   );
 }

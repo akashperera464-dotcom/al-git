@@ -15,10 +15,46 @@ import {
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
 
-type Tab = "roster" | "attendance" | "leave" | "lifecycle";
+type Tab = "roster" | "attendance" | "leave" | "lifecycle" | "dailycost";
 
 const ROLES = ["Plucker", "Factory Hand", "Field Worker", "Kangany", "Sprayer", "Supervisor", "Manager"];
 const DIVISIONS = ["Sutton", "Craighead", "Tennant", "Factory", "Nursery"];
+
+/**
+ * Phase 1 labor categories per Sir's spec:
+ *   Kankanam (කන්කානම්ලා), Casual Plucking, Temporary (තාලික),
+ *   plus trade roles (Mason, Goaly, Sprayer, Factory Hand, Field Worker, Supervisor, Manager).
+ * Used by the Daily Cost tab to group workers + auto-calc the day's labor cost.
+ */
+const LABOR_CATEGORIES = [
+  "Kankanam",
+  "Casual Plucking",
+  "Temporary",
+  "Mason",
+  "Goaly",
+  "Sprayer",
+  "Factory Hand",
+  "Field Worker",
+  "Supervisor",
+  "Manager",
+] as const;
+
+/**
+ * Default daily wage per category (Rs). Admin can override per-entry in the form.
+ * Approx Sri Lankan tea estate rates (2026).
+ */
+const DEFAULT_DAILY_WAGE: Record<string, number> = {
+  "Kankanam":        1800,
+  "Casual Plucking": 1500,  // + per-kg bonus usually, but base wage
+  "Temporary":       1200,
+  "Mason":          2500,
+  "Goaly":          1800,
+  "Sprayer":        2000,
+  "Factory Hand":   1700,
+  "Field Worker":   1500,
+  "Supervisor":     3500,
+  "Manager":        8000,
+};
 
 export default function Labor() {
   const { t } = useTranslation();
@@ -278,6 +314,7 @@ export default function Labor() {
           { id: "attendance", label: "Daily Attendance", icon: CheckCircle2 },
           { id: "leave", label: `Leave Requests${pendingLeave > 0 ? ` (${pendingLeave})` : ""}`, icon: CalendarDays },
           { id: "lifecycle", label: "Lifecycle / Transfers", icon: ArrowRightLeft },
+          { id: "dailycost", label: "Daily Labor Cost", icon: CreditCard },
         ] as const).map(t2 => {
           const Icon = t2.icon;
           const active = tab === t2.id;
@@ -554,6 +591,167 @@ export default function Labor() {
           </Card>
         </div>
       )}
+
+      {/* Tab: Daily Labor Cost (Phase 1 — daily labor attendance + auto-cost calculation) */}
+      {tab === "dailycost" && (
+        <DailyLaborCostTab workers={workers} divisions={DIVISIONS} categories={LABOR_CATEGORIES as unknown as string[]} defaultWage={DEFAULT_DAILY_WAGE} />
+      )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+ * DailyLaborCostTab — Phase 1 labor-costing feature per Sir's spec:
+ *   - Select labor category (Kankanam, Casual Plucking, Temporary, Mason, Goaly…)
+ *   - Enter headcount + per-person daily wage (auto-filled from defaults)
+ *   - Add multiple lines (e.g., 3 Masons + 3 Goalies)
+ *   - Auto-calculates the day's total labor cost = Σ (headcount × daily_wage)
+ *   - Saves to localStorage as a daily snapshot; Phase 2 will persist to Supabase.
+ * ---------------------------------------------------------------------------- */
+function DailyLaborCostTab({
+  workers,
+  divisions,
+  categories,
+  defaultWage,
+}: {
+  workers: WorkerFull[];
+  divisions: string[];
+  categories: string[];
+  defaultWage: Record<string, number>;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(today);
+  const [division, setDivision] = useState<string>(divisions[0] ?? "");
+  const [lines, setLines] = useState<{ category: string; headcount: number; wage: number }[]>([
+    { category: "Kankanam", headcount: 1, wage: defaultWage["Kankanam"] ?? 1500 },
+  ]);
+  const [history, setHistory] = useState<{ date: string; division: string; total: number; lines: { category: string; headcount: number; wage: number; subtotal: number }[] }[]>([]);
+
+  // Load history from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("verda.labor_daily_cost.history");
+      if (raw) setHistory(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+
+  const updateLine = (idx: number, patch: Partial<{ category: string; headcount: number; wage: number }>) =>
+    setLines(lines.map((l, i) => i === idx ? { ...l, ...patch } : l));
+
+  const addLine = () =>
+    setLines([...lines, { category: categories[0], headcount: 1, wage: defaultWage[categories[0]] ?? 1500 }]);
+
+  const removeLine = (idx: number) => lines.length > 1 && setLines(lines.filter((_, i) => i !== idx));
+
+  const totalCost = lines.reduce((sum, l) => sum + (l.headcount * l.wage), 0);
+  const totalHeadcount = lines.reduce((sum, l) => sum + l.headcount, 0);
+
+  const saveSnapshot = () => {
+    const snap = {
+      date, division,
+      total: totalCost,
+      lines: lines.map(l => ({ ...l, subtotal: l.headcount * l.wage })),
+    };
+    const next = [snap, ...history.filter(h => !(h.date === date && h.division === division))].slice(0, 60);
+    setHistory(next);
+    try { localStorage.setItem("verda.labor_daily_cost.history", JSON.stringify(next)); } catch { /* ignore */ }
+  };
+
+  // Suggest headcount from roster (count workers in this division)
+  const rosterInDivision = workers.filter(w => w.division === division).length;
+
+  return (
+    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* Form: add labor categories with headcount + wage */}
+      <Card className="lg:col-span-2 p-4">
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Daily Labor Cost Calculator</h3>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div>
+            <label className="text-[11px] text-slate-400">Date</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="text-[11px] text-slate-400">Division</label>
+            <select value={division} onChange={e => setDivision(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+              {divisions.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-700 mb-3">
+          👷 <strong>{rosterInDivision}</strong> workers in roster for {division} division. Add headcount below per category — total cost auto-calculates.
+        </div>
+
+        <div className="space-y-2">
+          <div className="grid grid-cols-12 gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="col-span-5">Category</div>
+            <div className="col-span-3 text-right">Headcount</div>
+            <div className="col-span-3 text-right">Daily Wage (Rs)</div>
+            <div className="col-span-1"></div>
+          </div>
+          {lines.map((l, idx) => (
+            <div key={idx} className="grid grid-cols-12 gap-1 items-center">
+              <select value={l.category} onChange={e => updateLine(idx, { category: e.target.value, wage: defaultWage[e.target.value] ?? l.wage })}
+                className="col-span-5 rounded border border-slate-200 px-2 py-1.5 text-xs">
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <input type="number" min={0} value={l.headcount || ""} onChange={e => updateLine(idx, { headcount: +e.target.value })}
+                placeholder="0" className="col-span-3 rounded border border-slate-200 px-2 py-1.5 text-xs tnum text-right" />
+              <input type="number" min={0} step="any" value={l.wage || ""} onChange={e => updateLine(idx, { wage: +e.target.value })}
+                placeholder="0" className="col-span-3 rounded border border-slate-200 px-2 py-1.5 text-xs tnum text-right" />
+              <button onClick={() => removeLine(idx)} disabled={lines.length === 1}
+                className="col-span-1 text-rose-500 hover:text-rose-700 disabled:opacity-30">×</button>
+            </div>
+          ))}
+        </div>
+        <button onClick={addLine} className="mt-2 text-xs font-semibold text-emerald-600 hover:underline">+ Add line</button>
+
+        <div className="mt-4 rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] text-emerald-700 font-semibold">Total Daily Labor Cost</p>
+              <p className="text-2xl font-extrabold text-emerald-700 tnum">{fmtLKR(totalCost)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-emerald-700 font-semibold">Total Headcount</p>
+              <p className="text-xl font-bold text-emerald-700 tnum">{totalHeadcount}</p>
+            </div>
+            <button onClick={saveSnapshot} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:brightness-110">
+              Save Snapshot
+            </button>
+          </div>
+        </div>
+        <p className="mt-2 text-[10px] text-slate-400">
+          Phase 1: snapshots saved to browser localStorage. Phase 2 will persist to Supabase + post a journal entry to Finance.
+        </p>
+      </Card>
+
+      {/* History of saved snapshots */}
+      <Card className="p-4">
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Recent Snapshots</h3>
+        {history.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-400">No snapshots saved yet.</p>
+        ) : (
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {history.slice(0, 20).map((h, i) => (
+              <div key={i} className="rounded-lg border border-slate-100 p-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{fmtLKR(h.total)}</p>
+                    <p className="text-[10px] text-slate-400">{h.date} · {h.division}</p>
+                  </div>
+                  <Badge tone="sky">{h.lines.length} lines</Badge>
+                </div>
+                <ul className="mt-1.5 space-y-0.5 text-[11px] text-slate-500">
+                  {h.lines.map((l, j) => (
+                    <li key={j}>{l.headcount}× {l.category} @ {fmtLKR(l.wage)} = <span className="tnum font-semibold">{fmtLKR(l.subtotal)}</span></li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

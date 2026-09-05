@@ -7,6 +7,7 @@ import Loans from "./Loans";
 import Fertilizer from "./Fertilizer";
 import Agrochemical from "./Agrochemical";
 import Equipment from "./Equipment";
+import EquipmentRequests from "./EquipmentRequests";
 import Crop from "./Crop";
 import Harvest from "./Harvest";
 import Factory from "./Factory";
@@ -44,6 +45,7 @@ export const REGISTRY: Record<string, ComponentType> = {
   fertilizer: Fertilizer,
   agrochemical: Agrochemical,
   equipment: Equipment,
+  "equipment-requests": EquipmentRequests,
   crop: Crop,
   harvest: Harvest,
   factory: Factory,

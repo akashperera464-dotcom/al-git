@@ -45,6 +45,10 @@ export interface Field {
   elevationM: number;
   status: "plucking" | "pruned" | "young" | "nursery";
   lastYieldKg: number;
+  /** Number of tea bushes on this field — drives 6-month re-verify reminders. */
+  bushCount?: number;
+  /** Last verified bush count date (ISO) — set when admin re-counts. */
+  bushCountVerifiedAt?: string;
 }
 export interface Division {
   id: string;
@@ -67,6 +71,10 @@ export interface Estate {
   latitude?: number;
   longitude?: number;
   divisions: Division[];
+  /** Total bush count across all fields — last snapshot for trend tracking. */
+  totalBushCount?: number;
+  /** Acreage converted from hectares (acres = ha × 2.471) for local record-keeping. */
+  totalAreaAcres?: number;
 }
 
 /** A supplier GPS check-in (mirrors supplier_locations table). */
@@ -80,7 +88,30 @@ export interface SupplierLocation {
 }
 
 /** A logged farm activity — closes the advisory feedback loop. */
-export type FarmActivityType = "fertilizer" | "pruning" | "self_harvest";
+export type FarmActivityType = "fertilizer" | "pruning" | "self_harvest" | "replanting" | "fertilizer_application";
+
+/** Labor category types for the daily labor attendance + cost tracker. */
+export type LaborCategory =
+  | "Kankanam"          // Kankanam labour (gang leaders)
+  | "Casual Plucking"   // වත්තේ සේවකයෝ / casual pluckers
+  | "Temporary"         // තාලික / temporary workers
+  | "Mason"             // මේසන් බාස්ලා
+  | "Goaly"             // ගෝලයෝ
+  | "Sprayer"           // පොහොර විදින්නන්
+  | "Factory Hand"      // කම්හලේ සේවකයෝ
+  | "Field Worker"      // ක්ෂේත්‍ර සේවකයෝ
+  | "Supervisor"        // අධීක්ෂණය
+  | "Manager";          // කළමනාකරු
+
+/** Equipment request categories (separate from generic "Equipment" stock items). */
+export type EquipmentCategory =
+  | "Plucking Machine"   // දලු කඩන මැෂින්
+  | "Spray Machine"      // තෙල්/පොහොර විදින මැෂින්
+  | "Bag"                // ගෝනි (bags)
+  | "Pruning Shears"     // කප්පාදු කතුරු
+  | "Knapsack Sprayer"   // නාක්සැක් ස්ප්‍රේයර්
+  | "Basket"             // ප්ලකිං බාස්කට්
+  | "Other";
 
 export interface FarmActivity {
   id: string;
@@ -697,7 +728,8 @@ export const workAllocations: WorkAllocation[] = [
 ];
 
 /* ----------------------------- resource requisitions ----------------------------- */
-export type RequestType = "Workers" | "Equipment";
+// NOTE: extended RequestType defined further below in RESOURCE FULFILLMENT TYPES section.
+// Removed duplicate here to avoid TS conflict.
 export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 /**

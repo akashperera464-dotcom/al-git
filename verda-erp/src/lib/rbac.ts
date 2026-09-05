@@ -163,6 +163,7 @@ export const MODULES: NavItem[] = [
   { key: "fertilizer", label: "Fertilizer", short: "Fertilizer", icon: Sprout, category: "inputs", roles: ["admin"], capability: "fertilizer.manage" },
   { key: "agrochemical", label: "Agrochemical", short: "Spray", icon: FlaskConical, category: "inputs", roles: ["admin"], capability: "agrochemical.manage" },
   { key: "equipment", label: "Equipment", short: "Equipment", icon: Wrench, category: "inputs", roles: ["admin"], capability: "inventory.manage" },
+  { key: "equipment-requests", label: "Equipment Requests", short: "Equip Req", icon: Wrench, category: "operations", roles: ["admin"], capability: "requests.manage" },
   { key: "payroll", label: "Payroll System", short: "Payroll", icon: Wallet, category: "people", roles: ["admin"], capability: "payroll.manage" },
   { key: "loans", label: "Loans & Advances", short: "Loans", icon: HandCoins, category: "people", roles: ["admin"], capability: "loans.view" },
   { key: "loyalty", label: "Loyalty Program", short: "Rewards", icon: Trophy, category: "people", roles: ["admin"], capability: "loyalty.manage" },

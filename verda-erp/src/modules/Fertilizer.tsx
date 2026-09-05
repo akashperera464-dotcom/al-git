@@ -129,6 +129,115 @@ export default function Fertilizer() {
         <p className="font-semibold">📌 Fertilizer management is now integrated with the Inventory module.</p>
         <p className="mt-1">To create Purchase Orders, receive Goods (GRN), or issue fertilizer to fields/suppliers, use the <strong>Inventory</strong> module. This page shows a read-only overview of current fertilizer stock levels.</p>
       </div>
+
+      {/* Division-level Fertilizer Issued Summary — Sir's spec #4 */}
+      <Card className="mt-4 p-4">
+        <h3 className="mb-2 font-display text-sm font-bold text-slate-800">📊 Fertilizer Issued by Division (last 30 days)</h3>
+        <p className="mb-3 text-[11px] text-slate-500">
+          Summary of fertilizer quantities issued to each division (e.g., Kiriwallapatana Lower / Upper).
+          Source: stock_movements (move_type='out') joined to stock_items (category='fertilizer'),
+          notes contain division name.
+        </p>
+        <DivisionFertilizerSummary />
+      </Card>
+    </div>
+  );
+}
+
+/**
+ * DivisionFertilizerSummary — reads fertilizer issue movements from Supabase
+ * and summarizes by division (parsed from notes). Falls back to localStorage
+ * if Supabase isn't configured.
+ */
+function DivisionFertilizerSummary() {
+  const [rows, setRows] = useState<{ division: string; totalQty: number; totalValue: number; lineCount: number }[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      if (!supabaseConfigured) {
+        // Mock: show example divisions per Sir's spec
+        setRows([
+          { division: "Kiriwallapatana Lower", totalQty: 220, totalValue: 220 * 95, lineCount: 3 },
+          { division: "Kiriwallapatana Upper", totalQty: 480, totalValue: 480 * 95, lineCount: 5 },
+          { division: "Sutton",                totalQty: 150, totalValue: 150 * 180, lineCount: 2 },
+          { division: "Factory",              totalQty: 0,   totalValue: 0, lineCount: 0 },
+        ]);
+        return;
+      }
+      setBusy(true);
+      try {
+        const sb = getSupabase()!;
+        // Last 30 days
+        const since = new Date(Date.now() - 30 * 86400_000).toISOString();
+        const { data, error } = await sb
+          .from("stock_movements")
+          .select(`
+            qty, notes, performed_at,
+            stock_items!inner ( name, unit, unit_cost, category )
+          `)
+          .eq("move_type", "out")
+          .gte("performed_at", since)
+          .order("performed_at", { ascending: false });
+        if (error) throw error;
+
+        // Filter to fertilizer movements only + group by division (parsed from notes)
+        const byDivision: Record<string, { qty: number; value: number; lines: number; unit: string }> = {};
+        (data ?? []).forEach((r: any) => {
+          if (r.stock_items?.category !== "fertilizer") return;
+          // Try to extract division from notes (e.g., "to Sutton division" or "[Req #ABC] Sutton")
+          const notes = (r.notes || "").toLowerCase();
+          const known = ["kiriwallapatana lower", "kiriwallapatana upper", "sutton", "craighead", "tennant", "factory", "nursery"];
+          let div = "Unspecified";
+          for (const k of known) {
+            if (notes.includes(k)) { div = k.replace(/\b\w/g, c => c.toUpperCase()); break; }
+          }
+          const cost = Number(r.stock_items?.unit_cost ?? 0);
+          if (!byDivision[div]) byDivision[div] = { qty: 0, value: 0, lines: 0, unit: r.stock_items?.unit ?? "kg" };
+          byDivision[div].qty += Number(r.qty ?? 0);
+          byDivision[div].value += Number(r.qty ?? 0) * cost;
+          byDivision[div].lines += 1;
+        });
+
+        setRows(Object.entries(byDivision).map(([division, v]) => ({
+          division,
+          totalQty: v.qty,
+          totalValue: v.value,
+          lineCount: v.lines,
+        })).sort((a, b) => b.totalQty - a.totalQty));
+      } catch { /* keep empty */ }
+      finally { setBusy(false); }
+    })();
+  }, []);
+
+  if (busy) return <div className="py-4 text-center text-sm text-slate-400">Loading division summary…</div>;
+  if (rows.length === 0) return <div className="py-4 text-center text-sm text-slate-400">No fertilizer issues recorded in the last 30 days.</div>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+            <th className="pb-2">Division</th>
+            <th className="pb-2 text-right">Qty Issued</th>
+            <th className="pb-2 text-right">Lines</th>
+            <th className="pb-2 text-right">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.division} className="border-t border-slate-100">
+              <td className="py-2 font-semibold text-slate-800">{r.division}</td>
+              <td className="py-2 text-right tnum">{fmtNum(r.totalQty)} kg</td>
+              <td className="py-2 text-right tnum text-slate-500">{r.lineCount}</td>
+              <td className="py-2 text-right tnum font-semibold">{fmtLKR(r.totalValue)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-[10px] text-slate-400">
+        * Division parsed from movement notes — for accurate attribution, mention the division name in the Issue Stock notes field.
+      </p>
     </div>
   );
 }

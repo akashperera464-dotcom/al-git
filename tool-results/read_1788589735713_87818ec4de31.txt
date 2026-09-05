@@ -1,0 +1,560 @@
+     1→import { useEffect, useState } from "react";
+     2→import { useTranslation } from "react-i18next";
+     3→import {
+     4→  Users, Plus, Loader2, CalendarDays, CheckCircle2, XCircle, Phone, CreditCard,
+     5→  UserPlus, Edit2, Trash2, ArrowRightLeft, Ban, RotateCcw, LogOut, TrendingUp, Clock, Award, FileDown,
+     6→} from "lucide-react";
+     7→import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
+     8→import { fmtLKR, fmtLKRShort, type LeaveType, type LeaveStatus, type LeaveRequest, type WorkerFull, type WorkerStatus, type AttendanceStatus, type WorkerTransfer, type TransferType } from "@/lib/data";
+     9→import { exportObjectsToCSV } from "@/lib/csvExport";
+    10→import {
+    11→  listLeaveRequests, createLeaveRequest, decideLeaveRequest,
+    12→  listWorkersFull, createWorkerFull, updateWorkerFull, deleteWorkerFull,
+    13→  recordWorkerTransfer, listWorkerTransfers,
+    14→  listAttendance, markAttendance, bulkMarkAttendance, attendanceSummary,
+    15→} from "@/lib/repo.phase2";
+    16→import { useApp } from "@/context/AppContext";
+    17→
+    18→type Tab = "roster" | "attendance" | "leave" | "lifecycle";
+    19→
+    20→const ROLES = ["Plucker", "Factory Hand", "Field Worker", "Kangany", "Sprayer", "Supervisor", "Manager"];
+    21→const DIVISIONS = ["Sutton", "Craighead", "Tennant", "Factory", "Nursery"];
+    22→
+    23→export default function Labor() {
+    24→  const { t } = useTranslation();
+    25→  const { userUid } = useApp();
+    26→  const [tab, setTab] = useState<Tab>("roster");
+    27→  const [workers, setWorkers] = useState<WorkerFull[]>([]);
+    28→  const [leaveReqs, setLeaveReqs] = useState<LeaveRequest[]>([]);
+    29→  const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
+    30→  const [transfers, setTransfers] = useState<WorkerTransfer[]>([]);
+    31→  const [busy, setBusy] = useState(false);
+    32→  const [error, setError] = useState<string | null>(null);
+    33→  const [success, setSuccess] = useState<string | null>(null);
+    34→  const [selected, setSelected] = useState<WorkerFull | null>(null);
+    35→  const [editing, setEditing] = useState<WorkerFull | null>(null);
+    36→  const [showAddForm, setShowAddForm] = useState(false);
+    37→  const [attDate, setAttDate] = useState(new Date().toISOString().slice(0, 10));
+    38→  const [attDivision, setAttDivision] = useState("");
+    39→
+    40→  // Forms
+    41→  const blankForm = {
+    42→    name: "", fullName: "", nic: "", division: DIVISIONS[0], role: ROLES[0],
+    43→    phone: "", dateOfBirth: "", gender: "male", address: "", emergencyContact: "",
+    44→    hireDate: new Date().toISOString().slice(0, 10), epfNumber: "", etfNumber: "",
+    45→    bankName: "", bankBranch: "", bankAccount: "", basicSalary: 30000,
+    46→  };
+    47→  const [form, setForm] = useState(blankForm);
+    48→
+    49→  // Transfer form
+    50→  const [transferForm, setTransferForm] = useState<{ workerId: string; type: TransferType; toDivision: string; toRole: string; reason: string }>({
+    51→    workerId: "", type: "transfer", toDivision: DIVISIONS[0], toRole: ROLES[0], reason: "",
+    52→  });
+    53→
+    54→  const reload = async () => {
+    55→    setBusy(true);
+    56→    try {
+    57→      const [ws, lrs, atts, trs] = await Promise.all([
+    58→        listWorkersFull(), listLeaveRequests(), listAttendance({ date: attDate }), listWorkerTransfers(),
+    59→      ]);
+    60→      setWorkers(ws);
+    61→      setLeaveReqs(lrs);
+    62→      setTransfers(trs);
+    63→      const attMap: Record<string, AttendanceStatus> = {};
+    64→      for (const a of atts) attMap[a.workerId] = a.status;
+    65→      setAttendance(attMap);
+    66→    } catch (e) {
+    67→      setError(e instanceof Error ? e.message : "Failed to load data");
+    68→    } finally {
+    69→      setBusy(false);
+    70→    }
+    71→  };
+    72→
+    73→  useEffect(() => { void reload(); }, [attDate]);
+    74→
+    75→  // ---- Worker CRUD ----
+    76→  const addWorker = async () => {
+    77→    setError(null);
+    78→    if (!form.name.trim()) { setError("Name required"); return; }
+    79→    setBusy(true);
+    80→    try {
+    81→      await createWorkerFull({
+    82→        name: form.name.trim(), fullName: form.fullName.trim() || undefined,
+    83→        nic: form.nic.trim() || undefined, division: form.division, role: form.role,
+    84→        phone: form.phone.trim() || undefined, dateOfBirth: form.dateOfBirth || undefined,
+    85→        gender: form.gender, address: form.address.trim() || undefined,
+    86→        emergencyContact: form.emergencyContact.trim() || undefined,
+    87→        hireDate: form.hireDate, epfNumber: form.epfNumber.trim() || undefined,
+    88→        etfNumber: form.etfNumber.trim() || undefined,
+    89→        bankName: form.bankName.trim() || undefined, bankBranch: form.bankBranch.trim() || undefined,
+    90→        bankAccount: form.bankAccount.trim() || undefined, basicSalary: form.basicSalary,
+    91→      });
+    92→      setSuccess(`Worker "${form.name}" added`);
+    93→      setForm(blankForm);
+    94→      setShowAddForm(false);
+    95→      await reload();
+    96→    } catch (e) {
+    97→      setError(e instanceof Error ? e.message : "Failed to add worker");
+    98→    } finally {
+    99→      setBusy(false);
+   100→    }
+   101→  };
+   102→
+   103→  const saveEdit = async () => {
+   104→    if (!editing) return;
+   105→    setError(null);
+   106→    setBusy(true);
+   107→    try {
+   108→      const res = await updateWorkerFull({
+   109→        workerId: editing.id, expectedVersion: editing.version,
+   110→        updates: {
+   111→          name: editing.name, fullName: editing.fullName, nic: editing.nic,
+   112→          division: editing.division, role: editing.role, phone: editing.phone,
+   113→          dateOfBirth: editing.dateOfBirth, gender: editing.gender, address: editing.address,
+   114→          emergencyContact: editing.emergencyContact, hireDate: editing.hireDate,
+   115→          epfNumber: editing.epfNumber, etfNumber: editing.etfNumber,
+   116→          bankName: editing.bankName, bankBranch: editing.bankBranch,
+   117→          bankAccount: editing.bankAccount, basicSalary: editing.basicSalary,
+   118→        },
+   119→      });
+   120→      if (res.resolution === "conflict") {
+   121→        setError("Conflict — another user modified this worker. Refreshed.");
+   122→      } else {
+   123→        setSuccess("Worker updated");
+   124→        setEditing(null);
+   125→        await reload();
+   126→      }
+   127→    } catch (e) {
+   128→      setError(e instanceof Error ? e.message : "Failed to update");
+   129→    } finally {
+   130→      setBusy(false);
+   131→    }
+   132→  };
+   133→
+   134→  const removeWorker = async (w: WorkerFull) => {
+   135→    if (!confirm(`Delete ${w.name}? This cannot be undone.`)) return;
+   136→    setBusy(true);
+   137→    try {
+   138→      const res = await deleteWorkerFull(w.id);
+   139→      if (!res.ok) setError(res.error ?? "Failed to delete");
+   140→      else { setSuccess(`${w.name} deleted`); await reload(); }
+   141→    } catch (e) {
+   142→      setError(e instanceof Error ? e.message : "Failed");
+   143→    } finally {
+   144→      setBusy(false);
+   145→    }
+   146→  };
+   147→
+   148→  // ---- Lifecycle ----
+   149→  const doTransfer = async () => {
+   150→    setError(null);
+   151→    if (!transferForm.workerId) { setError("Select a worker"); return; }
+   152→    const w = workers.find(x => x.id === transferForm.workerId);
+   153→    if (!w) return;
+   154→    setBusy(true);
+   155→    try {
+   156→      const res = await recordWorkerTransfer({
+   157→        workerId: w.id, workerName: w.name,
+   158→        transferType: transferForm.type,
+   159→        fromDivision: w.division, toDivision: transferForm.toDivision,
+   160→        fromRole: w.role, toRole: transferForm.toRole,
+   161→        reason: transferForm.reason, authorizedBy: userUid,
+   162→        expectedWorkerVersion: w.version,
+   163→      });
+   164→      if (!res.ok) setError(res.error ?? "Failed");
+   165→      else {
+   166→        setSuccess(`${w.name}: ${transferForm.type} recorded`);
+   167→        setTransferForm({ workerId: "", type: "transfer", toDivision: DIVISIONS[0], toRole: ROLES[0], reason: "" });
+   168→        await reload();
+   169→      }
+   170→    } catch (e) {
+   171→      setError(e instanceof Error ? e.message : "Failed");
+   172→    } finally {
+   173→      setBusy(false);
+   174→    }
+   175→  };
+   176→
+   177→  // ---- Attendance ----
+   178→  const setAtt = async (workerId: string, status: AttendanceStatus) => {
+   179→    setBusy(true);
+   180→    try {
+   181→      const w = workers.find(x => x.id === workerId);
+   182→      await markAttendance({
+   183→        workerId, workerName: w?.name, division: w?.division,
+   184→        date: attDate, status, markedBy: userUid,
+   185→      });
+   186→      setAttendance({ ...attendance, [workerId]: status });
+   187→    } catch (e) {
+   188→      setError(e instanceof Error ? e.message : "Failed");
+   189→    } finally {
+   190→      setBusy(false);
+   191→    }
+   192→  };
+   193→
+   194→  const bulkMark = async (status: AttendanceStatus) => {
+   195→    setBusy(true);
+   196→    try {
+   197→      const ws = workers.filter(w => !attDivision || w.division === attDivision);
+   198→      const res = await bulkMarkAttendance({
+   199→        workers: ws.map(w => ({ workerId: w.id, workerName: w.name, division: w.division })),
+   200→        date: attDate, status, markedBy: userUid,
+   201→      });
+   202→      setSuccess(`Marked ${res.marked} workers as ${status}`);
+   203→      if (res.errors.length) setError(`Errors: ${res.errors.join(", ")}`);
+   204→      await reload();
+   205→    } catch (e) {
+   206→      setError(e instanceof Error ? e.message : "Failed");
+   207→    } finally {
+   208→      setBusy(false);
+   209→    }
+   210→  };
+   211→
+   212→  // ---- Leave ----
+   213→  const [leaveWorkerId, setLeaveWorkerId] = useState("");
+   214→  const [leaveType, setLeaveType] = useState<LeaveType>("annual");
+   215→  const [leaveStart, setLeaveStart] = useState(new Date().toISOString().slice(0, 10));
+   216→  const [leaveEnd, setLeaveEnd] = useState(new Date().toISOString().slice(0, 10));
+   217→  const [leaveReason, setLeaveReason] = useState("");
+   218→
+   219→  const submitLeave = async () => {
+   220→    setError(null);
+   221→    if (!leaveWorkerId) { setError("Select a worker"); return; }
+   222→    setBusy(true);
+   223→    try {
+   224→      await createLeaveRequest({
+   225→        workerId: leaveWorkerId, leaveType, startDate: leaveStart, endDate: leaveEnd,
+   226→        reason: leaveReason.trim() || undefined,
+   227→      });
+   228→      setSuccess("Leave request submitted");
+   229→      setLeaveReason("");
+   230→      await reload();
+   231→    } catch (e) {
+   232→      setError(e instanceof Error ? e.message : "Failed");
+   233→    } finally {
+   234→      setBusy(false);
+   235→    }
+   236→  };
+   237→
+   238→  const decide = async (lr: LeaveRequest, decision: "APPROVED" | "REJECTED") => {
+   239→    setBusy(true);
+   240→    try {
+   241→      const res = await decideLeaveRequest(lr.id, decision, lr.version, userUid);
+   242→      if (res.resolution === "conflict") setError("Conflict — refresh");
+   243→      await reload();
+   244→    } catch (e) {
+   245→      setError(e instanceof Error ? e.message : "Failed");
+   246→    } finally {
+   247→      setBusy(false);
+   248→    }
+   249→  };
+   250→
+   251→  const activeWorkers = workers.filter(w => w.status === "active");
+   252→  const suspendedCount = workers.filter(w => w.status === "suspended").length;
+   253→  const presentToday = Object.values(attendance).filter(s => s === "present" || s === "half_day").length;
+   254→  const pendingLeave = leaveReqs.filter(l => l.status === "PENDING").length;
+   255→
+   256→  return (
+   257→    <div>
+   258→      <PageHeader
+   259→        eyebrow="Workforce"
+   260→        title="Labor & HR Management"
+   261→        desc="Worker master with full HR fields, daily attendance, leave management, and lifecycle tracking (hire → transfer → retire)."
+   262→        icon={<IconChip icon={Users} tone="emerald" className="h-12 w-12" />}
+   263→      />
+   264→
+   265→      {error && <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>}
+   266→      {success && <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{success}</div>}
+   267→
+   268→      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   269→        <StatCard icon={Users} label="Total Workers" value={String(workers.length)} tone="sky" />
+   270→        <StatCard icon={CheckCircle2} label="Present Today" value={String(presentToday)} tone="emerald" />
+   271→        <StatCard icon={Ban} label="Suspended" value={String(suspendedCount)} tone="amber" />
+   272→        <StatCard icon={CalendarDays} label="Pending Leave" value={String(pendingLeave)} tone="rose" />
+   273→      </div>
+   274→
+   275→      <div className="mt-4 flex flex-wrap gap-2">
+   276→        {([
+   277→          { id: "roster", label: "Worker Roster", icon: Users },
+   278→          { id: "attendance", label: "Daily Attendance", icon: CheckCircle2 },
+   279→          { id: "leave", label: `Leave Requests${pendingLeave > 0 ? ` (${pendingLeave})` : ""}`, icon: CalendarDays },
+   280→          { id: "lifecycle", label: "Lifecycle / Transfers", icon: ArrowRightLeft },
+   281→        ] as const).map(t2 => {
+   282→          const Icon = t2.icon;
+   283→          const active = tab === t2.id;
+   284→          return (
+   285→            <button key={t2.id} onClick={() => setTab(t2.id)}
+   286→              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${active ? "bg-emerald-600 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+   287→              <Icon className="h-3.5 w-3.5" /> {t2.label}
+   288→            </button>
+   289→          );
+   290→        })}
+   291→      </div>
+   292→
+   293→      {/* ============== Tab: Roster ============== */}
+   294→      {tab === "roster" && (
+   295→        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+   296→          <Card className="p-4">
+   297→            <div className="mb-3 flex items-center justify-between">
+   298→              <h3 className="font-display text-sm font-bold text-slate-800">{editing ? "Edit Worker" : "Add New Worker"}</h3>
+   299→              {editing && <button onClick={() => setEditing(null)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>}
+   300→            </div>
+   301→            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+   302→              <input value={editing ? editing.name : form.name} onChange={e => editing ? setEditing({ ...editing, name: e.target.value }) : setForm({ ...form, name: e.target.value })} placeholder="Name *" className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   303→              <input value={editing ? (editing.fullName ?? "") : form.fullName} onChange={e => editing ? setEditing({ ...editing, fullName: e.target.value }) : setForm({ ...form, fullName: e.target.value })} placeholder="Full name" className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   304→              <input value={editing ? editing.nic : form.nic} onChange={e => editing ? setEditing({ ...editing, nic: e.target.value }) : setForm({ ...form, nic: e.target.value })} placeholder="NIC" className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   305→              <div className="grid grid-cols-2 gap-2">
+   306→                <select value={editing ? editing.division : form.division} onChange={e => editing ? setEditing({ ...editing, division: e.target.value }) : setForm({ ...form, division: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   307→                  {DIVISIONS.map(d => <option key={d}>{d}</option>)}
+   308→                </select>
+   309→                <select value={editing ? editing.role : form.role} onChange={e => editing ? setEditing({ ...editing, role: e.target.value }) : setForm({ ...form, role: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   310→                  {ROLES.map(r => <option key={r}>{r}</option>)}
+   311→                </select>
+   312→              </div>
+   313→              <input value={editing ? (editing.phone ?? "") : form.phone} onChange={e => editing ? setEditing({ ...editing, phone: e.target.value }) : setForm({ ...form, phone: e.target.value })} placeholder="Phone" className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   314→              <div className="grid grid-cols-2 gap-2">
+   315→                <input type="date" value={editing ? (editing.dateOfBirth ?? "") : form.dateOfBirth} onChange={e => editing ? setEditing({ ...editing, dateOfBirth: e.target.value }) : setForm({ ...form, dateOfBirth: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   316→                <select value={editing ? (editing.gender ?? "male") : form.gender} onChange={e => editing ? setEditing({ ...editing, gender: e.target.value }) : setForm({ ...form, gender: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   317→                  <option value="male">Male</option>
+   318→                  <option value="female">Female</option>
+   319→                  <option value="other">Other</option>
+   320→                </select>
+   321→              </div>
+   322→              <input value={editing ? (editing.address ?? "") : form.address} onChange={e => editing ? setEditing({ ...editing, address: e.target.value }) : setForm({ ...form, address: e.target.value })} placeholder="Address" className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   323→              <input value={editing ? (editing.emergencyContact ?? "") : form.emergencyContact} onChange={e => editing ? setEditing({ ...editing, emergencyContact: e.target.value }) : setForm({ ...form, emergencyContact: e.target.value })} placeholder="Emergency contact" className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   324→              <input type="date" value={editing ? (editing.hireDate ?? "") : form.hireDate} onChange={e => editing ? setEditing({ ...editing, hireDate: e.target.value }) : setForm({ ...form, hireDate: e.target.value })} className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   325→              <div className="grid grid-cols-2 gap-2">
+   326→                <input value={editing ? (editing.epfNumber ?? "") : form.epfNumber} onChange={e => editing ? setEditing({ ...editing, epfNumber: e.target.value }) : setForm({ ...form, epfNumber: e.target.value })} placeholder="EPF Number" className="rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   327→                <input value={editing ? (editing.etfNumber ?? "") : form.etfNumber} onChange={e => editing ? setEditing({ ...editing, etfNumber: e.target.value }) : setForm({ ...form, etfNumber: e.target.value })} placeholder="ETF Number" className="rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   328→              </div>
+   329→              <div className="grid grid-cols-2 gap-2">
+   330→                <input value={editing ? (editing.bankName ?? "") : form.bankName} onChange={e => editing ? setEditing({ ...editing, bankName: e.target.value }) : setForm({ ...form, bankName: e.target.value })} placeholder="Bank name" className="rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   331→                <input value={editing ? (editing.bankBranch ?? "") : form.bankBranch} onChange={e => editing ? setEditing({ ...editing, bankBranch: e.target.value }) : setForm({ ...form, bankBranch: e.target.value })} placeholder="Branch" className="rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   332→              </div>
+   333→              <input value={editing ? (editing.bankAccount ?? "") : form.bankAccount} onChange={e => editing ? setEditing({ ...editing, bankAccount: e.target.value }) : setForm({ ...form, bankAccount: e.target.value })} placeholder="Bank account" className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   334→              <input type="number" value={editing ? editing.basicSalary : form.basicSalary} onChange={e => editing ? setEditing({ ...editing, basicSalary: +e.target.value }) : setForm({ ...form, basicSalary: +e.target.value })} placeholder="Basic salary" className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+   335→              <button onClick={editing ? saveEdit : addWorker} disabled={busy}
+   336→                className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">
+   337→                {editing ? "Save Changes" : "Add Worker"}
+   338→              </button>
+   339→            </div>
+   340→          </Card>
+   341→
+   342→          <Card className="lg:col-span-2 p-3">
+   343→            <div className="mb-2 flex items-center justify-between px-1">
+   344→              <h3 className="font-display text-sm font-bold text-slate-800">Roster ({workers.length})</h3>
+   345→              {workers.length > 0 && (
+   346→                <button onClick={() => exportObjectsToCSV("workers", workers.map(w => ({ name: w.name, nic: w.nic, division: w.division, role: w.role, epf: w.epfNumber ?? "", basic_salary: w.basicSalary, status: w.status, phone: w.phone ?? "" })))}
+   347→                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"><FileDown className="h-3 w-3" /> CSV</button>
+   348→              )}
+   349→            </div>
+   350→            <div className="space-y-1.5 max-h-[650px] overflow-y-auto">
+   351→              {workers.map(w => (
+   352→                <div key={w.id} className={`rounded-lg border p-2.5 transition ${selected?.id === w.id ? "border-emerald-300 bg-emerald-50" : "border-slate-100 hover:bg-slate-50"} ${w.status !== "active" ? "opacity-60" : ""}`}>
+   353→                  <div className="flex items-center justify-between gap-2">
+   354→                    <button onClick={() => setSelected(w)} className="flex-1 text-left">
+   355→                      <div className="flex items-center gap-2">
+   356→                        <p className="text-sm font-semibold text-slate-800">{w.name}</p>
+   357→                        <Badge tone={w.status === "active" ? "emerald" : w.status === "suspended" ? "amber" : "slate"} dot>{w.status}</Badge>
+   358→                      </div>
+   359→                      <p className="text-[11px] text-slate-400">{w.role} · {w.division} · {w.epfNumber ? `EPF ${w.epfNumber}` : "no EPF"}</p>
+   360→                      <p className="text-[11px] text-slate-400">{fmtLKRShort(w.basicSalary)}/mo · {w.attendance30d}/30d · {w.pointsBalance}pts</p>
+   361→                    </button>
+   362→                    <div className="flex gap-1">
+   363→                      <button onClick={() => { setEditing(w); setSelected(null); }} disabled={busy} className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-emerald-600">
+   364→                        <Edit2 className="h-3.5 w-3.5" />
+   365→                      </button>
+   366→                      <button onClick={() => removeWorker(w)} disabled={busy} className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600">
+   367→                        <Trash2 className="h-3.5 w-3.5" />
+   368→                      </button>
+   369→                    </div>
+   370→                  </div>
+   371→                </div>
+   372→              ))}
+   373→            </div>
+   374→          </Card>
+   375→        </div>
+   376→      )}
+   377→
+   378→      {/* ============== Tab: Attendance ============== */}
+   379→      {tab === "attendance" && (
+   380→        <Card className="mt-4 p-4">
+   381→          <div className="mb-3 flex flex-wrap items-end gap-3">
+   382→            <div>
+   383→              <label className="text-[11px] text-slate-400">Date</label>
+   384→              <input type="date" value={attDate} onChange={e => setAttDate(e.target.value)} className="mt-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   385→            </div>
+   386→            <div>
+   387→              <label className="text-[11px] text-slate-400">Filter by Division</label>
+   388→              <select value={attDivision} onChange={e => setAttDivision(e.target.value)} className="mt-1 rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   389→                <option value="">All divisions</option>
+   390→                {DIVISIONS.map(d => <option key={d}>{d}</option>)}
+   391→              </select>
+   392→            </div>
+   393→            <div className="flex gap-1">
+   394→              <button onClick={() => bulkMark("present")} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:brightness-110">Mark All Present</button>
+   395→              <button onClick={() => bulkMark("absent")} disabled={busy} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:brightness-110">Mark All Absent</button>
+   396→            </div>
+   397→          </div>
+   398→
+   399→          <div className="space-y-1.5 max-h-[500px] overflow-y-auto">
+   400→            {workers.filter(w => !attDivision || w.division === attDivision).map(w => {
+   401→              const status = attendance[w.id] ?? "absent";
+   402→              return (
+   403→                <div key={w.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-2.5">
+   404→                  <div>
+   405→                    <p className="text-sm font-semibold text-slate-800">{w.name}</p>
+   406→                    <p className="text-[11px] text-slate-400">{w.role} · {w.division}</p>
+   407→                  </div>
+   408→                  <div className="flex gap-1">
+   409→                    {([
+   410→                      { s: "present" as const, label: "P", tone: "emerald" as const },
+   411→                      { s: "half_day" as const, label: "½", tone: "amber" as const },
+   412→                      { s: "absent" as const, label: "A", tone: "rose" as const },
+   413→                      { s: "leave" as const, label: "L", tone: "sky" as const },
+   414→                    ]).map(opt => (
+   415→                      <button key={opt.s} onClick={() => setAtt(w.id, opt.s)} disabled={busy}
+   416→                        className={`h-8 w-8 rounded-lg text-xs font-bold transition ${status === opt.s ? `bg-${opt.tone}-600 text-white` : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+   417→                        {opt.label}
+   418→                      </button>
+   419→                    ))}
+   420→                    <Badge tone={status === "present" ? "emerald" : status === "absent" ? "rose" : status === "half_day" ? "amber" : "sky"}>{status}</Badge>
+   421→                  </div>
+   422→                </div>
+   423→              );
+   424→            })}
+   425→          </div>
+   426→        </Card>
+   427→      )}
+   428→
+   429→      {/* ============== Tab: Leave ============== */}
+   430→      {tab === "leave" && (
+   431→        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+   432→          <Card className="p-4">
+   433→            <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Submit Leave Request</h3>
+   434→            <div className="space-y-2">
+   435→              <select value={leaveWorkerId} onChange={e => setLeaveWorkerId(e.target.value)} className="w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   436→                <option value="">— select worker —</option>
+   437→                {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+   438→              </select>
+   439→              <select value={leaveType} onChange={e => setLeaveType(e.target.value as LeaveType)} className="w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   440→                <option value="annual">Annual</option>
+   441→                <option value="sick">Sick</option>
+   442→                <option value="casual">Casual</option>
+   443→                <option value="maternity">Maternity</option>
+   444→                <option value="nopay">Nopay</option>
+   445→              </select>
+   446→              <div className="grid grid-cols-2 gap-2">
+   447→                <input type="date" value={leaveStart} onChange={e => setLeaveStart(e.target.value)} className="rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   448→                <input type="date" value={leaveEnd} onChange={e => setLeaveEnd(e.target.value)} className="rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   449→              </div>
+   450→              <textarea value={leaveReason} onChange={e => setLeaveReason(e.target.value)} rows={2} placeholder="Reason" className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   451→              <button onClick={submitLeave} disabled={busy || !leaveWorkerId} className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Submit</button>
+   452→            </div>
+   453→          </Card>
+   454→
+   455→          <Card className="lg:col-span-2 p-4">
+   456→            <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Leave Requests ({leaveReqs.length})</h3>
+   457→            {leaveReqs.length === 0 ? (
+   458→              <p className="py-8 text-center text-sm text-slate-400">No leave requests yet.</p>
+   459→            ) : (
+   460→              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+   461→                {leaveReqs.map(l => {
+   462→                  const w = workers.find(x => x.id === l.workerId);
+   463→                  return (
+   464→                    <div key={l.id} className="rounded-lg border border-slate-100 p-3">
+   465→                      <div className="flex flex-wrap items-center justify-between gap-2">
+   466→                        <div>
+   467→                          <p className="text-sm font-semibold text-slate-800">{w?.name ?? l.workerId}</p>
+   468→                          <p className="text-[11px] text-slate-400">{l.startDate} → {l.endDate} · {l.days}d</p>
+   469→                        </div>
+   470→                        <div className="flex items-center gap-2">
+   471→                          <Badge tone="slate">{l.leaveType}</Badge>
+   472→                          <Badge tone={l.status === "APPROVED" ? "emerald" : l.status === "REJECTED" ? "rose" : "amber"} dot>{l.status}</Badge>
+   473→                        </div>
+   474→                      </div>
+   475→                      {l.reason && <p className="mt-1 text-xs text-slate-500">"{l.reason}"</p>}
+   476→                      {l.status === "PENDING" && (
+   477→                        <div className="mt-2 flex gap-2">
+   478→                          <button onClick={() => decide(l, "APPROVED")} disabled={busy} className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:brightness-110">Approve</button>
+   479→                          <button onClick={() => decide(l, "REJECTED")} disabled={busy} className="rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:brightness-110">Reject</button>
+   480→                        </div>
+   481→                      )}
+   482→                    </div>
+   483→                  );
+   484→                })}
+   485→              </div>
+   486→            )}
+   487→          </Card>
+   488→        </div>
+   489→      )}
+   490→
+   491→      {/* ============== Tab: Lifecycle ============== */}
+   492→      {tab === "lifecycle" && (
+   493→        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+   494→          <Card className="p-4">
+   495→            <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Record Lifecycle Event</h3>
+   496→            <div className="space-y-2">
+   497→              <select value={transferForm.workerId} onChange={e => setTransferForm({ ...transferForm, workerId: e.target.value })} className="w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   498→                <option value="">— select worker —</option>
+   499→                {workers.map(w => <option key={w.id} value={w.id}>{w.name} ({w.status})</option>)}
+   500→              </select>
+   501→              <select value={transferForm.type} onChange={e => setTransferForm({ ...transferForm, type: e.target.value as TransferType })} className="w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   502→                <option value="transfer">Transfer (division change)</option>
+   503→                <option value="promote">Promote (role change)</option>
+   504→                <option value="suspend">Suspend</option>
+   505→                <option value="reinstate">Reinstate</option>
+   506→                <option value="retire">Retire</option>
+   507→                <option value="terminate">Terminate</option>
+   508→              </select>
+   509→              {(transferForm.type === "transfer" || transferForm.type === "promote") && (
+   510→                <div className="grid grid-cols-2 gap-2">
+   511→                  <select value={transferForm.toDivision} onChange={e => setTransferForm({ ...transferForm, toDivision: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   512→                    {DIVISIONS.map(d => <option key={d}>{d}</option>)}
+   513→                  </select>
+   514→                  <select value={transferForm.toRole} onChange={e => setTransferForm({ ...transferForm, toRole: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+   515→                    {ROLES.map(r => <option key={r}>{r}</option>)}
+   516→                  </select>
+   517→                </div>
+   518→              )}
+   519→              <textarea value={transferForm.reason} onChange={e => setTransferForm({ ...transferForm, reason: e.target.value })} rows={2} placeholder="Reason" className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+   520→              <button onClick={doTransfer} disabled={busy || !transferForm.workerId} className="w-full rounded-lg bg-violet-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Record Event</button>
+   521→            </div>
+   522→          </Card>
+   523→
+   524→          <Card className="lg:col-span-2 p-4">
+   525→            <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Lifecycle History ({transfers.length})</h3>
+   526→            {transfers.length === 0 ? (
+   527→              <p className="py-8 text-center text-sm text-slate-400">No lifecycle events yet.</p>
+   528→            ) : (
+   529→              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+   530→                {transfers.map(tr => (
+   531→                  <div key={tr.id} className="rounded-lg border border-slate-100 p-3">
+   532→                    <div className="flex items-center justify-between">
+   533→                      <div className="flex items-center gap-2">
+   534→                        <Badge tone={
+   535→                          tr.transferType === "hire" ? "emerald" :
+   536→                          tr.transferType === "retire" || tr.transferType === "terminate" ? "rose" :
+   537→                          tr.transferType === "suspend" ? "amber" :
+   538→                          tr.transferType === "reinstate" ? "sky" : "violet"
+   539→                        }>{tr.transferType}</Badge>
+   540→                        <p className="text-sm font-semibold text-slate-800">{tr.workerName ?? tr.workerId}</p>
+   541→                      </div>
+   542→                      <span className="text-[10px] text-slate-400">{tr.effectiveDate}</span>
+   543→                    </div>
+   544→                    <p className="mt-1 text-[11px] text-slate-400">
+   545→                      {tr.fromDivision && `${tr.fromDivision} → ${tr.toDivision}`}
+   546→                      {tr.fromRole && ` · ${tr.fromRole} → ${tr.toRole}`}
+   547→                      {!tr.fromDivision && !tr.fromRole && tr.toDivision && `→ ${tr.toDivision}`}
+   548→                    </p>
+   549→                    {tr.reason && <p className="mt-0.5 text-[11px] text-slate-500">"{tr.reason}"</p>}
+   550→                  </div>
+   551→                ))}
+   552→              </div>
+   553→            )}
+   554→          </Card>
+   555→        </div>
+   556→      )}
+   557→    </div>
+   558→  );
+   559→}
+   560→
