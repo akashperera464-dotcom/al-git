@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Scale, Loader2, CheckCircle2, Building2, Layers, Phone, WifiOff, RefreshCw } from "lucide-react";
-import { PageHeader, StatCard, Card, IconChip } from "@/components/ui";
+import { UserPlus, Scale, Loader2, CheckCircle2, Building2, Layers, Phone, WifiOff, MapPin, AlertTriangle } from "lucide-react";
+import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { readEstateOptions, readDivisionOptions, saveLeafWeighing, type WeighInResult } from "@/lib/repo";
 import { provisionUser } from "@/lib/auth.hybrid";
@@ -240,6 +240,10 @@ export function EoWeighing() {
         <StatCard icon={CheckCircle2} label={t("officer.weighed")} value={String(savedCount)} tone="sky" />
         <StatCard icon={Building2} label={t("officer.estate")} value={estate?.name?.slice(0, 10) ?? "—"} tone="amber" />
       </div>
+
+      {/* EO Geo-Location Verification — Sir's spec #2: confirm EO is at the registered estate */}
+      <EoLocationVerify estate={estate} />
+
       <Card className="mt-4 p-4">
         <h3 className="mb-3 font-display text-sm font-bold text-slate-800">{t("officer.newWeighIn")}</h3>
         <div className="grid grid-cols-2 gap-2.5 text-sm">
@@ -282,4 +286,158 @@ export function EoWeighing() {
       </Card>
     </div>
   );
+}
+
+/* ----------------------------------------------------------------------------
+ * EoLocationVerify — Sir's spec #2 (Admin/EO interface):
+ *   "Location API Integration: Alerts සහ Verified Data ලබාගැනීමට Extension
+ *   Officers/Admins හරහා වත්තේ Geo-location Verify කිරීම."
+ *
+ * Uses browser Geolocation API to get EO's current GPS, then computes
+ * distance to the registered estate's coordinates. Shows whether EO is
+ * AT the estate (verified), NEAR it (within 500m tolerance), or FAR away
+ * (potentially fraud — flags a warning).
+ *
+ * Haversine distance formula (meters).
+ * --------------------------------------------------------------------------- */
+function EoLocationVerify({ estate }: { estate: { id: string; name?: string; latitude?: number; longitude?: number } | undefined }) {
+  const [state, setState] = useState<"idle" | "locating" | "done" | "error">("idle");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const verify = () => {
+    setState("locating");
+    setError(null);
+    if (!("geolocation" in navigator)) {
+      setError("GPS / Geolocation not supported on this device.");
+      setState("error");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setCoords({ lat, lng });
+
+        // Compute distance to estate (Haversine, meters)
+        if (estate?.latitude !== undefined && estate?.longitude !== undefined) {
+          const dist = haversineMeters(lat, lng, estate.latitude, estate.longitude);
+          setDistance(Math.round(dist));
+        } else {
+          setDistance(null); // estate has no coords — can't compare
+        }
+        setState("done");
+      },
+      (err) => {
+        const msgs: Record<number, string> = {
+          1: "Location permission denied. Please allow location access.",
+          2: "Position unavailable. Check your GPS signal.",
+          3: "Location request timed out. Try again.",
+        };
+        setError(msgs[err.code] ?? "Could not get your location.");
+        setState("error");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
+
+  // Verdict based on distance (within 500m = verified, 500m-2km = near, >2km = far)
+  const verdict = distance === null
+    ? "no-estate-coords"
+    : distance <= 500 ? "verified"
+    : distance <= 2000 ? "near"
+    : "far";
+
+  return (
+    <Card className="mt-4 p-4">
+      <h3 className="mb-2 font-display text-sm font-bold text-slate-800 flex items-center gap-1.5">
+        <MapPin className="h-4 w-4 text-emerald-600" /> Estate Location Verification
+      </h3>
+      <p className="text-[11px] text-slate-500 mb-3">
+        Confirm you (the Extension Officer) are physically AT the registered estate before weighing leaves. Prevents fraudulent weigh-ins from non-estate locations.
+      </p>
+
+      {state === "idle" && (
+        <button
+          onClick={verify}
+          className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:brightness-110 inline-flex items-center justify-center gap-1.5"
+        >
+          <MapPin className="h-3.5 w-3.5" /> Verify My Location at {estate?.name ?? "Estate"}
+        </button>
+      )}
+
+      {state === "locating" && (
+        <div className="flex items-center justify-center gap-2 py-2 text-sm text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" /> Getting your GPS location…
+        </div>
+      )}
+
+      {state === "error" && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+          <AlertTriangle className="h-3.5 w-3.5 inline mr-1" /> {error}
+          <button onClick={verify} className="block mt-2 text-rose-700 underline">Retry</button>
+        </div>
+      )}
+
+      {state === "done" && coords && (
+        <div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded-lg border border-slate-200 p-2">
+              <p className="text-[10px] text-slate-400">Your GPS</p>
+              <p className="font-mono tnum text-slate-800">{coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-2">
+              <p className="text-[10px] text-slate-400">Estate GPS</p>
+              <p className="font-mono tnum text-slate-800">
+                {estate?.latitude?.toFixed(4) ?? "—"}, {estate?.longitude?.toFixed(4) ?? "—"}
+              </p>
+            </div>
+          </div>
+
+          {distance !== null && (
+            <div className={`mt-2 rounded-lg p-3 text-xs ${verdict === "verified" ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : verdict === "near" ? "bg-amber-50 border border-amber-200 text-amber-700" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
+              <div className="flex items-center justify-between">
+                <p className="font-bold">
+                  {verdict === "verified" && "✓ Verified"}
+                  {verdict === "near" && "⚠ Near estate"}
+                  {verdict === "far" && "✗ Far from estate"}
+                </p>
+                <Badge tone={verdict === "verified" ? "emerald" : verdict === "near" ? "amber" : "rose"}>
+                  {distance} m away
+                </Badge>
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed">
+                {verdict === "verified" && "You are AT the registered estate. Weigh-in is verified."}
+                {verdict === "near" && "You are within 2km of the estate but more than 500m away. Proceed with caution — confirm visually."}
+                {verdict === "far" && "You are more than 2km from the estate. This weigh-in may be fraudulent — verify the supplier's source."}
+              </p>
+            </div>
+          )}
+
+          {distance === null && (
+            <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700">
+              <AlertTriangle className="h-3.5 w-3.5 inline mr-1" />
+              Estate has no registered coordinates — cannot verify distance. Ask admin to set lat/lon for this estate.
+            </div>
+          )}
+
+          <button onClick={verify} className="mt-2 w-full rounded-lg border border-slate-200 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50">
+            Verify again
+          </button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** Haversine distance between two lat/lng points, in meters. */
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000; // Earth radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  return Math.round(2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }

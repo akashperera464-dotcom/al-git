@@ -97,6 +97,9 @@
     "supplier-alerts": { "l": "Smart Alerts Panel", "s": "Alerts" },
     "supplier-payments": { "l": "Payment Tracker", "s": "Payments" },
     "supplier-farm": { "l": "My Farm Activities", "s": "Farm" },
+    "supplier-plot": { "l": "My Plot", "s": "Plot" },
+    "supplier-weather": { "l": "My Weather", "s": "Weather" },
+    "supplier-tips": { "l": "Tips & Guidance", "s": "Tips" },
     "supplier-announcements": { "l": "Estate Updates", "s": "Updates" },
     "supplier-requests": { "l": "Request Resources", "s": "Request" },
     "announcements": { "l": "Announcements", "s": "Posts" }
