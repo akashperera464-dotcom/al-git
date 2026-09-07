@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Network, MapPin, ChevronDown, Layers, Mountain, Sprout, Plus, Building2, Check, Save, Loader2, MapPinned } from "lucide-react";
 import { PageHeader, StatCard, Panel, Badge, Meter, IconChip, DataTable, Segmented } from "@/components/ui";
 import { Donut, Legend } from "@/components/charts";
