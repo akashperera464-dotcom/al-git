@@ -1018,4 +1018,147 @@ Each tip includes English + Sinhala text, sourced from Sri Lankan tea agronomy b
 
 ---
 
-*End of Workflow Diagram. Last updated: August 2026. KDU TEA FACTORY rebrand + Equipment module + Add Stock form improvements + Push Notifications documentation + Mobile App Architecture + Branding System + Sir's Phase 1 Spec (Labor Categories, Equipment Requests, Location-based Weather, Stock Auto-Deduct, Acreage/Bush Count, Motivational Tips).*
+## 18. Supplier Portal — New Phase 1 Modules (August 2026)
+
+> **Purpose / අරමුණ:** Sir's spec — 4 new supplier-side modules added to the supplier portal's bottom-nav.
+
+### New Supplier Modules
+
+| Module Key | Label | Icon | Purpose |
+|------------|-------|------|---------|
+| `supplier-plot` | **My Plot** | 🌳 Trees | Acreage + bush count entry, density calc, yield prediction, 6-month re-verify reminder |
+| `supplier-weather` | **My Weather** | ☁️ CloudSun | Live OpenWeatherMap forecast for supplier's linked estate, rain alert banner |
+| `supplier-tips` | **Tips & Guidance** | 💡 Lightbulb | Daily rotating agronomy tips (bilingual EN/Sinhala), personalized yield banner |
+
+### Supplier Portal Bottom-Nav (Updated)
+
+```
+[Deliveries]  [Alerts]  [Payments]  [Farm]  [Plot]  [Weather]  [Tips]  [Updates]  [Request]
+   ↑                                                                        ↑
+   └── existing 4 tabs (visible) ──┘                         └── "More" sheet ──┘
+```
+
+With 9 modules total, the mobile bottom-nav shows 4 primary tabs + a "More" sheet for the rest.
+
+### 18.1 My Plot Module — Spec #1 + #4
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🌳 My Plot                                                    │
+├─────────────────────────────────────────────────────────────────┤
+│  ⚠ 🌳 Bush count re-verification due                          │
+│  Last verified 7 month(s) ago. Please re-count.              │
+│  [Verify Now]  [Edit Plot Details]                            │
+├─────────────────────────────────────────────────────────────────┤
+│  📊 Acreage: 2.5 acres | 🌳 Bushes: 5,400 | Density: 2,160/acre │
+│  Last Verified: 2026-01-15                                    │
+├─────────────────────────────────────────────────────────────────┤
+│  📊 Yield Potential (Low-Country)                            │
+│  Expected Annual Yield: 3,750 kg green leaf per year           │
+│  Monthly Average: 312 kg                                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Edit form** (when supplier taps "Edit Plot Details"):
+- Acreage (acres) input
+- Bush Count (total tea bushes) input
+- Cultivar dropdown (TRI 2025/2023/2024/Seedling)
+- Region dropdown (low/mid/up-country → drives yield estimate)
+- Live preview: "X bushes/acre density · Expected yield: Y kg/year"
+- Save & Verify button — saves + marks today as verified date
+
+### 18.2 My Weather Module — Spec #5
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ☁️ My Weather · Glenview Estate                              │
+│  Status: ● Live · OpenWeatherMap                              │
+│  📍 6.9679, 80.7618                                            │
+├─────────────────────────────────────────────────────────────────┤
+│  🌧️ Rain expected within 3 days                              │
+│  ⚠ Avoid applying fertilizer now — rainfall can wash it away. │
+├─────────────────────────────────────────────────────────────────┤
+│  ☁️ Today: 22° · Partly Cloudy                                │
+│  🌧 Rain Prob: 30% | 💨 Wind: 12 kph | 🌡️ Min: 18°            │
+├─────────────────────────────────────────────────────────────────┤
+│  5-Day Forecast                                                │
+│  Today        ☁️  22°/18°  • 30% rain                          │
+│  Tomorrow     🌧  20°/17°  • 75% rain                          │
+│  Wed          ☀️  24°/19°  • 10% rain                          │
+│  ...                                                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 18.3 Tips & Guidance Module — Spec #3
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  💡 Tips & Guidance                                            │
+├─────────────────────────────────────────────────────────────────┤
+│  🌱 Your Plot's Potential                                     │
+│  For your 2.5 acres plot (low-country region), you could       │
+│  harvest up to 3,750 kg green leaf per year (~312 kg/month).  │
+├─────────────────────────────────────────────────────────────────┤
+│  ● Today's Tip                              [<] [>]            │
+│  🌱 අක්කරයකට උපරිම අස්වැන්න · Max yield per acre          │
+│  සාමාන්‍යයෙන් පහතරට තේ අක්කරයකින් දලු කිලෝ 1500ක් කඩාගත හැක.  │
+│  (Low-country: up to ~1500 kg green leaf per acre per year.)  │
+│  Tip 1 of 5 · Tap arrows to browse all tips.                  │
+├─────────────────────────────────────────────────────────────────┤
+│  All Tips                                                      │
+│  [1] 🌱 අක්කරයකට උපරිම අස්වැන්න · Max yield per acre   │
+│  [2] 🌾 පොහොර වර්ග · Fertilizer mix                       │
+│  [3] ✂️ කප්පාදු චක්‍රය · Pruning cycle                    │
+│  [4] 🌿 දලු රවුම් · Plucking rounds                        │
+│  [5] 🌳 පැළ ගණන නැවත පරීක්ෂා කිරීම · Re-verify bush    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 19. Extension Officer — Geo-Location Verification (August 2026)
+
+> **Purpose / අරමුණ:** Sir's spec #2 — "Location API Integration: Alerts සහ Verified Data ලබාගැනීමට Extension Officers/Admins හරහා වත්තේ Geo-location Verify කිරීම."
+
+### EO Leaf Weighing Screen — New Verification Section
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  📋 Leaf Weighing Entry · Glenview Estate                      │
+│  ─────────────────────────────────────────────────────────────  │
+│  [Net Last: 12.5]  [Weighed: 5]  [Estate: Glenview]            │
+├─────────────────────────────────────────────────────────────────┤
+│  📍 Estate Location Verification                              │
+│  Confirm you (the EO) are physically AT the registered estate. │
+│  [Verify My Location at Glenview Estate]                       │
+│                                                                │
+│  After verification:                                           │
+│  Your GPS: 6.9678, 80.7617  |  Estate GPS: 6.9679, 80.7618    │
+│  ✓ Verified  |  12 m away                                     │
+│  You are AT the registered estate. Weigh-in is verified.       │
+│  [Verify again]                                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Verdict Tiers
+
+| Distance | Verdict | Tone | Meaning |
+|----------|---------|------|---------|
+| ≤ 500m | ✓ Verified | emerald | EO is at the estate — weigh-in is legitimate |
+| 500m – 2km | ⚠ Near estate | amber | EO is close but not at the estate — proceed with caution |
+| > 2km | ✗ Far from estate | rose | Potential fraud — verify the supplier's source |
+| Estate has no coords | ⚠ No coords | amber | Cannot verify — admin must set estate lat/lon |
+
+### How It Works
+
+1. EO taps "Verify My Location" button
+2. Browser Geolocation API gets EO's current GPS (lat, lng)
+3. Haversine formula computes distance to registered estate
+4. Shows verdict + both coordinate sets side-by-side
+5. EO proceeds with weigh-in (or aborts if far from estate)
+
+This is a fraud-prevention feature: confirms the supplier's leaf actually came from the registered estate (not from a different, unregistered source).
+
+---
+
+*End of Workflow Diagram. Last updated: August 2026. KDU TEA FACTORY rebrand + Equipment module + Add Stock form improvements + Push Notifications documentation + Mobile App Architecture + Branding System + Sir's Phase 1 Spec (Labor Categories, Equipment Requests, Location-based Weather, Stock Auto-Deduct, Acreage/Bush Count, Motivational Tips) + Supplier Portal Phase 1 (My Plot, My Weather, Tips & Guidance) + EO Geo-Location Verification.*
