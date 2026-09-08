@@ -53,6 +53,40 @@ const YIELD_BY_REGION: Record<string, number> = {
   "default": 1200,
 };
 
+/**
+ * computeFertilizerGuidance — per-acre fertilizer quantities per Sir's spec.
+ * Sri Lankan TRI recommendation:
+ *   • Urea (46% N):  50 kg/acre/year — split into 4 applications (every 3 months)
+ *   • TSP (P):       25 kg/acre/year — split into 2 applications (every 6 months)
+ *   • MOP (K):       25 kg/acre/year — split into 2 applications (every 6 months)
+ * Returns quantities scaled to the supplier's specific acreage.
+ */
+function computeFertilizerGuidance(acreage: number): {
+  fertilizer: string;
+  perAcreKg: number;
+  totalKg: number;
+  applications: number;
+  perApplicationKg: number;
+  schedule: string;
+}[] {
+  const cfg = [
+    { fertilizer: "Urea (46% N)", perAcreKg: 50, applications: 4, schedule: "Every 3 months" },
+    { fertilizer: "TSP (Phosphate)", perAcreKg: 25, applications: 2, schedule: "Every 6 months" },
+    { fertilizer: "MOP (Potash)", perAcreKg: 25, applications: 2, schedule: "Every 6 months" },
+  ];
+  return cfg.map(c => {
+    const total = c.perAcreKg * acreage;
+    return {
+      fertilizer: c.fertilizer,
+      perAcreKg: c.perAcreKg,
+      totalKg: Math.round(total),
+      applications: c.applications,
+      perApplicationKg: Math.round(total / c.applications),
+      schedule: c.schedule,
+    };
+  });
+}
+
 function toneClass(tone: string) {
   switch (tone) {
     case "emerald": return "bg-emerald-50 border-emerald-200 text-emerald-700";
@@ -108,6 +142,36 @@ export function SupplierTips() {
             For your <strong>{plot!.acreage} acres</strong> plot ({{ "low-country": "low-country", "mid-country": "mid-country", "up-country": "up-country" }[plot!.region ?? "default"] || "default"} region),
             you could harvest up to <strong>{expectedYield.toLocaleString()} kg</strong> green leaf per year (~{(expectedYield / 12).toFixed(0)} kg/month).
             Follow the tips below to reach this potential.
+          </p>
+        </Card>
+      )}
+
+      {/* NEW (Sir's spec): Per-acre fertilizer-specific guidance — computed from plot */}
+      {plot && plot.acreage > 0 && (
+        <Card className="mt-4 p-4 border-amber-200 bg-amber-50">
+          <p className="text-sm font-bold text-amber-700 mb-2 flex items-center gap-1.5">
+            🧪 Fertilizer Guidance for Your {plot.acreage} Acres
+          </p>
+          <p className="text-[11px] text-amber-700 mb-3">
+            ඔබගේ {plot.acreage} අක්කර වත්තට අවශ්‍ය පොහොර ප්‍රමාණය පහත පරිදි යෙදිය යුතුය. (Recommended fertilizer quantities for your plot.)
+          </p>
+          <div className="space-y-1.5">
+            {computeFertilizerGuidance(plot.acreage).map((g, i) => (
+              <div key={i} className="flex items-center justify-between rounded-lg bg-white border border-amber-200 px-3 py-2 text-xs">
+                <div>
+                  <p className="font-semibold text-slate-800">{g.fertilizer}</p>
+                  <p className="text-[10px] text-slate-500">{g.schedule}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-amber-700 tnum">{g.totalKg} kg/year</p>
+                  <p className="text-[10px] text-slate-500">{g.perApplicationKg} kg × {g.applications}/yr</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[10px] text-amber-600 italic">
+            * Based on Sri Lankan Tea Research Institute (TRI) recommendations: Urea 50kg/acre/year (split into 4 applications),
+            TSP 25kg/acre/year (split into 2), MOP 25kg/acre/year (split into 2). Adjust based on soil tests.
           </p>
         </Card>
       )}

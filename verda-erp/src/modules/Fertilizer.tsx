@@ -185,12 +185,20 @@ function DivisionFertilizerSummary() {
         const byDivision: Record<string, { qty: number; value: number; lines: number; unit: string }> = {};
         (data ?? []).forEach((r: any) => {
           if (r.stock_items?.category !== "fertilizer") return;
-          // Try to extract division from notes (e.g., "to Sutton division" or "[Req #ABC] Sutton")
-          const notes = (r.notes || "").toLowerCase();
-          const known = ["kiriwallapatana lower", "kiriwallapatana upper", "sutton", "craighead", "tennant", "factory", "nursery"];
+          // Parse division from structured notes: "division:NAME | ..." (new format)
+          // OR fallback to old keyword matching for legacy entries.
+          const notes = (r.notes || "");
           let div = "Unspecified";
-          for (const k of known) {
-            if (notes.includes(k)) { div = k.replace(/\b\w/g, c => c.toUpperCase()); break; }
+          const structuredMatch = notes.match(/division:([^|]+)/i);
+          if (structuredMatch) {
+            div = structuredMatch[1].trim();
+          } else {
+            // Legacy fallback — keyword matching
+            const notesLower = notes.toLowerCase();
+            const known = ["kiriwallapatana lower", "kiriwallapatana upper", "sutton", "craighead", "tennant", "factory", "nursery"];
+            for (const k of known) {
+              if (notesLower.includes(k)) { div = k.replace(/\b\w/g, c => c.toUpperCase()); break; }
+            }
           }
           const cost = Number(r.stock_items?.unit_cost ?? 0);
           if (!byDivision[div]) byDivision[div] = { qty: 0, value: 0, lines: 0, unit: r.stock_items?.unit ?? "kg" };

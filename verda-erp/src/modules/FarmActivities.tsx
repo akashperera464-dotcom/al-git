@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Sprout, Scissors, Package, Plus, Loader2, Check, CalendarDays, History } from "lucide-react";
+import { Sprout, Scissors, Package, Plus, Loader2, Check, CalendarDays, History, Leaf } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { useLiveData } from "@/lib/useLiveData";
@@ -11,6 +11,7 @@ const TAB_KEYS = [
   { id: "fertilizer", labelKey: "farm.fertilizer", icon: Sprout, tone: "emerald" },
   { id: "pruning", labelKey: "farm.pruning", icon: Scissors, tone: "amber" },
   { id: "self_harvest", labelKey: "farm.selfHarvest", icon: Package, tone: "sky" },
+  { id: "replanting", labelKey: "farm.replanting", icon: Leaf, tone: "violet" },
 ] as const;
 
 const FERT_TYPE_KEYS = ["farm.fertUrea", "farm.fertMop", "farm.fertTsp", "farm.fertDolomite", "farm.fertCompost"] as const;
@@ -47,6 +48,10 @@ export function FarmActivities() {
   const [field, setField] = useState("");
   const [kg, setKg] = useState(100);
   const [gradeIdx, setGradeIdx] = useState(0);  // index into GRADE_KEYS
+  // replanting (NEW — Sir's spec)
+  const [replantArea, setReplantArea] = useState(0.5);  // hectares
+  const [replantCultivar, setReplantCultivar] = useState("TRI 2025 (VP)");
+  const [replantBushCount, setReplantBushCount] = useState(1000);
 
   const save = async () => {
     setBusy(true);
@@ -55,6 +60,7 @@ export function FarmActivities() {
       let details: Record<string, unknown> = {};
       if (tab === "fertilizer") details = { type: t(FERT_TYPE_KEYS[fertType]), quantityKg: fertQty };
       else if (tab === "pruning") details = { type: pruneType, areaHa: pruneArea };
+      else if (tab === "replanting") details = { areaHa: replantArea, cultivar: replantCultivar, bushCount: replantBushCount };
       else details = { field: field.trim() || "—", estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]) };
 
       await recordFarmActivity(userUid, tab, date, details);
@@ -156,6 +162,33 @@ export function FarmActivities() {
               <div className="col-span-2">
                 <label className={labelCls}>{t("farm.estimatedWeight")}</label>
                 <input type="number" value={kg} onChange={(e) => setKg(+e.target.value)} className={`${inputCls} tnum`} />
+              </div>
+            </>
+          )}
+
+          {/* Replanting tab (NEW — Sir's spec) */}
+          {tab === "replanting" && (
+            <>
+              <div>
+                <label className={labelCls}>Area Replanted (ha)</label>
+                <input type="number" step="any" min={0} value={replantArea} onChange={(e) => setReplantArea(+e.target.value)} placeholder="0.5" className={`${inputCls} tnum`} />
+              </div>
+              <div>
+                <label className={labelCls}>Cultivar Planted</label>
+                <select value={replantCultivar} onChange={(e) => setReplantCultivar(e.target.value)} className={inputCls}>
+                  <option value="TRI 2025 (VP)">TRI 2025 (VP)</option>
+                  <option value="TRI 2023 (VP)">TRI 2023 (VP)</option>
+                  <option value="TRI 2024 (VP)">TRI 2024 (VP)</option>
+                  <option value="Seedling">Seedling</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>New Bush Count Planted</label>
+                <input type="number" min={0} value={replantBushCount} onChange={(e) => setReplantBushCount(+e.target.value)} placeholder="e.g. 1200" className={`${inputCls} tnum`} />
+                <p className="mt-1 text-[10px] text-slate-400">
+                  🌱 Log this when you replant dead bushes or expand your plot. Updates your "My Plot" bush count reminder cycle.
+                </p>
               </div>
             </>
           )}

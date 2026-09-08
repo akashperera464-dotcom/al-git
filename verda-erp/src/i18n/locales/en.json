@@ -100,6 +100,7 @@
     "supplier-plot": { "l": "My Plot", "s": "Plot" },
     "supplier-weather": { "l": "My Weather", "s": "Weather" },
     "supplier-tips": { "l": "Tips & Guidance", "s": "Tips" },
+    "supplier-fertilizer": { "l": "My Fertilizer", "s": "Fertilizer" },
     "supplier-announcements": { "l": "Estate Updates", "s": "Updates" },
     "supplier-requests": { "l": "Request Resources", "s": "Request" },
     "announcements": { "l": "Announcements", "s": "Posts" }
@@ -200,6 +201,7 @@
     "fertilizer": "Fertilizer",
     "pruning": "Pruning",
     "selfHarvest": "Self-Harvest",
+    "replanting": "Replanting",
     "activityDate": "Activity Date",
     "fertilizerType": "Fertilizer Type",
     "quantityKg": "Quantity (kg)",

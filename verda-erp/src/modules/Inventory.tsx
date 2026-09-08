@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Package, Plus, Loader2, Truck, ArrowDownCircle, ArrowUpCircle, AlertTriangle, History, FileDown, Link2 } from "lucide-react";
+import { Package, Truck, ArrowDownCircle, ArrowUpCircle, AlertTriangle, FileDown, Link2 } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtLKR, fmtNum, type StockItem, type PurchaseOrder, type StockMovement, type ResourceRequest } from "@/lib/data";
 import { exportObjectsToCSV } from "@/lib/csvExport";
@@ -15,8 +14,7 @@ import { useApp } from "@/context/AppContext";
  * purchase orders, goods-receipt notes (GRN), and stock movements audit log.
  */
 export default function Inventory() {
-  const { t } = useTranslation();
-  const { userUid, resourceRequests } = useApp();
+  const { userUid, resourceRequests, estates } = useApp();
   const [tab, setTab] = useState<"stock" | "po" | "grn" | "movements">("stock");
   const [stock, setStock] = useState<StockItem[]>([]);
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
@@ -47,6 +45,15 @@ export default function Inventory() {
   const [issueQty, setIssueQty] = useState(1);
   const [issueNotes, setIssueNotes] = useState("");
   const [issueRequestId, setIssueRequestId] = useState<string>("");   // optional link to a supplier request
+  // NEW (Sir's spec): Division dropdown + Credit/Cash toggle + Supplier name
+  const [issueDivision, setIssueDivision] = useState<string>("");     // e.g., "Kiriwallapatana Lower"
+  const [issuePaymentMode, setIssuePaymentMode] = useState<"cash" | "credit">("cash");
+  const [issueSupplierName, setIssueSupplierName] = useState<string>("");  // for credit tracking
+
+  // Build divisions list from all estates (flat list of division names)
+  const allDivisions = Array.from(
+    new Set(estates.flatMap(e => e.divisions.map(d => d.name)))
+  ).sort();
 
   const reload = async () => {
     setBusy(true);
@@ -150,22 +157,57 @@ export default function Inventory() {
   const submitIssue = async () => {
     setError(null);
     if (!issueItemId || issueQty <= 0) { setError("Select item & quantity"); return; }
+    if (issuePaymentMode === "credit" && !issueSupplierName.trim()) {
+      setError("Supplier name required for credit issue");
+      return;
+    }
     setBusy(true);
     try {
-      // Build notes — if linked to a supplier request, prepend the request ref
+      // Build notes — include division + payment mode + request ref + supplier name
       let notes = issueNotes.trim();
+      const parts: string[] = [];
+      if (issueDivision) parts.push(`division:${issueDivision}`);
+      if (issuePaymentMode === "credit" && issueSupplierName.trim()) {
+        parts.push(`credit→${issueSupplierName.trim()}`);
+      } else if (issuePaymentMode === "cash") {
+        parts.push("cash");
+      }
       if (issueRequestId) {
         const req = resourceRequests.find(r => r.id === issueRequestId);
         const reqRef = req
           ? `[Req #${req.id.slice(-6).toUpperCase()} · ${req.type} · ${req.itemDetails} · supplier asked ${req.quantity}]`
           : `[Req #${issueRequestId.slice(-6).toUpperCase()}]`;
-        notes = notes ? `${reqRef} ${notes}` : reqRef;
+        parts.push(reqRef);
       }
+      if (notes) parts.push(notes);
+      const finalNotes = parts.join(" | ");
+
       await issueStock({
         stockItemId: issueItemId, qty: issueQty,
-        performedBy: userUid, notes: notes || undefined,
+        performedBy: userUid, notes: finalNotes || undefined,
       });
+
+      // NEW (Sir's spec): if Credit + fertilizer, write to supplier fertilizer ledger
+      // (Phase 1: localStorage; Phase 2 will sync to Supabase `supplier_fertilizer_ledger`)
+      if (issuePaymentMode === "credit" && issueSupplierName.trim()) {
+        try {
+          const item = stock.find(s => s.id === issueItemId);
+          if (item && item.category === "fertilizer") {
+            writeSupplierFertilizerLedger({
+              supplierName: issueSupplierName.trim(),
+              stockItemCode: item.code,
+              stockItemName: item.name,
+              qtyIssued: issueQty,
+              unit: item.unit,
+              date: new Date().toISOString(),
+              notes: finalNotes,
+            });
+          }
+        } catch { /* ledger write is best-effort */ }
+      }
+
       setIssueItemId(""); setIssueQty(1); setIssueNotes(""); setIssueRequestId("");
+      setIssueDivision(""); setIssuePaymentMode("cash"); setIssueSupplierName("");
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to issue");
@@ -453,6 +495,64 @@ export default function Inventory() {
                 <label className="text-[11px] text-slate-400">Quantity</label>
                 <input type="number" value={issueQty} onChange={e => setIssueQty(+e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
               </div>
+              {/* NEW (Sir's spec): Division dropdown — required for division-level summary */}
+              <div>
+                <label className="text-[11px] text-slate-400">Issue to Division (required for division summary)</label>
+                <select
+                  value={issueDivision}
+                  onChange={e => setIssueDivision(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm"
+                >
+                  <option value="">— select division —</option>
+                  {allDivisions.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                {allDivisions.length === 0 && (
+                  <p className="mt-1 text-[10px] text-amber-500">⚠ No divisions found — create them in Estate Master first.</p>
+                )}
+              </div>
+              {/* NEW (Sir's spec): Payment mode — Cash or Credit (for supplier fertilizer issuing) */}
+              <div>
+                <label className="text-[11px] text-slate-400">Payment Mode</label>
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIssuePaymentMode("cash")}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold ${issuePaymentMode === "cash" ? "bg-emerald-600 text-white" : "border border-slate-200 bg-white text-slate-600"}`}
+                  >
+                    💵 Cash (paid now)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIssuePaymentMode("credit")}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold ${issuePaymentMode === "credit" ? "bg-amber-600 text-white" : "border border-slate-200 bg-white text-slate-600"}`}
+                  >
+                    📝 Credit (deduct from leaf)
+                  </button>
+                </div>
+              </div>
+              {/* When Credit mode, supplier name is required (for ledger tracking) */}
+              {issuePaymentMode === "credit" && (
+                <div>
+                  <label className="text-[11px] text-slate-400">Supplier Name (for credit ledger) *</label>
+                  <input
+                    type="text"
+                    value={issueSupplierName}
+                    onChange={e => setIssueSupplierName(e.target.value)}
+                    placeholder="e.g., Nimal Farmers"
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+                  />
+                  {(() => {
+                    const item = stock.find(s => s.id === issueItemId);
+                    if (!item || item.category !== "fertilizer") return null;
+                    return (
+                      <p className="mt-1 text-[10px] text-amber-600">
+                        ⚠ This credit issue will be logged to the supplier's fertilizer ledger.
+                        Supplier can see it in their "My Fertilizer" module.
+                      </p>
+                    );
+                  })()}
+                </div>
+              )}
               {/* Link to a pending supplier request — when selected, the issue
                   note will automatically include the request reference for the
                   audit trail. Matching is best-effort by stock code/name. */}
@@ -489,7 +589,7 @@ export default function Inventory() {
               </div>
               <div>
                 <label className="text-[11px] text-slate-400">Notes</label>
-                <textarea value={issueNotes} onChange={e => setIssueNotes(e.target.value)} rows={2} placeholder="Reason for issue / recipient name / field block" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                <textarea value={issueNotes} onChange={e => setIssueNotes(e.target.value)} rows={2} placeholder="Reason for issue / field block" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
               </div>
               <button onClick={submitIssue} disabled={busy || !issueItemId} className="w-full rounded-lg bg-rose-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Issue Out</button>
             </div>
@@ -521,4 +621,54 @@ export default function Inventory() {
       )}
     </div>
   );
+}
+
+/* ----------------------------------------------------------------------------
+ * Supplier Fertilizer Ledger (Phase 1 — localStorage)
+ * ------------------------------------------------------------------
+ * When admin issues fertilizer to a supplier on CREDIT, we log it here so
+ * the supplier's "My Fertilizer" module can show:
+ *   - Total fertilizer received from factory
+ *   - Per-issue history (date, type, qty, division)
+ *   - Outstanding balance (to be deducted from leaf payments later)
+ *
+ * Phase 2 will move this to Supabase `supplier_fertilizer_ledger` table.
+ * The supplier-side module reads from the SAME localStorage key.
+ * --------------------------------------------------------------------------- */
+
+export interface SupplierFertilizerLedgerEntry {
+  id: string;
+  supplierName: string;       // matches the supplier's display name
+  stockItemCode: string;
+  stockItemName: string;
+  qtyIssued: number;
+  unit: string;
+  date: string;                // ISO timestamp
+  notes?: string;
+}
+
+const LEDGER_KEY = "kdu.supplier_fertilizer_ledger";
+
+export function writeSupplierFertilizerLedger(entry: Omit<SupplierFertilizerLedgerEntry, "id">) {
+  try {
+    const raw = localStorage.getItem(LEDGER_KEY);
+    const list: SupplierFertilizerLedgerEntry[] = raw ? JSON.parse(raw) : [];
+    const full: SupplierFertilizerLedgerEntry = { ...entry, id: `fl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` };
+    list.unshift(full);
+    // Cap at 500 entries to avoid localStorage bloat
+    const capped = list.slice(0, 500);
+    localStorage.setItem(LEDGER_KEY, JSON.stringify(capped));
+  } catch { /* localStorage may be unavailable */ }
+}
+
+export function readSupplierFertilizerLedger(supplierName?: string): SupplierFertilizerLedgerEntry[] {
+  try {
+    const raw = localStorage.getItem(LEDGER_KEY);
+    const list: SupplierFertilizerLedgerEntry[] = raw ? JSON.parse(raw) : [];
+    return supplierName
+      ? list.filter(e => e.supplierName.toLowerCase() === supplierName.toLowerCase())
+      : list;
+  } catch {
+    return [];
+  }
 }

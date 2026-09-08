@@ -89,6 +89,7 @@ export type Capability =
   | "plot.own"
   | "weather.own"
   | "tips.own"
+  | "fertilizer.own"
   | "payments.own"
   | "requests.create"
   | "farm.log"
@@ -121,7 +122,7 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   // Extension Officers: field tools — log weights + register suppliers.
   extension_officer: ["weighing.capture", "supplier.register", "estate.map.view"],
   // Suppliers: their own data + raise resource requisitions — NO rosters, payroll, other suppliers, dashboards.
-  supplier: ["deliveries.own", "alerts.own", "plot.own", "weather.own", "tips.own", "payments.own", "requests.create", "farm.log", "announcements.view"],
+  supplier: ["deliveries.own", "alerts.own", "plot.own", "weather.own", "tips.own", "fertilizer.own", "payments.own", "requests.create", "farm.log", "announcements.view"],
 };
 
 export const hasCapability = (role: Role, cap: Capability): boolean =>
@@ -197,6 +198,7 @@ export const MODULES: NavItem[] = [
   { key: "supplier-plot", label: "My Plot", short: "Plot", icon: Trees, category: "supplier", roles: ["supplier"], capability: "plot.own" },
   { key: "supplier-weather", label: "My Weather", short: "Weather", icon: CloudSun, category: "supplier", roles: ["supplier"], capability: "weather.own" },
   { key: "supplier-tips", label: "Tips & Guidance", short: "Tips", icon: Lightbulb, category: "supplier", roles: ["supplier"], capability: "tips.own" },
+  { key: "supplier-fertilizer", label: "My Fertilizer", short: "Fertilizer", icon: Sprout, category: "supplier", roles: ["supplier"], capability: "fertilizer.own" },
   { key: "supplier-announcements", label: "Estate Updates", short: "Updates", icon: Newspaper, category: "supplier", roles: ["supplier"], capability: "announcements.view" },
   { key: "supplier-requests", label: "Request Resources", short: "Request", icon: PackageOpen, category: "supplier", roles: ["supplier"], capability: "requests.create" },
 ];
