@@ -20,6 +20,17 @@ import { fmtNum } from "@/lib/data";
  */
 const STORAGE_KEY = (userUid: string) => `kdu.supplier_plot.${userUid}`;
 
+interface PlotSubField {
+  id: string;
+  code: string;            // e.g., "P-01"
+  name: string;            // e.g., "Upper Plot"
+  cultivar: string;        // e.g., "TRI 2025 (VP)"
+  plantingYear: number;
+  areaHa: number;
+  bushCount: number;
+  status: "plucking" | "pruned" | "young" | "nursery";
+}
+
 interface PlotData {
   acreage: number;
   bushCount: number;
@@ -27,12 +38,15 @@ interface PlotData {
   cultivar?: string; // e.g. TRI 2025 (VP)
   region?: string; // low-country / mid-country / up-country
   lastUpdated?: string;
+  // NEW (Sir's spec — suppliers create their own sub-fields like Estate Master):
+  subFields?: PlotSubField[];
 }
 
 const DEFAULT_PLOT: PlotData = {
   acreage: 0,
   bushCount: 0,
   verifiedAt: null,
+  subFields: [],
 };
 
 /** Yield per acre per year by region (kg green leaf) — Sri Lankan agronomy */
@@ -111,6 +125,101 @@ export function SupplierPlot() {
       tone: "emerald",
       channel: "system",
     });
+  };
+
+  // NEW (Sir's spec): Sub-field management — like admin's Estate Master but for the supplier's own plot.
+  // Suppliers can divide their plot into sub-sections (e.g., "Upper Plot", "Lower Plot") and
+  // track per-section bush count + area + cultivar. The plot's total acreage + bush count
+  // are auto-aggregated from sub-fields when present (overriding manual entry).
+  const [showSubFieldForm, setShowSubFieldForm] = useState(false);
+  const [editingSubFieldId, setEditingSubFieldId] = useState<string | null>(null);
+  const [subCode, setSubCode] = useState("P-01");
+  const [subName, setSubName] = useState("");
+  const [subCultivar, setSubCultivar] = useState("TRI 2025 (VP)");
+  const [subYear, setSubYear] = useState(new Date().getFullYear());
+  const [subAreaHa, setSubAreaHa] = useState(0);
+  const [subBush, setSubBush] = useState(0);
+  const [subStatus, setSubStatus] = useState<PlotSubField["status"]>("plucking");
+
+  const startAddSubField = () => {
+    setEditingSubFieldId(null);
+    setSubCode(`P-${String((plot.subFields?.length ?? 0) + 1).padStart(2, "0")}`);
+    setSubName("");
+    setSubCultivar(plot.cultivar ?? "TRI 2025 (VP)");
+    setSubYear(new Date().getFullYear());
+    setSubAreaHa(0);
+    setSubBush(0);
+    setSubStatus("plucking");
+    setShowSubFieldForm(true);
+  };
+
+  const startEditSubField = (sf: PlotSubField) => {
+    setEditingSubFieldId(sf.id);
+    setSubCode(sf.code);
+    setSubName(sf.name);
+    setSubCultivar(sf.cultivar);
+    setSubYear(sf.plantingYear);
+    setSubAreaHa(sf.areaHa);
+    setSubBush(sf.bushCount);
+    setSubStatus(sf.status);
+    setShowSubFieldForm(true);
+  };
+
+  const saveSubField = () => {
+    if (!subName.trim() || subAreaHa <= 0) {
+      notify({ title: "Missing fields", body: "Sub-field name + area are required", tone: "rose", channel: "system" });
+      return;
+    }
+    const newSf: PlotSubField = {
+      id: editingSubFieldId ?? `sf-${Date.now()}`,
+      code: subCode.trim() || `P-${String((plot.subFields?.length ?? 0) + 1).padStart(2, "0")}`,
+      name: subName.trim(),
+      cultivar: subCultivar,
+      plantingYear: subYear,
+      areaHa: subAreaHa,
+      bushCount: subBush,
+      status: subStatus,
+    };
+    const existing = plot.subFields ?? [];
+    const updated = editingSubFieldId
+      ? existing.map(sf => sf.id === editingSubFieldId ? newSf : sf)
+      : [...existing, newSf];
+
+    // Auto-aggregate plot totals from sub-fields (in hectares → acres conversion)
+    const totalHa = updated.reduce((s, sf) => s + sf.areaHa, 0);
+    const totalBush = updated.reduce((s, sf) => s + sf.bushCount, 0);
+    const now = new Date().toISOString();
+    const next: PlotData = {
+      ...plot,
+      subFields: updated,
+      // Auto-update acreage + bush count from sub-fields (when present)
+      acreage: +(totalHa * 2.471).toFixed(2),  // ha → acres
+      bushCount: totalBush,
+      lastUpdated: now,
+    };
+    persist(next);
+    setShowSubFieldForm(false);
+    setEditingSubFieldId(null);
+    notify({
+      title: editingSubFieldId ? "Sub-field updated ✅" : "Sub-field added ✅",
+      body: `${newSf.name} (${newSf.areaHa} ha, ${fmtNum(newSf.bushCount)} bushes). Plot totals auto-updated.`,
+      tone: "emerald",
+      channel: "system",
+    });
+  };
+
+  const deleteSubField = (id: string) => {
+    const updated = (plot.subFields ?? []).filter(sf => sf.id !== id);
+    const totalHa = updated.reduce((s, sf) => s + sf.areaHa, 0);
+    const totalBush = updated.reduce((s, sf) => s + sf.bushCount, 0);
+    const next: PlotData = {
+      ...plot,
+      subFields: updated,
+      acreage: updated.length > 0 ? +(totalHa * 2.471).toFixed(2) : plot.acreage,
+      bushCount: updated.length > 0 ? totalBush : plot.bushCount,
+      lastUpdated: new Date().toISOString(),
+    };
+    persist(next);
   };
 
   // Calculations
@@ -304,6 +413,153 @@ export function SupplierPlot() {
             <div><dt className="text-[11px] text-slate-400">Verified At</dt><dd className="font-semibold text-slate-800">{lastDate ? lastDate.toLocaleDateString() : "—"}</dd></div>
             <div><dt className="text-[11px] text-slate-400">Last Updated</dt><dd className="font-semibold text-slate-800">{plot.lastUpdated ? new Date(plot.lastUpdated).toLocaleDateString() : "—"}</dd></div>
           </dl>
+        </Card>
+      )}
+
+      {/* NEW (Sir's spec — supplier-side estate management):
+          Sub-fields management — suppliers can divide their plot into sub-sections
+          (like admin's Estate Master but for the supplier's own plot). Each sub-field
+          has its own area + bush count + cultivar. Plot totals auto-aggregate. */}
+      {plot.acreage > 0 && !editing && (
+        <Card className="mt-4 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-sm font-bold text-slate-800">Plot Sub-Fields / Sections</h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Divide your plot into sub-sections (e.g., Upper Plot, Lower Plot) to track each section separately.
+                Plot totals auto-aggregate from sub-fields.
+              </p>
+            </div>
+            <button
+              onClick={startAddSubField}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110"
+            >
+              + Add Sub-Field
+            </button>
+          </div>
+
+          {/* Sub-fields list */}
+          {(plot.subFields?.length ?? 0) > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+                    <th className="pb-2">Code</th>
+                    <th className="pb-2">Name</th>
+                    <th className="pb-2">Cultivar</th>
+                    <th className="pb-2 text-right">Area (ha)</th>
+                    <th className="pb-2 text-right">Bushes</th>
+                    <th className="pb-2 text-center">Status</th>
+                    <th className="pb-2 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plot.subFields!.map(sf => (
+                    <tr key={sf.id} className="border-t border-slate-100">
+                      <td className="py-2 font-mono text-xs">{sf.code}</td>
+                      <td className="py-2 font-semibold text-slate-800">{sf.name}</td>
+                      <td className="py-2 text-slate-600">{sf.cultivar}</td>
+                      <td className="py-2 text-right tnum">{sf.areaHa}</td>
+                      <td className="py-2 text-right tnum">{fmtNum(sf.bushCount)}</td>
+                      <td className="py-2 text-center">
+                        <span className={`inline-block rounded px-2 py-0.5 text-[10px] font-semibold ${
+                          sf.status === "plucking" ? "bg-emerald-100 text-emerald-700"
+                          : sf.status === "pruned" ? "bg-amber-100 text-amber-700"
+                          : sf.status === "young" ? "bg-sky-100 text-sky-700"
+                          : "bg-violet-100 text-violet-700"
+                        }`}>
+                          {sf.status}
+                        </span>
+                      </td>
+                      <td className="py-2 text-right">
+                        <button onClick={() => startEditSubField(sf)} className="text-xs text-emerald-600 hover:underline mr-2">Edit</button>
+                        <button onClick={() => deleteSubField(sf.id)} className="text-xs text-rose-500 hover:underline">Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-slate-200">
+                    <td colSpan={3} className="py-2 text-right text-xs font-semibold text-slate-600">Total</td>
+                    <td className="py-2 text-right tnum font-bold text-slate-800">{(plot.subFields ?? []).reduce((s, sf) => s + sf.areaHa, 0).toFixed(2)} ha</td>
+                    <td className="py-2 text-right tnum font-bold text-slate-800">{fmtNum((plot.subFields ?? []).reduce((s, sf) => s + sf.bushCount, 0))}</td>
+                    <td colSpan={2}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          ) : (
+            <p className="py-4 text-center text-sm text-slate-400">
+              No sub-fields yet. Add sub-fields to track different sections of your plot separately.
+            </p>
+          )}
+
+          {/* Add/Edit sub-field form */}
+          {showSubFieldForm && (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <h4 className="mb-2 text-sm font-bold text-slate-800">
+                {editingSubFieldId ? "Edit Sub-Field" : "Add Sub-Field"}
+              </h4>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <label className="text-[11px] text-slate-400">Code</label>
+                  <input value={subCode} onChange={e => setSubCode(e.target.value)} placeholder="P-01" className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-xs" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Name *</label>
+                  <input value={subName} onChange={e => setSubName(e.target.value)} placeholder="e.g., Upper Plot" className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-xs" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Cultivar</label>
+                  <select value={subCultivar} onChange={e => setSubCultivar(e.target.value)} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-xs">
+                    <option value="TRI 2025 (VP)">TRI 2025 (VP)</option>
+                    <option value="TRI 2023 (VP)">TRI 2023 (VP)</option>
+                    <option value="TRI 2024 (VP)">TRI 2024 (VP)</option>
+                    <option value="Seedling">Seedling</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Planting Year</label>
+                  <input type="number" value={subYear} onChange={e => setSubYear(+e.target.value)} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-xs tnum" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Area (ha) *</label>
+                  <input type="number" step="any" min={0} value={subAreaHa || ""} onChange={e => setSubAreaHa(+e.target.value)} placeholder="0.5" className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-xs tnum" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Bush Count</label>
+                  <input type="number" min={0} value={subBush || ""} onChange={e => setSubBush(+e.target.value)} placeholder="1200" className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-xs tnum" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[11px] text-slate-400">Status</label>
+                  <select value={subStatus} onChange={e => setSubStatus(e.target.value as PlotSubField["status"])} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5 text-xs">
+                    <option value="plucking">Plucking</option>
+                    <option value="pruned">Pruned</option>
+                    <option value="young">Young</option>
+                    <option value="nursery">Nursery</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={saveSubField}
+                  className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:brightness-110"
+                >
+                  {editingSubFieldId ? "Update" : "Add"}
+                </button>
+                <button
+                  onClick={() => { setShowSubFieldForm(false); setEditingSubFieldId(null); }}
+                  className="rounded-lg border border-slate-200 px-4 py-1.5 text-xs font-semibold text-slate-500"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">
+                * Adding sub-fields auto-updates your plot's total acreage + bush count.
+              </p>
+            </div>
+          )}
         </Card>
       )}
     </div>

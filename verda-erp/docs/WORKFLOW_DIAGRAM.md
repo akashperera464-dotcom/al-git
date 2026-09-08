@@ -1620,3 +1620,89 @@ These features are documented for Phase 2 (after Phase 1 stabilization):
 *End of Workflow Diagram. This document is the single source of truth for understanding the KDU TEA FACTORY system. Last updated: September 2026.*
 
 *ලේඛනයේ අවසානය. මෙය KDU TEA FACTORY පද්ධතිය තේරුම් ගැනීමට එකම මූලාශ්‍රයයි. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
+
+---
+
+## 20. Phase 1 Update #2 — September 2026 (Latest)
+
+> **Purpose / අරමුණ:** Sir's spec round #2 — 3 items added.
+
+### 20.1 Supplier-Side Estate Creation (NEW)
+
+**Where:** Supplier Portal → My Plot module → "Plot Sub-Fields / Sections" section (below the Plot Details card).
+
+**Why:** Sir asked for estate creation on supplier side too. Suppliers have small plots (කුඩා වත්ත), but they often have multiple sub-sections (e.g., Upper Plot + Lower Plot). Now they can divide their plot like admin's Estate Master.
+
+**What Was Added:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🌳 My Plot → Plot Sub-Fields / Sections                       │
+├─────────────────────────────────────────────────────────────────┤
+│  [+ Add Sub-Field]                                              │
+│                                                                 │
+│  | Code | Name        | Cultivar     | Area (ha) | Bushes |...│
+│  |-------|-------------|--------------|-----------|--------|---│
+│  | P-01  | Upper Plot  | TRI 2025(VP) |    0.8    | 1,200  |...│
+│  | P-02  | Lower Plot  | TRI 2023(VP) |    0.5    |   800  |...│
+│  |       |             |   Total      |    1.3    | 2,000  |   │
+│  └───────┴─────────────┴──────────────┴───────────┴────────┘   │
+│                                                                 │
+│  Sub-field form (when "Add Sub-Field" tapped):                  │
+│  • Code (auto: P-01, P-02, ...)                                │
+│  • Name (e.g., "Upper Plot")                                  │
+│  • Cultivar dropdown (TRI 2025/2023/2024/Seedling/Other)        │
+│  • Planting Year                                                │
+│  • Area (ha) — required                                        │
+│  • Bush Count                                                   │
+│  • Status (Plucking/Pruned/Young/Nursery)                       │
+│  [Add] [Cancel]                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key behavior:**
+- When sub-fields exist, the plot's total acreage + bush count are auto-aggregated from sub-fields (ha → acres conversion: acres = ha × 2.471).
+- Suppliers can edit/delete sub-fields individually.
+- Status badge color-coded (plucking=emerald, pruned=amber, young=sky, nursery=violet).
+- Total row at bottom of table shows aggregated area + bush count.
+
+### 20.2 Supabase SQL Migration (NEW FILE)
+
+**File:** `download/supabase_phase1_sir_spec_migration.sql` (also committed at `docs/migration_phase1_sir_spec.sql`)
+
+**Why:** We discovered that several Phase 1 features reference Supabase columns/tables that DON'T EXIST in any existing migration. Phase 1 falls back to localStorage, but Phase 2 will need these.
+
+**What's in the migration:**
+
+| # | Change | Why |
+|---|--------|-----|
+| 1 | `estates` add columns: `latitude`, `longitude`, `total_bush_count`, `total_area_acres` | Weather module + EO Geo-Verify + Bush count tracking |
+| 2 | `fields` add columns: `bush_count`, `bush_count_verified_at` | Per-field bush count tracking |
+| 3 | `farm_activities.activity_type` CHECK constraint extended | Add 'replanting' + 'fertilizer_application' types |
+| 4 | NEW TABLE `supplier_plots` | Per-supplier plot data (acreage, bush count, cultivar, region, verified_at) |
+| 5 | NEW TABLE `supplier_fertilizer_ledger` | Credit fertilizer issues to suppliers (for balance tracking) |
+| 6 | NEW TABLE `equipment_requests` | Standalone equipment request tracking |
+| 7 | NEW TABLE `labor_daily_cost_snapshots` | Admin's daily labor cost calculator snapshots |
+
+All statements are IDEMPOTENT (safe to re-run). All new tables include Row Level Security policies (suppliers see only their own data; admins see all).
+
+**To apply:** Open Supabase Dashboard → SQL Editor → New query → paste contents of `download/supabase_phase1_sir_spec_migration.sql` → Run.
+
+### 20.3 Updated Module Count
+
+With the new "My Fertilizer" module + supplier sub-fields, the supplier portal now has **10 modules**:
+
+```
+[Deliveries]  [Alerts]  [Payments]  [Farm]  [Plot ★]  [Weather ★]
+[Tips ★]  [Fertilizer ★]  [Updates]  [Request]
+   ↑                                                              ↑
+   └── visible in bottom-nav (4) ──┘         └── "More" sheet (6) ──┘
+```
+
+(★ = added in Phase 1)
+
+---
+
+*End of Workflow Diagram. Last updated: September 2026 (Round #2 — supplier sub-fields + Supabase migration).*
+
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
