@@ -1706,3 +1706,88 @@ With the new "My Fertilizer" module + supplier sub-fields, the supplier portal n
 *End of Workflow Diagram. Last updated: September 2026 (Round #2 — supplier sub-fields + Supabase migration).*
 
 *ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
+
+---
+
+## 21. Phase 1 Update #3 — September 2026 (Login Video Fix + Roadmap)
+
+### 21.1 Login Background Video Fix
+
+**Issue:** Since the KDU TEA FACTORY rebrand, the login page background video was not playing — it showed a stuck image (or no video at all).
+
+**Root cause:** When we rebranded from "Verda" → "KDU TEA FACTORY", the branding cache key changed from `verda.branding.cache` → `kdu.branding.cache`. This orphaned the user's previously-set branding config (including the login background video URL they had configured via Super Admin Settings). The branding loader was reading only from the new key, which was empty, and fell back to DEFAULT_BRANDING which has `loginBackgroundUrl: ""`.
+
+**Fix in `src/lib/branding.tsx`:**
+- Added `LEGACY_CACHE_KEY = "verda.branding.cache"` constant
+- `readCache()` now checks new cache first, then falls back to legacy cache, migrates the value to new cache (so next load is fast), and returns the merged branding
+- `writeCache()` clears the legacy cache to avoid double-reads
+
+**Also improved `src/components/Login.tsx` video element:**
+- Added `preload="auto"` — browser starts loading video immediately
+- Added `crossOrigin="anonymous"` — helps with CORS for Cloudinary URLs
+- Added `onCanPlay` handler that force-calls `play()` — some browsers stall autoplay even with muted + playsInline; this catches the "canplay" event and explicitly starts playback
+- Added `onError` handler that hides the video element if the URL fails to load (instead of showing a broken video frame)
+
+**After deployment:** The user's previously-set login background video URL is restored from the legacy cache automatically. If they want to change it again, Super Admin → Settings → Login Background URL.
+
+### 21.2 Phase 1 Round #3 Roadmap — Identified Gaps
+
+The following gaps were identified during a review of supplier-admin interconnections + data filling. These are documented for Phase 2 implementation.
+
+#### A. Interconnection Gaps (What Doesn't Flow Both Ways Yet)
+
+| # | Gap | Impact | Phase 2 Priority |
+|---|-----|--------|-------------------|
+| 1 | Supplier Plot → Admin Dashboard | Admin can't see aggregated supplier plot data (total acreage, total bush count, average yield/acre) | High |
+| 2 | Supplier Fertilizer Ledger → Admin view | Admin has no view of all suppliers' outstanding credit fertilizer balances | High |
+| 3 | Auto-deduct credit fertilizer from leaf payments | When admin pays for leaf, the credit fertilizer balance is not auto-deducted (manual reconciliation) | High |
+| 4 | Admin Announcements → Supplier "Read" tracking | Suppliers see the same announcements again — no "mark as read" | Medium |
+| 5 | Resource Requests fulfillment visibility | Supplier doesn't see "X kg deducted from inventory" in the app (only via FCM push) | Medium |
+| 6 | Equipment Requests supplier side | New Equipment Requests module is admin-only; suppliers can't submit via it (still use old Request Resources) | High |
+
+#### B. Data Filling Gaps (Things That Should Be Added)
+
+| # | Gap | Why It Matters |
+|---|-----|----------------|
+| 7 | Supplier profile: phone, address, NIC, emergency contact | Helps admin recognize suppliers at collection center + emergency contact |
+| 8 | Supplier profile photo | Visual identification at collection center |
+| 9 | Estate: contact phone for estate manager | Quick contact when issues arise |
+| 10 | Division: area in acres (not just hectares) | Sri Lankan farmers think in acres, not hectares |
+| 11 | Field: soil type (sandy/loam/clay) | Affects fertilizer recommendation |
+| 12 | Worker: dailyWage field | Currently only monthly basicSalary — Daily Labor Cost uses defaults, can't be set per individual worker |
+| 13 | Worker: photo + QR code | Identification at collection center |
+| 14 | Stock Item: batch/lot number | Track which batch went to which division (product recall) |
+| 15 | Stock Item: expiry date | Most fertilizers expire 2-3 years — important for stock rotation |
+| 16 | Stock Item: supplier source | Which supplier sold us this fertilizer (vendor performance tracking) |
+| 17 | Harvest Record: weather condition at weigh-in | Rain affects leaf quality — important for audit |
+| 18 | Harvest Record: leaf moisture % | EO measures this; affects deduction % — should be in system |
+| 19 | Harvest Record: photo of leaf batch | Helps with quality disputes |
+| 20 | Payment: method tracking (cash/bank/cheque) | Admin marks "paid" but doesn't record HOW |
+| 21 | Payment: automatic PDF receipt generation | Suppliers get FCM push but no printable receipt |
+| 22 | Farm Activity: photo upload | Audit trail + EO verification |
+| 23 | Farm Activity: GPS coordinates | Where exactly in the plot — helps EO verify |
+
+#### C. Workflow Gaps
+
+| # | Gap | Why It Matters |
+|---|-----|----------------|
+| 24 | Notification preferences per supplier | Suppliers can't choose which notifications to receive |
+| 25 | Multi-language support incomplete | Some hard-coded English strings remain in new modules |
+| 26 | Offline mode for supplier actions | Suppliers in the field have poor internet — actions should queue offline + sync when online |
+| 27 | Audit trail for supplier actions | Currently only admin actions are logged, not supplier actions (e.g., plot updates, fertilizer logs) |
+
+#### D. Top 5 Phase 2 Priorities (Recommended)
+
+| Priority | Item | Why |
+|----------|------|-----|
+| 1 | **Admin-side aggregated view of supplier plot data** | Admin needs to see total yield potential across all suppliers + who has pending re-verification |
+| 2 | **Auto-deduct credit fertilizer from leaf payments** | Currently manual reconciliation is error-prone |
+| 3 | **Supplier photo + profile fields (phone, NIC, address)** | Helps admin recognize suppliers + emergency contact |
+| 4 | **Photo upload for farm activities** | Audit trail + EO verification |
+| 5 | **Equipment Requests: supplier submission + auto-issue on approval** | Connect the new module to suppliers + Inventory |
+
+---
+
+*End of Workflow Diagram. Last updated: September 2026 (Round #3 — login video fix + Phase 2 roadmap).*
+
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
