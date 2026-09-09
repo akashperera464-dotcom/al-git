@@ -39,6 +39,10 @@ export const DEFAULT_BRANDING: Branding = {
 };
 
 const CACHE_KEY = "kdu.branding.cache";
+// Legacy cache key from before the KDU TEA FACTORY rebrand. We fall back to
+// this when the new cache is empty, so any branding the user previously
+// configured (e.g., login background video URL) is not lost.
+const LEGACY_CACHE_KEY = "verda.branding.cache";
 
 interface BrandingContextValue {
   branding: Branding;
@@ -52,12 +56,24 @@ interface BrandingContextValue {
 
 const BrandingContext = createContext<BrandingContextValue | null>(null);
 
-/** Read the localStorage cache synchronously (instant first paint). */
+/** Read the localStorage cache synchronously (instant first paint).
+ * Falls back to legacy cache (pre-rebrand) when the new cache is empty,
+ * so branding the user previously set (e.g., login background video URL)
+ * is not lost after the KDU TEA FACTORY rebrand. */
 function readCache(): Branding | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
-    return raw ? { ...DEFAULT_BRANDING, ...(JSON.parse(raw) as Partial<Branding>) } : null;
+    if (raw) return { ...DEFAULT_BRANDING, ...(JSON.parse(raw) as Partial<Branding>) };
+    // Fall back to legacy cache (pre-rebrand key)
+    const legacyRaw = window.localStorage.getItem(LEGACY_CACHE_KEY);
+    if (legacyRaw) {
+      const legacy = { ...DEFAULT_BRANDING, ...(JSON.parse(legacyRaw) as Partial<Branding>) };
+      // Migrate: write to new cache so we don't need the legacy lookup next time.
+      try { window.localStorage.setItem(CACHE_KEY, JSON.stringify(legacy)); } catch { /* ignore */ }
+      return legacy;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -66,6 +82,8 @@ function readCache(): Branding | null {
 function writeCache(b: Branding) {
   try {
     window.localStorage.setItem(CACHE_KEY, JSON.stringify(b));
+    // Clear legacy cache so we don't double-read.
+    try { window.localStorage.removeItem(LEGACY_CACHE_KEY); } catch { /* ignore */ }
   } catch {
     /* ignore */
   }

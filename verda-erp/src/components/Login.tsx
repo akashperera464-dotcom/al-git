@@ -65,7 +65,14 @@ export function Login() {
               loop
               muted
               playsInline
+              preload="auto"
+              crossOrigin="anonymous"
               className="absolute inset-0 h-full w-full object-cover"
+              // Browsers can stall autoplay if the video isn't muted or doesn't
+              // have playsInline. We have both — but if autoplay still fails
+              // (e.g., user has reduced-motion preference), force-play on canplay.
+              onCanPlay={(e) => { (e.target as HTMLVideoElement).play().catch(() => {}); }}
+              onError={(e) => { (e.target as HTMLVideoElement).style.display = "none"; }}
             />
           ) : (
             <img
