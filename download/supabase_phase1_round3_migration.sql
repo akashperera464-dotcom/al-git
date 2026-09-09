@@ -5,10 +5,157 @@
 -- improvements (interconnections + data filling gaps + notification prefs).
 --
 -- Companion to: supabase_phase1_sir_spec_migration.sql (Round #2)
--- Safe to run after Round #2 migration. All statements IDEMPOTENT.
+-- All statements IDEMPOTENT — safe to re-run.
+-- SELF-CONTAINED: includes prerequisite table creations so it can run standalone.
 --
 -- Run in: Supabase Dashboard → SQL Editor → New query → Run.
 -- ============================================================================
+
+-- ============================================================================
+-- 0. PREREQUISITES — ensure base tables exist (in case earlier migrations
+--    like migration_farm_activities.sql and migration_announcements.sql
+--    were skipped). All use CREATE TABLE IF NOT EXISTS — no-op if exists.
+-- ============================================================================
+
+-- 0a. announcements table (referenced by announcement_reads below)
+create table if not exists announcements (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  body        text not null,
+  image_url   text,
+  category    text not null default 'News',
+  published   boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+alter table announcements enable row level security;
+drop policy if exists "announcements open write" on announcements;
+create policy "announcements open write" on announcements for all using (true) with check (true);
+
+-- 0b. farm_activities table (referenced by farm_activity_photos below)
+create table if not exists farm_activities (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       text not null,
+  activity_type text not null check (activity_type in ('fertilizer','pruning','self_harvest','replanting','fertilizer_application')),
+  logged_date   date not null default current_date,
+  details       jsonb not null default '{}'::jsonb,
+  created_at    timestamptz not null default now()
+);
+create index if not exists idx_farm_activities_user on farm_activities(user_id, activity_type, logged_date desc);
+alter table farm_activities enable row level security;
+drop policy if exists "farm_activities open write" on farm_activities;
+create policy "farm_activities open write" on farm_activities for all using (true) with check (true);
+
+-- 0c. users table — make sure it exists with a basic shape (referenced by most new tables)
+-- (users table is created by an earlier migration; this is a safety net for clean installs.)
+create table if not exists users (
+  id          text primary key,
+  email       text unique,
+  name        text,
+  role        text not null default 'supplier',
+  associated_entity_id text,
+  created_at  timestamptz not null default now()
+);
+alter table users enable row level security;
+drop policy if exists "users open read" on users;
+create policy "users open read" on users for select using (true);
+
+-- 0d. estates table — safety net
+create table if not exists estates (
+  id              uuid primary key default gen_random_uuid(),
+  name            text not null,
+  region          text,
+  total_area_ha   numeric(10,2),
+  elevation_m     integer,
+  google_maps_embed_url text,
+  planted_date    date,
+  latitude        numeric(10,7),
+  longitude       numeric(10,7),
+  total_bush_count integer,
+  total_area_acres numeric(12,2),
+  created_at      timestamptz not null default now()
+);
+
+-- 0e. divisions — safety net
+create table if not exists divisions (
+  id          uuid primary key default gen_random_uuid(),
+  estate_id   uuid not null references estates(id) on delete cascade,
+  name        text not null,
+  manager     text,
+  area_ha     numeric(10,2),
+  created_at  timestamptz not null default now()
+);
+
+-- 0f. fields — safety net
+create table if not exists fields (
+  id            uuid primary key default gen_random_uuid(),
+  division_id   uuid not null references divisions(id) on delete cascade,
+  code          text not null,
+  name          text not null,
+  cultivar      text,
+  planting_year integer,
+  area_ha       numeric(10,2),
+  elevation_m   integer,
+  status        text not null default 'plucking',
+  last_yield_kg numeric(12,2) not null default 0,
+  bush_count    integer default 0,
+  bush_count_verified_at timestamptz,
+  created_at    timestamptz not null default now()
+);
+
+-- 0g. workers — safety net
+create table if not exists workers (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
+  full_name   text,
+  nic         text,
+  division    text,
+  role        text,
+  estate_id   uuid references estates(id) on delete set null,
+  phone       text,
+  basic_salary numeric(12,2) default 0,
+  status      text not null default 'active',
+  created_at  timestamptz not null default now()
+);
+
+-- 0h. stock_items — safety net (Phase 1 supplier_fertilizer_ledger references this)
+create table if not exists stock_items (
+  id              uuid primary key default gen_random_uuid(),
+  code            text unique not null,
+  name            text not null,
+  category        text not null,
+  unit            text not null default 'kg',
+  qty_on_hand     numeric(12,2) not null default 0,
+  reorder_level   numeric(12,2) not null default 0,
+  unit_cost       numeric(12,2) not null default 0,
+  estate_id       uuid references estates(id) on delete set null,
+  version         integer not null default 1,
+  created_at      timestamptz not null default now()
+);
+
+-- 0i. harvest_records — safety net
+create table if not exists harvest_records (
+  id              uuid primary key default gen_random_uuid(),
+  supplier_id     text,
+  estate_id       uuid references estates(id) on delete set null,
+  gross_kg        numeric(12,2) not null default 0,
+  deduction_kg    numeric(12,2) not null default 0,
+  net_kg          numeric(12,2) not null default 0,
+  grade           text,
+  performed_at    timestamptz not null default now(),
+  recorded_by     text
+);
+
+-- 0j. sales_invoices — safety net
+create table if not exists sales_invoices (
+  id              uuid primary key default gen_random_uuid(),
+  invoice_code    text unique,
+  supplier_id     text,
+  estate_id       uuid references estates(id) on delete set null,
+  invoice_date    date not null default current_date,
+  total_amount    numeric(14,2) not null default 0,
+  status          text not null default 'unpaid',
+  created_at      timestamptz not null default now()
+);
 
 -- ============================================================================
 -- 1. estates — add contact_phone (Sir's spec B.7)
