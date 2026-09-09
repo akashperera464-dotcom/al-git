@@ -254,6 +254,15 @@ export function SupplierRequestForm() {
                         <span className="font-semibold">{t("request.adminLabel")}</span> {r.adminNotes}
                       </div>
                     )}
+                    {/* NEW (Sir's spec A.4): When APPROVED, show "fulfilled" confirmation in-app
+                        so supplier sees stock was deducted + they can collect. */}
+                    {r.status === "APPROVED" && (
+                      <div className="mt-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-700">
+                        <span className="font-semibold">✅ Request fulfilled:</span> {r.quantity}× {r.itemDetails}
+                        was issued from the factory's stock. Please collect from the estate office at your earliest convenience.
+                        <span className="block mt-0.5 text-emerald-600">📋 Approved on {new Date(r.timestamp).toLocaleDateString()}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>

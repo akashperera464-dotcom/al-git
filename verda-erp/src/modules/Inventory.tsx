@@ -30,6 +30,10 @@ export default function Inventory() {
   const [newQty, setNewQty] = useState(0);
   const [newUnitCost, setNewUnitCost] = useState(0);
   const [newReorderLevel, setNewReorderLevel] = useState(0);
+  // NEW (Sir's spec B.9): batch/lot, expiry, supplier source
+  const [newBatchNumber, setNewBatchNumber] = useState("");
+  const [newExpiryDate, setNewExpiryDate] = useState("");
+  const [newSupplierSource, setNewSupplierSource] = useState("");
 
   // PO form
   const [poSupplier, setPoSupplier] = useState("");
@@ -88,6 +92,7 @@ export default function Inventory() {
       });
 
       setNewCode(""); setNewName(""); setNewQty(0); setNewUnitCost(0); setNewReorderLevel(0);
+      setNewBatchNumber(""); setNewExpiryDate(""); setNewSupplierSource("");
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create");
@@ -321,6 +326,24 @@ export default function Inventory() {
                   Opening value: <strong>Rs {(newQty * newUnitCost).toLocaleString()}</strong> ({fmtNum(newQty)} × Rs {newUnitCost.toLocaleString()})
                 </div>
               )}
+              {/* NEW (Sir's spec B.9): Batch/Lot, Expiry, Supplier Source */}
+              <div className="border-t border-slate-200 pt-2 mt-2">
+                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide mb-1.5">Tracking (Optional)</p>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[11px] text-slate-400">Batch / Lot Number</label>
+                    <input value={newBatchNumber} onChange={e => setNewBatchNumber(e.target.value)} placeholder="e.g. BATCH-2026-001" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-400">Expiry Date (for agrochemicals)</label>
+                    <input type="date" value={newExpiryDate} onChange={e => setNewExpiryDate(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-slate-400">Supplier Source (vendor)</label>
+                    <input value={newSupplierSource} onChange={e => setNewSupplierSource(e.target.value)} placeholder="e.g. CIC Fertilizers Ltd" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                  </div>
+                </div>
+              </div>
               <button onClick={addStockItem} disabled={busy} className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Add</button>
             </div>
           </Card>

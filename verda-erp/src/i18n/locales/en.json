@@ -103,7 +103,8 @@
     "supplier-fertilizer": { "l": "My Fertilizer", "s": "Fertilizer" },
     "supplier-announcements": { "l": "Estate Updates", "s": "Updates" },
     "supplier-requests": { "l": "Request Resources", "s": "Request" },
-    "announcements": { "l": "Announcements", "s": "Posts" }
+    "announcements": { "l": "Announcements", "s": "Posts" },
+    "supplier-insights": { "l": "Supplier Insights", "s": "Insights" }
   },
   "roles": {
     "superAdmin": "Super Admin",

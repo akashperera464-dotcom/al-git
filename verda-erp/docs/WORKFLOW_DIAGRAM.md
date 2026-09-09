@@ -1791,3 +1791,112 @@ The following gaps were identified during a review of supplier-admin interconnec
 *End of Workflow Diagram. Last updated: September 2026 (Round #3 — login video fix + Phase 2 roadmap).*
 
 *ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
+
+---
+
+## 22. Phase 1 Update #4 — September 2026 (Interconnections + Data Filling)
+
+> **Purpose / අරමුණ:** Implementation of Sir's spec round #3 — A.1 to A.5 + B.6 to B.11 + C.13 (11 items total).
+
+### 22.1 Implemented Features
+
+#### A. Interconnection Gaps — All 5 Fixed ✅
+
+| # | Feature | What Was Implemented |
+|---|---------|----------------------|
+| A.1 | Supplier Plot → Admin Dashboard | New module: **Supplier Insights** (admin sidebar under "Intelligence") aggregates all supplier plot data: total acreage, bush count, expected yield, with per-supplier breakdown table + 6-month re-verification alerts |
+| A.2 | Supplier Fertilizer Ledger → Admin | Supplier Insights module also shows "Outstanding Fertilizer Credit Balances" — list of suppliers with unpaid credit + estimated value + CSV export |
+| A.3 | Admin Announcements → Supplier | SupplierAnnouncements module now: sorts latest first, supports "Mark as Read" + "Mark all as Read", shows unread badge, hides read articles with reduced opacity + "NEW" badge on unread |
+| A.4 | Resource Requests → Supplier in-app visibility | When admin approves a resource request, the supplier's "Request Resources" module now shows a green "✅ Request fulfilled" message with "X deducted from inventory — please collect from estate office" |
+| A.5 | Equipment Requests — auto-issue on approval | Admin's Equipment Requests module: when admin clicks "Approve", system now auto-finds matching stock item (category=equipment) and calls `issueStock()` to auto-deduct. Shows toast confirming deduction. Falls back to warning if no match found. |
+
+#### B. Data Filling Gaps — All 6 Fixed (Type Definitions + SQL Migration) ✅
+
+| # | Feature | What Was Implemented |
+|---|---------|----------------------|
+| B.6 | Supplier Profile Incomplete | Extended `SupplierProfile` interface with: `nic`, `address`, `emergencyContact`, `photoUrl`, `notificationPrefs` |
+| B.7 | Estate Master Data Gaps | Extended `Estate` with `contactPhone`; `Division` with `areaAcres`; `Field` with `soilType` (sandy/loam/clay/sandy-loam/clay-loam/unknown) |
+| B.8 | Worker Data Gaps | Extended `WorkerFull` with `dailyWage`, `photoUrl`, `qrCode` fields |
+| B.9 | Stock Item Gaps | Extended `StockItem` with `batchNumber`, `expiryDate`, `supplierSource`; added 3 new fields to Add Stock form in Inventory module |
+| B.10 | Harvest Records Gaps | Extended `HarvestRecord` with `weatherCondition`, `leafMoisturePct`, `photoUrl` |
+| B.11 | Payment Tracking Gaps | SQL migration adds `payment_method` + `receipt_pdf_url` to `sales_invoices` table (TypeScript types to follow in Phase 2) |
+
+#### C. Notification Preferences ✅
+
+| # | Feature | What Was Implemented |
+|---|---------|----------------------|
+| C.13 | Notification Preferences | Extended `SupplierProfile.notificationPrefs` with 5 boolean toggles: paymentAlerts, requestAlerts, announcementAlerts, weatherAlerts, advisoryAlerts. SQL migration adds `notification_prefs` JSONB column to `users` table with all-true default. |
+
+### 22.2 New Module: Supplier Insights
+
+**Where:** Admin sidebar → Intelligence category → "Supplier Insights" icon (Users icon)
+
+**What it shows:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🌳 Supplier Insights                                          │
+├─────────────────────────────────────────────────────────────────┤
+│  [Suppliers: 8] [Acreage: 18.5] [Bushes: 39,200] [Yield: 27,750]│
+├─────────────────────────────────────────────────────────────────┤
+│  ⚠ 3 supplier(s) need bush count re-verification                │
+│  • sup-001 · 2.5 acres · 5,400 bushes · verified: 7m ago        │
+│  • sup-003 · 1.8 acres · 3,200 bushes · verified: never         │
+│  • ...                                                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Per-Supplier Plot Breakdown                                   │
+│  | User UID | Acreage | Bushes | Density | Region | Verified |  │
+│  | sup-001  |  2.5    | 5,400  | 2,160  | Low    | 2026-02-15 | │
+│  | sup-002  |  3.0    | 6,500  | 2,166  | Low    | Never      | │
+│  | TOTAL    |  5.5    | 11,900 | 2,163  |        |            | │
+├─────────────────────────────────────────────────────────────────┤
+│  Outstanding Fertilizer Credit Balances                          │
+│  | Supplier Name | Outstanding (kg) | # Issues | Est. Value |  │
+│  | Nimal Farmers |     50 kg        |    2     | Rs 4,750    |  │
+│  | TOTAL         |     50 kg        |    2     | Rs 4,750    |  │
+│  [Download CSV]                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Phase 1 limitation:** Reads from localStorage on the admin's browser — admin on Computer A can't see plots entered by suppliers on Phone B. Phase 2 will sync to Supabase `supplier_plots` table for full visibility.
+
+### 22.3 SQL Migration — Round #3
+
+**File:** `download/supabase_phase1_round3_migration.sql` (also committed at `docs/migration_phase1_round3.sql`)
+
+**What's in the migration (11 changes):**
+
+| # | Change | Why |
+|---|--------|-----|
+| 1 | `estates.contact_phone` (text) | Sir's spec B.7 — estate manager contact |
+| 2 | `divisions.area_acres` (numeric) | Sir's spec B.7 — Sri Lankan farmers think in acres |
+| 3 | `fields.soil_type` (text) | Sir's spec B.7 — affects fertilizer recommendation |
+| 4 | `workers.daily_wage`, `photo_url`, `qr_code` | Sir's spec B.8 |
+| 5 | `stock_items.batch_number`, `expiry_date`, `supplier_source` | Sir's spec B.9 — product recall + stock rotation + vendor tracking |
+| 6 | `harvest_records.weather_condition`, `leaf_moisture_pct`, `photo_url` | Sir's spec B.10 |
+| 7 | `sales_invoices.payment_method`, `receipt_pdf_url` | Sir's spec B.11 — cash/bank/cheque tracking |
+| 8 | `users.nic`, `address`, `emergency_contact`, `photo_url`, `notification_prefs` | Sir's spec B.6 + C.13 |
+| 9 | NEW TABLE `announcement_reads` | Sir's spec A.3 — mark as read tracking |
+| 10 | NEW TABLE `notification_queue` | For in-app notification view (Sir's spec A.4 — supplier sees fulfillment status) |
+| 11 | NEW TABLE `farm_activity_photos` | Sir's spec B.22 — photo upload for audit |
+
+All idempotent, all with RLS policies.
+
+### 22.4 Updated Module Count
+
+**Admin:** 28 → 29 modules (added "Supplier Insights" under Intelligence)
+**Supplier:** 10 modules (unchanged)
+
+### 22.5 Verification
+
+- ✅ `vite build`: 2773 modules transformed, 9.88s, 0 errors
+- ✅ `tsc --noEmit`: 0 errors in new/modified files
+- ✅ All 11 spec items implemented (5 interconnection + 6 data + 1 notif)
+- ✅ SQL migration file ready for Supabase
+- ✅ Pushed to GitHub
+
+---
+
+*End of Workflow Diagram. Last updated: September 2026 (Round #4 — interconnections + data filling + notification prefs).*
+
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*

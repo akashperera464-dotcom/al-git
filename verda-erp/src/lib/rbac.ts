@@ -70,6 +70,7 @@ export type Capability =
   | "finance.view"
   | "weather.view"
   | "ai.view"
+  | "supplier.insights"
   | "audit.view"
   | "offline.manage"
   | "users.manage"
@@ -104,7 +105,7 @@ const ADMIN_CAPS: Capability[] = [
   "dashboard.view", "estate.master", "crop.view", "gis.view", "labor.view",
   "harvest.view", "vehicles.manage", "factory.view", "inventory.manage",
   "fertilizer.manage", "agrochemical.manage", "payroll.manage", "loans.view",
-  "loyalty.manage", "welfare.view", "finance.view", "weather.view", "ai.view",
+  "loyalty.manage", "welfare.view", "finance.view", "weather.view", "ai.view", "supplier.insights",
   "audit.view", "offline.manage", "users.manage", "platform.view", "requests.manage", "announcements.manage",
 ];
 
@@ -176,6 +177,7 @@ export const MODULES: NavItem[] = [
   { key: "finance", label: "Finance & Accounting", short: "Finance", icon: Calculator, category: "finance", roles: ["admin"], capability: "finance.view" },
   { key: "weather", label: "Weather & Environment", short: "Weather", icon: CloudSun, category: "intelligence", roles: ["admin"], capability: "weather.view" },
   { key: "ai", label: "AI & Analytics", short: "AI", icon: BrainCircuit, category: "more", roles: ["admin"], capability: "ai.view", premium: true },
+  { key: "supplier-insights", label: "Supplier Insights", short: "Insights", icon: Users, category: "intelligence", roles: ["admin"], capability: "supplier.insights" },
   { key: "audit", label: "Audit & Compliance", short: "Compliance", icon: ShieldCheck, category: "more", roles: ["admin"], capability: "audit.view" },
   { key: "mobile", label: "Mobile & Offline", short: "Offline", icon: Smartphone, category: "more", roles: ["admin"], capability: "offline.manage" },
   { key: "architecture", label: "Architecture & Docs", short: "Blueprint", icon: Workflow, category: "more", roles: ["admin"], capability: "platform.view" },

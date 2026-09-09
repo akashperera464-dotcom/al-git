@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Wrench, Plus, Loader2, CheckCircle2, XCircle, Clock3, Send } from "lucide-react";
+import { Wrench, CheckCircle2, XCircle, Clock3, Send } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip, Segmented } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum, addDays, TODAY_ISO, type EquipmentCategory } from "@/lib/data";
@@ -47,11 +46,9 @@ interface EquipmentRequest {
 const STORAGE_KEY = "kdu.equipment_requests";
 
 export default function EquipmentRequests() {
-  const { t } = useTranslation();
-  const { userUid, notify } = useApp();
+  const { notify } = useApp();
 
   const [requests, setRequests] = useState<EquipmentRequest[]>([]);
-  const [busy, setBusy] = useState(false);
 
   // Form state
   const [category, setCategory] = useState<EquipmentCategory>("Plucking Machine");
@@ -100,8 +97,56 @@ export default function EquipmentRequests() {
   };
 
   const approve = (id: string) => {
+    const req = requests.find(r => r.id === id);
+    if (!req) return;
     persist(requests.map(r => r.id === id ? { ...r, status: "APPROVED" } : r));
     notify({ title: "Approved", body: "Equipment request approved.", tone: "emerald", channel: "system" });
+
+    // NEW (Sir's spec A.5): Auto-issue from Inventory on approval.
+    // Find matching stock_item (by category='equipment' + matching name) and
+    // call issueStock() to auto-deduct. Best-effort — if no match, just approve.
+    void (async () => {
+      try {
+        const { listStockItems, issueStock } = await import("@/lib/repo.phase2");
+        const stockItems = await listStockItems();
+        // Match: category='equipment' + name contains itemName OR vice versa
+        const match = stockItems.find(s =>
+          s.category === "equipment" && (
+            s.name.toLowerCase().includes(req.itemName.toLowerCase()) ||
+            req.itemName.toLowerCase().includes(s.name.toLowerCase()) ||
+            s.code.toLowerCase() === req.itemName.toLowerCase()
+          )
+        );
+        if (match) {
+          await issueStock({
+            stockItemId: match.id,
+            qty: req.quantity,
+            performedBy: "system-equipment-approve",
+            notes: `[Equipment Req #${id.slice(-6).toUpperCase()} · ${req.category} · auto-issue on approval]`,
+          });
+          notify({
+            title: "✅ Auto-issued from Inventory",
+            body: `${req.quantity}× ${match.name} auto-deducted from stock (was ${match.qtyOnHand} ${match.unit}, now ${match.qtyOnHand - req.quantity}).`,
+            tone: "emerald",
+            channel: "system",
+          });
+        } else {
+          notify({
+            title: "⚠ No matching stock item",
+            body: `Could not find "${req.itemName}" in Inventory (category=equipment). Approved but stock NOT auto-deducted. Please deduct manually.`,
+            tone: "amber",
+            channel: "system",
+          });
+        }
+      } catch (e) {
+        notify({
+          title: "Auto-issue failed",
+          body: `Approved but couldn't deduct stock: ${e instanceof Error ? e.message : "Unknown error"}`,
+          tone: "rose",
+          channel: "system",
+        });
+      }
+    })();
   };
   const reject = (id: string) => {
     persist(requests.map(r => r.id === id ? { ...r, status: "REJECTED", adminNotes: "Insufficient stock / unavailable" } : r));
@@ -168,8 +213,8 @@ export default function EquipmentRequests() {
                 placeholder="e.g. Needed for the peak flush plucking round in Sutton division…"
                 className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
-            <button onClick={submit} disabled={busy}
-              className="w-full rounded-lg bg-sky-600 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50 inline-flex items-center justify-center gap-1.5">
+            <button onClick={submit}
+              className="w-full rounded-lg bg-sky-600 py-2 text-sm font-semibold text-white hover:brightness-110 inline-flex items-center justify-center gap-1.5">
               <Send className="h-3.5 w-3.5" /> Submit Request
             </button>
           </div>
