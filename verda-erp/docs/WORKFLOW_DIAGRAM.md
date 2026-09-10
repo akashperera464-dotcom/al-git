@@ -2132,3 +2132,81 @@ In **Supplier Insights** module → "Estate Registrations" tab:
 *End of Workflow Diagram. Last updated: September 2026 (Round #6 — estate registration workflow).*
 
 *ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
+
+---
+
+## 25. Phase 2 — Smart Alerts + Auto-Increment + SQL Migration (Round #7)
+
+> **Purpose / අරමුණ:** Phase 2 implementation — bush count auto-increment, smart automated alerts, weather guard, SQL migration for Supabase.
+
+### 25.1 Phase 2 Features Implemented
+
+#### A. Bush Count Auto-Increment on Replanting ✅
+
+When supplier logs a replanting activity with N new plants:
+- System automatically adds N to the supplier's total bush count in localStorage
+- Toast: "🌳 Bush count updated ✅ — අලුතින් සිටුවූ පැළ Nක් එකතු කරන ලදී."
+- My Plot shows updated count on next open
+
+#### B. Smart Automated Alerts (4 alert types) ✅
+
+New "🤖 ස්වයංක්‍රීය දැනුම්දීම් · Smart Automated Alerts" card in Smart Alerts Panel:
+
+| Alert | Trigger | Tone |
+|-------|---------|------|
+| Next Fertilizer Cycle | 90+ days since last fertilizer log | Amber |
+| Fertilizer Approaching | 75-89 days since last | Sky |
+| Pruning Mixture Reminder | 40-50 days after pruning | Emerald |
+| New Flush Emerging | 50+ days after pruning | Emerald |
+| Replanting Water/Shade | Within 90 days of replanting | Sky |
+| Weather Guard | Rain ≥60% + fertilizer logged in last 7 days | Red |
+
+All alerts are bilingual (Sinhala + English) + computed from farm activity history.
+
+#### C. Weather Guard on Fertilizer Log ✅
+
+When supplier logs a fertilizer application:
+- System checks OpenWeatherMap forecast for next 2 days
+- If rain probability ≥60% → red toast immediately:
+  "⚠️ තද වැසි අනතුරු ඇඟවීම — පොහොර සෝදා යාමේ අවදානමක් ඇත!"
+
+### 25.2 SQL Migration — Round #4 (Phase 2)
+
+**File:** `download/supabase_phase2_round4_migration.sql` (also at `docs/migration_phase2_round4.sql`)
+
+| # | Change | Why |
+|---|--------|-----|
+| 1 | NEW TABLE `estate_registration_requests` | Supplier estate registration → admin approval workflow. Columns: supplier_id, plot_name, acreage, bush_count, cultivar, region, soil_type, latitude, longitude, address, contact_phone, photo_urls[], land_document_url, notes, status, admin_notes, submitted_at, reviewed_at, reviewed_by, edit_count |
+| 2 | NEW TABLE `estate_blocks` | Supplier's plot divisions/blocks (උඩ කොටස, පහළ කොටස). Links to either estates table (admin) or estate_registration_requests (supplier). Columns: name, area_ha, area_acres, bush_count, cultivar, soil_type |
+| 3 | Index on `farm_activities.details->>'block'` | For querying "which block got fertilizer" — admin visibility |
+| 4 | NEW TABLE `smart_alert_log` | When SmartAutomatedAlerts computes an alert, it logs here so admin can see which suppliers are getting which alerts. Columns: user_id, alert_type, title, body, tone, computed_at |
+
+All tables include Row Level Security:
+- Suppliers see only their own data
+- Admins see all
+- All idempotent (CREATE TABLE IF NOT EXISTS)
+
+**To apply:** Open Supabase Dashboard → SQL Editor → paste contents → Run.
+
+### 25.3 Complete SQL Migration History
+
+| Round | File | What |
+|-------|------|------|
+| #1 | `docs/supabase_schema.sql` + `docs/migration_full_crud.sql` + `docs/migration_workers.sql` | Base schema (estates, divisions, fields, users, workers, stock_items, etc.) |
+| #2 | `download/supabase_migration_fix3.sql` | Phase 2 operational tables (finance, payroll, factory, HR, procurement) |
+| #3 | `download/supabase_phase1_sir_spec_migration.sql` | Phase 1: bush count, supplier_plots, supplier_fertilizer_ledger, equipment_requests, labor_daily_cost_snapshots |
+| #4 | `download/supabase_phase1_round3_migration.sql` | Phase 1 Round #3: soil type, batch/expiry, harvest records, notification prefs, announcement_reads, notification_queue, farm_activity_photos |
+| #5 | `download/supabase_phase2_round4_migration.sql` | **Phase 2:** estate_registration_requests, estate_blocks, smart_alert_log |
+
+### 25.4 Verification
+
+- ✅ `vite build`: succeeds (9.99s)
+- ✅ `tsc --noEmit`: no new errors
+- ✅ Pushed to GitHub
+- ⏳ Vercel deploying
+
+---
+
+*End of Workflow Diagram. Last updated: September 2026 (Round #7 — Phase 2 smart alerts + SQL migration).*
+
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
