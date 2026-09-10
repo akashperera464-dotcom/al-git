@@ -1,30 +1,37 @@
 import { useEffect, useState } from "react";
-import { Sprout, Save, Check, CalendarDays, TrendingUp, Trees, RefreshCw } from "lucide-react";
+import { Sprout, Save, Check, CalendarDays, TrendingUp, Trees, RefreshCw, MapPin, Camera, FileText, Send, Clock, XCircle } from "lucide-react";
 import { PageHeader, StatCard, Card, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum } from "@/lib/data";
-// (translation hook is not used here — all text is hard-coded for now)
+import {
+  saveRegistrationRequest,
+  getLatestRegistrationRequest,
+  type EstateRegistrationRequest,
+} from "@/lib/estateRegistration";
 
 /**
  * SupplierPlot — "My Plot" module (supplier side)
  * ------------------------------------------------------------------
- * Per Sir's Phase 1 spec #1 + #4:
- *   #1 — Acreage & Bush Count Management: තමන්ගේ වත්තේ අක්කර ගණන සහ තේ ගස් ගණන (Bush Count) Enter කිරීමේ පහසුකම.
- *   #4 — Auto Bush-Count Verification Prompt: මාස 6කට සැරයක් "Verify your bush count" Reminder.
+ * Per Sir's spec round #5:
+ *   - Supplier registers estate with all necessary details
+ *   - Request goes to admin for approval
+ *   - Supplier can enter lat/lon manually OR auto-detect via GPS button
+ *   - Edit option available (major changes require re-approval)
+ *   - On approval, data auto-populates My Plot module
  *
- * Each supplier enters their own plot acreage + bush count. The system:
- *   - Auto-calculates bushes/acre ratio (density)
- *   - Auto-calculates potential max yield (1500 kg green leaf/acre/year for low-country)
- *   - Shows a 6-month re-verify reminder banner
- *   - Saves to localStorage (Phase 1) — Phase 2 will sync to Supabase `supplier_plots` table
+ * Three modes:
+ *   1. "register" — no approved plot data + no pending request → show registration form
+ *   2. "pending" — pending request submitted → show "Awaiting Approval" status
+ *   3. "view" — approved plot data exists → show stats + details + edit
+ *   4. "rejected" — latest request rejected → show rejection reason + allow resubmit
  */
 const STORAGE_KEY = (userUid: string) => `kdu.supplier_plot.${userUid}`;
 
 interface PlotSubField {
   id: string;
-  code: string;            // e.g., "P-01"
-  name: string;            // e.g., "Upper Plot"
-  cultivar: string;        // e.g., "TRI 2025 (VP)"
+  code: string;
+  name: string;
+  cultivar: string;
   plantingYear: number;
   areaHa: number;
   bushCount: number;
@@ -34,12 +41,18 @@ interface PlotSubField {
 interface PlotData {
   acreage: number;
   bushCount: number;
-  verifiedAt: string | null; // ISO timestamp of last verification
-  cultivar?: string; // e.g. TRI 2025 (VP)
-  region?: string; // low-country / mid-country / up-country
+  verifiedAt: string | null;
+  cultivar?: string;
+  region?: string;
   lastUpdated?: string;
-  // NEW (Sir's spec — suppliers create their own sub-fields like Estate Master):
   subFields?: PlotSubField[];
+  // Extended fields from approved registration
+  plotName?: string;
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  contactPhone?: string;
+  photoUrls?: string[];
 }
 
 const DEFAULT_PLOT: PlotData = {
@@ -58,17 +71,30 @@ const YIELD_BY_REGION: Record<string, number> = {
 };
 
 export function SupplierPlot() {
-  const { userUid, notify } = useApp();
+  const { userUid, user, notify } = useApp();
 
   const [plot, setPlot] = useState<PlotData>(DEFAULT_PLOT);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [regReq, setRegReq] = useState<EstateRegistrationRequest | null>(null);
+  const [locating, setLocating] = useState(false);
 
-  // Form state (only used when editing)
+  // Form state (used for both initial registration + editing)
   const [formAcreage, setFormAcreage] = useState(0);
   const [formBushCount, setFormBushCount] = useState(0);
   const [formCultivar, setFormCultivar] = useState("TRI 2025 (VP)");
   const [formRegion, setFormRegion] = useState<"low-country" | "mid-country" | "up-country">("low-country");
+  // NEW: Registration form fields
+  const [formPlotName, setFormPlotName] = useState("");
+  const [formLat, setFormLat] = useState<number | "">("");
+  const [formLon, setFormLon] = useState<number | "">("");
+  const [formAddress, setFormAddress] = useState("");
+  const [formPhone, setFormPhone] = useState("");
+  const [formPhoto1, setFormPhoto1] = useState("");
+  const [formPhoto2, setFormPhoto2] = useState("");
+  const [formPhoto3, setFormPhoto3] = useState("");
+  const [formLandDoc, setFormLandDoc] = useState("");
+  const [formNotes, setFormNotes] = useState("");
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -81,8 +107,17 @@ export function SupplierPlot() {
         setFormBushCount(data.bushCount);
         setFormCultivar(data.cultivar ?? "TRI 2025 (VP)");
         setFormRegion((data.region as any) ?? "low-country");
+        setFormPlotName(data.plotName ?? "");
+        setFormLat(data.latitude ?? "");
+        setFormLon(data.longitude ?? "");
+        setFormAddress(data.address ?? "");
+        setFormPhone(data.contactPhone ?? "");
       }
     } catch { /* ignore */ }
+
+    // Also load latest registration request
+    const latest = getLatestRegistrationRequest(userUid);
+    setRegReq(latest);
   }, [userUid]);
 
   const persist = (next: PlotData) => {
@@ -126,6 +161,84 @@ export function SupplierPlot() {
       channel: "system",
     });
   };
+
+  // ---- NEW (Sir's spec): Auto-detect GPS location ----
+  const autoDetectLocation = () => {
+    setLocating(true);
+    if (!("geolocation" in navigator)) {
+      notify({ title: "GPS not supported", body: "Geolocation is not available on this device.", tone: "rose", channel: "system" });
+      setLocating(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormLat(+pos.coords.latitude.toFixed(6));
+        setFormLon(+pos.coords.longitude.toFixed(6));
+        setLocating(false);
+        notify({ title: "📍 Location detected", body: `Lat: ${pos.coords.latitude.toFixed(4)}, Lon: ${pos.coords.longitude.toFixed(4)}`, tone: "sky", channel: "system" });
+      },
+      (err) => {
+        const msgs: Record<number, string> = {
+          1: "Location permission denied. Please allow location access.",
+          2: "Position unavailable. Check your GPS signal.",
+          3: "Location request timed out. Try again.",
+        };
+        notify({ title: "Location error", body: msgs[err.code] ?? "Could not get your location.", tone: "rose", channel: "system" });
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
+
+  // ---- NEW (Sir's spec): Submit registration request for admin approval ----
+  const submitRegistration = () => {
+    if (!formPlotName.trim()) { notify({ title: "Missing plot name", body: "Please enter a name for your plot.", tone: "rose", channel: "system" }); return; }
+    if (formAcreage <= 0) { notify({ title: "Missing acreage", body: "Please enter your plot acreage.", tone: "rose", channel: "system" }); return; }
+    if (formBushCount <= 0) { notify({ title: "Missing bush count", body: "Please enter your bush count.", tone: "rose", channel: "system" }); return; }
+
+    const photoUrls = [formPhoto1, formPhoto2, formPhoto3].filter(u => u.trim());
+
+    const req: EstateRegistrationRequest = {
+      id: `reg-${Date.now()}`,
+      supplierId: userUid,
+      supplierName: user?.name ?? userUid,
+      plotName: formPlotName.trim(),
+      acreage: formAcreage,
+      bushCount: formBushCount,
+      cultivar: formCultivar,
+      region: formRegion,
+      latitude: typeof formLat === "number" ? formLat : 0,
+      longitude: typeof formLon === "number" ? formLon : 0,
+      address: formAddress.trim(),
+      contactPhone: formPhone.trim(),
+      photoUrls,
+      landDocumentUrl: formLandDoc.trim() || undefined,
+      notes: formNotes.trim(),
+      status: "PENDING",
+      adminNotes: "",
+      submittedAt: new Date().toISOString(),
+      reviewedAt: null,
+      reviewedBy: null,
+      editCount: regReq ? regReq.editCount + 1 : 0,
+      lastEditedAt: regReq ? new Date().toISOString() : null,
+    };
+    saveRegistrationRequest(req);
+    setRegReq(req);
+    notify({
+      title: "✅ Registration submitted!",
+      body: `"${req.plotName}" — awaiting admin approval. You'll be notified once approved.`,
+      tone: "sky",
+      channel: "system",
+    });
+  };
+
+  // ---- Determine which mode to show ----
+  // Mode priority: pending request > rejected (show form) > no data (show form) > approved data (show view)
+  const mode: "register" | "pending" | "rejected" | "view" =
+    regReq?.status === "PENDING" ? "pending"
+    : regReq?.status === "REJECTED" ? "rejected"
+    : plot.acreage === 0 ? "register"
+    : "view";
 
   // NEW (Sir's spec): Sub-field management — like admin's Estate Master but for the supplier's own plot.
   // Suppliers can divide their plot into sub-sections (e.g., "Upper Plot", "Lower Plot") and
@@ -241,10 +354,201 @@ export function SupplierPlot() {
       <PageHeader
         eyebrow="VVIP Supplier Portal"
         title="My Plot"
-        desc="Track your tea plot acreage + bush count. The system reminds you every 6 months to re-verify the bush count (since plants die or get replanted). Auto-calculates potential yield."
+        desc="Register your tea plot with all details. Admin must approve before your plot becomes active. You can auto-detect your GPS location or enter it manually."
         icon={<IconChip icon={Sprout} tone="emerald" className="h-12 w-12" />}
       />
 
+      {/* ===== PENDING STATUS — registration awaiting admin approval ===== */}
+      {mode === "pending" && regReq && (
+        <Card className="mt-4 p-5 border-amber-200 bg-amber-50">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-5 w-5 text-amber-600" />
+            <h3 className="font-display text-base font-bold text-amber-800">⏳ Registration Awaiting Approval</h3>
+          </div>
+          <p className="text-sm text-amber-700 mb-3">
+            Your plot "<strong>{regReq.plotName}</strong>" was submitted on {new Date(regReq.submittedAt).toLocaleDateString()}.
+            Admin will review and approve/reject it. You'll be notified when it's approved.
+          </p>
+          <div className="grid grid-cols-2 gap-3 text-sm border-t border-amber-200 pt-3">
+            <div><span className="text-amber-600">Acreage:</span> <strong>{regReq.acreage} acres</strong></div>
+            <div><span className="text-amber-600">Bush Count:</span> <strong>{fmtNum(regReq.bushCount)}</strong></div>
+            <div><span className="text-amber-600">Cultivar:</span> <strong>{regReq.cultivar}</strong></div>
+            <div><span className="text-amber-600">Region:</span> <strong className="capitalize">{regReq.region.replace("-", " ")}</strong></div>
+            <div><span className="text-amber-600">GPS:</span> <strong>{regReq.latitude.toFixed(4)}, {regReq.longitude.toFixed(4)}</strong></div>
+            <div><span className="text-amber-600">Phone:</span> <strong>{regReq.contactPhone || "—"}</strong></div>
+          </div>
+          {regReq.address && <p className="mt-2 text-xs text-amber-600">📍 {regReq.address}</p>}
+          {regReq.notes && <p className="mt-1 text-xs text-amber-600 italic">Notes: "{regReq.notes}"</p>}
+          {regReq.photoUrls.length > 0 && (
+            <div className="mt-2">
+              <p className="text-[11px] text-amber-600 font-semibold mb-1">📷 Photos:</p>
+              <div className="flex gap-2">
+                {regReq.photoUrls.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-amber-700 underline">Photo {i + 1}</a>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* ===== REJECTED STATUS — show rejection reason + allow resubmit ===== */}
+      {mode === "rejected" && regReq && (
+        <Card className="mt-4 p-5 border-rose-200 bg-rose-50">
+          <div className="flex items-center gap-2 mb-2">
+            <XCircle className="h-5 w-5 text-rose-600" />
+            <h3 className="font-display text-base font-bold text-rose-800">❌ Registration Rejected</h3>
+          </div>
+          <p className="text-sm text-rose-700 mb-2">
+            Your plot "<strong>{regReq.plotName}</strong>" was rejected on {regReq.reviewedAt ? new Date(regReq.reviewedAt).toLocaleDateString() : "—"}.
+          </p>
+          {regReq.adminNotes && (
+            <div className="rounded-lg bg-white border border-rose-200 px-3 py-2 text-sm text-rose-700 mb-3">
+              <strong>Admin's reason:</strong> {regReq.adminNotes}
+            </div>
+          )}
+          <p className="text-xs text-rose-600">Please review the feedback above, update your details, and resubmit below.</p>
+        </Card>
+      )}
+
+      {/* ===== REGISTRATION FORM — for first-time registration OR rejected resubmit ===== */}
+      {(mode === "register" || mode === "rejected") && (
+        <Card className="mt-4 p-4">
+          <h3 className="mb-3 font-display text-sm font-bold text-slate-800">
+            {mode === "rejected" ? "📝 Update & Resubmit Registration" : "📝 Register Your Tea Plot"}
+          </h3>
+          <p className="text-[11px] text-slate-500 mb-3">
+            Fill in all details below. Your plot will be reviewed by the admin before activation.
+            Use the 📍 Auto-Detect button to fill your GPS coordinates automatically.
+          </p>
+          <div className="space-y-3">
+            {/* Plot name + phone */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-slate-400">Plot Name *</label>
+                <input value={formPlotName} onChange={e => setFormPlotName(e.target.value)} placeholder="e.g., Nimal's Tea Plot" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400">Contact Phone</label>
+                <input value={formPhone} onChange={e => setFormPhone(e.target.value)} placeholder="+94 77 123 4567" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+              </div>
+            </div>
+            {/* Acreage + bush count */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-slate-400">Acreage (acres) *</label>
+                <input type="number" min={0} step="any" value={formAcreage || ""} onChange={e => setFormAcreage(+e.target.value)} placeholder="2.5" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400">Bush Count *</label>
+                <input type="number" min={0} value={formBushCount || ""} onChange={e => setFormBushCount(+e.target.value)} placeholder="5400" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+              </div>
+            </div>
+            {/* Cultivar + region */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-slate-400">Cultivar</label>
+                <select value={formCultivar} onChange={e => setFormCultivar(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+                  <option value="TRI 2025 (VP)">TRI 2025 (VP)</option>
+                  <option value="TRI 2023 (VP)">TRI 2023 (VP)</option>
+                  <option value="TRI 2024 (VP)">TRI 2024 (VP)</option>
+                  <option value="Seedling">Seedling</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400">Region</label>
+                <select value={formRegion} onChange={e => setFormRegion(e.target.value as any)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+                  <option value="low-country">Low-Country (පහතරට) — ~1,500 kg/acre</option>
+                  <option value="mid-country">Mid-Country (මැදරට) — ~1,100 kg/acre</option>
+                  <option value="up-country">Up-Country (ඉහළරට) — ~800 kg/acre</option>
+                </select>
+              </div>
+            </div>
+            {/* GPS coordinates with auto-detect */}
+            <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] text-sky-700 font-semibold flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" /> GPS Coordinates *
+                </label>
+                <button
+                  onClick={autoDetectLocation}
+                  disabled={locating}
+                  className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  {locating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <MapPin className="h-3.5 w-3.5" />}
+                  {locating ? "Detecting..." : "📍 Auto-Detect My Location"}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] text-slate-400">Latitude</label>
+                  <input type="number" step="any" value={formLat} onChange={e => setFormLat(e.target.value ? +e.target.value : "")} placeholder="6.9679" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Longitude</label>
+                  <input type="number" step="any" value={formLon} onChange={e => setFormLon(e.target.value ? +e.target.value : "")} placeholder="80.7618" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+                </div>
+              </div>
+              {typeof formLat === "number" && typeof formLon === "number" && (
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${formLat}&mlon=${formLon}&zoom=15`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1.5 inline-block text-[11px] text-sky-700 underline"
+                >
+                  🗺️ View on map (opens OpenStreetMap)
+                </a>
+              )}
+            </div>
+            {/* Address */}
+            <div>
+              <label className="text-[11px] text-slate-400">Address (village, district)</label>
+              <input value={formAddress} onChange={e => setFormAddress(e.target.value)} placeholder="e.g., Ragala, Walapane, Nuwara Eliya" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+            </div>
+            {/* Photo URLs (Phase 1: text input; Phase 2: file upload) */}
+            <div className="rounded-lg border border-slate-200 p-3">
+              <label className="text-[11px] text-slate-400 font-semibold flex items-center gap-1 mb-2">
+                <Camera className="h-3.5 w-3.5" /> Plot Photos (URLs — optional)
+              </label>
+              <div className="space-y-2">
+                <input value={formPhoto1} onChange={e => setFormPhoto1(e.target.value)} placeholder="Photo 1 URL (boundary/entrance)" className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs" />
+                <input value={formPhoto2} onChange={e => setFormPhoto2(e.target.value)} placeholder="Photo 2 URL (tea bushes)" className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs" />
+                <input value={formPhoto3} onChange={e => setFormPhoto3(e.target.value)} placeholder="Photo 3 URL (landscape)" className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs" />
+              </div>
+            </div>
+            {/* Land document URL (optional) */}
+            <div>
+              <label className="text-[11px] text-slate-400 font-semibold flex items-center gap-1">
+                <FileText className="h-3.5 w-3.5" /> Land Document URL (optional — deed/ඔප්පු)
+              </label>
+              <input value={formLandDoc} onChange={e => setFormLandDoc(e.target.value)} placeholder="URL to scan/photo of land deed" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+            </div>
+            {/* Notes */}
+            <div>
+              <label className="text-[11px] text-slate-400">Notes (optional)</label>
+              <textarea value={formNotes} onChange={e => setFormNotes(e.target.value)} rows={2} placeholder="Any additional information about your plot" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+            </div>
+            {/* Submit button */}
+            <button
+              onClick={submitRegistration}
+              className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-bold text-white hover:brightness-110 inline-flex items-center justify-center gap-1.5"
+            >
+              <Send className="h-4 w-4" /> Submit for Admin Approval
+            </button>
+            {formAcreage > 0 && formBushCount > 0 && (
+              <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] text-sky-700">
+                <strong>{fmtNum(Math.round(formBushCount / formAcreage))}</strong> bushes/acre density
+                · Expected yield: <strong>{fmtNum(Math.round(formAcreage * (YIELD_BY_REGION[formRegion] ?? YIELD_BY_REGION.default)))} kg/year</strong>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* ===== VIEW MODE — existing UI (only when mode === "view") ===== */}
+      {mode === "view" && (
+        <>
       {/* 6-month bush count re-verification reminder */}
       {isStale && (
         <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-800">
@@ -309,7 +613,7 @@ export function SupplierPlot() {
       )}
 
       {/* Edit form */}
-      {(editing || plot.acreage === 0) && (
+      {editing && (
         <Card className="mt-4 p-4">
           <h3 className="mb-3 font-display text-sm font-bold text-slate-800">
             {plot.acreage === 0 ? "Enter Your Plot Details" : "Edit Plot Details"}
@@ -561,6 +865,9 @@ export function SupplierPlot() {
             </div>
           )}
         </Card>
+      )}
+      {/* ===== END VIEW MODE ===== */}
+      </>
       )}
     </div>
   );
