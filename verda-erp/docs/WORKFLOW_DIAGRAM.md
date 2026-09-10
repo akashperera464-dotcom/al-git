@@ -1900,3 +1900,146 @@ All idempotent, all with RLS policies.
 *End of Workflow Diagram. Last updated: September 2026 (Round #4 — interconnections + data filling + notification prefs).*
 
 *ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
+
+---
+
+## 23. EMS Repositioning — September 2026 (Round #5)
+
+> **Purpose / අරමුණ:** Boss wants "Estate Management System (EMS)", not ERP. Remove corporate/financial features; focus on estate operations only.
+
+### 23.1 What Changed
+
+#### ❌ 4 ERP Modules Hidden (code retained for reversibility)
+
+| Module | Why Removed |
+|--------|-------------|
+| Finance & Accounting | Full GL + double-entry journals = core ERP |
+| Auction Sales | Colombo Tea Auction = trading, not estate mgmt |
+| Supplier Loans | Lending money to suppliers = finance, not estate mgmt |
+| Loyalty Program | Points/rewards/tiers = CRM/marketing, not estate mgmt |
+
+These 4 modules are no longer in the admin sidebar. Their code files (Finance.tsx, AuctionSales.tsx, SupplierLoans.tsx, Loyalty.tsx) are still in `src/modules/` and still registered in `registry.ts` — they just don't appear in the sidebar. If boss changes his mind, re-add 4 entries to MODULES array in `rbac.ts`.
+
+Also removed "Finance" category from CATEGORIES list (no longer used).
+
+#### ⚠️ 3 Borderline Modules Simplified (renamed + desc updated)
+
+| Module | Was | Now | Description |
+|--------|-----|-----|-------------|
+| Payroll | Payroll System | **Worker Payments** | "Daily wage tracking + monthly payment summary for estate workers. Simple ledger — no EPF/ETF." |
+| Loans | Loans & Advances | **Worker Advances** | "Simple cash advance log for estate workers + recovery tracking. No interest, no amortization." |
+| Welfare | Welfare Management | **Worker Welfare** | "Simple log of welfare provided to estate workers — housing, medical, education support. No scheme management." |
+
+#### 🔄 2 Modules Rebranded
+
+| Module | Was | Now | Sidebar Category |
+|--------|-----|-----|------------------|
+| AI | AI & Analytics | **Estate Intelligence** | intelligence (was "more") |
+| Audit | Audit & Compliance | **Estate Compliance** | intelligence (was "more") |
+
+#### 🔄 Supplier Side — 1 Module Simplified
+
+| Module | Was | Now |
+|--------|-----|-----|
+| Payment Tracker | Payment Tracker | **My Earnings** |
+
+Description changed to: "Your green-leaf supply earnings + payment status (simple ledger — no invoicing)."
+
+### 23.2 Updated Module Map (After EMS Repositioning)
+
+#### Admin (25 modules — was 29, hidden 4 ERP modules)
+
+```
+OVERVIEW:
+└── 📊 Estate Dashboard
+
+ESTATE & LAND:
+└── 🏛️ Estate Master
+
+FIELD OPERATIONS:
+├── 👥 Labor Management
+├── ⚖️ Harvest Management
+├── 📥 Resource Requisitions
+├── 🔧 Equipment Requests
+└── 🛠️ Field Tools
+
+MANUFACTURING:
+├── 🏭 Factory Integration
+└── 📦 Inventory & Procurement
+
+INPUTS:
+├── 🌱 Fertilizer
+├── 🧪 Agrochemical
+└── 🔧 Equipment
+
+PEOPLE & PAY:
+├── 💰 Worker Payments ★ (was "Payroll System")
+├── 🏦 Worker Advances ★ (was "Loans & Advances")
+└── ❤️ Worker Welfare ★ (was "Welfare Management")
+
+INTELLIGENCE:
+├── 🌦️ Weather & Environment
+├── 🧠 Estate Intelligence ★ (was "AI & Analytics")
+├── 🛡️ Estate Compliance ★ (was "Audit & Compliance")
+└── 👥 Supplier Insights
+
+ADMINISTRATION:
+├── 👤 User Management
+├── 📢 Announcements
+└── 🎨 Branding & Settings (Super Admin only)
+
+MORE:
+├── 📱 Mobile & Offline
+├── 📐 Architecture & Docs
+└── 🚚 Vehicle & Fuel
+
+(HIDDEN — code retained, sidebar entries removed):
+├── 🧮 Finance & Accounting ❌ (was ERP)
+├── 🔨 Auction Sales ❌ (was ERP)
+├── 💼 Supplier Loans ❌ (was ERP)
+└── 🏆 Loyalty Program ❌ (was ERP)
+```
+
+#### Extension Officer (2 modules — unchanged)
+- 📝 Register Supplier
+- ⚖️ Leaf Weighing Entry (with Geo-Verify)
+
+#### Supplier (10 modules — unchanged structure, 1 renamed)
+- 📊 My Leaf Deliveries
+- 🔔 Smart Alerts Panel
+- 💵 My Earnings ★ (was "Payment Tracker")
+- 🌾 My Farm Activities
+- 🌳 My Plot
+- ☁️ My Weather
+- 💡 Tips & Guidance
+- 🌱 My Fertilizer
+- 📰 Estate Updates
+- 📥 Request Resources
+
+### 23.3 Verification
+
+- ✅ `vite build`: succeeds (10.47s, 2943.84 kB)
+- ✅ `tsc --noEmit`: 0 errors in modified files
+- ✅ Pushed to GitHub (`eca9794`)
+- ⏳ Vercel deploying (~2 min)
+
+### 23.4 To Revert (If Boss Changes Mind)
+
+Re-add these 4 entries to MODULES array in `src/lib/rbac.ts`:
+
+```ts
+{ key: "finance",        label: "Finance & Accounting", ..., category: "finance" }
+{ key: "auction-sales",  label: "Auction Sales",         ..., category: "finance" }
+{ key: "supplier-loans", label: "Supplier Loans",       ..., category: "finance" }
+{ key: "loyalty",         label: "Loyalty Program",     ..., category: "people" }
+```
+
+And re-add `{ id: "finance", label: "Finance" }` to CATEGORIES list.
+
+All code files are intact — only the sidebar entries were removed.
+
+---
+
+*End of Workflow Diagram. Last updated: September 2026 (Round #5 — EMS repositioning).*
+
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
