@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sprout, Save, Check, CalendarDays, TrendingUp, Trees, RefreshCw, MapPin, Camera, FileText, Send, Clock, XCircle } from "lucide-react";
+import { Sprout, Save, Check, CalendarDays, TrendingUp, Trees, RefreshCw, MapPin, Send, Clock, XCircle } from "lucide-react";
 import { PageHeader, StatCard, Card, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum } from "@/lib/data";
@@ -95,6 +95,7 @@ export function SupplierPlot() {
   const [formPhoto3, setFormPhoto3] = useState("");
   const [formLandDoc, setFormLandDoc] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [formSoilType, setFormSoilType] = useState<"sandy" | "loam" | "clay" | "sandy-loam" | "clay-loam" | "unknown">("unknown");
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -207,6 +208,7 @@ export function SupplierPlot() {
       bushCount: formBushCount,
       cultivar: formCultivar,
       region: formRegion,
+      soilType: formSoilType,
       latitude: typeof formLat === "number" ? formLat : 0,
       longitude: typeof formLon === "number" ? formLon : 0,
       address: formAddress.trim(),
@@ -425,45 +427,58 @@ export function SupplierPlot() {
             {/* Plot name + phone */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-slate-400">Plot Name *</label>
-                <input value={formPlotName} onChange={e => setFormPlotName(e.target.value)} placeholder="e.g., Nimal's Tea Plot" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                <label className="text-[11px] text-slate-400">🏞️ වත්තේ නම · Plot Name *</label>
+                <input value={formPlotName} onChange={e => setFormPlotName(e.target.value)} placeholder="උදා: නිමල්ගේ තේ වත්ත / e.g., Nimal's Tea Plot" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">Contact Phone</label>
+                <label className="text-[11px] text-slate-400">📞 දුරකථන · Contact Phone</label>
                 <input value={formPhone} onChange={e => setFormPhone(e.target.value)} placeholder="+94 77 123 4567" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
               </div>
             </div>
             {/* Acreage + bush count */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-slate-400">Acreage (acres) *</label>
-                <input type="number" min={0} step="any" value={formAcreage || ""} onChange={e => setFormAcreage(+e.target.value)} placeholder="2.5" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+                <label className="text-[11px] text-slate-400">📐 අක්කර ගණන · Acreage (acres) *</label>
+                <input type="number" min={0} step="any" value={formAcreage || ""} onChange={e => setFormAcreage(+e.target.value)} placeholder="උදා: 2.5" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">Bush Count *</label>
-                <input type="number" min={0} value={formBushCount || ""} onChange={e => setFormBushCount(+e.target.value)} placeholder="5400" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+                <label className="text-[11px] text-slate-400">🌳 තේ ගස් ගණන · Bush Count *</label>
+                <input type="number" min={0} value={formBushCount || ""} onChange={e => setFormBushCount(+e.target.value)} placeholder="උදා: 5400" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
               </div>
             </div>
             {/* Cultivar + region */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-slate-400">Cultivar</label>
+                <label className="text-[11px] text-slate-400">🌱 තේ ප්‍රභේදය · Cultivar (TRI Clone)</label>
                 <select value={formCultivar} onChange={e => setFormCultivar(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
                   <option value="TRI 2025 (VP)">TRI 2025 (VP)</option>
                   <option value="TRI 2023 (VP)">TRI 2023 (VP)</option>
                   <option value="TRI 2024 (VP)">TRI 2024 (VP)</option>
-                  <option value="Seedling">Seedling</option>
-                  <option value="Other">Other</option>
+                  <option value="Seedling">Seedling (බීජ පැළ)</option>
+                  <option value="Other">Other (වෙනත්)</option>
                 </select>
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">Region</label>
+                <label className="text-[11px] text-slate-400">🌍 ප්‍රදේශය · Region</label>
                 <select value={formRegion} onChange={e => setFormRegion(e.target.value as any)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
                   <option value="low-country">Low-Country (පහතරට) — ~1,500 kg/acre</option>
                   <option value="mid-country">Mid-Country (මැදරට) — ~1,100 kg/acre</option>
                   <option value="up-country">Up-Country (ඉහළරට) — ~800 kg/acre</option>
                 </select>
               </div>
+            </div>
+            {/* Soil type — NEW per spec */}
+            <div>
+              <label className="text-[11px] text-slate-400">🪨 පසේ ස්වභාවය · Soil Type</label>
+              <select value={formSoilType} onChange={e => setFormSoilType(e.target.value as any)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
+                <option value="unknown">— නොදනී / Unknown —</option>
+                <option value="sandy">�වැලි පස / Sandy</option>
+                <option value="loam">ලෝම පස / Loam (best for tea)</option>
+                <option value="clay">මැටි පස / Clay</option>
+                <option value="sandy-loam">වැලි-ලෝම / Sandy-Loam</option>
+                <option value="clay-loam">මැටි-ලෝම / Clay-Loam</option>
+              </select>
+              <p className="mt-1 text-[10px] text-slate-400">පසේ ස්වභාවය අනුව පොහොර නිර්දේශ වෙනස් වේ. (Soil type affects fertilizer recommendations.)</p>
             </div>
             {/* GPS coordinates with auto-detect */}
             <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
@@ -503,13 +518,13 @@ export function SupplierPlot() {
             </div>
             {/* Address */}
             <div>
-              <label className="text-[11px] text-slate-400">Address (village, district)</label>
-              <input value={formAddress} onChange={e => setFormAddress(e.target.value)} placeholder="e.g., Ragala, Walapane, Nuwara Eliya" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+              <label className="text-[11px] text-slate-400">📍 ලිපිනය · Address (village, district)</label>
+              <input value={formAddress} onChange={e => setFormAddress(e.target.value)} placeholder="උදා: රගල, වලපානේ / e.g., Ragala, Walapane" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             {/* Photo URLs (Phase 1: text input; Phase 2: file upload) */}
             <div className="rounded-lg border border-slate-200 p-3">
               <label className="text-[11px] text-slate-400 font-semibold flex items-center gap-1 mb-2">
-                <Camera className="h-3.5 w-3.5" /> Plot Photos (URLs — optional)
+                📷 වත්තේ ඡායාරූප · Plot Photos (URLs — optional)
               </label>
               <div className="space-y-2">
                 <input value={formPhoto1} onChange={e => setFormPhoto1(e.target.value)} placeholder="Photo 1 URL (boundary/entrance)" className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs" />
@@ -520,13 +535,13 @@ export function SupplierPlot() {
             {/* Land document URL (optional) */}
             <div>
               <label className="text-[11px] text-slate-400 font-semibold flex items-center gap-1">
-                <FileText className="h-3.5 w-3.5" /> Land Document URL (optional — deed/ඔප්පු)
+                📄 ඉඩම් ඔප්පු · Land Document URL (optional — deed/ඔප්පු)
               </label>
               <input value={formLandDoc} onChange={e => setFormLandDoc(e.target.value)} placeholder="URL to scan/photo of land deed" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             {/* Notes */}
             <div>
-              <label className="text-[11px] text-slate-400">Notes (optional)</label>
+              <label className="text-[11px] text-slate-400">📝 සටහන් · Notes (optional)</label>
               <textarea value={formNotes} onChange={e => setFormNotes(e.target.value)} rows={2} placeholder="Any additional information about your plot" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             {/* Submit button */}

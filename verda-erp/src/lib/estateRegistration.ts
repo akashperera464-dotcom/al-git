@@ -21,18 +21,25 @@ export interface EstateRegistrationRequest {
   supplierId: string;     // Firebase UID
   supplierName: string;   // Display name
 
-  // Plot details
-  plotName: string;
-  acreage: number;
-  bushCount: number;
-  cultivar: string;
+  // Plot / Estate details — 100% SAME structure as admin's Estate + Field models
+  plotName: string;            // වත්තේ නම (Land Name)
+  acreage: number;             // අක්කර ගණන (Acreage)
+  bushCount: number;          // තේ ගස් ගණන (Bush Count)
+  cultivar: string;            // තේ ප්‍රභේදය (TRI Clones)
   region: "low-country" | "mid-country" | "up-country";
+
+  // Crop Info — soil type (NEW per spec)
+  soilType?: "sandy" | "loam" | "clay" | "sandy-loam" | "clay-loam" | "unknown";
 
   // Location
   latitude: number;
   longitude: number;
   address: string;
   contactPhone: string;
+
+  // Divisions / Blocks (NEW per spec — වත්තේ කොටස් / කොට්ඨාස)
+  // Supplier can divide their plot into blocks (e.g., උඩ කොටස, පහළ කොටස)
+  blocks?: EstateBlock[];
 
   // Photos (URLs — Phase 1: text input; Phase 2: file upload to Supabase Storage)
   photoUrls: string[];
@@ -45,14 +52,25 @@ export interface EstateRegistrationRequest {
 
   // Workflow
   status: RegistrationStatus;
-  adminNotes: string;       // Reason for rejection or approval notes
-  submittedAt: string;      // ISO timestamp
+  adminNotes: string;
+  submittedAt: string;
   reviewedAt: string | null;
   reviewedBy: string | null;
 
   // Edit tracking
   editCount: number;
   lastEditedAt: string | null;
+}
+
+/** Estate Block / Division — same structure whether created by supplier or admin */
+export interface EstateBlock {
+  id: string;
+  name: string;           // e.g., "උඩ කොටස" (Upper Block), "පහළ කොටස" (Lower Block)
+  areaHa: number;         // area in hectares
+  areaAcres?: number;     // area in acres (= ha × 2.471)
+  bushCount: number;
+  cultivar: string;
+  soilType?: "sandy" | "loam" | "clay" | "sandy-loam" | "clay-loam" | "unknown";
 }
 
 const STORAGE_KEY = "kdu.estate_registration_requests";

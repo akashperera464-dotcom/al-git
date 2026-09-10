@@ -52,14 +52,17 @@ export function FarmActivities() {
   const [replantArea, setReplantArea] = useState(0.5);  // hectares
   const [replantCultivar, setReplantCultivar] = useState("TRI 2025 (VP)");
   const [replantBushCount, setReplantBushCount] = useState(1000);
+  // NEW (Sir's spec): Block selector for fertilizer logging + pruning
+  const [fertBlock, setFertBlock] = useState("");
+  const [pruneBlock, setPruneBlock] = useState("");
 
   const save = async () => {
     setBusy(true);
     setError(null);
     try {
       let details: Record<string, unknown> = {};
-      if (tab === "fertilizer") details = { type: t(FERT_TYPE_KEYS[fertType]), quantityKg: fertQty };
-      else if (tab === "pruning") details = { type: pruneType, areaHa: pruneArea };
+      if (tab === "fertilizer") details = { type: t(FERT_TYPE_KEYS[fertType]), quantityKg: fertQty, block: fertBlock || "All blocks" };
+      else if (tab === "pruning") details = { type: pruneType, areaHa: pruneArea, block: pruneBlock || "All blocks" };
       else if (tab === "replanting") details = { areaHa: replantArea, cultivar: replantCultivar, bushCount: replantBushCount };
       else details = { field: field.trim() || "—", estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]) };
 
@@ -119,6 +122,21 @@ export function FarmActivities() {
 
           {tab === "fertilizer" && (
             <>
+              {/* NEW (Sir's spec): Block/Division selector */}
+              <div className="col-span-2">
+                <label className={labelCls}>🏞️ කොටස/කොට්ඨාසය · Select Block/Division</label>
+                <select
+                  value={fertBlock || ""}
+                  onChange={(e) => setFertBlock(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">— මුළු වත්ම / All blocks —</option>
+                  <option value="Upper Block">උඩ කොටස · Upper Block</option>
+                  <option value="Lower Block">පහළ කොටස · Lower Block</option>
+                  <option value="Middle Block">මැද කොටස · Middle Block</option>
+                  <option value="Nursery">නර්සරි · Nursery</option>
+                </select>
+              </div>
               <div className="col-span-2">
                 <label className={labelCls}>{t("farm.fertilizerType")}</label>
                 <select value={fertType} onChange={(e) => setFertType(+e.target.value)} className={inputCls}>
@@ -134,6 +152,17 @@ export function FarmActivities() {
 
           {tab === "pruning" && (
             <>
+              {/* NEW (Sir's spec): Block selector for pruning */}
+              <div className="col-span-2">
+                <label className={labelCls}>🏞️ කොටස · Select Block/Division</label>
+                <select value={pruneBlock || ""} onChange={(e) => setPruneBlock(e.target.value)} className={inputCls}>
+                  <option value="">— මුළු වත්ම / All blocks —</option>
+                  <option value="Upper Block">උඩ කොටස · Upper Block</option>
+                  <option value="Lower Block">පහළ කොටස · Lower Block</option>
+                  <option value="Middle Block">මැද කොටස · Middle Block</option>
+                  <option value="Nursery">නර්සරි · Nursery</option>
+                </select>
+              </div>
               <div className="col-span-2">
                 <label className={labelCls}>{t("farm.pruningType")}</label>
                 <select value={pruneType} onChange={(e) => setPruneType(e.target.value)} className={inputCls}>
