@@ -2043,3 +2043,92 @@ All code files are intact — only the sidebar entries were removed.
 *End of Workflow Diagram. Last updated: September 2026 (Round #5 — EMS repositioning).*
 
 *ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
+
+---
+
+## 24. Estate Registration Workflow — September 2026 (Round #6)
+
+> **Purpose / අරමුණ:** Sir's spec — suppliers register their estate with all details, admin approves/rejects, auto-location GPS button.
+
+### 24.1 How It Works
+
+```
+Supplier opens "My Plot" module
+        ↓
+  No approved plot data?
+        ↓ YES
+  Show REGISTRATION FORM
+  ┌─────────────────────────────────────┐
+  │ Plot Name *                         │
+  │ Acreage * · Bush Count *            │
+  │ Cultivar · Region                   │
+  │ GPS: [📍 Auto-Detect] + Lat/Lon *   │
+  │ 🗺️ View on map (OpenStreetMap)     │
+  │ Address · Contact Phone             │
+  │ 3 Photo URLs (optional)             │
+  │ Land Document URL (optional)        │
+  │ Notes (optional)                    │
+  │ [Submit for Admin Approval]         │
+  └─────────────────────────────────────┘
+        ↓
+  Status = PENDING
+        ↓
+  Admin opens "Supplier Insights" → "Estate Registrations" tab
+        ↓
+  Sees pending request with all details + GPS map link + photos
+        ↓
+  Admin clicks "Approve" → data auto-populates supplier's My Plot
+  Admin clicks "Reject" → types reason → supplier sees it + can resubmit
+```
+
+### 24.2 Four Modes in My Plot
+
+| Mode | When | What Shows |
+|------|------|------------|
+| **register** | No approved data + no pending request | Full registration form (empty) |
+| **pending** | Request submitted, awaiting admin | Amber card with submitted details + "Awaiting Approval" |
+| **rejected** | Admin rejected the request | Red card with rejection reason + form for resubmit |
+| **view** | Approved — existing My Plot UI | Stats + yield prediction + edit + sub-fields |
+
+### 24.3 Auto-Detect GPS Location
+
+The "📍 Auto-Detect My Location" button:
+- Uses browser `navigator.geolocation.getCurrentPosition()`
+- Auto-fills latitude + longitude fields (6 decimal precision)
+- Shows toast notification on success: "📍 Location detected: Lat X, Lon Y"
+- Error handling: permission denied, position unavailable, timeout
+- High accuracy mode enabled
+- After detection, "🗺️ View on map" link appears (opens OpenStreetMap)
+
+Suppliers can also manually type coordinates if auto-detect fails or they want to use a different location.
+
+### 24.4 Admin Approval Workflow
+
+In **Supplier Insights** module → "Estate Registrations" tab:
+- Pending count badge on tab button
+- Full card per pending request with: plot name, supplier name, acreage, bushes, cultivar, region, GPS (with OpenStreetMap link), phone, address, notes, photos, land document link
+- "Approve" button (green) → calls `updateRegistrationStatus(APPROVED)` + `promoteApprovedToMyPlot()` (auto-populates supplier's My Plot cache)
+- "Reject" button (red) → inline rejection reason input → "Confirm Reject"
+- Approved requests listed (collapsed, green)
+- Rejected requests listed (collapsed, red, with reason)
+
+### 24.5 Verification
+
+- ✅ `vite build`: succeeds (10.04s)
+- ✅ `tsc --noEmit`: 0 errors in new/modified files
+- ✅ Pushed to GitHub (`c696fd9`)
+- ⏳ Vercel deploying (~2 min)
+
+### 24.6 Phase 2 (future)
+
+- Sync registration requests to Supabase `estate_registration_requests` table
+- FCM push to supplier when admin approves/rejects
+- File upload (instead of URL input) for photos + land document
+- Boundary drawing on map for accurate acreage calculation
+- Two-tier editing: minor edits instant, major edits require re-approval
+
+---
+
+*End of Workflow Diagram. Last updated: September 2026 (Round #6 — estate registration workflow).*
+
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
