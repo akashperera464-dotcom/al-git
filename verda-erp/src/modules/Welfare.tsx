@@ -124,8 +124,8 @@ export default function Welfare() {
     <div>
       <PageHeader
         eyebrow="People & Pay"
-        title="Welfare Management"
-        desc="Worker welfare — housing conditions, clinic visits, scholarships, maternity cases. Track open cases and housing repair priorities."
+        title="Worker Welfare"
+        desc="Simple log of welfare provided to estate workers — housing, medical, education support. No scheme management."
         icon={<IconChip icon={HeartPulse} tone="rose" className="h-12 w-12" />}
       />
 

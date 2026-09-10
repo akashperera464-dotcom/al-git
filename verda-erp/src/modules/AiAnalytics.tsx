@@ -39,11 +39,10 @@ export default function AiAnalytics() {
   return (
     <div>
       <PageHeader
-        eyebrow="AI & Analytics · Premium"
+        eyebrow="Estate Intelligence"
         title="Yield Intelligence"
         desc="Yield estimation from rainfall + crop-age variables and resource shortage projections."
         icon={<IconChip icon={BrainCircuit} tone="violet" className="h-12 w-12" />}
-        actions={<Badge tone="violet" className="gap-1"><Sparkles className="h-3 w-3" /> Premium</Badge>}
       />
 
       <div className="mb-5 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-indigo-700 p-5 text-white">

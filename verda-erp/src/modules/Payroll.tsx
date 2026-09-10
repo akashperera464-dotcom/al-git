@@ -209,9 +209,9 @@ export default function Payroll() {
   return (
     <div>
       <PageHeader
-        eyebrow="Finance & Accounting"
-        title="Payroll System"
-        desc="Sri Lankan statutory payroll — EPF (8% employee / 12% employer) + ETF (3% employer). Generate, approve, pay."
+        eyebrow="People & Pay"
+        title="Worker Payments"
+        desc="Daily wage tracking + monthly payment summary for estate workers. Simple ledger — no EPF/ETF."
         icon={<IconChip icon={Wallet} tone="emerald" className="h-12 w-12" />}
       />
 

@@ -11,8 +11,8 @@ export default function Loans() {
     <CrudPanel<LoanRow>
       table="loans"
       eyebrow="People & Pay"
-      title="Loans & Advances"
-      desc="Full CRUD — issue, edit, settle, delete loans with overdue tracking."
+      title="Worker Advances"
+      desc="Simple cash advance log for estate workers + recovery tracking. No interest, no amortization."
       icon={<HandCoins className="h-6 w-6 text-rose-600" />}
       tone="rose"
       fields={[

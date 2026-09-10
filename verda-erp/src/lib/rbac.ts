@@ -148,7 +148,7 @@ export const CATEGORIES: { id: string; label: string }[] = [
   { id: "factory", label: "Manufacturing" },
   { id: "inputs", label: "Inputs" },
   { id: "people", label: "People & Pay" },
-  { id: "finance", label: "Finance" },
+  // EMS REMOVED (was ERP): finance category — no longer used after hiding Finance, Auction, Supplier Loans
   { id: "intelligence", label: "Intelligence" },
   { id: "administration", label: "Administration" },
   { id: "more", label: "More / Future" },
@@ -170,21 +170,26 @@ export const MODULES: NavItem[] = [
   { key: "agrochemical", label: "Agrochemical", short: "Spray", icon: FlaskConical, category: "inputs", roles: ["admin"], capability: "agrochemical.manage" },
   { key: "equipment", label: "Equipment", short: "Equipment", icon: Wrench, category: "inputs", roles: ["admin"], capability: "inventory.manage" },
   { key: "equipment-requests", label: "Equipment Requests", short: "Equip Req", icon: Wrench, category: "operations", roles: ["admin"], capability: "requests.manage" },
-  { key: "payroll", label: "Payroll System", short: "Payroll", icon: Wallet, category: "people", roles: ["admin"], capability: "payroll.manage" },
-  { key: "loans", label: "Loans & Advances", short: "Loans", icon: HandCoins, category: "people", roles: ["admin"], capability: "loans.view" },
-  { key: "loyalty", label: "Loyalty Program", short: "Rewards", icon: Trophy, category: "people", roles: ["admin"], capability: "loyalty.manage" },
-  { key: "welfare", label: "Welfare Management", short: "Welfare", icon: HeartPulse, category: "more", roles: ["admin"], capability: "welfare.view" },
-  { key: "finance", label: "Finance & Accounting", short: "Finance", icon: Calculator, category: "finance", roles: ["admin"], capability: "finance.view" },
+  // EMS REPOSITIONING: Payroll → 'Worker Payments' (simplified, no EPF/ETF)
+  { key: "payroll", label: "Worker Payments", short: "Payments", icon: Wallet, category: "people", roles: ["admin"], capability: "payroll.manage" },
+  // EMS REPOSITIONING: Loans → 'Worker Advances' (simplified, no amortization)
+  { key: "loans", label: "Worker Advances", short: "Advances", icon: HandCoins, category: "people", roles: ["admin"], capability: "loans.view" },
+  // EMS REPOSITIONING: Welfare → 'Worker Welfare' (simplified, no scheme mgmt)
+  { key: "welfare", label: "Worker Welfare", short: "Welfare", icon: HeartPulse, category: "people", roles: ["admin"], capability: "welfare.view" },
+  // EMS REMOVED (was ERP): Loyalty Program — hidden from sidebar, code retained in repo
+  // EMS REMOVED (was ERP): Finance & Accounting — hidden from sidebar, code retained in repo
   { key: "weather", label: "Weather & Environment", short: "Weather", icon: CloudSun, category: "intelligence", roles: ["admin"], capability: "weather.view" },
-  { key: "ai", label: "AI & Analytics", short: "AI", icon: BrainCircuit, category: "more", roles: ["admin"], capability: "ai.view", premium: true },
+  // EMS REBRAND: AI & Analytics → 'Estate Intelligence'
+  { key: "ai", label: "Estate Intelligence", short: "Insights", icon: BrainCircuit, category: "intelligence", roles: ["admin"], capability: "ai.view" },
   { key: "supplier-insights", label: "Supplier Insights", short: "Insights", icon: Users, category: "intelligence", roles: ["admin"], capability: "supplier.insights" },
-  { key: "audit", label: "Audit & Compliance", short: "Compliance", icon: ShieldCheck, category: "more", roles: ["admin"], capability: "audit.view" },
+  // EMS REBRAND: Audit & Compliance → 'Estate Compliance'
+  { key: "audit", label: "Estate Compliance", short: "Compliance", icon: ShieldCheck, category: "intelligence", roles: ["admin"], capability: "audit.view" },
   { key: "mobile", label: "Mobile & Offline", short: "Offline", icon: Smartphone, category: "more", roles: ["admin"], capability: "offline.manage" },
   { key: "architecture", label: "Architecture & Docs", short: "Blueprint", icon: Workflow, category: "more", roles: ["admin"], capability: "platform.view" },
   { key: "user-management", label: "User Management", short: "Users", icon: UserCog, category: "administration", roles: ["admin"], capability: "users.manage" },
   { key: "announcements", label: "Announcements", short: "Posts", icon: Newspaper, category: "administration", roles: ["admin"], capability: "announcements.manage" },
-  { key: "supplier-loans", label: "Supplier Loans", short: "S Loans", icon: Sprout, category: "finance", roles: ["admin"], capability: "supplier.loans" },
-  { key: "auction-sales", label: "Auction Sales", short: "Auction", icon: Gavel, category: "finance", roles: ["admin"], capability: "auction.sales" },
+  // EMS REMOVED (was ERP): Supplier Loans — hidden from sidebar, code retained in repo
+  // EMS REMOVED (was ERP): Auction Sales — hidden from sidebar, code retained in repo
   { key: "field-tools", label: "Field Tools", short: "Tools", icon: FlaskConical, category: "operations", roles: ["admin"], capability: "field.tools" },
   { key: "settings", label: "Branding & Settings", short: "Settings", icon: Palette, category: "administration", roles: ["super_admin"], capability: "settings.manage" },
 
@@ -195,7 +200,8 @@ export const MODULES: NavItem[] = [
   /* ---- Supplier / VVIP (mobile): own portal + resource requisitions ---- */
   { key: "supplier-deliveries", label: "My Leaf Deliveries", short: "Deliveries", icon: Package, category: "supplier", roles: ["supplier"], capability: "deliveries.own" },
   { key: "supplier-alerts", label: "Smart Alerts Panel", short: "Alerts", icon: BellRing, category: "supplier", roles: ["supplier"], capability: "alerts.own" },
-  { key: "supplier-payments", label: "Payment Tracker", short: "Payments", icon: Wallet, category: "supplier", roles: ["supplier"], capability: "payments.own" },
+  // EMS SIMPLIFY: 'Payment Tracker' → 'My Earnings' (simpler, less ERP-feel for suppliers)
+  { key: "supplier-payments", label: "My Earnings", short: "Earnings", icon: Wallet, category: "supplier", roles: ["supplier"], capability: "payments.own" },
   { key: "supplier-farm", label: "My Farm Activities", short: "Farm", icon: Sprout, category: "supplier", roles: ["supplier"], capability: "farm.log" },
   { key: "supplier-plot", label: "My Plot", short: "Plot", icon: Trees, category: "supplier", roles: ["supplier"], capability: "plot.own" },
   { key: "supplier-weather", label: "My Weather", short: "Weather", icon: CloudSun, category: "supplier", roles: ["supplier"], capability: "weather.own" },

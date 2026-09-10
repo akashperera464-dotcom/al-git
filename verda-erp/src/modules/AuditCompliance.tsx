@@ -154,7 +154,7 @@ export default function AuditCompliance() {
   return (
     <div>
       <PageHeader
-        eyebrow="Audit & Compliance"
+        eyebrow="Estate Compliance"
         title="Certification Vault & Audit Trail"
         desc="Compliance standards (Rainforest Alliance, Fairtrade, ISO 22000, ETP), audit scores, expiry tracking, and full audit log."
         icon={<IconChip icon={ShieldCheck} tone="emerald" className="h-12 w-12" />}
