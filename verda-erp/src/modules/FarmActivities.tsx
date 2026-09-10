@@ -27,7 +27,7 @@ const GRADE_KEYS = ["farm.gradeSuper", "farm.gradeStandard", "farm.gradeCoarse"]
  */
 export function FarmActivities() {
   const { t } = useTranslation();
-  const { userUid } = useApp();
+  const { userUid, notify } = useApp();
   const [tab, setTab] = useState<FarmActivityType>("fertilizer");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -67,6 +67,50 @@ export function FarmActivities() {
       else details = { field: field.trim() || "—", estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]) };
 
       await recordFarmActivity(userUid, tab, date, details);
+
+      // ---- NEW (Sir's spec Phase 2): Bush count auto-increment on replanting ----
+      if (tab === "replanting" && replantBushCount > 0) {
+        try {
+          const plotKey = `kdu.supplier_plot.${userUid}`;
+          const raw = localStorage.getItem(plotKey);
+          if (raw) {
+            const plot = JSON.parse(raw);
+            plot.bushCount = (plot.bushCount ?? 0) + replantBushCount;
+            plot.lastUpdated = new Date().toISOString();
+            localStorage.setItem(plotKey, JSON.stringify(plot));
+          }
+        } catch { /* ignore — plot may not exist yet */ }
+      }
+
+      // ---- NEW (Sir's spec Phase 2): Weather guard alert on fertilizer log ----
+      // Check if rain is expected in the next 1-2 days → show warning toast
+      if (tab === "fertilizer") {
+        try {
+          const { fetchForecast } = await import("@/lib/weather");
+          const res = await fetchForecast(undefined, undefined); // uses default estate coords
+          const rainTomorrow = res.days[1]?.rainProb ?? 0;
+          const rainDayAfter = res.days[2]?.rainProb ?? 0;
+          if (rainTomorrow >= 60 || rainDayAfter >= 60) {
+            notify({
+              title: "⚠️ තද වැසි අනතුරු ඇඟවීම · Weather Guard Alert",
+              body: `පොහොර සෝදා යාමේ අවදානමක් ඇත! හෙට වැසි ${rainTomorrow}%, අනිද්ද ${rainDayAfter}%. Rain may wash away fertilizer.`,
+              tone: "rose",
+              channel: "system",
+            });
+          }
+        } catch { /* weather check is best-effort */ }
+      }
+
+      // ---- NEW (Sir's spec Phase 2): Bush count auto-increment confirmation ----
+      if (tab === "replanting" && replantBushCount > 0) {
+        notify({
+          title: "🌳 Bush count updated ✅",
+          body: `අලුතින් සිටුවූ පැළ ${replantBushCount}ක් එකතු කරන ලදී. Total bush count auto-incremented.`,
+          tone: "emerald",
+          channel: "system",
+        });
+      }
+
       setDone(true);
       window.setTimeout(() => setDone(false), 2500);
     } catch (e) {

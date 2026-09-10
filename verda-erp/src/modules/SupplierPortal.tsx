@@ -130,7 +130,7 @@ export function SupplierDeliveries() {
 /** 2 · Smart Alerts Panel — FCM fertilizer & plucking schedules (deterministic). */
 export function SupplierAlerts() {
   const { t } = useTranslation();
-  const { estates, associatedEntityId } = useApp();
+  const { estates, associatedEntityId, userUid } = useApp();
   const estate = estates.find((e) => e.id === associatedEntityId);
   const [forecast, setForecast] = useState<WeatherDay[]>(getMockForecast());
   useEffect(() => {
@@ -190,6 +190,9 @@ export function SupplierAlerts() {
 
         {/* Smart Agronomic Advisory & Pruning Schedule (plant-age based) */}
         <PruningAdvisory forecast={forecast} />
+
+        {/* NEW (Sir's spec Phase 2): Smart Automated Alerts */}
+        <SmartAutomatedAlerts userUid={userUid} forecast={forecast} />
 
         <Card className="p-4">
           <div className="mb-2 flex items-center gap-2">
@@ -256,5 +259,152 @@ export function SupplierPayments() {
         </div>
       </Card>
     </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
+ * SmartAutomatedAlerts — Sir's spec Phase 2
+ * ------------------------------------------------------------------
+ * Computes automated alerts from the supplier's farm activity history:
+ *   1. Next fertilizer cycle: 3+ months since last fertilizer → alert
+ *   2. Pruning mixture reminder: 45+ days since last pruning → alert
+ *   3. Replanting water/shade reminder: within 90 days of replanting → weekly reminder
+ *   4. Weather guard: if rain >= 60% in next 1-2 days AND fertilizer logged recently → alert
+ * --------------------------------------------------------------------------- */
+function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast: WeatherDay[] }) {
+  const [alerts, setAlerts] = useState<{ type: string; title: string; body: string; tone: "amber" | "sky" | "emerald" | "rose" }[]>([]);
+
+  useEffect(() => {
+    void (async () => {
+      const computed: { type: string; title: string; body: string; tone: "amber" | "sky" | "emerald" | "rose" }[] = [];
+
+      try {
+        // Read farm activities from localStorage cache (Phase 1) or Supabase
+        const farmRaw = localStorage.getItem("kdu.farm_activities.cache");
+        const farmLogs: { activityType: string; loggedDate: string; details: Record<string, unknown> }[] = farmRaw ? JSON.parse(farmRaw) : [];
+
+        const now = Date.now();
+        const DAY_MS = 86400_000;
+
+        // 1. Next Fertilizer Cycle Alert (3 months = 90 days)
+        const lastFert = farmLogs
+          .filter(a => a.activityType === "fertilizer")
+          .sort((a, b) => b.loggedDate.localeCompare(a.loggedDate))[0];
+        if (lastFert) {
+          const daysSince = Math.floor((now - new Date(lastFert.loggedDate).getTime()) / DAY_MS);
+          if (daysSince >= 90) {
+            const fertType = (lastFert.details as any)?.type ?? "fertilizer";
+            const block = (lastFert.details as any)?.block ?? "all blocks";
+            computed.push({
+              type: "fert-cycle",
+              title: "🔄 ඊළඟ පොහොර වටය · Next Fertilizer Cycle Due",
+              body: `පොහොර දැමූයේ ${daysSince} දිනකට පෙර (${new Date(lastFert.loggedDate).toLocaleDateString()}). මාස 3කට පසු ඊළඟ වටය යෙදීමට කාලය පැමිණ ඇත. අවසන් වරට ${fertType} භාවිතා කරන ලද ${block} සඳහා.`,
+              tone: "amber",
+            });
+          } else if (daysSince >= 75) {
+            computed.push({
+              type: "fert-soon",
+              title: "⏰ පොහොර වටය ඉක්මීමට ආසන් · Fertilizer Cycle Approaching",
+              body: `දින ${90 - daysSince}කින් ඊළඟ පොහොර වටය යෙදීමට කාලය පැමිණේ. පොහොර සූදානම් කරගන්න.`,
+              tone: "sky",
+            });
+          }
+        }
+
+        // 2. Pruning Mixture Reminder (45 days after pruning)
+        const lastPrune = farmLogs
+          .filter(a => a.activityType === "pruning")
+          .sort((a, b) => b.loggedDate.localeCompare(a.loggedDate))[0];
+        if (lastPrune) {
+          const daysSince = Math.floor((now - new Date(lastPrune.loggedDate).getTime()) / DAY_MS);
+          if (daysSince >= 40 && daysSince <= 50) {
+            computed.push({
+              type: "prune-mixture",
+              title: "✂️ කප්පාදු පොහොර · Pruning Mixture Reminder",
+              body: `කප්පාදු කර දින ${daysSince}ක් ගත වී ඇත. දින 45කින් අලුත් කුරුල්ලන්/දලු මතුවනු ඇත. කප්පාදු පොහොර (Pruning Mixture) යෙදීමට සූදානම් වන්න.`,
+              tone: "emerald",
+            });
+          } else if (daysSince > 50) {
+            const pruneType = (lastPrune.details as any)?.type ?? "pruning";
+            const block = (lastPrune.details as any)?.block ?? "all blocks";
+            computed.push({
+              type: "prune-overdue",
+              title: "🌱 අලුත් දලු · New Flush Emerging",
+              body: `කප්පාදු කර දින ${daysSince}ක් වේ. අලුත් දලු මතුව ඇත (${pruneType}, ${block}). කප්පාදු පොහොර යෙදීමට කාලය පැමිණ ඇත.`,
+              tone: "emerald",
+            });
+          }
+        }
+
+        // 3. Replanting Water/Shade Reminder (within 90 days)
+        const lastReplant = farmLogs
+          .filter(a => a.activityType === "replanting")
+          .sort((a, b) => b.loggedDate.localeCompare(a.loggedDate))[0];
+        if (lastReplant) {
+          const daysSince = Math.floor((now - new Date(lastReplant.loggedDate).getTime()) / DAY_MS);
+          const newPlants = (lastReplant.details as any)?.bushCount ?? 0;
+          if (daysSince <= 90 && newPlants > 0) {
+            const weekNum = Math.ceil(daysSince / 7);
+            computed.push({
+              type: "replant-care",
+              title: "🌿 අලුත් පැළ රැකබලා ගැනීම · New Plant Care",
+              body: `අලුතින් සිටුවූ පැළ ${newPlants}ක් — සති ${weekNum}ක් ගත වී ඇත. ජලය/සෙවන සැපයීමට පියවර ගන්න. Water/shade for new plants.`,
+              tone: "sky",
+            });
+          }
+        }
+
+        // 4. Weather Guard Alert (if rain expected in next 1-2 days AND fertilizer logged in last 7 days)
+        if (forecast.length >= 3) {
+          const rainTomorrow = forecast[1]?.rainProb ?? 0;
+          const rainDayAfter = forecast[2]?.rainProb ?? 0;
+          if (rainTomorrow >= 60 || rainDayAfter >= 60) {
+            // Check if fertilizer was logged in last 7 days
+            const recentFert = farmLogs.some(a => {
+              if (a.activityType !== "fertilizer") return false;
+              const d = (now - new Date(a.loggedDate).getTime()) / DAY_MS;
+              return d <= 7;
+            });
+            if (recentFert) {
+              computed.push({
+                type: "weather-guard",
+                title: "⚠️ පොහොර සෝදා යාමේ අවදානම · Fertilizer Wash-Out Risk",
+                body: `අදින කිහිපය තුළ පොහොර යොදා ඇත. හෙට වැසි ${rainTomorrow}%, අනිද්ද ${rainDayAfter}%. තද වැසි හේතුවෙන් පොහොර සෝදා යාමේ අවදානමක් ඇත.`,
+                tone: "rose",
+              });
+            }
+          }
+        }
+      } catch { /* ignore errors */ }
+
+      setAlerts(computed);
+    })();
+  }, [userUid, forecast]);
+
+  if (alerts.length === 0) return null;
+
+  return (
+    <Card className="p-4 border-violet-200">
+      <div className="mb-2 flex items-center gap-2">
+        <BellRing className="h-4 w-4 text-violet-600" />
+        <h3 className="font-display text-sm font-bold text-slate-800">🤖 ස්වයංක්‍රීය දැනුම්දීම් · Smart Automated Alerts</h3>
+      </div>
+      <div className="space-y-2">
+        {alerts.map((a, i) => (
+          <div
+            key={i}
+            className={`rounded-lg border p-3 text-sm ${
+              a.tone === "amber" ? "border-amber-200 bg-amber-50 text-amber-800"
+              : a.tone === "rose" ? "border-rose-200 bg-rose-50 text-rose-800"
+              : a.tone === "emerald" ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-sky-200 bg-sky-50 text-sky-800"
+            }`}
+          >
+            <p className="font-semibold text-xs">{a.title}</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed">{a.body}</p>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
