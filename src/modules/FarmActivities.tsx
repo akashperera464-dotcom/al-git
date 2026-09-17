@@ -1,0 +1,377 @@
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Sprout, Scissors, Package, Plus, Loader2, Check, CalendarDays, History, Leaf } from "lucide-react";
+import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
+import { useApp } from "@/context/AppContext";
+import { useLiveData } from "@/lib/useLiveData";
+import { recordFarmActivity, readFarmActivities } from "@/lib/repo";
+import { TODAY_ISO, type FarmActivity, type FarmActivityType } from "@/lib/data";
+
+const TAB_KEYS = [
+  { id: "fertilizer", labelKey: "farm.fertilizer", icon: Sprout, tone: "emerald" },
+  { id: "pruning", labelKey: "farm.pruning", icon: Scissors, tone: "amber" },
+  { id: "plucking", labelKey: "farm.plucking", icon: Package, tone: "sky" },
+  { id: "replanting", labelKey: "farm.replanting", icon: Leaf, tone: "violet" },
+] as const;
+
+const FERT_TYPE_KEYS = ["farm.fertUrea", "farm.fertMop", "farm.fertTsp", "farm.fertDolomite", "farm.fertCompost"] as const;
+const PRUNE_TYPES = ["formative", "light", "medium", "deep", "skiffing"];
+const PRUNE_TYPE_KEYS = ["farm.formative", "farm.light", "farm.medium", "farm.deep", "farm.skiffing"] as const;
+const GRADE_KEYS = ["farm.gradeSuper", "farm.gradeStandard", "farm.gradeCoarse"] as const;
+
+/**
+ * My Farm Activities — the feedback loop for the Smart Advisory Engine.
+ *
+ * Suppliers log real field actions here. The advisory engine reads the LATEST
+ * record of each type to recompute recommendations dynamically.
+ */
+export function FarmActivities() {
+  const { t } = useTranslation();
+  const { userUid, notify } = useApp();
+  // Dynamic blocks from supplier's plot sub-fields (B13 fix)
+  const plotBlocks: { id: string; name: string }[] = (() => {
+    try {
+      const raw = localStorage.getItem(`kdu.supplier_plot.${userUid}`);
+      if (raw) {
+        const plot = JSON.parse(raw);
+        if (plot.subFields && plot.subFields.length > 0) {
+          return plot.subFields.map((sf: { id: string; name: string }) => ({ id: sf.id, name: sf.name }));
+        }
+      }
+      // Fallback: check registration requests for blocks
+      const regsRaw = localStorage.getItem("kdu.estate_registration_requests");
+      if (regsRaw) {
+        const regs = JSON.parse(regsRaw) as { supplierId: string; status: string; blocks?: { id: string; name: string }[] }[];
+        const approvedReg = regs.find(r => r.supplierId === userUid && (r.status === "APPROVED" || r.status === "PENDING"));
+        if (approvedReg?.blocks && approvedReg.blocks.length > 0) {
+          return approvedReg.blocks.map(b => ({ id: b.id, name: b.name }));
+        }
+      }
+    } catch { /* ignore */ }
+    return [];
+  })();
+  const hasBlocks = plotBlocks.length > 0;
+  const [tab, setTab] = useState<FarmActivityType>("fertilizer");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Live activity history (real-time).
+  const { data: history } = useLiveData<FarmActivity>("farm_activities", () => readFarmActivities(userUid), `user_id=eq.${userUid}`);
+
+  // ---- shared form state ----
+  const [date, setDate] = useState(TODAY_ISO);
+  // fertilizer
+  const [fertType, setFertType] = useState(0);  // index into FERT_TYPE_KEYS
+  const [fertQty, setFertQty] = useState(50);
+  // pruning
+  const [pruneType, setPruneType] = useState<string>(PRUNE_TYPES[3]);
+  const [pruneArea, setPruneArea] = useState(1);
+  // self-harvest
+  const [field, setField] = useState("");
+  const [kg, setKg] = useState(100);
+  const [gradeIdx, setGradeIdx] = useState(0);  // index into GRADE_KEYS
+  // replanting (NEW — Sir's spec)
+  const [replantArea, setReplantArea] = useState(0.5);  // hectares
+  const [replantCultivar, setReplantCultivar] = useState("TRI 2025 (VP)");
+  const [replantBushCount, setReplantBushCount] = useState(1000);
+  // NEW (Sir's spec): Block selector for fertilizer logging + pruning
+  const [fertBlock, setFertBlock] = useState("");
+  const [pruneBlock, setPruneBlock] = useState("");
+
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      let details: Record<string, unknown> = {};
+      if (tab === "fertilizer") details = { type: t(FERT_TYPE_KEYS[fertType]), quantityKg: fertQty, block: fertBlock || "All blocks" };
+      else if (tab === "pruning") details = { type: pruneType, areaHa: pruneArea, block: pruneBlock || "All blocks" };
+      else if (tab === "replanting") details = { areaHa: replantArea, cultivar: replantCultivar, bushCount: replantBushCount };
+      else if (tab === "plucking") details = { field: field.trim() || "—", estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]), block: fertBlock || "All blocks" };
+      else details = { field: field.trim() || "—", estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]) };
+
+      await recordFarmActivity(userUid, tab, date, details);
+
+      // ---- NEW (Sir's spec Phase 2): Bush count auto-increment on replanting ----
+      if (tab === "replanting" && replantBushCount > 0) {
+        try {
+          const plotKey = `kdu.supplier_plot.${userUid}`;
+          const raw = localStorage.getItem(plotKey);
+          if (raw) {
+            const plot = JSON.parse(raw);
+            plot.bushCount = (plot.bushCount ?? 0) + replantBushCount;
+            plot.lastUpdated = new Date().toISOString();
+            localStorage.setItem(plotKey, JSON.stringify(plot));
+          }
+        } catch { /* ignore — plot may not exist yet */ }
+      }
+
+      // ---- NEW (Sir's spec Phase 2): Weather guard alert on fertilizer log ----
+      // Check if rain is expected in the next 1-2 days → show warning toast
+      if (tab === "fertilizer") {
+        try {
+          const { fetchForecast } = await import("@/lib/weather");
+          const res = await fetchForecast(undefined, undefined); // uses default estate coords
+          const rainTomorrow = res.days[1]?.rainProb ?? 0;
+          const rainDayAfter = res.days[2]?.rainProb ?? 0;
+          if (rainTomorrow >= 60 || rainDayAfter >= 60) {
+            notify({
+              title: "⚠️ තද වැසි අනතුරු ඇඟවීම · Weather Guard Alert",
+              body: `පොහොර සෝදා යාමේ අවදානමක් ඇත! හෙට වැසි ${rainTomorrow}%, අනිද්ද ${rainDayAfter}%. Rain may wash away fertilizer.`,
+              tone: "rose",
+              channel: "system",
+            });
+          }
+        } catch { /* weather check is best-effort */ }
+      }
+
+      // ---- NEW (Sir's spec Phase 2): Bush count auto-increment confirmation ----
+      if (tab === "replanting" && replantBushCount > 0) {
+        notify({
+          title: "🌳 Bush count updated ✅",
+          body: `අලුතින් සිටුවූ පැළ ${replantBushCount}ක් එකතු කරන ලදී. Total bush count auto-incremented.`,
+          tone: "emerald",
+          channel: "system",
+        });
+      }
+
+      setDone(true);
+      window.setTimeout(() => setDone(false), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("farm.saveFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inputCls = "mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm";
+  const labelCls = "text-[11px] font-medium text-slate-400";
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow={t("farm.eyebrow")}
+        title={t("farm.title")}
+        desc={t("farm.desc")}
+        icon={<IconChip icon={Sprout} tone="emerald" className="h-12 w-12" />}
+      />
+
+      <div className="grid grid-cols-3 gap-2.5">
+        <StatCard icon={Sprout} label={t("farm.fertilizerLogs")} value={String(history.filter((h) => h.activityType === "fertilizer").length)} tone="emerald" />
+        <StatCard icon={Scissors} label={t("farm.pruningLogs")} value={String(history.filter((h) => h.activityType === "pruning").length)} tone="amber" />
+        <StatCard icon={Package} label={t("farm.harvestLogs")} value={String(history.filter((h) => h.activityType === "self_harvest").length)} tone="sky" />
+      </div>
+
+      {/* Tabs */}
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        {TAB_KEYS.map((tab2) => {
+          const Icon = tab2.icon;
+          const active = tab === tab2.id;
+          return (
+            <button
+              key={tab2.id}
+              onClick={() => { setTab(tab2.id); setDone(false); setError(null); }}
+              className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition ${active ? "border-emerald-300 bg-emerald-50" : "border-slate-100 bg-white"}`}
+            >
+              <Icon className={`h-5 w-5 ${active ? "text-emerald-600" : "text-slate-400"}`} />
+              <span className={`text-[11px] font-semibold ${active ? "text-emerald-700" : "text-slate-500"}`}>{t(tab2.labelKey)}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Dynamic form */}
+      <Card className="mt-3 p-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className={labelCls}><CalendarDays className="mr-1 inline h-3 w-3" />{t("farm.activityDate")}</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+          </div>
+
+          {tab === "fertilizer" && (
+            <>
+              {/* NEW (Sir's spec): Block/Division selector */}
+              <div className="col-span-2">
+                <label className={labelCls}>🏞️ කොටස/කොට්ඨාසය · Select Block/Division</label>
+                <select
+                  value={fertBlock || ""}
+                  onChange={(e) => setFertBlock(e.target.value)}
+                  className={inputCls}
+                  disabled={!hasBlocks}
+                >
+                  <option value="">— {hasBlocks ? "කොටසක් තෝරන්න / Select block" : "මුළු වත්ම / All blocks"} —</option>
+                  {hasBlocks ? (
+                    plotBlocks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)
+                  ) : (
+                    <>
+                      <option value="Upper Block">උඩ කොටස · Upper Block</option>
+                      <option value="Lower Block">පහළ කොටස · Lower Block</option>
+                      <option value="Middle Block">මැද කොටස · Middle Block</option>
+                      <option value="Nursery">නර්සරි · Nursery</option>
+                    </>
+                  )}
+                </select>
+                {!hasBlocks && (
+                  <p className="mt-1 text-[10px] text-slate-400">💡 My Plot හි කොටස් (Sub-fields) එකතු කිරීමෙන් නිශ්චිත කොටස් ලැයිස්තුවක් ලැබේ.</p>
+                )}
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>{t("farm.fertilizerType")}</label>
+                <select value={fertType} onChange={(e) => setFertType(+e.target.value)} className={inputCls}>
+                  {FERT_TYPE_KEYS.map((k, idx) => <option key={k} value={idx}>{t(k)}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>{t("farm.quantityKg")}</label>
+                <input type="number" value={fertQty} onChange={(e) => setFertQty(+e.target.value)} className={`${inputCls} tnum`} />
+              </div>
+            </>
+          )}
+
+          {tab === "pruning" && (
+            <>
+              {/* NEW (Sir's spec): Block selector for pruning */}
+              <div className="col-span-2">
+                <label className={labelCls}>🏞️ කොටස · Select Block/Division</label>
+                <select value={pruneBlock || ""} onChange={(e) => setPruneBlock(e.target.value)} className={inputCls}>
+                  <option value="">— {hasBlocks ? "කොටසක් තෝරන්න / Select block" : "මුළු වත්ම / All blocks"} —</option>
+                  {hasBlocks ? (
+                    plotBlocks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)
+                  ) : (
+                    <>
+                      <option value="Upper Block">උඩ කොටස · Upper Block</option>
+                      <option value="Lower Block">පහළ කොටස · Lower Block</option>
+                      <option value="Middle Block">මැද කොටස · Middle Block</option>
+                      <option value="Nursery">නර්සරි · Nursery</option>
+                    </>
+                  )}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>{t("farm.pruningType")}</label>
+                <select value={pruneType} onChange={(e) => setPruneType(e.target.value)} className={inputCls}>
+                  {PRUNE_TYPES.map((p, idx) => <option key={p} value={p}>{t(PRUNE_TYPE_KEYS[idx])}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>{t("farm.areaCovered")}</label>
+                <input type="number" step="0.1" value={pruneArea} onChange={(e) => setPruneArea(+e.target.value)} className={`${inputCls} tnum`} />
+              </div>
+            </>
+          )}
+
+          {/* Plucking tab (NEW — Sir's spec: Supplier Calendar එකෙන් දලු කැඩූ බව දමයි) */}
+          {tab === "plucking" && (
+            <>
+              <div>
+                <label className={labelCls}>🏞️ කොටස/බ්ලොක් · Block / Field</label>
+                {hasBlocks ? (
+                  <select value={field} onChange={(e) => setField(e.target.value)} className={inputCls}>
+                    <option value="">— කොටසක් තෝරන්න —</option>
+                    {plotBlocks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                  </select>
+                ) : (
+                  <input value={field} onChange={(e) => setField(e.target.value)} placeholder="e.g. Upper Block, Field 02" className={inputCls} />
+                )}
+              </div>
+              <div>
+                <label className={labelCls}>{t("farm.grade")}</label>
+                <select value={gradeIdx} onChange={(e) => setGradeIdx(+e.target.value)} className={inputCls}>
+                  {GRADE_KEYS.map((k, idx) => <option key={k} value={idx}>{t(k)}</option>)}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>{t("farm.estimatedWeight")}</label>
+                <input type="number" value={kg} onChange={(e) => setKg(+e.target.value)} className={`${inputCls} tnum`} />
+              </div>
+            </>
+          )}
+
+          {/* Replanting tab (NEW — Sir's spec) */}
+          {tab === "replanting" && (
+            <>
+              <div>
+                <label className={labelCls}>නැවත සිටුවීම් ප්රමාණය · Area Replanted (ha)</label>
+                <input type="number" step="any" min={0} value={replantArea} onChange={(e) => setReplantArea(+e.target.value)} placeholder="0.5" className={`${inputCls} tnum`} />
+              </div>
+              <div>
+                <label className={labelCls}>සිටුවූ ප්රභේදය · Cultivar Planted</label>
+                <select value={replantCultivar} onChange={(e) => setReplantCultivar(e.target.value)} className={inputCls}>
+                  <option value="TRI 2025 (VP)">TRI 2025 (VP)</option>
+                  <option value="TRI 2023 (VP)">TRI 2023 (VP)</option>
+                  <option value="TRI 2024 (VP)">TRI 2024 (VP)</option>
+                  <option value="Seedling">Seedling</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>නව ගස් ගණන · New Bush Count Planted</label>
+                <input type="number" min={0} value={replantBushCount} onChange={(e) => setReplantBushCount(+e.target.value)} placeholder="e.g. 1200" className={`${inputCls} tnum`} />
+                <p className="mt-1 text-[10px] text-slate-400">
+                  🌱 Log this when you replant dead bushes or expand your plot. Updates your "My Plot" bush count reminder cycle.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+
+        {error && <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
+
+        <button
+          onClick={save}
+          disabled={busy}
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition enabled:hover:brightness-110 disabled:opacity-60"
+        >
+          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : done ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+          {done ? t("farm.logged") : busy ? t("farm.saving") : t("farm.logActivity")}
+        </button>
+      </Card>
+
+      {/* Recent activity history */}
+      <Card className="mt-4 p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <History className="h-4 w-4 text-slate-400" />
+          <h3 className="font-display text-sm font-bold text-slate-800">{t("farm.recentActivities")}</h3>
+        </div>
+        {history.length === 0 ? (
+          <p className="py-4 text-center text-sm text-slate-400">{t("farm.noActivities")}</p>
+        ) : (
+          <div className="space-y-2">
+            {history.slice(0, 8).map((a) => {
+              const tabMeta = TAB_KEYS.find((x) => x.id === a.activityType);
+              const Icon = tabMeta?.icon ?? Package;
+              const label = tabMeta ? t(tabMeta.labelKey) : a.activityType.replace("_", "-");
+              const summary =
+                a.activityType === "fertilizer"
+                  ? t("farm.summaryFertilizer", { type: (a.details as { type?: string }).type ?? "—", qty: String((a.details as { quantityKg?: number }).quantityKg ?? 0) })
+                  : a.activityType === "pruning"
+                    ? t("farm.summaryPrune", { type: (a.details as { type?: string }).type ?? "—", area: String((a.details as { areaHa?: number }).areaHa ?? 0) })
+                    : t("farm.summaryHarvest", { qty: String((a.details as { estimatedKg?: number }).estimatedKg ?? 0), grade: (a.details as { grade?: string }).grade ?? "—" });
+              return (
+                <div key={a.id} className="flex items-center gap-3 rounded-xl border border-slate-100 p-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500"><Icon className="h-4 w-4" /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold capitalize text-slate-700">{label}</p>
+                    <p className="text-[11px] text-slate-400">{summary}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge tone="slate">{a.loggedDate}</Badge>
+                    {(() => {
+                      try {
+                        const queueRaw = localStorage.getItem("verda:offline_queue");
+                        const queue = queueRaw ? JSON.parse(queueRaw) as { id: string; label: string }[] : [];
+                        const isPending = queue.some(q => q.label?.includes(a.id ?? "") || q.label?.includes(a.loggedDate ?? ""));
+                        if (isPending) return <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">⏳ Pending</span>;
+                      } catch { /* ignore */ }
+                      return <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">✓ Synced</span>;
+                    })()}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}

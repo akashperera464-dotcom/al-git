@@ -1,0 +1,104 @@
+import type { ComponentType } from "react";
+import Dashboard from "./Dashboard";
+import EstateMaster from "./EstateMaster";
+import Labor from "./Labor";
+import Payroll from "./Payroll";
+import Loans from "./Loans";
+import Fertilizer from "./Fertilizer";
+import Agrochemical from "./Agrochemical";
+import Equipment from "./Equipment";
+import EquipmentRequests from "./EquipmentRequests";
+import Crop from "./Crop";
+import Harvest from "./Harvest";
+import Factory from "./Factory";
+import Inventory from "./Inventory";
+import Finance from "./Finance";
+import Loyalty from "./Loyalty";
+import Welfare from "./Welfare";
+import GisMap from "./GisMap";
+import Weather from "./Weather";
+import Vehicles from "./Vehicles";
+import MobileOffline from "./MobileOffline";
+import AiAnalytics from "./AiAnalytics";
+import AuditCompliance from "./AuditCompliance";
+import Architecture from "./Architecture";
+import UserManagement from "./UserManagement";
+import Settings from "./Settings";
+import SupplierLoans from "./SupplierLoans";
+import AuctionSales from "./AuctionSales";
+import FieldTools from "./FieldTools";
+import { EoRegisterSupplier, EoWeighing } from "./ExtensionOfficer";
+import { SupplierDeliveries, SupplierAlerts, SupplierPayments } from "./SupplierPortal";
+import { FarmActivities } from "./FarmActivities";
+import Announcements from "./Announcements";
+import { SupplierAnnouncements } from "./SupplierAnnouncements";
+import { SupplierRequestForm } from "./SupplierRequest";
+import { ResourceRequests } from "./ResourceRequests";
+import { SupplierPlot } from "./SupplierPlot";
+import { SupplierWeather } from "./SupplierWeather";
+import { SupplierTips } from "./SupplierTips";
+import { SupplierFertilizer } from "./SupplierFertilizer";
+import { SupplierInsights } from "./SupplierInsights";
+import { SupplierProfile } from "./SupplierProfile";
+import { SupplierHome } from "./SupplierHome";
+import SupplierCalendar from "./SupplierCalendar";
+
+export const REGISTRY: Record<string, ComponentType> = {
+  // Admin — executive dashboards, core ERP & administration
+  dashboard: Dashboard,
+  "estate-master": EstateMaster,
+  labor: Labor,
+  payroll: Payroll,
+  loans: Loans,
+  fertilizer: Fertilizer,
+  agrochemical: Agrochemical,
+  equipment: Equipment,
+  "equipment-requests": EquipmentRequests,
+  crop: Crop,
+  harvest: Harvest,
+  factory: Factory,
+  inventory: Inventory,
+  finance: Finance,
+  loyalty: Loyalty,
+  welfare: Welfare,
+  gis: GisMap,
+  weather: Weather,
+  vehicles: Vehicles,
+  mobile: MobileOffline,
+  ai: AiAnalytics,
+  audit: AuditCompliance,
+  architecture: Architecture,
+  "user-management": UserManagement,
+  announcements: Announcements,
+
+  // Tea Industry — supplier loans + auction sales
+  "supplier-loans": SupplierLoans,
+  "auction-sales": AuctionSales,
+  "field-tools": FieldTools,
+
+  // Extension Officer — register suppliers + log weights
+  "eo-register": EoRegisterSupplier,
+  "eo-weighing": EoWeighing,
+
+  // Supplier / VVIP — portal modules + resource requisitions
+  "supplier-home": SupplierHome,
+  "supplier-deliveries": SupplierDeliveries,
+  "supplier-alerts": SupplierAlerts,
+  "supplier-payments": SupplierPayments,
+  "supplier-farm": FarmActivities,
+  "supplier-announcements": SupplierAnnouncements,
+  "supplier-requests": SupplierRequestForm,
+  "supplier-plot": SupplierPlot,
+  "supplier-weather": SupplierWeather,
+  "supplier-tips": SupplierTips,
+  "supplier-fertilizer": SupplierFertilizer,
+  "supplier-insights": SupplierInsights,
+  "supplier-profile": SupplierProfile,
+  "supplier-calendar": SupplierCalendar,
+
+  // Admin — supplier resource requisition inbox (ticket management)
+  "resource-requests": ResourceRequests,
+
+  // Super Admin — branding & white-label settings
+  settings: Settings,
+};
