@@ -682,26 +682,82 @@ export async function recordSupplierLocation(
 
 /* ======================= 7 · FARM ACTIVITIES (advisory feedback loop) ======================= */
 
-/** Insert a farm activity (fertilizer/pruning/self_harvest). */
+/** Insert a farm activity (fertilizer/pruning/self_harvest).
+ *
+ *  Offline-safe (B9 fix): if Supabase is unreachable OR the insert fails,
+ *  the mutation is enqueued in `verda:offline_queue` and replayed by the
+ *  AppContext auto-flush when connectivity returns. Either way, the new
+ *  activity is appended to `kdu.farm_activities.cache` (localStorage) so
+ *  SupplierCalendar / SupplierHome / SupplierFertilizer / SupplierPortal
+ *  all see the new entry instantly without waiting for a refetch.
+ */
 export async function recordFarmActivity(
   userId: string,
   activityType: FarmActivity["activityType"],
   loggedDate: string,
   details: Record<string, unknown>
 ): Promise<void> {
+  // 1) Demo mode: just log + cache locally so the UI updates.
   if (!supabaseConfigured) {
     // eslint-disable-next-line no-console
     console.info("[repo:demo] would INSERT farm_activities", { userId, activityType, loggedDate, details });
+    appendToFarmActivityCache({ userId, activityType, loggedDate, details });
     return;
   }
+
+  // 2) Live mode: try Supabase insert. On failure → enqueue for offline sync.
   const sb = getSupabase()!;
-  const { error } = await sb.from("farm_activities").insert({
+  const payload = {
     user_id: userId,
     activity_type: activityType,
     logged_date: loggedDate,
     details,
-  });
-  if (error) throw new Error(`Farm activity insert failed: ${error.message}`);
+  };
+  const { error } = await sb.from("farm_activities").insert(payload);
+  if (error) {
+    // B9 FIX: enqueue mutation for later replay (instead of throwing and losing data).
+    enqueueMutation({
+      table: "farm_activities",
+      operation: "insert",
+      payload,
+      label: `${activityType} activity on ${loggedDate}`,
+    });
+    // eslint-disable-next-line no-console
+    console.warn(`[repo:offline] farm_activities insert failed — queued for sync. (${error.message})`);
+  }
+
+  // 3) Always write-through to localStorage cache so calendar/home/portal update instantly.
+  // (B12 FIX: this is the "missing writer" — previously only SupplierFertilizer wrote
+  //  to this cache, and only after a Supabase fetch. Now recordFarmActivity writes too.)
+  appendToFarmActivityCache({ userId, activityType, loggedDate, details });
+}
+
+/** Append a new activity to the `kdu.farm_activities.cache` localStorage key. */
+function appendToFarmActivityCache(entry: {
+  userId: string;
+  activityType: FarmActivity["activityType"];
+  loggedDate: string;
+  details: Record<string, unknown>;
+}): void {
+  try {
+    const key = "kdu.farm_activities.cache";
+    const raw = localStorage.getItem(key);
+    const list: Array<{ id?: string; activityType: string; loggedDate: string; details: Record<string, unknown>; userId?: string }> = raw ? JSON.parse(raw) : [];
+    list.unshift({
+      id: `local-${Date.now()}`,
+      activityType: entry.activityType,
+      loggedDate: entry.loggedDate,
+      details: entry.details,
+      userId: entry.userId,
+    });
+    // Cap to last 200 entries to prevent unbounded growth.
+    localStorage.setItem(key, JSON.stringify(list.slice(0, 200)));
+    // Notify listeners (SupplierHome, SupplierCalendar, SupplierFertilizer, SupplierPortal)
+    window.dispatchEvent(new CustomEvent("verda:farm-cache-updated"));
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn("[repo] Failed to update farm_activities cache:", e);
+  }
 }
 
 /** Read a supplier's farm activity history (most recent first). */
@@ -749,6 +805,68 @@ export async function readLatestFarmActivity(
     details: data.details ?? {},
     createdAt: data.created_at,
   };
+}
+
+/**
+ * B29 FIX — Read supplier plucking logs aggregated by user, for the factory
+ * intake forecast. Returns the most-recent plucking log per supplier + total
+ * estimated kg from the last 7 days, so the factory can plan tomorrow's intake.
+ *
+ * Source: farm_activities WHERE activity_type IN ('plucking','self_harvest').
+ * `details.estimatedKg` holds the supplier's own estimate per plucking log.
+ */
+export interface SupplierPluckingForecast {
+  supplierId: string;
+  lastPluckDate: string;
+  lastPluckKg: number;
+  lastPluckBlock?: string;
+  lastPluckGrade?: string;
+  totalKgLast7Days: number;
+  pluckCountLast7Days: number;
+  expectedKgTomorrow: number; // average of last 7 days ÷ 7
+}
+
+export async function readSupplierPluckingForecasts(): Promise<SupplierPluckingForecast[]> {
+  if (!supabaseConfigured) return [];
+  const sb = getSupabase()!;
+  const since = new Date(Date.now() - 14 * 86400_000).toISOString().slice(0, 10);
+  const { data, error } = await sb
+    .from("farm_activities")
+    .select("user_id, logged_date, details")
+    .in("activity_type", ["plucking", "self_harvest"])
+    .gte("logged_date", since)
+    .order("logged_date", { ascending: false });
+  if (error) throw new Error(`Could not load plucking forecasts: ${error.message}`);
+
+  const bySupplier: Record<string, { logs: { date: string; kg: number; block?: string; grade?: string }[] }> = {};
+  const sevenDaysAgo = Date.now() - 7 * 86400_000;
+  for (const r of (data ?? [])) {
+    const d = (r.details ?? {}) as { estimatedKg?: number; block?: string; grade?: string };
+    if (!bySupplier[r.user_id]) bySupplier[r.user_id] = { logs: [] };
+    bySupplier[r.user_id].logs.push({
+      date: r.logged_date,
+      kg: Number(d.estimatedKg ?? 0),
+      block: d.block,
+      grade: d.grade,
+    });
+  }
+
+  return Object.entries(bySupplier).map(([supplierId, v]) => {
+    const sorted = v.logs.sort((a, b) => b.date.localeCompare(a.date));
+    const last = sorted[0];
+    const last7 = sorted.filter(l => new Date(l.date).getTime() >= sevenDaysAgo);
+    const totalKgLast7 = last7.reduce((s, l) => s + l.kg, 0);
+    return {
+      supplierId,
+      lastPluckDate: last.date,
+      lastPluckKg: last.kg,
+      lastPluckBlock: last.block,
+      lastPluckGrade: last.grade,
+      totalKgLast7Days: totalKgLast7,
+      pluckCountLast7Days: last7.length,
+      expectedKgTomorrow: last7.length > 0 ? Math.round(totalKgLast7 / 7) : 0,
+    };
+  }).sort((a, b) => b.expectedKgTomorrow - a.expectedKgTomorrow);
 }
 
 /* ======================= 8 · SUPPLIER LOCATIONS (GPS check-ins) ======================= */

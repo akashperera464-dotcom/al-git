@@ -43,20 +43,23 @@ export function LanguageSwitcher({ dark, prominent }: { dark?: boolean; prominen
     };
   }, [open]);
 
-  // Prominent pill mode — single-tap cycles through languages, no dropdown
+  // Prominent pill mode — single-tap cycles through languages, no dropdown.
+  // B22 FIX: made the prominent variant bigger (h-9 w-9 icon button) so it's
+  // clearly visible in the mobile header. Still cycles EN → SI → TA on tap.
   if (prominent) {
     return (
       <button
         onClick={cycle}
+        title={`Language · භාෂාව · மொழி — current: ${i18n.language.toUpperCase()}`}
         className={cn(
-          "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold transition",
+          "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition",
           dark
-            ? "bg-white/15 text-white hover:bg-white/25"
-            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            ? "bg-white/20 text-white hover:bg-white/30 active:scale-95"
+            : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 active:scale-95"
         )}
-        title="Change language · භාෂාව මාරු කරන්න"
       >
-        🌐 {i18n.language.toUpperCase()}
+        <Globe className="h-5 w-5" />
+        <span className="sr-only">Language: {i18n.language.toUpperCase()}</span>
       </button>
     );
   }

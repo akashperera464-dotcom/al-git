@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sprout, Save, Check, CalendarDays, TrendingUp, Trees, RefreshCw, MapPin, Send, Clock, XCircle } from "lucide-react";
+import { Sprout, Save, Check, CalendarDays, TrendingUp, Trees, RefreshCw, MapPin, Send, Clock, XCircle, Plus, Trash2 } from "lucide-react";
 import { PageHeader, StatCard, Card, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum } from "@/lib/data";
@@ -7,6 +7,7 @@ import {
   saveRegistrationRequest,
   getLatestRegistrationRequest,
   type EstateRegistrationRequest,
+  type EstateBlock,
 } from "@/lib/estateRegistration";
 
 /**
@@ -96,6 +97,28 @@ export function SupplierPlot() {
   const [formLandDoc, setFormLandDoc] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formSoilType, setFormSoilType] = useState<"sandy" | "loam" | "clay" | "sandy-loam" | "clay-loam" | "unknown">("unknown");
+  // B14 FIX: registration form now has a blocks[] input UI so suppliers can
+  // declare plot blocks/divisions upfront. These get promoted to My Plot's
+  // subFields on admin approval (see estateRegistration.ts::promoteApprovedToMyPlot).
+  const [formBlocks, setFormBlocks] = useState<EstateBlock[]>([]);
+
+  const addBlock = () => {
+    setFormBlocks(bs => [...bs, {
+      id: `blk-${Date.now()}`,
+      name: "",
+      areaHa: 0,
+      areaAcres: 0,
+      bushCount: 0,
+      cultivar: formCultivar,
+      soilType: formSoilType,
+    }]);
+  };
+  const updateBlock = (id: string, patch: Partial<EstateBlock>) => {
+    setFormBlocks(bs => bs.map(b => b.id === id ? { ...b, ...patch } : b));
+  };
+  const removeBlock = (id: string) => {
+    setFormBlocks(bs => bs.filter(b => b.id !== id));
+  };
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -199,6 +222,15 @@ export function SupplierPlot() {
 
     const photoUrls = [formPhoto1, formPhoto2, formPhoto3].filter(u => u.trim());
 
+    // B14 FIX: filter out blocks with no name (empty rows).
+    const blocks = formBlocks
+      .filter(b => b.name.trim() && b.areaHa > 0)
+      .map(b => ({
+        ...b,
+        areaAcres: b.areaAcres || +(b.areaHa * 2.471).toFixed(3),
+        name: b.name.trim(),
+      }));
+
     const req: EstateRegistrationRequest = {
       id: `reg-${Date.now()}`,
       supplierId: userUid,
@@ -213,6 +245,9 @@ export function SupplierPlot() {
       longitude: typeof formLon === "number" ? formLon : 0,
       address: formAddress.trim(),
       contactPhone: formPhone.trim(),
+      // B14 FIX: blocks now flow from the registration form into the request,
+      // and promoteApprovedToMyPlot turns them into subFields on approval.
+      blocks: blocks.length > 0 ? blocks : undefined,
       photoUrls,
       landDocumentUrl: formLandDoc.trim() || undefined,
       notes: formNotes.trim(),
@@ -536,6 +571,84 @@ export function SupplierPlot() {
                 </a>
               )}
             </div>
+
+            {/* B14 FIX: Plot Blocks / Divisions — lets suppliers declare blocks upfront.
+                These promote to My Plot subFields on admin approval. */}
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] text-emerald-700 font-semibold">
+                  🏞️ Plot Blocks / Divisions (optional but recommended)
+                </label>
+                <button
+                  type="button"
+                  onClick={addBlock}
+                  className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:brightness-110 inline-flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" /> Add Block
+                </button>
+              </div>
+              <p className="text-[10px] text-emerald-700 mb-2 leading-relaxed">
+                Divide your plot into blocks (e.g., උඩ කොටස / Upper Block, පහළ කොටස / Lower Block).
+                On admin approval, these become My Plot sub-fields automatically — no need to re-enter them later.
+              </p>
+              {formBlocks.length === 0 ? (
+                <p className="text-[10px] text-emerald-600 italic text-center py-2">
+                  No blocks added. Tap "Add Block" to declare your plot's sections (optional).
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {formBlocks.map((b, idx) => (
+                    <div key={b.id} className="rounded-lg bg-white border border-emerald-200 p-2.5">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-bold text-emerald-700">Block #{idx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeBlock(b.id)}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-600 hover:text-rose-700"
+                        >
+                          <Trash2 className="h-3 w-3" /> Remove
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="col-span-2">
+                          <label className="text-[10px] text-slate-400">Block Name *</label>
+                          <input
+                            value={b.name}
+                            onChange={e => updateBlock(b.id, { name: e.target.value })}
+                            placeholder="e.g., Upper Block / උඩ කොටස"
+                            className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-400">Area (acres)</label>
+                          <input
+                            type="number" step="any" min={0}
+                            value={b.areaAcres ? b.areaAcres : ""}
+                            onChange={e => {
+                              const acres = e.target.value ? +e.target.value : 0;
+                              updateBlock(b.id, { areaAcres: acres, areaHa: +(acres / 2.471).toFixed(4) });
+                            }}
+                            placeholder="e.g., 1.5"
+                            className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-xs tnum"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-400">Bush Count</label>
+                          <input
+                            type="number" min={0}
+                            value={b.bushCount || ""}
+                            onChange={e => updateBlock(b.id, { bushCount: e.target.value ? +e.target.value : 0 })}
+                            placeholder="e.g., 2000"
+                            className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-xs tnum"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Address */}
             <div>
               <label className="text-[11px] text-slate-400">📍 ලිපිනය · Address (village, district)</label>

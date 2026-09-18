@@ -19,6 +19,7 @@ import {
 import { cn } from "@/utils/cn";
 import { useApp } from "@/context/AppContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { Onboarding } from "@/components/Onboarding";
 import { useBranding, isMediaUrl } from "@/lib/branding";
 import { useLiveData } from "@/lib/useLiveData";
 import { readAlerts, markAlertsRead, type AlertRow } from "@/lib/notifications";
@@ -207,19 +208,29 @@ function NotificationBell() {
 
 /* ----------------------------- Sync Pill ----------------------------- */
 function SyncPill({ dark }: { dark?: boolean }) {
+  const { t } = useTranslation();
   const { online, toggleOnline, syncQueue } = useApp();
   const queued = syncQueue.filter((q) => q.status === "queued").length;
+  // B16 FIX: show a clearer sync-status badge ("✓ Synced" when online+empty,
+  // "⏳ Pending sync (N)" when items are queued, "Offline" when no network).
+  const isSynced = online && queued === 0;
+  const label = !online ? t("common.offline") : queued > 0 ? `${t("common.pending")} (${queued})` : t("common.synced");
   return (
     <button
       onClick={toggleOnline}
+      title={isSynced ? "All data synced to server" : queued > 0 ? `${queued} item(s) waiting to sync` : "You are offline"}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition",
-        online ? (dark ? "bg-emerald-500/20 text-emerald-200" : "bg-emerald-50 text-emerald-700") : dark ? "bg-rose-500/20 text-rose-200" : "bg-rose-50 text-rose-700"
+        !online
+          ? (dark ? "bg-rose-500/20 text-rose-200" : "bg-rose-50 text-rose-700")
+          : isSynced
+            ? (dark ? "bg-emerald-500/20 text-emerald-200" : "bg-emerald-50 text-emerald-700")
+            : (dark ? "bg-amber-500/20 text-amber-200" : "bg-amber-50 text-amber-700")
       )}
     >
-      {online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-      {online ? "Online" : "Offline"}
-      {queued > 0 && <span className={cn("rounded-full px-1.5 text-[9px]", dark ? "bg-white/20" : "bg-amber-400 text-white")}>{queued}</span>}
+      {!online ? <WifiOff className="h-3 w-3" /> : isSynced ? <Check className="h-3 w-3" /> : <Wifi className="h-3 w-3" />}
+      <span className="hidden sm:inline">{isSynced ? "✓ " : !online ? "" : "⏳ "}{label}</span>
+      <span className="sm:hidden">{label}</span>
     </button>
   );
 }
@@ -366,10 +377,11 @@ function BottomNav({ onMore }: { onMore: () => void }) {
   const { t } = useTranslation();
   const { role, activeModule, setActiveModule } = useApp();
   const tabs = primaryTabsForRole(role);
-  // Supervisors & suppliers have exactly 3 permitted modules — render them
-  // directly. Only show the overflow "More" sheet when there are many tabs.
-  const showMore = tabs.length > 5;
-  const visible = showMore ? tabs.slice(0, 4) : tabs;
+  const allTabs = modulesForRole(role);
+  // B17 FIX: show up to 4 primary tabs + a "More" sheet for the rest.
+  // If there are non-primary modules beyond the visible tabs, show "More".
+  const visible = tabs.slice(0, 4);
+  const hasMore = allTabs.length > visible.length;
   return (
     <nav className="sticky bottom-0 z-30 flex items-center justify-around border-t border-slate-200 bg-white/95 px-2 py-1.5 backdrop-blur-xl">
       {visible.map((tab) => {
@@ -384,7 +396,7 @@ function BottomNav({ onMore }: { onMore: () => void }) {
           </button>
         );
       })}
-      {showMore && (
+      {hasMore && (
         <button onClick={onMore} className="flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-slate-400 transition hover:text-slate-600">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg">
             <Grid3x3 className="h-[18px] w-[18px]" />
@@ -487,6 +499,8 @@ function MobileShell({ children }: { children: ReactNode }) {
         <BottomNav onMore={() => setMore(true)} />
       </div>
       <MoreSheet open={more} onClose={() => setMore(false)} />
+      {/* B5: First-time onboarding walkthrough — shows once per supplier */}
+      <Onboarding />
     </div>
   );
 }

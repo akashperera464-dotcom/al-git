@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Sprout, Scissors, Package, Plus, Loader2, Check, CalendarDays, History, Leaf } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
@@ -61,6 +61,18 @@ export function FarmActivities() {
 
   // ---- shared form state ----
   const [date, setDate] = useState(TODAY_ISO);
+
+  // B1/B24 FIX: If the calendar sent us here with a pending date, use it.
+  useEffect(() => {
+    try {
+      const pending = localStorage.getItem("kdu.farm_activities.pending_date");
+      if (pending) {
+        setDate(pending);
+        localStorage.removeItem("kdu.farm_activities.pending_date");
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   // fertilizer
   const [fertType, setFertType] = useState(0);  // index into FERT_TYPE_KEYS
   const [fertQty, setFertQty] = useState(50);

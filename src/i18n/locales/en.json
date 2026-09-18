@@ -67,44 +67,158 @@
     "platformSubtitle": "Integrated Tea Estate Enterprise Platform"
   },
   "modules": {
-    "dashboard": { "l": "Estate Dashboard", "s": "Home" },
-    "estate-master": { "l": "Estate Master", "s": "Master" },
-    "crop": { "l": "Crop Management", "s": "Crop" },
-    "gis": { "l": "GPS & GIS Mapping", "s": "Map" },
-    "labor": { "l": "Labor Management", "s": "Labor" },
-    "harvest": { "l": "Harvest Management", "s": "Weigh" },
-    "vehicles": { "l": "Vehicle & Fuel", "s": "Fleet" },
-    "resource-requests": { "l": "Resource Requisitions", "s": "Inbox" },
-    "factory": { "l": "Factory Integration", "s": "Factory" },
-    "inventory": { "l": "Inventory", "s": "Stores" },
-    "fertilizer": { "l": "Fertilizer", "s": "Fertilizer" },
-    "agrochemical": { "l": "Agrochemical", "s": "Spray" },
-    "payroll": { "l": "Worker Payments", "s": "Payments" },
-    "loans": { "l": "Worker Advances", "s": "Advances" },
-    "loyalty": { "l": "Loyalty Program", "s": "Rewards" },
-    "welfare": { "l": "Worker Welfare", "s": "Welfare" },
-    "finance": { "l": "Finance & Accounting", "s": "Finance" },
-    "weather": { "l": "Weather & Environment", "s": "Weather" },
-    "ai": { "l": "Estate Intelligence", "s": "Insights" },
-    "audit": { "l": "Estate Compliance", "s": "Compliance" },
-    "mobile": { "l": "Mobile & Offline", "s": "Offline" },
-    "architecture": { "l": "Architecture & Docs", "s": "Blueprint" },
-    "user-management": { "l": "User Management", "s": "Users" },
-    "settings": { "l": "Branding & Settings", "s": "Settings" },
-    "eo-register": { "l": "Register New Supplier", "s": "Register" },
-    "eo-weighing": { "l": "Leaf Weighing Entry", "s": "Weigh" },
-    "supplier-deliveries": { "l": "My Leaf Deliveries", "s": "Deliveries" },
-    "supplier-alerts": { "l": "Smart Alerts Panel", "s": "Alerts" },
-    "supplier-payments": { "l": "My Earnings", "s": "Earnings" },
-    "supplier-farm": { "l": "My Farm Activities", "s": "Farm" },
-    "supplier-plot": { "l": "My Plot", "s": "Plot" },
-    "supplier-weather": { "l": "My Weather", "s": "Weather" },
-    "supplier-tips": { "l": "Tips & Guidance", "s": "Tips" },
-    "supplier-fertilizer": { "l": "My Fertilizer", "s": "Fertilizer" },
-    "supplier-announcements": { "l": "Estate Updates", "s": "Updates" },
-    "supplier-requests": { "l": "Request Resources", "s": "Request" },
-    "announcements": { "l": "Announcements", "s": "Posts" },
-    "supplier-insights": { "l": "Supplier Insights", "s": "Insights" }
+    "dashboard": {
+      "l": "Estate Dashboard",
+      "s": "Home"
+    },
+    "estate-master": {
+      "l": "Estate Master",
+      "s": "Master"
+    },
+    "crop": {
+      "l": "Crop Management",
+      "s": "Crop"
+    },
+    "gis": {
+      "l": "GPS & GIS Mapping",
+      "s": "Map"
+    },
+    "labor": {
+      "l": "Labor Management",
+      "s": "Labor"
+    },
+    "harvest": {
+      "l": "Harvest Management",
+      "s": "Weigh"
+    },
+    "vehicles": {
+      "l": "Vehicle & Fuel",
+      "s": "Fleet"
+    },
+    "resource-requests": {
+      "l": "Resource Requisitions",
+      "s": "Inbox"
+    },
+    "factory": {
+      "l": "Factory Integration",
+      "s": "Factory"
+    },
+    "inventory": {
+      "l": "Inventory",
+      "s": "Stores"
+    },
+    "fertilizer": {
+      "l": "Fertilizer",
+      "s": "Fertilizer"
+    },
+    "agrochemical": {
+      "l": "Agrochemical",
+      "s": "Spray"
+    },
+    "payroll": {
+      "l": "Worker Payments",
+      "s": "Payments"
+    },
+    "loans": {
+      "l": "Worker Advances",
+      "s": "Advances"
+    },
+    "loyalty": {
+      "l": "Loyalty Program",
+      "s": "Rewards"
+    },
+    "welfare": {
+      "l": "Worker Welfare",
+      "s": "Welfare"
+    },
+    "finance": {
+      "l": "Finance & Accounting",
+      "s": "Finance"
+    },
+    "weather": {
+      "l": "Weather & Environment",
+      "s": "Weather"
+    },
+    "ai": {
+      "l": "Estate Intelligence",
+      "s": "Insights"
+    },
+    "audit": {
+      "l": "Estate Compliance",
+      "s": "Compliance"
+    },
+    "mobile": {
+      "l": "Mobile & Offline",
+      "s": "Offline"
+    },
+    "architecture": {
+      "l": "Architecture & Docs",
+      "s": "Blueprint"
+    },
+    "user-management": {
+      "l": "User Management",
+      "s": "Users"
+    },
+    "settings": {
+      "l": "Branding & Settings",
+      "s": "Settings"
+    },
+    "eo-register": {
+      "l": "Register New Supplier",
+      "s": "Register"
+    },
+    "eo-weighing": {
+      "l": "Leaf Weighing Entry",
+      "s": "Weigh"
+    },
+    "supplier-deliveries": {
+      "l": "My Leaf Deliveries",
+      "s": "Deliveries"
+    },
+    "supplier-alerts": {
+      "l": "Smart Alerts Panel",
+      "s": "Alerts"
+    },
+    "supplier-payments": {
+      "l": "My Earnings",
+      "s": "Earnings"
+    },
+    "supplier-farm": {
+      "l": "My Farm Activities",
+      "s": "Farm"
+    },
+    "supplier-plot": {
+      "l": "My Plot",
+      "s": "Plot"
+    },
+    "supplier-weather": {
+      "l": "My Weather",
+      "s": "Weather"
+    },
+    "supplier-tips": {
+      "l": "Tips & Guidance",
+      "s": "Tips"
+    },
+    "supplier-fertilizer": {
+      "l": "My Fertilizer",
+      "s": "Fertilizer"
+    },
+    "supplier-announcements": {
+      "l": "Estate Updates",
+      "s": "Updates"
+    },
+    "supplier-requests": {
+      "l": "Request Resources",
+      "s": "Request"
+    },
+    "announcements": {
+      "l": "Announcements",
+      "s": "Posts"
+    },
+    "supplier-insights": {
+      "l": "Supplier Insights",
+      "s": "Insights"
+    }
   },
   "roles": {
     "superAdmin": "Super Admin",
@@ -398,5 +512,120 @@
     "net": "Net",
     "grade": "Grade",
     "rate": "Rate"
+  },
+  "onboarding": {
+    "eyebrow": "Quick Tour",
+    "step1Title": "Welcome to Your Supplier Portal",
+    "step1Body": "This is your home dashboard. See today's weather, total supplied kg, earnings, and quick actions at a glance.",
+    "step1Cta": "Open Home",
+    "step2Title": "Log Your Farm Activities",
+    "step2Body": "Record every fertilizer application, pruning, and plucking round. The smart advisory engine reads these to recommend your next steps.",
+    "step2Cta": "Open Farm Activities",
+    "step3Title": "Register Your Plot",
+    "step3Body": "Enter your plot details (acreage, bush count, GPS, photos) and divide it into blocks. Admin will approve, then your data auto-fills everywhere.",
+    "step3Cta": "Open My Plot",
+    "step4Title": "Get Smart Alerts via Push",
+    "step4Body": "Fertilizer cycle due, pruning mixture reminder, weather guard — we send FCM pushes to your phone even when the app is closed.",
+    "step4Cta": "Open Smart Alerts",
+    "next": "Next",
+    "finish": "Finish",
+    "skip": "Skip tour — I'll explore myself"
+  },
+  "supplierFert": {
+    "eyebrow": "VVIP Supplier Portal",
+    "title": "My Fertilizer",
+    "desc": "Track fertilizer received from factory (credit + cash) + your remaining balance. Credit issues will be deducted from your leaf payments at the factory.",
+    "totalReceived": "Total Received (kg)",
+    "issues": "issues",
+    "used": "Used (kg)",
+    "fromFarm": "from My Farm Activities",
+    "noLogs": "Fertilizer log නොමැත · No fertilizer usage logged yet.",
+    "logHint": "Log applications in 'My Farm Activities' → Fertilizer tab.",
+    "remaining": "Remaining (kg)",
+    "estimated": "estimated balance",
+    "creditOutstanding": "Credit Outstanding",
+    "deductedFromLeaf": "deducted from leaf",
+    "historyTitle": "Fertilizer Issue History",
+    "emptyMsg": "No fertilizer received from factory yet.",
+    "emptyHint": "When admin issues fertilizer to you (credit or cash), it will appear here. Make sure your supplier name matches what admin typed in the Inventory module.",
+    "credit": "Credit",
+    "cash": "Cash",
+    "howTitle": "📌 How this works",
+    "how1": "When admin issues fertilizer to you in the Inventory module, they pick 'Credit' + your supplier name.",
+    "how2": "The issue appears here with the date, fertilizer type, and quantity.",
+    "how3": "'Used (kg)' is computed from your 'My Farm Activities' logs.",
+    "how4": "'Remaining (kg)' = received − used (estimated; assumes 1 bag = 50 kg).",
+    "how5": "Credit issues will be deducted from your leaf payments at the factory.",
+    "syncNote": "Real-time synced to Supabase `supplier_fertilizer_ledger` + `farm_activities` tables. Offline edits queue and sync when online."
+  },
+  "supplierPlot": {
+    "registerTitle": "Register Your Tea Plot",
+    "resubmitTitle": "Update & Resubmit Registration",
+    "blocksSection": "🏞️ Plot Blocks / Divisions",
+    "blocksHint": "Divide your plot into blocks (e.g., Upper Block, Lower Block) to track per-section activities. Optional but recommended.",
+    "addBlock": "+ Add Block",
+    "blockName": "Block Name",
+    "blockNamePh": "e.g., Upper Block / උඩ කොටස",
+    "blockArea": "Area (acres)",
+    "blockBushes": "Bush Count",
+    "removeBlock": "Remove",
+    "subFieldFormTitle": "Add Sub-Field",
+    "subFieldFormEdit": "Edit Sub-Field",
+    "blockNameLabel": "🏷️ Block Name *",
+    "areaLabel": "📐 Area (acres)",
+    "bushesLabel": "🌳 Bush Count",
+    "advancedOptions": "⚙️ Advanced options (cultivar, status, year)",
+    "save": "Save Block ✓",
+    "cancel": "Cancel"
+  },
+  "supplierTips": {
+    "eyebrow": "VVIP Supplier Portal",
+    "title": "Tips & Guidance",
+    "desc": "Daily agronomy tips to maximize your tea plot's yield. Bilingual (English + Sinhala). Personalized to your plot acreage if you've entered it in 'My Plot'.",
+    "yieldFromFertTitle": "🌱 Expected Yield from Your Fertilizer",
+    "yieldFromFertBody": "Based on the fertilizer you've applied so far, you can expect approximately {{kg}} kg of green leaf over the next 30 days.",
+    "yieldFromFertDetail": "Urea boosts vegetative growth (1 kg Urea ≈ 6 kg leaf); TSP/MOP sustain quality. Actual yield depends on weather, bush age, and plucking cycle.",
+    "potentialTitle": "🌱 Your Plot's Potential",
+    "potentialBody": "For your {{acreage}} acres plot ({{region}} region), you could harvest up to {{kg}} kg green leaf per year (~{{monthly}} kg/month). Follow the tips below to reach this potential.",
+    "fertGuidanceTitle": "🧪 Fertilizer Guidance for Your {{acreage}} Acres",
+    "fertGuidanceHint": "ඔබගේ {{acreage}} අක්කර වත්තට අවශ්‍ය පොහොර ප්‍රමාණය පහත පරිදි යෙදිය යුතුය. (Recommended fertilizer quantities for your plot.)",
+    "tipOfDay": "Today's Tip",
+    "allTips": "All Tips"
+  },
+  "supplierWeather": {
+    "eyebrow": "VVIP Supplier Portal",
+    "title": "My Weather",
+    "desc": "Live weather forecast for your plot's location. Plan fertilizer application around rain forecasts — rain within 3 days can wash away fertilizer.",
+    "rainAlertTitle": "🌧️ Rain expected within 3 days",
+    "rainAlertBody": "⚠ Avoid applying fertilizer now — rainfall can wash it away before plants absorb it. Wait for a dry window (rain probability < 30%).",
+    "todayLabel": "Today",
+    "forecastTitle": "5-Day Forecast",
+    "tomorrow": "Tomorrow"
+  },
+  "equipment": {
+    "eyebrow": "Operations",
+    "title": "Equipment Requests",
+    "desc": "Standalone module for requesting plucking machines, spray machines, bags, shears, and other field equipment.",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "newRequest": "New Equipment Request",
+    "category": "Category",
+    "itemName": "Item Name (specific)",
+    "itemNamePh": "e.g., Honda Plucking Machine GX35",
+    "quantity": "Quantity",
+    "duration": "Duration (days)",
+    "datetimeNeeded": "Date & time needed",
+    "note": "Note (optional)",
+    "notePh": "e.g. Needed for the peak flush plucking round in Sutton division…",
+    "submit": "Submit Request",
+    "allRequests": "All Requests",
+    "all": "All",
+    "empty": "No equipment requests yet.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "autoIssued": "✅ Auto-issued from Inventory",
+    "noMatch": "⚠ No matching stock item",
+    "autoIssueFailed": "Auto-issue failed"
   }
 }

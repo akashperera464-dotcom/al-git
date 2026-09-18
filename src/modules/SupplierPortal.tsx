@@ -436,6 +436,13 @@ export function SupplierPayments() {
  *   2. Pruning mixture reminder: 45+ days since last pruning → alert
  *   3. Replanting water/shade reminder: within 90 days of replanting → weekly reminder
  *   4. Weather guard: if rain >= 60% in next 1-2 days AND fertilizer logged recently → alert
+ *
+ * B10 FIX: alerts are now also dispatched via FCM push (via the
+ * `sendSmartAlert` Cloud Function) AND persisted to the Supabase
+ * `alerts` table (via `createAlert`), so they reach the supplier's
+ * phone even when the app is closed. A localStorage deduplication
+ * key prevents the same alert from being pushed more than once
+ * per day per supplier.
  * --------------------------------------------------------------------------- */
 function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast: WeatherDay[] }) {
   const [alerts, setAlerts] = useState<{ type: string; title: string; body: string; tone: "amber" | "sky" | "emerald" | "rose" }[]>([]);
@@ -544,6 +551,57 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
       } catch { /* ignore errors */ }
 
       setAlerts(computed);
+
+      // B10 FIX: Dispatch each computed alert via FCM push + persist to alerts
+      // table. Dedupe per-day per-supplier using localStorage so the supplier
+      // doesn't get the same alert pushed twice in one day.
+      if (computed.length > 0) {
+        try {
+          const today = new Date().toISOString().slice(0, 10);
+          const dedupKey = `kdu.smart_alerts_dispatched.${userUid}`;
+          let dispatched: string[] = [];
+          try {
+            const raw = localStorage.getItem(dedupKey);
+            const parsed = raw ? JSON.parse(raw) : {};
+            // Only keep today's entries
+            dispatched = parsed[today] ?? [];
+          } catch { /* ignore */ }
+
+          const { sendSmartAlert } = await import("@/lib/fcm");
+          const { createAlert } = await import("@/lib/notifications");
+
+          for (const a of computed) {
+            if (dispatched.includes(a.type)) continue; // already pushed today
+            // Persist to alerts table (so it appears in the notification bell + Notification Center)
+            void createAlert({
+              targetUserId: userUid,
+              title: a.title,
+              body: a.body,
+              type: a.type.startsWith("fert") ? "fertilizer"
+                : a.type.startsWith("prune") ? "plucking"
+                : a.type === "weather-guard" ? "weather"
+                : "general",
+            });
+            // Fire FCM push (best-effort)
+            void sendSmartAlert({
+              targetUserId: userUid,
+              title: a.title,
+              body: a.body,
+              type: a.type,
+              alertType: a.type.startsWith("fert") ? "fertilizer"
+                : a.type.startsWith("prune") ? "plucking"
+                : a.type === "weather-guard" ? "weather"
+                : "general",
+            });
+            dispatched.push(a.type);
+          }
+
+          // Save dedupe state (only today's entries)
+          try {
+            localStorage.setItem(dedupKey, JSON.stringify({ [today]: dispatched }));
+          } catch { /* ignore */ }
+        } catch { /* ignore — push failure should not break UI */ }
+      }
     })();
   }, [userUid, forecast]);
 

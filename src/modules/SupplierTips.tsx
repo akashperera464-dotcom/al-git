@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Sprout, Lightbulb, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader, Card, IconChip, Badge } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
+import { predictYieldFromFertilizer } from "@/lib/predictive";
 
 /**
  * SupplierTips — "Tips & Guidance" module (supplier side)
@@ -10,10 +12,9 @@ import { useApp } from "@/context/AppContext";
  *   Motivational Tips & Dynamic Alerts: අක්කර ප්‍රමාණය අනුව ලබාගත හැකි උපරිම අස්වැන්න සහ පොහොර භාවිතය
  *   පිඅබඳ මගපෙන්වන Automated Tips පෙන්වීම.
  *
- * Shows 5 rotating agronomy tips (changes daily) + personalized tip based on
- * supplier's plot acreage (if they entered it via My Plot module).
- *
- * Tips are bilingual (English + Sinhala) for accessibility.
+ * B18 FIX: now fully bilingual via react-i18next.
+ * B25 FIX: Added "Expected Yield from Your Fertilizer" card that uses the
+ * predictYieldFromFertilizer() function from predictive.ts.
  */
 
 const STORAGE_KEY = (uid: string) => `kdu.supplier_plot.${uid}`;
@@ -98,6 +99,7 @@ function toneClass(tone: string) {
 }
 
 export function SupplierTips() {
+  const { t } = useTranslation();
   const { userUid } = useApp();
 
   // Load supplier's plot (for personalized yield estimate)
@@ -130,6 +132,47 @@ export function SupplierTips() {
     } catch { /* ignore */ }
   }, [userUid]);
 
+  // B25 FIX: Read fertilizer usage from farm_activities cache to compute
+  // yield projection via predictYieldFromFertilizer().
+  const [fertUsage, setFertUsage] = useState<{ ureaKg: number; tspKg: number; mopKg: number; dolomiteKg: number; compostKg: number }>({ ureaKg: 0, tspKg: 0, mopKg: 0, dolomiteKg: 0, compostKg: 0 });
+  useEffect(() => {
+    const refresh = () => {
+      try {
+        const raw = localStorage.getItem("kdu.farm_activities.cache");
+        if (!raw) return;
+        const logs: { activityType: string; details: { type?: string; quantityKg?: number } }[] = JSON.parse(raw);
+        const usage = { ureaKg: 0, tspKg: 0, mopKg: 0, dolomiteKg: 0, compostKg: 0 };
+        for (const log of logs) {
+          if (log.activityType !== "fertilizer") continue;
+          const type = log.details?.type ?? "";
+          const qty = Number(log.details?.quantityKg ?? 0);
+          if (/urea/i.test(type)) usage.ureaKg += qty;
+          else if (/tsp|phosphate/i.test(type)) usage.tspKg += qty;
+          else if (/mop|potash/i.test(type)) usage.mopKg += qty;
+          else if (/dolomite/i.test(type)) usage.dolomiteKg += qty;
+          else if (/compost|organic/i.test(type)) usage.compostKg += qty;
+        }
+        setFertUsage(usage);
+      } catch { /* ignore */ }
+    };
+    refresh();
+    window.addEventListener("verda:farm-cache-updated", refresh);
+    return () => window.removeEventListener("verda:farm-cache-updated", refresh);
+  }, [userUid]);
+
+  const fertProjection = (plot && plot.acreage > 0 && (fertUsage.ureaKg + fertUsage.tspKg + fertUsage.mopKg > 0))
+    ? predictYieldFromFertilizer({
+        acreage: plot.acreage,
+        ureaKg: fertUsage.ureaKg,
+        tspKg: fertUsage.tspKg,
+        mopKg: fertUsage.mopKg,
+        dolomiteKg: fertUsage.dolomiteKg,
+        compostKg: fertUsage.compostKg,
+        region: plot.region as any,
+        horizonDays: 30,
+      })
+    : null;
+
   // Today's tip (rotates daily)
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
   const [tipIndex, setTipIndex] = useState(dayOfYear % MOTIVATIONAL_TIPS.length);
@@ -147,22 +190,53 @@ export function SupplierTips() {
   return (
     <div>
       <PageHeader
-        eyebrow="VVIP Supplier Portal"
-        title="Tips & Guidance"
-        desc="Daily agronomy tips to maximize your tea plot's yield. Bilingual (English + Sinhala). Personalized to your plot acreage if you've entered it in 'My Plot'."
+        eyebrow={t("supplierTips.eyebrow")}
+        title={t("supplierTips.title")}
+        desc={t("supplierTips.desc")}
         icon={<IconChip icon={Lightbulb} tone="amber" className="h-12 w-12" />}
       />
+
+      {/* B25 FIX: Expected yield from fertilizer applied so far */}
+      {fertProjection && (
+        <Card className="mt-4 p-4 border-violet-200 bg-violet-50">
+          <p className="text-sm font-bold text-violet-700 mb-2 flex items-center gap-1.5">
+            <Sprout className="h-4 w-4" /> {t("supplierTips.yieldFromFertTitle")}
+          </p>
+          <p className="text-xs text-violet-700 leading-relaxed mb-2">
+            {t("supplierTips.yieldFromFertBody", { kg: fertProjection.expectedKg.toLocaleString() })}
+          </p>
+          <div className="space-y-1">
+            {fertProjection.breakdown.map((b, i) => (
+              <div key={i} className="flex items-center justify-between rounded bg-white border border-violet-200 px-2.5 py-1.5 text-xs">
+                <span className="font-medium text-slate-700">{b.source}</span>
+                <span className="font-bold text-violet-700 tnum">+{b.kg} kg</span>
+              </div>
+            ))}
+          </div>
+          {fertProjection.cappedByAcreage && (
+            <p className="mt-2 text-[10px] text-violet-600 italic">
+              * Capped by your plot's acreage × regional max yield. Apply more fertilizer only if you've increased your plucking round frequency.
+            </p>
+          )}
+          <p className="mt-2 text-[10px] text-violet-600 leading-relaxed">
+            {t("supplierTips.yieldFromFertDetail")}
+          </p>
+        </Card>
+      )}
 
       {/* Personalized banner (only if supplier has entered their plot) */}
       {expectedYield !== null && (
         <Card className="mt-4 p-4 border-emerald-200 bg-emerald-50">
           <p className="text-sm font-bold text-emerald-700 mb-1 flex items-center gap-1.5">
-            <Sprout className="h-4 w-4" /> 🌱 Your Plot's Potential
+            <Sprout className="h-4 w-4" /> {t("supplierTips.potentialTitle")}
           </p>
           <p className="text-xs text-emerald-700 leading-relaxed">
-            For your <strong>{plot!.acreage} acres</strong> plot ({{ "low-country": "low-country", "mid-country": "mid-country", "up-country": "up-country" }[plot!.region ?? "default"] || "default"} region),
-            you could harvest up to <strong>{expectedYield.toLocaleString()} kg</strong> green leaf per year (~{(expectedYield / 12).toFixed(0)} kg/month).
-            Follow the tips below to reach this potential.
+            {t("supplierTips.potentialBody", {
+              acreage: plot!.acreage,
+              region: plot!.region ?? "default",
+              kg: expectedYield.toLocaleString(),
+              monthly: (expectedYield / 12).toFixed(0),
+            })}
           </p>
         </Card>
       )}
@@ -171,10 +245,10 @@ export function SupplierTips() {
       {plot && plot.acreage > 0 && (
         <Card className="mt-4 p-4 border-amber-200 bg-amber-50">
           <p className="text-sm font-bold text-amber-700 mb-2 flex items-center gap-1.5">
-            🧪 Fertilizer Guidance for Your {plot.acreage} Acres
+            {t("supplierTips.fertGuidanceTitle", { acreage: plot.acreage })}
           </p>
           <p className="text-[11px] text-amber-700 mb-3">
-            ඔබගේ {plot.acreage} අක්කර වත්තට අවශ්‍ය පොහොර ප්‍රමාණය පහත පරිදි යෙදිය යුතුය. (Recommended fertilizer quantities for your plot.)
+            {t("supplierTips.fertGuidanceHint", { acreage: plot.acreage })}
           </p>
           <div className="space-y-1.5">
             {computeFertilizerGuidance(plot.acreage).map((g, i) => (
@@ -205,7 +279,7 @@ export function SupplierTips() {
       {/* Today's tip — big highlight */}
       <Card className={`mt-4 p-5 border-2 ${toneClass(tip.tone)}`}>
         <div className="flex items-center justify-between mb-3">
-          <Badge tone={tip.tone as any} dot>Today's Tip</Badge>
+          <Badge tone={tip.tone as any} dot>{t("supplierTips.tipOfDay")}</Badge>
           <div className="flex gap-1">
             <button onClick={prevTip} className="rounded-full border border-slate-200 bg-white p-1.5 hover:bg-slate-50">
               <ChevronLeft className="h-3.5 w-3.5" />
@@ -224,7 +298,7 @@ export function SupplierTips() {
 
       {/* All tips list */}
       <Card className="mt-4 p-4">
-        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">All Tips</h3>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">{t("supplierTips.allTips")}</h3>
         <div className="space-y-2">
           {MOTIVATIONAL_TIPS.map((tip, i) => (
             <div

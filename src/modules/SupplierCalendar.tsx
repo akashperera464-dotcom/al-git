@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Sprout, Scissors, Leaf, Package, CalendarDays } from "lucide-react";
-import { PageHeader, Card, Badge, IconChip } from "@/components/ui";
+import { useState, useMemo, useEffect } from "react";
+import { ChevronLeft, ChevronRight, Sprout, Scissors, Leaf, Package, CalendarDays, Plus } from "lucide-react";
+import { PageHeader, Card, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 
 const MONTH_NAMES_SI = ["ජනවාරි","පෙබරවාරි","මාර්තු","අප්රේල්","මැයි","ජූනි","ජූලි","අගෝස්තු","සැප්තැම්බර්","ඔක්තෝම්බර්","නොවැම්බර්","දෙසැම්බර්"];
@@ -31,19 +31,28 @@ interface FarmLog {
 }
 
 export default function SupplierCalendar() {
-  const { userUid } = useApp();
+  const { userUid, setActiveModule } = useApp();
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [cacheBump, setCacheBump] = useState(0); // forces re-read when cache changes
+
+  // Listen for cache updates (B12 fix — recordFarmActivity now writes to cache)
+  useEffect(() => {
+    const handler = () => setCacheBump(b => b + 1);
+    window.addEventListener("verda:farm-cache-updated", handler);
+    return () => window.removeEventListener("verda:farm-cache-updated", handler);
+  }, []);
 
   // Load farm activity logs from localStorage
   const farmLogs = useMemo<FarmLog[]>(() => {
+    void cacheBump; // dependency on cacheBump
     try {
       const raw = localStorage.getItem("kdu.farm_activities.cache");
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
-  }, [userUid]);
+  }, [userUid, cacheBump]);
 
   // Build a map: date string → activity types
   const activityMap = useMemo(() => {
@@ -78,6 +87,18 @@ export default function SupplierCalendar() {
 
   const selectedLogs = selectedDay ? (activityMap[selectedDay] ?? []) : [];
 
+  /**
+   * B1 / B24 FIX: "+ Log Activity" button — navigates to Farm Activities
+   * with the selected date pre-filled. The date is stashed in localStorage
+   * under `kdu.farm_activities.pending_date` and FarmActivities reads it
+   * on mount to pre-fill the date input.
+   */
+  const logActivityOnDate = (dateStr: string | null) => {
+    const target = dateStr ?? todayStr;
+    try { localStorage.setItem("kdu.farm_activities.pending_date", target); } catch { /* ignore */ }
+    setActiveModule("supplier-farm");
+  };
+
   // Activity type summary for this month
   const monthStats = useMemo(() => {
     const stats: Record<string, number> = {};
@@ -97,7 +118,7 @@ export default function SupplierCalendar() {
       <PageHeader
         eyebrow="VVIP Supplier Portal"
         title="📅 My Calendar"
-        desc="ගොවිතැන් ක්රියාකාරකම් දිනයෙන් දිනය · Farm activities day by day"
+        desc="ගොවිතැන් ක්රියාකාරකම් දිනයෙන් දිනය · Farm activities day by day. Tap a date to log a new activity."
         icon={<IconChip icon={CalendarDays} tone="emerald" className="h-12 w-12" />}
       />
 
@@ -209,7 +230,7 @@ export default function SupplierCalendar() {
         </Card>
       )}
 
-      {/* Selected day detail */}
+      {/* Selected day detail — with "+ Log Activity" button (B1/B24 fix) */}
       {selectedDay && (
         <Card className="p-4">
           <div className="mb-2 flex items-center justify-between">
@@ -219,7 +240,7 @@ export default function SupplierCalendar() {
             <button onClick={() => setSelectedDay(null)} className="text-xs text-slate-400 hover:text-slate-600">Close ×</button>
           </div>
           {selectedLogs.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-4">No activities logged on this day.</p>
+            <p className="text-sm text-slate-400 text-center py-2">No activities logged on this day.</p>
           ) : (
             <div className="space-y-2">
               {selectedLogs.map((log, i) => {
@@ -244,14 +265,33 @@ export default function SupplierCalendar() {
               })}
             </div>
           )}
+          {/* B1/B24: "+ Log Activity" button — opens Farm Activities with this date pre-filled */}
+          <button
+            onClick={() => logActivityOnDate(selectedDay)}
+            className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition hover:brightness-110"
+          >
+            <Plus className="h-4 w-4" />
+            ක්රියාකාරකමක් ලොග් කරන්න · Log Activity on {new Date(selectedDay + "T00:00:00").toLocaleDateString()}
+          </button>
         </Card>
+      )}
+
+      {/* Floating "+ Log Activity" button (always visible) — B1/B24 fix */}
+      {!selectedDay && (
+        <button
+          onClick={() => logActivityOnDate(todayStr)}
+          className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/30 transition hover:brightness-110 active:scale-[0.99]"
+        >
+          <Plus className="h-5 w-5" />
+          අද ක්රියාකාරකමක් ලොග් කරන්න · Log Today's Activity
+        </button>
       )}
 
       {farmLogs.length === 0 && (
         <Card className="p-6 text-center">
           <CalendarDays className="mx-auto h-8 w-8 text-slate-300 mb-2" />
           <p className="text-sm text-slate-400">ගොවිතැන් ක්රියාකාරකම් නොමැත · No farm activities logged yet.</p>
-          <p className="text-xs text-slate-300 mt-1">Log activities in "My Farm Activities" to see them here.</p>
+          <p className="text-xs text-slate-300 mt-1">Tap "Log Today's Activity" above to record your first activity.</p>
         </Card>
       )}
     </div>

@@ -144,6 +144,12 @@ export interface NavItem {
   roles: Role[];
   capability: Capability;
   premium?: boolean;
+  /**
+   * B17 FIX: primary tabs are shown in the bottom-nav (max 4). Non-primary
+   * supplier modules are tucked into the "More" sheet. Set on a per-item
+   * basis so the choice is explicit and discoverable in code.
+   */
+  primary?: boolean;
 }
 
 export const CATEGORIES: { id: string; label: string }[] = [
@@ -203,13 +209,15 @@ export const MODULES: NavItem[] = [
   { key: "eo-weighing", label: "Leaf Weighing Entry", short: "Weigh", icon: Scale, category: "field", roles: ["extension_officer"], capability: "weighing.capture" },
 
   /* ---- Supplier / VVIP (mobile): own portal + resource requisitions ---- */
-  { key: "supplier-home", label: "Home", short: "Home", icon: Home, category: "supplier", roles: ["supplier"], capability: "home.own" },
-  { key: "supplier-calendar", label: "My Calendar", short: "Calendar", icon: CalendarDays, category: "supplier", roles: ["supplier"], capability: "calendar.own" },
+  // B17 FIX: Only 4 primary tabs in the bottom-nav (Home, Farm, Calendar, More).
+  // Everything else is in the "More" sheet (accessible via the 4th tab).
+  { key: "supplier-home", label: "Home", short: "Home", icon: Home, category: "supplier", roles: ["supplier"], capability: "home.own", primary: true },
+  { key: "supplier-calendar", label: "My Calendar", short: "Calendar", icon: CalendarDays, category: "supplier", roles: ["supplier"], capability: "calendar.own", primary: true },
   { key: "supplier-deliveries", label: "My Leaf Deliveries", short: "Deliveries", icon: Package, category: "supplier", roles: ["supplier"], capability: "deliveries.own" },
   { key: "supplier-alerts", label: "Smart Alerts Panel", short: "Alerts", icon: BellRing, category: "supplier", roles: ["supplier"], capability: "alerts.own" },
   // EMS SIMPLIFY: 'Payment Tracker' → 'My Earnings' (simpler, less ERP-feel for suppliers)
   { key: "supplier-payments", label: "My Earnings", short: "Earnings", icon: Wallet, category: "supplier", roles: ["supplier"], capability: "payments.own" },
-  { key: "supplier-farm", label: "My Farm Activities", short: "Farm", icon: Sprout, category: "supplier", roles: ["supplier"], capability: "farm.log" },
+  { key: "supplier-farm", label: "My Farm Activities", short: "Farm", icon: Sprout, category: "supplier", roles: ["supplier"], capability: "farm.log", primary: true },
   { key: "supplier-plot", label: "My Plot", short: "Plot", icon: Trees, category: "supplier", roles: ["supplier"], capability: "plot.own" },
   { key: "supplier-weather", label: "My Weather", short: "Weather", icon: CloudSun, category: "supplier", roles: ["supplier"], capability: "weather.own" },
   { key: "supplier-tips", label: "Tips & Guidance", short: "Tips", icon: Lightbulb, category: "supplier", roles: ["supplier"], capability: "tips.own" },
@@ -239,5 +247,15 @@ export const usesAdminShell = (r: Role): boolean => r === "admin" || r === "supe
 export const homeModuleFor = (r: Role): string =>
   usesAdminShell(r) ? "dashboard" : r === "extension_officer" ? "eo-register" : "supplier-home";
 
-/** Tabs for the mobile bottom-nav (supervisor / supplier only). */
-export const primaryTabsForRole = (r: Role): NavItem[] => modulesForRole(r);
+/** Tabs for the mobile bottom-nav (supervisor / supplier only).
+ *
+ *  B17 FIX: returns only items marked `primary: true` (max 4 visible).
+ *  Non-primary modules are surfaced via the "More" sheet (which iterates
+ *  `modulesForRole` directly). If no items are marked primary, falls back
+ *  to the legacy behaviour (return all modules for the role).
+ */
+export const primaryTabsForRole = (r: Role): NavItem[] => {
+  const all = modulesForRole(r);
+  const primary = all.filter((m) => m.primary);
+  return primary.length > 0 ? primary : all;
+};

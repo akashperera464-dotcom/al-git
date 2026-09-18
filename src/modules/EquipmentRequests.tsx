@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Wrench, CheckCircle2, XCircle, Clock3, Send } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip, Segmented } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
@@ -13,6 +14,8 @@ import { fmtNum, addDays, TODAY_ISO, type EquipmentCategory } from "@/lib/data";
  *   - Categories: Plucking Machine, Spray Machine, Bag (Goni),
  *     Pruning Shears, Knapsack Sprayer, Basket, Other
  *   - Phase 2: link to admin inbox + auto-issue from Inventory on approval
+ *
+ * B18 FIX: now fully bilingual (EN/SI/TA) via react-i18next.
  *
  * Persistence: Phase 1 saves to localStorage; Phase 2 will write to
  * Supabase `equipment_requests` table.
@@ -46,6 +49,7 @@ interface EquipmentRequest {
 const STORAGE_KEY = "kdu.equipment_requests";
 
 export default function EquipmentRequests() {
+  const { t } = useTranslation();
   const { notify } = useApp();
 
   const [requests, setRequests] = useState<EquipmentRequest[]>([]);
@@ -76,7 +80,7 @@ export default function EquipmentRequests() {
 
   const submit = () => {
     if (!itemName.trim() || quantity <= 0) {
-      notify({ title: "Missing fields", body: "Item name + quantity required", tone: "rose", channel: "system" });
+      notify({ title: t("equipment.empty"), body: t("equipment.itemName"), tone: "rose", channel: "system" });
       return;
     }
     const req: EquipmentRequest = {
@@ -92,7 +96,7 @@ export default function EquipmentRequests() {
       timestamp: Date.now(),
     };
     persist([req, ...requests]);
-    notify({ title: "Equipment request submitted ✦", body: `${quantity}× ${itemName} (${category}) — pending admin review.`, tone: "sky", channel: "system" });
+    notify({ title: `${t("equipment.submit")} ✦`, body: `${quantity}× ${itemName} (${category}) — pending admin review.`, tone: "sky", channel: "system" });
     setItemName(""); setQuantity(1); setNote("");
   };
 
@@ -100,16 +104,13 @@ export default function EquipmentRequests() {
     const req = requests.find(r => r.id === id);
     if (!req) return;
     persist(requests.map(r => r.id === id ? { ...r, status: "APPROVED" } : r));
-    notify({ title: "Approved", body: "Equipment request approved.", tone: "emerald", channel: "system" });
+    notify({ title: t("equipment.approve"), body: "Equipment request approved.", tone: "emerald", channel: "system" });
 
     // NEW (Sir's spec A.5): Auto-issue from Inventory on approval.
-    // Find matching stock_item (by category='equipment' + matching name) and
-    // call issueStock() to auto-deduct. Best-effort — if no match, just approve.
     void (async () => {
       try {
         const { listStockItems, issueStock } = await import("@/lib/repo.phase2");
         const stockItems = await listStockItems();
-        // Match: category='equipment' + name contains itemName OR vice versa
         const match = stockItems.find(s =>
           s.category === "equipment" && (
             s.name.toLowerCase().includes(req.itemName.toLowerCase()) ||
@@ -125,14 +126,14 @@ export default function EquipmentRequests() {
             notes: `[Equipment Req #${id.slice(-6).toUpperCase()} · ${req.category} · auto-issue on approval]`,
           });
           notify({
-            title: "✅ Auto-issued from Inventory",
+            title: t("equipment.autoIssued"),
             body: `${req.quantity}× ${match.name} auto-deducted from stock (was ${match.qtyOnHand} ${match.unit}, now ${match.qtyOnHand - req.quantity}).`,
             tone: "emerald",
             channel: "system",
           });
         } else {
           notify({
-            title: "⚠ No matching stock item",
+            title: t("equipment.noMatch"),
             body: `Could not find "${req.itemName}" in Inventory (category=equipment). Approved but stock NOT auto-deducted. Please deduct manually.`,
             tone: "amber",
             channel: "system",
@@ -140,7 +141,7 @@ export default function EquipmentRequests() {
         }
       } catch (e) {
         notify({
-          title: "Auto-issue failed",
+          title: t("equipment.autoIssueFailed"),
           body: `Approved but couldn't deduct stock: ${e instanceof Error ? e.message : "Unknown error"}`,
           tone: "rose",
           channel: "system",
@@ -150,7 +151,7 @@ export default function EquipmentRequests() {
   };
   const reject = (id: string) => {
     persist(requests.map(r => r.id === id ? { ...r, status: "REJECTED", adminNotes: "Insufficient stock / unavailable" } : r));
-    notify({ title: "Rejected", body: "Equipment request rejected.", tone: "rose", channel: "system" });
+    notify({ title: t("equipment.reject"), body: "Equipment request rejected.", tone: "rose", channel: "system" });
   };
 
   const filtered = filter === "ALL" ? requests : requests.filter(r => r.status === filter);
@@ -161,61 +162,61 @@ export default function EquipmentRequests() {
   return (
     <div>
       <PageHeader
-        eyebrow="Operations"
-        title="Equipment Requests"
-        desc="Standalone module for requesting plucking machines, spray machines, bags, shears, and other field equipment. Categories: Plucking Machine, Spray Machine, Bag, Pruning Shears, Knapsack Sprayer, Basket."
+        eyebrow={t("equipment.eyebrow")}
+        title={t("equipment.title")}
+        desc={t("equipment.desc")}
         icon={<IconChip icon={Wrench} tone="sky" className="h-12 w-12" />}
       />
 
       <div className="grid grid-cols-3 gap-3">
-        <StatCard icon={Clock3} label="Pending" value={String(pending)} tone="amber" />
-        <StatCard icon={CheckCircle2} label="Approved" value={String(approved)} tone="emerald" />
-        <StatCard icon={XCircle} label="Rejected" value={String(rejected)} tone="rose" />
+        <StatCard icon={Clock3} label={t("equipment.pending")} value={String(pending)} tone="amber" />
+        <StatCard icon={CheckCircle2} label={t("equipment.approved")} value={String(approved)} tone="emerald" />
+        <StatCard icon={XCircle} label={t("equipment.rejected")} value={String(rejected)} tone="rose" />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Form: submit new equipment request */}
         <Card className="p-4">
-          <h3 className="mb-3 font-display text-sm font-bold text-slate-800">New Equipment Request</h3>
+          <h3 className="mb-3 font-display text-sm font-bold text-slate-800">{t("equipment.newRequest")}</h3>
           <div className="space-y-3">
             <div>
-              <label className="text-[11px] text-slate-400">Category</label>
+              <label className="text-[11px] text-slate-400">{t("equipment.category")}</label>
               <select value={category} onChange={e => setCategory(e.target.value as EquipmentCategory)}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
                 {EQUIPMENT_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label} · {c.sinhala}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[11px] text-slate-400">Item Name (specific)</label>
-              <input value={itemName} onChange={e => setItemName(e.target.value)} placeholder="e.g., Honda Plucking Machine GX35"
+              <label className="text-[11px] text-slate-400">{t("equipment.itemName")}</label>
+              <input value={itemName} onChange={e => setItemName(e.target.value)} placeholder={t("equipment.itemNamePh")}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[11px] text-slate-400">Quantity</label>
+                <label className="text-[11px] text-slate-400">{t("equipment.quantity")}</label>
                 <input type="number" min={1} value={quantity} onChange={e => setQuantity(Math.max(0, +e.target.value))}
                   className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">Duration (days)</label>
+                <label className="text-[11px] text-slate-400">{t("equipment.duration")}</label>
                 <input type="number" min={1} value={duration} onChange={e => setDuration(Math.max(1, +e.target.value))}
                   className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
               </div>
             </div>
             <div>
-              <label className="text-[11px] text-slate-400">Date & time needed</label>
+              <label className="text-[11px] text-slate-400">{t("equipment.datetimeNeeded")}</label>
               <input type="datetime-local" value={dateNeeded} onChange={e => setDateNeeded(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-[11px] text-slate-400">Note (optional)</label>
+              <label className="text-[11px] text-slate-400">{t("equipment.note")}</label>
               <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
-                placeholder="e.g. Needed for the peak flush plucking round in Sutton division…"
+                placeholder={t("equipment.notePh")}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             <button onClick={submit}
               className="w-full rounded-lg bg-sky-600 py-2 text-sm font-semibold text-white hover:brightness-110 inline-flex items-center justify-center gap-1.5">
-              <Send className="h-3.5 w-3.5" /> Submit Request
+              <Send className="h-3.5 w-3.5" /> {t("equipment.submit")}
             </button>
           </div>
         </Card>
@@ -223,20 +224,20 @@ export default function EquipmentRequests() {
         {/* List of submitted requests */}
         <Card className="p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-display text-sm font-bold text-slate-800">All Requests</h3>
+            <h3 className="font-display text-sm font-bold text-slate-800">{t("equipment.allRequests")}</h3>
             <Segmented
               value={filter}
               onChange={v => setFilter(v as "ALL" | ReqStatus)}
               options={[
-                { value: "ALL", label: "All" },
-                { value: "PENDING", label: "Pending" },
-                { value: "APPROVED", label: "Approved" },
-                { value: "REJECTED", label: "Rejected" },
+                { value: "ALL", label: t("equipment.all") },
+                { value: "PENDING", label: t("equipment.pending") },
+                { value: "APPROVED", label: t("equipment.approved") },
+                { value: "REJECTED", label: t("equipment.rejected") },
               ]}
             />
           </div>
           {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400">No equipment requests yet.</p>
+            <p className="py-8 text-center text-sm text-slate-400">{t("equipment.empty")}</p>
           ) : (
             <div className="space-y-2 max-h-[28rem] overflow-y-auto">
               {filtered.map(r => (
@@ -247,7 +248,7 @@ export default function EquipmentRequests() {
                       <p className="text-[11px] text-slate-500 mt-0.5">{r.category} · needed {new Date(r.dateNeeded).toLocaleString()}</p>
                     </div>
                     <Badge tone={r.status === "APPROVED" ? "emerald" : r.status === "REJECTED" ? "rose" : "amber"} dot>
-                      {r.status}
+                      {r.status === "APPROVED" ? t("equipment.approved") : r.status === "REJECTED" ? t("equipment.rejected") : t("equipment.pending")}
                     </Badge>
                   </div>
                   {r.note && <p className="mt-1.5 text-[11px] text-slate-600 italic">"{r.note}"</p>}
@@ -255,11 +256,11 @@ export default function EquipmentRequests() {
                     <div className="mt-2 flex gap-1.5">
                       <button onClick={() => approve(r.id)}
                         className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:brightness-110 inline-flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Approve
+                        <CheckCircle2 className="h-3 w-3" /> {t("equipment.approve")}
                       </button>
                       <button onClick={() => reject(r.id)}
                         className="rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:brightness-110 inline-flex items-center gap-1">
-                        <XCircle className="h-3 w-3" /> Reject
+                        <XCircle className="h-3 w-3" /> {t("equipment.reject")}
                       </button>
                     </div>
                   )}

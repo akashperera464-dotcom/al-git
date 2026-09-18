@@ -398,6 +398,163 @@ export function estimateYieldKgPerHa(input: YieldInput): number {
 }
 
 /* ------------------------------------------------------------------ */
+/* B25 FIX — Yield projection from fertilizer inputs                  */
+/* ------------------------------------------------------------------ */
+/**
+ * predictYieldFromFertilizer — compute expected green-leaf yield (kg)
+ * over the next `horizonDays` based on the fertilizer applied so far.
+ *
+ * Uses deterministic TRI response curves:
+ *   • Urea (46% N):   1 kg Urea ≈ 6 kg green leaf (vegetative growth boost)
+ *   • TSP (P):        1 kg TSP  ≈ 1.5 kg green leaf (root/quality support)
+ *   • MOP (K):        1 kg MOP  ≈ 2 kg green leaf (drought tolerance + yield)
+ *   • Dolomite:       1 kg      ≈ 0.3 kg (soil pH correction — indirect)
+ *   • Compost:        1 kg      ≈ 0.5 kg (slow-release organic)
+ *
+ * The yield response is bounded by plot acreage × regional max yield so
+ * unrealistic fertilizer rates can't produce unrealistic projections.
+ *
+ * Returned shape: { expectedKg, breakdown, cappedByAcreage, horizonDays }
+ */
+export interface FertilizerYieldInput {
+  acreage: number;
+  ureaKg: number;
+  tspKg: number;
+  mopKg: number;
+  dolomiteKg?: number;
+  compostKg?: number;
+  region?: "low-country" | "mid-country" | "up-country" | "default";
+  horizonDays?: number; // default 30
+}
+
+export interface FertilizerYieldResult {
+  expectedKg: number;
+  breakdown: { source: string; kg: number }[];
+  cappedByAcreage: boolean;
+  horizonDays: number;
+}
+
+const YIELD_PER_REGION_PER_ACRE_MONTH: Record<string, number> = {
+  "low-country": 125,   // ~1500 kg/acre/year ÷ 12
+  "mid-country": 92,    // ~1100 ÷ 12
+  "up-country": 67,     // ~800 ÷ 12
+  "default": 100,
+};
+
+export function predictYieldFromFertilizer(input: FertilizerYieldInput): FertilizerYieldResult {
+  const horizonDays = input.horizonDays ?? 30;
+  const horizonMonths = horizonDays / 30;
+
+  // 1. Sum the leaf-equivalent response from each fertilizer type.
+  const ureaResp = input.ureaKg * 6;
+  const tspResp = input.tspKg * 1.5;
+  const mopResp = input.mopKg * 2;
+  const dolomiteResp = (input.dolomiteKg ?? 0) * 0.3;
+  const compostResp = (input.compostKg ?? 0) * 0.5;
+  const rawTotal = ureaResp + tspResp + mopResp + dolomiteResp + compostResp;
+
+  // 2. Scale by horizon (the response curve is roughly linear over 30 days,
+  //    diminishing thereafter — so we cap the multiplier at 2.5× for 90 days).
+  const horizonMultiplier = Math.min(2.5, horizonMonths);
+  const horizonScaledKg = Math.round(rawTotal * horizonMultiplier);
+
+  // 3. Cap by the plot's acreage × regional max yield per acre per month.
+  const maxYieldPerMonth = (input.acreage || 0) * (YIELD_PER_REGION_PER_ACRE_MONTH[input.region ?? "default"] ?? YIELD_PER_REGION_PER_ACRE_MONTH.default);
+  const maxKg = Math.round(maxYieldPerMonth * horizonMonths);
+  const cappedByAcreage = horizonScaledKg > maxKg && maxKg > 0;
+  const expectedKg = cappedByAcreage ? maxKg : horizonScaledKg;
+
+  return {
+    expectedKg,
+    breakdown: [
+      { source: "Urea (46% N)", kg: Math.round(ureaResp * horizonMultiplier) },
+      { source: "TSP (Phosphate)", kg: Math.round(tspResp * horizonMultiplier) },
+      { source: "MOP (Potash)", kg: Math.round(mopResp * horizonMultiplier) },
+      { source: "Dolomite", kg: Math.round(dolomiteResp * horizonMultiplier) },
+      { source: "Compost", kg: Math.round(compostResp * horizonMultiplier) },
+    ],
+    cappedByAcreage,
+    horizonDays,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* B28 FIX — Admin supply projection from pruning                    */
+/* ------------------------------------------------------------------ */
+/**
+ * projectLeafSupplyAfterPruning — compute the projected drop in leaf
+ * supply after a pruning event, based on deterministic TRI recovery curves.
+ *
+ * Tea bushes undergo a yield trough after a structural prune:
+ *   • Deep prune (cut-across): ~30% drop, trough starts ~60d after prune,
+ *     lasts ~90 days (full recovery at ~12 months).
+ *   • Medium prune: ~20% drop, trough 45d, recovery ~9 months.
+ *   • Light prune / skiffing: ~10% drop, trough 30d, recovery ~6 months.
+ *
+ * Returns a projection that admin can use to plan factory intake.
+ *
+ * Returned shape: { expectedDropPct, troughStartDays, troughEndDays,
+ *                   recoveryDays, headline, detail }
+ */
+export interface PruningProjectionInput {
+  pruneType: "light" | "medium" | "deep" | "skiffing" | "formative";
+  daysSincePrune: number;
+  areaHa?: number;
+  baselineYieldKgPerMonth?: number;
+}
+
+export interface PruningProjectionResult {
+  expectedDropPct: number;
+  troughStartDays: number;
+  troughEndDays: number;
+  recoveryDays: number;
+  currentDropPct: number;        // current drop based on daysSincePrune
+  projectedLostKgThisMonth: number;
+  headline: string;
+  detail: string;
+}
+
+export function projectLeafSupplyAfterPruning(input: PruningProjectionInput): PruningProjectionResult {
+  const table: Record<PruningProjectionInput["pruneType"], Omit<PruningProjectionResult, "currentDropPct" | "projectedLostKgThisMonth">> = {
+    deep:      { expectedDropPct: 30, troughStartDays: 60, troughEndDays: 150, recoveryDays: 365, headline: "Deep prune — 30% yield drop expected", detail: "Bushes recover slowly after a structural cut-across. Trough at 60-150 days; full recovery at ~12 months. Plan reduced factory intake from this block." },
+    medium:    { expectedDropPct: 20, troughStartDays: 45, troughEndDays: 105, recoveryDays: 270, headline: "Medium prune — 20% yield drop expected", detail: "Medium structural prune. Trough at 45-105 days; recovery at ~9 months. Slightly reduced intake for one season." },
+    light:     { expectedDropPct: 10, troughStartDays: 30, troughEndDays: 75,  recoveryDays: 180, headline: "Light prune — 10% yield drop expected", detail: "Light prune / skiff. Trough at 30-75 days; recovery at ~6 months. Minor intake reduction." },
+    skiffing:  { expectedDropPct: 8,  troughStartDays: 21, troughEndDays: 60,  recoveryDays: 150, headline: "Skiffing — 8% yield drop expected", detail: "Light skiff for surface leveling. Trough at 21-60 days; recovery at ~5 months." },
+    formative: { expectedDropPct: 0,  troughStartDays: 0,  troughEndDays: 0,   recoveryDays: 0,   headline: "Formative prune — no yield impact", detail: "Formative prune on young bushes. No yield drop (bushes weren't plucking yet)." },
+  };
+  const base = table[input.pruneType] ?? table.light;
+
+  // Compute current drop based on where we are in the recovery curve.
+  let currentDropPct = 0;
+  if (base.expectedDropPct > 0) {
+    if (input.daysSincePrune < base.troughStartDays) {
+      // Ramping into trough — linear ramp from 0 to expectedDropPct.
+      currentDropPct = (input.daysSincePrune / base.troughStartDays) * base.expectedDropPct;
+    } else if (input.daysSincePrune <= base.troughEndDays) {
+      // Inside the trough.
+      currentDropPct = base.expectedDropPct;
+    } else if (input.daysSincePrune < base.recoveryDays) {
+      // Recovery phase — linear ramp from expectedDropPct to 0.
+      const recoveryFraction = (input.daysSincePrune - base.troughEndDays) / (base.recoveryDays - base.troughEndDays);
+      currentDropPct = base.expectedDropPct * (1 - recoveryFraction);
+    } else {
+      // Fully recovered.
+      currentDropPct = 0;
+    }
+  }
+  currentDropPct = Math.max(0, Math.round(currentDropPct * 10) / 10);
+
+  const baselineMonthlyKg = input.baselineYieldKgPerMonth ?? ((input.areaHa ?? 0) * 1000); // ~1000 kg/ha/month default
+  const projectedLostKgThisMonth = Math.round(baselineMonthlyKg * (currentDropPct / 100));
+
+  return {
+    ...base,
+    currentDropPct,
+    projectedLostKgThisMonth,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* SMART AGRONOMIC ADVISORY & PRUNING SCHEDULE                        */
 /* ------------------------------------------------------------------ */
 /* Deterministic tea-plant age + pruning-cycle engine.

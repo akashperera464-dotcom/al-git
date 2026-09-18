@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Sprout, CalendarDays, TrendingDown, Package, AlertTriangle } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
+import { useLiveData } from "@/lib/useLiveData";
 import { fmtNum } from "@/lib/data";
+import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 
 /**
  * SupplierFertilizer — "My Fertilizer" module (supplier side)
@@ -15,11 +18,11 @@ import { fmtNum } from "@/lib/data";
  *   - Per-issue history (date, type, qty, division)
  *   - Outstanding balance (credit only — to be deducted from leaf payments)
  *
- * Reads from the supplier fertilizer ledger written by admin's Inventory
- * module when issuing fertilizer on Credit (Phase 1: localStorage).
- *
- * ALSO reads from supplier's own "My Farm Activities" log to compute
- * "fertilizer used" so we can show "remaining balance".
+ * B26 FIX (real-time sync): The ledger now reads from Supabase via
+ * useLiveData (with a localStorage fallback), so admin issues appear
+ * instantly in the supplier view without a page refresh. The "Used (kg)"
+ * figure now reads from BOTH the Supabase `farm_activities` table AND
+ * the localStorage cache (kept in sync by recordFarmActivity write-through).
  */
 
 interface LedgerEntry {
@@ -41,69 +44,113 @@ interface FarmActivityRecord {
 
 const LEDGER_KEY = "kdu.supplier_fertilizer_ledger";
 
-export function SupplierFertilizer() {
-  const { user, associatedEntityId } = useApp();
-  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
-  const [usedKg, setUsedKg] = useState<number>(0);
-
-  // The supplier name to match in the ledger — use the logged-in user's name
-  const mySupplierName = user?.name ?? "";
-
-  useEffect(() => {
-    // Load ledger from localStorage, filter to entries matching my supplier name
+/** Fetch the supplier's fertilizer ledger from Supabase (real-time). */
+async function fetchLedger(supplierName: string): Promise<LedgerEntry[]> {
+  if (!supabaseConfigured) {
+    // Demo mode fallback to localStorage.
     try {
       const raw = localStorage.getItem(LEDGER_KEY);
       const all: LedgerEntry[] = raw ? JSON.parse(raw) : [];
-      // Match by name (case-insensitive). Empty name → no match.
-      const mine = mySupplierName
-        ? all.filter(e => e.supplierName.toLowerCase() === mySupplierName.toLowerCase())
+      return supplierName
+        ? all.filter(e => e.supplierName.toLowerCase() === supplierName.toLowerCase())
         : [];
-      setLedger(mine);
-    } catch { /* ignore */ }
+    } catch { return []; }
+  }
+  const sb = getSupabase()!;
+  const { data, error } = await sb
+    .from("supplier_fertilizer_ledger")
+    .select("id, supplier_name, stock_item_code, stock_item_name, qty_issued, unit, date, notes")
+    .ilike("supplier_name", supplierName || "_")
+    .order("date", { ascending: false });
+  if (error) {
+    // Fall back to localStorage on error.
+    try {
+      const raw = localStorage.getItem(LEDGER_KEY);
+      const all: LedgerEntry[] = raw ? JSON.parse(raw) : [];
+      return supplierName
+        ? all.filter(e => e.supplierName.toLowerCase() === supplierName.toLowerCase())
+        : [];
+    } catch { return []; }
+  }
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    supplierName: r.supplier_name as string,
+    stockItemCode: r.stock_item_code as string,
+    stockItemName: r.stock_item_name as string,
+    qtyIssued: Number(r.qty_issued ?? 0),
+    unit: r.unit as string,
+    date: r.date as string,
+    notes: r.notes as string | undefined,
+  }));
+}
 
-    // B12 FIX: Read fertilizer usage from BOTH localStorage cache AND Supabase
-    // 1. Try localStorage first (instant)
+/** Fetch fertilizer-usage total (kg) from Supabase farm_activities. */
+async function fetchUsedKg(userId: string): Promise<number> {
+  if (!supabaseConfigured) {
+    // Demo mode: read from localStorage cache.
     try {
       const farmRaw = localStorage.getItem("kdu.farm_activities.cache");
-      if (farmRaw) {
-        const farmLogs: FarmActivityRecord[] = JSON.parse(farmRaw);
-        const total = farmLogs
-          .filter(a => a.activityType === "fertilizer")
-          .reduce((sum, a) => sum + (a.details.quantityKg ?? 0), 0);
-        setUsedKg(total);
-      }
-    } catch { /* ignore */ }
+      const farmLogs: FarmActivityRecord[] = farmRaw ? JSON.parse(farmRaw) : [];
+      return farmLogs
+        .filter(a => a.activityType === "fertilizer")
+        .reduce((sum, a) => sum + (a.details.quantityKg ?? 0), 0);
+    } catch { return 0; }
+  }
+  const sb = getSupabase()!;
+  const { data } = await sb
+    .from("farm_activities")
+    .select("details")
+    .eq("user_id", userId)
+    .eq("activity_type", "fertilizer");
+  return (data ?? []).reduce((sum, r) => {
+    const d = r.details as { quantityKg?: number };
+    return sum + (Number(d?.quantityKg ?? 0));
+  }, 0);
+}
 
-    // 2. Also try Supabase (authoritative source)
-    try {
-      const { supabaseConfigured, getSupabase } = await import("@/lib/supabase");
-      if (supabaseConfigured) {
-        const sb = getSupabase()!;
-        const { data: farmData } = await sb
-          .from("farm_activities")
-          .select("details")
-          .eq("user_id", associatedEntityId)
-          .eq("activity_type", "fertilizer");
-        if (farmData && farmData.length > 0) {
-          const totalFromDb = farmData.reduce((sum, r) => {
-            const d = r.details as any;
-            return sum + (Number(d?.quantityKg ?? 0));
-          }, 0);
-          // DB total is authoritative — override localStorage
-          setUsedKg(totalFromDb);
-          // Also cache to localStorage for next time
-          try {
-            const farmLogs = farmData.map((r: any) => ({
-              activityType: "fertilizer",
-              loggedDate: r.logged_date,
-              details: r.details,
-            }));
-            localStorage.setItem("kdu.farm_activities.cache", JSON.stringify(farmLogs));
-          } catch { /* ignore */ }
+export function SupplierFertilizer() {
+  const { t } = useTranslation();
+  const { user, associatedEntityId } = useApp();
+  const mySupplierName = user?.name ?? "";
+
+  // B26 FIX: Real-time ledger via useLiveData. Falls back to localStorage in demo mode.
+  const { data: ledger } = useLiveData<LedgerEntry>(
+    "supplier_fertilizer_ledger",
+    () => fetchLedger(mySupplierName),
+    `supplier_name=ilike.${mySupplierName || "_"}`,
+  );
+
+  const [usedKg, setUsedKg] = useState<number>(0);
+
+  // Read fertilizer usage from localStorage cache (instant) + Supabase (authoritative).
+  // Also listen for the verda:farm-cache-updated event so the figure updates immediately
+  // when a new fertilizer log is recorded via FarmActivities (B12 fix).
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      // 1. Instant value from localStorage cache.
+      try {
+        const farmRaw = localStorage.getItem("kdu.farm_activities.cache");
+        if (farmRaw) {
+          const farmLogs: FarmActivityRecord[] = JSON.parse(farmRaw);
+          const total = farmLogs
+            .filter(a => a.activityType === "fertilizer")
+            .reduce((sum, a) => sum + (a.details.quantityKg ?? 0), 0);
+          if (!cancelled) setUsedKg(total);
         }
-      }
-    } catch { /* Supabase read failed — keep localStorage value */ }
-  }, [mySupplierName, associatedEntityId]);
+      } catch { /* ignore */ }
+      // 2. Authoritative value from Supabase (overrides cache if non-zero).
+      void fetchUsedKg(associatedEntityId).then(kg => {
+        if (!cancelled && kg > 0) setUsedKg(kg);
+      });
+    };
+    refresh();
+    window.addEventListener("verda:farm-cache-updated", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("verda:farm-cache-updated", refresh);
+    };
+  }, [associatedEntityId]);
 
   // Aggregate stats
   const totalReceivedKg = ledger
@@ -126,9 +173,9 @@ export function SupplierFertilizer() {
   return (
     <div>
       <PageHeader
-        eyebrow="VVIP Supplier Portal"
-        title="My Fertilizer"
-        desc="Track fertilizer received from factory (credit + cash) + your remaining balance. Credit issues will be deducted from your leaf payments at the factory."
+        eyebrow={t("supplierFert.eyebrow")}
+        title={t("supplierFert.title")}
+        desc={t("supplierFert.desc")}
         icon={<IconChip icon={Sprout} tone="emerald" className="h-12 w-12" />}
       />
 
@@ -136,49 +183,48 @@ export function SupplierFertilizer() {
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
           icon={Package}
-          label="Total Received (kg)"
+          label={t("supplierFert.totalReceived")}
           value={fmtNum(totalReceivedKg)}
-          sub={`${ledger.length} issues`}
+          sub={`${ledger.length} ${t("supplierFert.issues")}`}
           tone="emerald"
         />
         <StatCard
           icon={TrendingDown}
-          label="Used (kg)"
+          label={t("supplierFert.used")}
           value={fmtNum(usedKg)}
-          sub="from My Farm Activities"
+          sub={t("supplierFert.fromFarm")}
           tone="sky"
         />
         {usedKg === 0 && (
           <p className="col-span-2 sm:col-span-4 mt-1 text-[10px] text-slate-400 text-center leading-relaxed">
-            💡 Fertilizer log නොමැත · No fertilizer usage logged yet.<br />
-            Log applications in "My Farm Activities" → Fertilizer tab.
+            💡 {t("supplierFert.noLogs")}<br />
+            {t("supplierFert.logHint")}
           </p>
         )}
         <StatCard
           icon={CalendarDays}
-          label="Remaining (kg)"
+          label={t("supplierFert.remaining")}
           value={fmtNum(remainingKg)}
-          sub="estimated balance"
+          sub={t("supplierFert.estimated")}
           tone={remainingKg < 50 ? "rose" : "amber"}
         />
         <StatCard
           icon={AlertTriangle}
-          label="Credit Outstanding"
+          label={t("supplierFert.creditOutstanding")}
           value={fmtNum(totalCreditKg)}
-          sub="deducted from leaf"
+          sub={t("supplierFert.deductedFromLeaf")}
           tone="rose"
         />
       </div>
 
       {/* History */}
       <Card className="mt-4 p-4">
-        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">Fertilizer Issue History</h3>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">{t("supplierFert.historyTitle")}</h3>
         {ledger.length === 0 ? (
           <div className="py-8 text-center">
-            <p className="text-sm text-slate-400">No fertilizer received from factory yet.</p>
+            <p className="text-sm text-slate-400">{t("supplierFert.emptyMsg")}</p>
             <p className="mt-1 text-[11px] text-slate-400">
-              When admin issues fertilizer to you (credit or cash), it will appear here.
-              Make sure your supplier name matches what admin typed in the Inventory module.
+              {t("supplierFert.emptyHint")}
             </p>
           </div>
         ) : (
@@ -199,7 +245,7 @@ export function SupplierFertilizer() {
                       </p>
                     </div>
                     <Badge tone={isCredit ? "amber" : "emerald"} dot>
-                      {isCredit ? "Credit" : "Cash"}
+                      {isCredit ? t("supplierFert.credit") : t("supplierFert.cash")}
                     </Badge>
                   </div>
                   {e.notes && (
@@ -214,18 +260,18 @@ export function SupplierFertilizer() {
         )}
       </Card>
 
-      {/* Note about Phase 1 limitations */}
+      {/* Note about how this works */}
       <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs text-sky-700">
-        <p className="font-semibold">📌 How this works</p>
+        <p className="font-semibold">{t("supplierFert.howTitle")}</p>
         <ul className="mt-1.5 space-y-1 list-disc list-inside">
-          <li>When admin issues fertilizer to you in the Inventory module, they pick "Credit" + your supplier name.</li>
-          <li>The issue appears here with the date, fertilizer type, and quantity.</li>
-          <li>"Used (kg)" is computed from your "My Farm Activities" logs.</li>
-          <li>"Remaining (kg)" = received − used (estimated; assumes 1 bag = 50 kg).</li>
-          <li>Credit issues will be deducted from your leaf payments at the factory.</li>
+          <li>{t("supplierFert.how1")}</li>
+          <li>{t("supplierFert.how2")}</li>
+          <li>{t("supplierFert.how3")}</li>
+          <li>{t("supplierFert.how4")}</li>
+          <li>{t("supplierFert.how5")}</li>
         </ul>
         <p className="mt-2 text-[10px] text-sky-600">
-          Phase 1: stored in browser localStorage. Phase 2 will sync to Supabase `supplier_fertilizer_ledger` table.
+          {t("supplierFert.syncNote")}
         </p>
       </div>
     </div>

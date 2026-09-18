@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CloudSun, Droplets, Wind, Thermometer, AlertTriangle } from "lucide-react";
 import { PageHeader, Card, Badge, IconChip } from "@/components/ui";
 import { Icon } from "@/components/Icon";
@@ -12,24 +13,20 @@ import type { WeatherDay } from "@/lib/data";
  * Per Sir's Phase 1 spec #5:
  *   Location-based Weather: Supplier ගේ වත්තේ Location එකට අදාළ Weather Updates පෙන්වීම.
  *
- * Uses the supplier's LINKED estate coordinates (from associatedEntityId).
- * If the linked estate has no coordinates, falls back to Nuwara Eliya defaults.
- *
- * Shows 3-day forecast + an alert if rain is expected (so supplier doesn't
- * apply fertilizer that gets washed away).
+ * B11 FIX: uses supplier's own plot GPS first (from registration/localStorage),
+ * falls back to linked estate GPS, then Nuwara Eliya defaults.
+ * B18 FIX: now fully bilingual (EN/SI/TA) via react-i18next.
  */
 export function SupplierWeather() {
+  const { t } = useTranslation();
   const { estates, associatedEntityId, userUid } = useApp();
   const estate = estates.find((e) => e.id === associatedEntityId);
 
-  // B11 FIX: Try supplier's own plot GPS first (from registration/localStorage),
-  // fall back to linked estate's GPS, then Nuwara Eliya defaults.
   const [plotLat, setPlotLat] = useState<number | undefined>(undefined);
   const [plotLon, setPlotLon] = useState<number | undefined>(undefined);
   const [plotName, setPlotName] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    // Read supplier's own plot data from localStorage (kdu.supplier_plot.{userUid})
     try {
       const raw = localStorage.getItem(`kdu.supplier_plot.${userUid}`);
       if (raw) {
@@ -43,10 +40,9 @@ export function SupplierWeather() {
     } catch { /* ignore */ }
   }, [userUid]);
 
-  // Use supplier's plot GPS if available, else estate GPS
   const useLat = plotLat ?? estate?.latitude;
   const useLon = plotLon ?? estate?.longitude;
-  const locationLabel = plotName ?? estate?.name ?? "Your Location";
+  const locationLabel = plotName ?? estate?.name ?? t("supplierWeather.title");
 
   const [days, setDays] = useState<WeatherDay[]>(getMockForecast());
   const [source, setSource] = useState<"live" | "mock">("mock");
@@ -68,9 +64,9 @@ export function SupplierWeather() {
   return (
     <div>
       <PageHeader
-        eyebrow="VVIP Supplier Portal"
-        title="My Weather"
-        desc="Live weather forecast for your plot's location. Plan fertilizer application around rain forecasts — rain within 3 days can wash away fertilizer."
+        eyebrow={t("supplierWeather.eyebrow")}
+        title={t("supplierWeather.title")}
+        desc={t("supplierWeather.desc")}
         icon={<IconChip icon={CloudSun} tone="sky" className="h-12 w-12" />}
         actions={
           <div className="flex flex-col items-end gap-1.5">
@@ -93,11 +89,10 @@ export function SupplierWeather() {
       {rainExpectedSoon && today && (
         <div className="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-4 text-rose-800">
           <p className="flex items-center gap-1.5 text-sm font-bold mb-1">
-            <AlertTriangle className="h-4 w-4" /> 🌧️ Rain expected within 3 days
+            <AlertTriangle className="h-4 w-4" /> {t("supplierWeather.rainAlertTitle")}
           </p>
           <p className="text-xs leading-relaxed">
-            ⚠ Avoid applying fertilizer now — rainfall can wash it away before plants absorb it.
-            Wait for a dry window (rain probability &lt; 30%).
+            {t("supplierWeather.rainAlertBody")}
           </p>
         </div>
       )}
@@ -107,7 +102,7 @@ export function SupplierWeather() {
         <Card className="mt-4 p-5 bg-gradient-to-br from-sky-500 to-blue-700 text-white border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-sky-100">{locationLabel} · Today</p>
+              <p className="text-sm font-medium text-sky-100">{locationLabel} · {t("supplierWeather.todayLabel")}</p>
               <p className="font-display text-5xl font-bold tnum">{today.tempMax}°</p>
               <p className="text-sky-100">{today.condition}</p>
             </div>
@@ -123,7 +118,7 @@ export function SupplierWeather() {
 
       {/* 5-day forecast */}
       <Card className="mt-4 p-4">
-        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">5-Day Forecast</h3>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">{t("supplierWeather.forecastTitle")}</h3>
         <div className="space-y-2">
           {days.slice(0, 5).map((d, i) => (
             <div key={i} className="flex items-center justify-between rounded-lg border border-slate-100 p-2.5">
@@ -131,7 +126,7 @@ export function SupplierWeather() {
                 <Icon name={d.icon} className="h-7 w-7 text-sky-500" />
                 <div>
                   <p className="text-sm font-semibold text-slate-800">
-                    {i === 0 ? "Today" : i === 1 ? "Tomorrow" : new Date(Date.now() + i * 86400_000).toLocaleDateString(undefined, { weekday: "short" })}
+                    {i === 0 ? t("supplierWeather.todayLabel") : i === 1 ? t("supplierWeather.tomorrow") : new Date(Date.now() + i * 86400_000).toLocaleDateString(undefined, { weekday: "short" })}
                   </p>
                   <p className="text-[11px] text-slate-500">{d.condition}</p>
                 </div>

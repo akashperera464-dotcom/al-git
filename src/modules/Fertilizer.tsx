@@ -140,6 +140,116 @@ export default function Fertilizer() {
         </p>
         <DivisionFertilizerSummary />
       </Card>
+
+      {/* B27 FIX: Block-level Fertilizer History from supplier farm_activities.
+          Reads farm_activities WHERE activity_type='fertilizer' and groups by
+          details->>block. Surfaces what each supplier recorded in their
+          Farm Activities → Fertilizer tab. */}
+      <Card className="mt-4 p-4">
+        <h3 className="mb-2 font-display text-sm font-bold text-slate-800">🧪 Block-level Fertilizer History (Supplier Logs)</h3>
+        <p className="mb-3 text-[11px] text-slate-500">
+          Every fertilizer application that suppliers log in their "My Farm Activities" module, grouped by block.
+          Source: farm_activities (activity_type='fertilizer') — details-&gt;&gt;'block'.
+        </p>
+        <BlockFertilizerHistory />
+      </Card>
+    </div>
+  );
+}
+
+/**
+ * BlockFertilizerHistory — reads fertilizer activities from the
+ * `farm_activities` Supabase table and groups by `details->>block`.
+ * Also surfaces which supplier applied each entry.
+ *
+ * B27 FIX — admin previously had no UI to view this data even though
+ * FarmActivities.tsx captures `details.block` on every fertilizer log.
+ */
+function BlockFertilizerHistory() {
+  const [rows, setRows] = useState<{ block: string; totalKg: number; applicationCount: number; suppliers: string[]; lastApplied: string }[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      setBusy(true);
+      try {
+        if (!supabaseConfigured) {
+          // Demo data
+          setRows([
+            { block: "Upper Block", totalKg: 220, applicationCount: 4, suppliers: ["Sumithra Green Leaf Co."], lastApplied: "2025-09-15" },
+            { block: "Lower Block", totalKg: 180, applicationCount: 3, suppliers: ["Nimal Tea Suppliers"], lastApplied: "2025-09-12" },
+            { block: "Nursery", totalKg: 50, applicationCount: 1, suppliers: ["Sumithra Green Leaf Co."], lastApplied: "2025-09-05" },
+          ]);
+          return;
+        }
+        const sb = getSupabase()!;
+        // Read farm_activities where activity_type='fertilizer' (last 90 days)
+        const since = new Date(Date.now() - 90 * 86400_000).toISOString();
+        const { data, error } = await sb
+          .from("farm_activities")
+          .select("user_id, logged_date, details")
+          .eq("activity_type", "fertilizer")
+          .gte("logged_date", since.slice(0, 10))
+          .order("logged_date", { ascending: false });
+        if (error) throw error;
+
+        // Group by details.block (default "All blocks")
+        const byBlock: Record<string, { kg: number; count: number; suppliers: Set<string>; lastApplied: string }> = {};
+        for (const r of (data ?? [])) {
+          const d = (r.details ?? {}) as { block?: string; quantityKg?: number };
+          const block = d.block || "All blocks";
+          if (!byBlock[block]) byBlock[block] = { kg: 0, count: 0, suppliers: new Set(), lastApplied: r.logged_date };
+          byBlock[block].kg += Number(d.quantityKg ?? 0);
+          byBlock[block].count += 1;
+          byBlock[block].suppliers.add(r.user_id);
+          if (r.logged_date > byBlock[block].lastApplied) byBlock[block].lastApplied = r.logged_date;
+        }
+
+        setRows(Object.entries(byBlock).map(([block, v]) => ({
+          block,
+          totalKg: v.kg,
+          applicationCount: v.count,
+          suppliers: Array.from(v.suppliers),
+          lastApplied: v.lastApplied,
+        })).sort((a, b) => b.totalKg - a.totalKg));
+      } catch {
+        // keep empty
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, []);
+
+  if (busy) return <div className="py-4 text-center text-sm text-slate-400">Loading block-level history…</div>;
+  if (rows.length === 0) return <div className="py-4 text-center text-sm text-slate-400">No fertilizer logs from suppliers yet.</div>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+            <th className="pb-2">Block</th>
+            <th className="pb-2 text-right">Total Kg Applied</th>
+            <th className="pb-2 text-right">Applications</th>
+            <th className="pb-2 text-right">Suppliers</th>
+            <th className="pb-2 text-right">Last Applied</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.block} className="border-t border-slate-100">
+              <td className="py-2 font-semibold text-slate-800">{r.block}</td>
+              <td className="py-2 text-right tnum font-bold text-emerald-700">{fmtNum(r.totalKg)} kg</td>
+              <td className="py-2 text-right tnum text-slate-500">{r.applicationCount}</td>
+              <td className="py-2 text-right tnum text-slate-500">{r.suppliers.length}</td>
+              <td className="py-2 text-right tnum text-slate-500">{r.lastApplied}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-[10px] text-slate-400">
+        * Data from suppliers' own farm activity logs (last 90 days). Block name comes from each supplier's selection in their Farm Activities → Fertilizer tab.
+      </p>
     </div>
   );
 }
