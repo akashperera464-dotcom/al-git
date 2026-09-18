@@ -336,7 +336,7 @@ function AdminShell({ children }: { children: ReactNode }) {
 
       {/* Main column */}
       <div className="flex min-h-screen flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200/70 bg-white/80 px-4 py-3 backdrop-blur-xl lg:px-6">
+        <header className="safe-top md:!pt-3 sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200/70 bg-white/80 px-4 py-3 backdrop-blur-xl lg:px-6">
           <button onClick={() => setDrawer(true)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden">
             <Menu className="h-5 w-5" />
           </button>
@@ -383,7 +383,7 @@ function BottomNav({ onMore }: { onMore: () => void }) {
   const visible = tabs.slice(0, 4);
   const hasMore = allTabs.length > visible.length;
   return (
-    <nav className="sticky bottom-0 z-30 flex items-center justify-around border-t border-slate-200 bg-white/95 px-2 py-1.5 backdrop-blur-xl">
+    <nav className="safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around border-t border-slate-200 bg-white/95 px-2 py-1.5 backdrop-blur-xl">
       {visible.map((tab) => {
         const Icon = tab.icon;
         const active = activeModule === tab.key;
@@ -416,7 +416,7 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 bg-slate-900/60 animate-fade-in" onClick={onClose} />
-      <div className="relative m-3 w-full max-w-md animate-fade-up rounded-3xl bg-white p-5 shadow-2xl">
+      <div className="safe-bottom safe-x relative m-3 w-full max-w-md animate-fade-up rounded-3xl bg-white p-5 shadow-2xl">
         <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-slate-200" />
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-display text-base font-bold text-slate-800">{t("common.allModules")}</h3>
@@ -456,8 +456,9 @@ function MobileShell({ children }: { children: ReactNode }) {
   return (
     <div className="app-aurora min-h-screen">
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-slate-900 md:shadow-2xl">
-        {/* Header */}
-        <header className="flex items-center justify-between gap-2 bg-gradient-to-r from-pine-900 to-pine-800 px-4 py-3 text-white">
+        {/* Header — safe-top pushes brand/buttons below iPhone notch on mobile.
+            On desktop the md:py-3 resets to normal padding inside the phone frame. */}
+        <header className="safe-top md:!pt-3 flex items-center justify-between gap-2 bg-gradient-to-r from-pine-900 to-pine-800 px-4 py-3 text-white">
           <Brand />
           <div className="flex items-center gap-1.5">
             <SyncPill dark />

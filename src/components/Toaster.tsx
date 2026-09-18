@@ -21,7 +21,7 @@ const CHIP: Record<string, string> = {
 export function Toaster() {
   const { toasts, dismissToast } = useApp();
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-3 z-[70] flex flex-col items-center gap-2 px-3 sm:left-auto sm:right-4 sm:items-end">
+    <div className="pointer-events-none fixed inset-x-0 safe-top-absolute-md z-[70] flex flex-col items-center gap-2 px-3 sm:left-auto sm:right-4 sm:items-end">
       {toasts.map((t) => (
         <div
           key={t.id}

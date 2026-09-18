@@ -94,8 +94,8 @@ export function Login() {
         </>
       )}
 
-      {/* language switcher */}
-      <div className="absolute right-4 top-4 z-10">
+      {/* language switcher — safe-top-absolute pushes it below the iPhone notch */}
+      <div className="absolute safe-top-absolute right-4 z-10">
         <LanguageSwitcher dark />
       </div>
 

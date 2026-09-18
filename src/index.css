@@ -224,3 +224,94 @@ body {
 .tnum {
   font-variant-numeric: tabular-nums;
 }
+
+/* ============================================================================
+ * iPhone notch / Dynamic Island safe-area helpers
+ * ============================================================================
+ * Purpose: push UI elements below the notch (top) and above the home indicator
+ * (bottom) on iPhones with `viewport-fit=cover` + `black-translucent` status
+ * bar style (set in index.html).
+ *
+ * Mechanism: `max(env(safe-area-inset-X, 0px), Yrem)` returns the LARGER of
+ * the device's safe-area inset OR the base padding Y. So:
+ *   • Non-notched devices: env() returns 0 → base padding wins → no visual
+ *     change vs. before.
+ *   • Notched devices: env() returns ~47px (iPhone 14 Pro) → inset wins →
+ *     content pushed below the notch.
+ *
+ * Scope: applied only on mobile (< 768px). On desktop, the MobileShell
+ * renders inside a phone-frame wrapper with its own visual padding, so
+ * safe-area helpers must NOT apply there.
+ *
+ * Usage: add the class alongside existing padding utilities. The `!important`
+ * is needed to override Tailwind's `py-3` / `px-4` on the same element.
+ * ========================================================================== */
+@supports (padding: max(env(safe-area-inset-top, 0px), 0px)) {
+  @media (max-width: 767px) {
+    /* Top — header bars, top app bars. Uses 0.75rem base to match py-3. */
+    .safe-top {
+      padding-top: max(env(safe-area-inset-top, 0px), 0.75rem) !important;
+    }
+    .safe-top-sm {
+      padding-top: max(env(safe-area-inset-top, 0px), 0.5rem) !important;
+    }
+    .safe-top-lg {
+      padding-top: max(env(safe-area-inset-top, 0px), 1rem) !important;
+    }
+    /* Just the safe-area inset, no base padding (for overlays that have their own padding) */
+    .safe-top-0 {
+      padding-top: env(safe-area-inset-top, 0px) !important;
+    }
+
+    /* Bottom — bottom nav bars, bottom sheets. Uses 0.375rem base to match py-1.5. */
+    .safe-bottom {
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem) !important;
+    }
+    .safe-bottom-nav {
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.375rem) !important;
+    }
+    .safe-bottom-0 {
+      padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    }
+
+    /* Horizontal — for landscape orientation (notch on the side) */
+    .safe-x {
+      padding-left: max(env(safe-area-inset-left, 0px), 1rem) !important;
+      padding-right: max(env(safe-area-inset-right, 0px), 1rem) !important;
+    }
+
+    /* Full-screen overlay (modals, sheets) — apply all 4 insets */
+    .safe-screen {
+      padding-top: env(safe-area-inset-top, 0px) !important;
+      padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+      padding-left: env(safe-area-inset-left, 0px) !important;
+      padding-right: env(safe-area-inset-right, 0px) !important;
+    }
+
+    /* Margin variants — for elements that need to be PUSHED down (not padded internally) */
+    .safe-mt {
+      margin-top: env(safe-area-inset-top, 0px) !important;
+    }
+    .safe-mb {
+      margin-bottom: env(safe-area-inset-bottom, 0px) !important;
+    }
+
+    /* Absolute-position variants — for elements positioned with `top` / `bottom`
+       (e.g. language switcher pinned to top-right of login screen). */
+    .safe-top-absolute {
+      top: max(env(safe-area-inset-top, 0px), 1rem) !important;
+    }
+    .safe-top-absolute-md {
+      top: max(env(safe-area-inset-top, 0px), 0.75rem) !important;
+    }
+    .safe-top-absolute-sm {
+      top: max(env(safe-area-inset-top, 0px), 0.5rem) !important;
+    }
+    .safe-bottom-absolute {
+      bottom: max(env(safe-area-inset-bottom, 0px), 1rem) !important;
+    }
+    .safe-bottom-absolute-sm {
+      bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem) !important;
+    }
+  }
+}

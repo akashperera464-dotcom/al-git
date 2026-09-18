@@ -88,7 +88,7 @@ export function Onboarding() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/70 backdrop-blur-sm animate-fade-in p-3">
-      <div className="relative w-full max-w-md animate-fade-up rounded-3xl bg-white shadow-2xl overflow-hidden">
+      <div className="safe-bottom safe-x relative w-full max-w-md animate-fade-up rounded-3xl bg-white shadow-2xl overflow-hidden">
         {/* Skip button */}
         <button
           onClick={finish}
