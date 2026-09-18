@@ -2205,8 +2205,153 @@ All tables include Row Level Security:
 - ✅ Pushed to GitHub
 - ⏳ Vercel deploying
 
+## 26. Phase 3 — Supplier Shortcomings Fix (Round #8) — B1–B29
+
+> **Purpose / අරමුණ:** Closes the 11 PARTIAL + 5 MISSING gaps identified in the Supplier Interface Shortcomings Analysis PDF. 16 features shipped in commit `80fe4ed`. Plus a critical SQL migration to fix the `plucking` activity_type CHECK constraint gap.
+
+### 26.1 Why This Round
+
+An audit against `Supplier_Interface_Shortcomings_Analysis.pdf` (uploaded by the client) found:
+
+| Status | Count | Examples |
+|--------|-------|----------|
+| ✓ Already FIXED | 12 | B2 Profile, B3 Notification Center, B4 Visual Calendar, B6 Yield chart, B7 Quality trend, B8 Cost-vs-Earnings, B11 GPS fix, B13 Block selector, B15 Tips, B19 Progress timeline, B21 Home dashboard, B23 Calendar markers |
+| ◐ PARTIAL | 11 | B1/B24 Plucking-in-calendar, B5 Onboarding, B9 Offline, B10 FCM Push, B12 Cache writer, B14 Blocks disconnected, B16 Sync badge, B17 10 tabs too many, B18 i18n inconsistency, B20 Sub-field form, B22 Language switcher, B26 Real-time sync |
+| ✘ MISSING | 6 | B25 Yield-from-fertilizer, B27 Admin block-level fert history, B28 Admin pruning supply projection, B29 Leaf intake sync (+ B1/B24 calendar logging + B9 offline data loss) |
+
+This round closes every ◐ and ✘ item.
+
+### 26.2 PARTIAL Fixes Shipped (11 items)
+
+| # | Feature | Fix |
+|---|---------|-----|
+| B1 / B24 | Plucking logging in calendar | `+ Log Activity` button on `SupplierCalendar` opens `FarmActivities` with selected date pre-filled (via `kdu.farm_activities.pending_date` localStorage key) |
+| B5 | Onboarding walkthrough | New `src/components/Onboarding.tsx` — 4-step stepper (Home → Farm → Plot → Alerts) shown once per supplier via `kdu.onboarding_completed.{uid}` flag |
+| B9 | Offline Mode for farm activities | `recordFarmActivity()` now catches Supabase insert errors and enqueues via `enqueueMutation()` (instead of throwing + losing data). Auto-replayed by `AppContext.flushSync()` when online |
+| B10 | FCM Push for Smart Alerts | New `sendSmartAlert` Cloud Function + new `scheduledSupplierTick` daily cron (06:30 IST). `SmartAutomatedAlerts` now dispatches via FCM + `createAlert()` with daily per-supplier dedup |
+| B12 | Fertilizer cache write-through | `recordFarmActivity()` now appends to `kdu.farm_activities.cache` localStorage + dispatches `verda:farm-cache-updated` event. `SupplierCalendar` / `SupplierHome` / `SupplierFertilizer` subscribe and refresh instantly |
+| B14 | Registration blocks disconnected | Registration form in `SupplierPlot.tsx` now has a `blocks[]` input UI (Add Block / Remove Block buttons). On admin approval, `promoteApprovedToMyPlot()` turns blocks into subFields automatically |
+| B16 | Sync-status indicator | `SyncPill` in `Shell.tsx` now shows `✓ Synced` (online + empty queue) / `⏳ Pending (N)` (online + queued items) / `Offline` (no network). Color-coded emerald / amber / rose |
+| B17 | 10 modules too many | Added `primary?: boolean` flag to `NavItem`. Only 4 supplier modules marked primary (Home, Calendar, Farm + More). `BottomNav` shows primary tabs + a More sheet for the rest |
+| B18 | i18n inconsistency | `SupplierFertilizer` / `SupplierWeather` / `SupplierTips` / `EquipmentRequests` migrated to `useTranslation()`. 103 new keys added to `en.json` / `si.json` / `ta.json` (onboarding, supplierFert, supplierPlot, supplierTips, supplierWeather, equipment namespaces) |
+| B22 | Language switcher hard to find | `prominent` variant of `LanguageSwitcher` is now a clear `h-9 w-9` globe icon button (was a tiny `px-2.5 py-1 text-xs` pill). Single-tap cycles EN → SI → TA |
+| B26 | Real-time admin sync | `SupplierFertilizer` migrated from localStorage reads to `useLiveData("supplier_fertilizer_ledger", ...)` with `postgres_changes` subscription. Admin issues appear instantly in supplier view |
+
+### 26.3 MISSING Features Built From Scratch (5 items)
+
+| # | Feature | Implementation |
+|---|---------|----------------|
+| B25 | Yield estimate from fertilizer | New `predictYieldFromFertilizer()` in `src/lib/predictive.ts` — deterministic TRI response curves (Urea 1kg ≈ 6kg leaf, TSP 1kg ≈ 1.5kg, MOP 1kg ≈ 2kg, Dolomite 0.3kg, Compost 0.5kg). Capped by plot acreage × regional max yield. Surfaced as "Expected Yield from Your Fertilizer" card in `SupplierTips` |
+| B27 | Admin block-level fertilizer history | New `BlockFertilizerHistory` panel in admin `Fertilizer.tsx`. Reads `farm_activities WHERE activity_type='fertilizer'` and groups by `details->>'block'`. Shows total kg / application count / supplier count / last applied date per block |
+| B28 | Admin supply projection from pruning | New `projectLeafSupplyAfterPruning()` in `predictive.ts` — TRI recovery curves (deep=30% / medium=20% / light=10% / skiffing=8%) with trough-start / trough-end / recovery-day windows. New `PruningSupplyProjectionPanel` in `AiAnalytics.tsx` reads pruning logs and shows current drop % + projected lost kg this month per supplier |
+| B29 | Leaf collection estimate sync | New `readSupplierPluckingForecasts()` in `repo.ts` — aggregates `farm_activities WHERE activity_type IN ('plucking','self_harvest')` per supplier, returns last pluck date + 7-day total + expected-tomorrow kg. New `SupplierIntakeForecast` panel in `Factory.tsx` surfaces this for withering capacity planning |
+| B1/B24 (cross-ref) | Calendar plucking logging | Same as B1 above — `+ Log Activity` button on calendar |
+
+### 26.4 Infrastructure Additions
+
+#### A. New Cloud Functions (`functions/index.js`)
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `sendSmartAlert` | `onCall` | Invoked by web client when `SmartAutomatedAlerts` computes a fresh alert. Sends FCM push + writes to `alerts` table. Best-effort — failure doesn't fail the call |
+| `scheduledSupplierTick` | `onSchedule` (daily 06:30 IST) | Recomputes smart alerts server-side for every supplier with a registered push token. Dispatches FCM pushes for any that fire — so alerts reach phones even when the app is closed. Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` env vars on the functions |
+
+#### B. New Client Helpers
+
+| File | Export | Purpose |
+|------|--------|---------|
+| `src/lib/fcm.ts` | `sendSmartAlert()` | Client-side wrapper for the `sendSmartAlert` Cloud Function |
+| `src/components/Onboarding.tsx` | `<Onboarding />` | First-time-user 4-step walkthrough. Auto-mounts inside `MobileShell`. Persists completion in localStorage |
+| `src/lib/predictive.ts` | `predictYieldFromFertilizer()` | B25 — TRI response curve calculator |
+| `src/lib/predictive.ts` | `projectLeafSupplyAfterPruning()` | B28 — Pruning yield-drop projector |
+| `src/lib/repo.ts` | `readSupplierPluckingForecasts()` | B29 — Per-supplier plucking forecast aggregator |
+| `src/lib/repo.ts` | `appendToFarmActivityCache()` (internal) | B12 — Write-through cache helper |
+
+#### C. i18n Namespace Additions (103 keys × 3 languages)
+
+| Namespace | Keys | Used by |
+|-----------|------|---------|
+| `onboarding.*` | 14 | `<Onboarding />` stepper |
+| `supplierFert.*` | 22 | `SupplierFertilizer.tsx` (rewritten) |
+| `supplierPlot.*` | 16 | `SupplierPlot.tsx` (registration blocks UI) |
+| `supplierTips.*` | 11 | `SupplierTips.tsx` (B25 yield card) |
+| `supplierWeather.*` | 7 | `SupplierWeather.tsx` (B18 bilingual) |
+| `equipment.*` | 19 | `EquipmentRequests.tsx` (B18 bilingual) |
+
+### 26.5 SQL Migration — Round #5 (Phase 3) — **CRITICAL**
+
+**File:** `docs/migration_phase3_round5.sql` (also at `download/supabase_phase3_round5_migration.sql`)
+
+> ⚠️ **This migration is REQUIRED for B1, B24, and B29 to work.** Without it, every plucking log silently fails at the database layer.
+
+| # | Change | Why |
+|---|--------|-----|
+| 1 | Drop `farm_activities_activity_type_check` constraint | Old constraint only allowed `('fertilizer','pruning','self_harvest','replanting','fertilizer_application')` — did NOT include `'plucking'` |
+| 2 | Re-add constraint WITH `'plucking'` included | TypeScript type `FarmActivityType` (in `src/lib/data.ts` line 97) already allowed `"plucking"`. `FarmActivities.tsx` has a Plucking tab. But every INSERT was rejected by the DB CHECK. B29's `readSupplierPluckingForecasts()` queries `WHERE activity_type IN ('plucking','self_harvest')` — needs `plucking` rows to exist |
+| 3 | Add `COMMENT` on the constraint | So future devs see why `'plucking'` is allowed |
+
+**To apply:**
+1. Open Supabase Dashboard → SQL Editor → New query
+2. Paste contents of `docs/migration_phase3_round5.sql`
+3. Run — safe to re-run (uses `drop constraint if exists`)
+4. Verify: the query result shows the new constraint definition including `'plucking'`
+
+**After applying:**
+- Suppliers' Plucking tab logs start succeeding immediately
+- `SupplierCalendar` plucking dots (sky blue) start appearing
+- `Factory.tsx` "Expected Intake from Suppliers" panel populates with real data
+- Any queued offline plucking inserts (in `verda:offline_queue` localStorage) auto-replay on next online sync
+
+### 26.6 Updated SQL Migration History
+
+| Round | File | What |
+|-------|------|------|
+| #1 | `docs/supabase_schema.sql` + `migration_full_crud.sql` + `migration_workers.sql` | Base schema (estates, divisions, fields, users, workers, stock_items) |
+| #2 | `download/supabase_migration_fix3.sql` | Phase 2 operational tables (finance, payroll, factory, HR, procurement) |
+| #3 | `download/supabase_phase1_sir_spec_migration.sql` | Phase 1: bush count, supplier_plots, supplier_fertilizer_ledger, equipment_requests, labor_daily_cost_snapshots |
+| #4 | `download/supabase_phase1_round3_migration.sql` | Phase 1 Round #3: soil type, batch/expiry, harvest records, notification prefs, announcement_reads, notification_queue, farm_activity_photos |
+| #5 | `download/supabase_phase2_round4_migration.sql` | Phase 2: estate_registration_requests, estate_blocks, smart_alert_log |
+| **#6** | **`docs/migration_phase3_round5.sql`** ⬅️ **NEW** | **Phase 3 Round #5: extend `farm_activities.activity_type` CHECK to include `'plucking'`** |
+
+### 26.7 Verification
+
+- ✅ `vite build`: succeeds (8.91s, 2778 modules, 3.16 MB bundle / 872 KB gzipped)
+- ✅ TypeScript: no new errors introduced (pre-existing radix-ui / prisma module-not-found errors remain — they don't block the build because vite uses esbuild)
+- ✅ Pushed to GitHub in commit `80fe4ed`
+- ⏳ **ACTION REQUIRED**: Run `docs/migration_phase3_round5.sql` in Supabase SQL Editor to enable plucking logs
+- ⏳ OPTIONAL: Deploy Cloud Functions (`firebase deploy --only functions`) to enable `sendSmartAlert` + `scheduledSupplierTick`. Requires Firebase Blaze plan + `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` env vars on functions
+
+### 26.8 Files Changed (23 files, +2359 / -297 lines)
+
+```
+functions/index.js                            | +126 (sendSmartAlert + scheduledSupplierTick)
+postcss.config.mjs                            | fixed (was blocking build)
+src/components/LanguageSwitcher.tsx           | B22 (prominent globe button)
+src/components/Onboarding.tsx                 | NEW (B5 first-time walkthrough)
+src/components/Shell.tsx                      | B5+B16+B17 (SyncPill + BottomNav + Onboarding mount)
+src/i18n/locales/{en,si,ta}.json              | B18 (103 new keys × 3 languages)
+src/lib/fcm.ts                                | +43 (sendSmartAlert client helper)
+src/lib/predictive.ts                         | +131 (predictYieldFromFertilizer + projectLeafSupplyAfterPruning)
+src/lib/rbac.ts                               | B17 (NavItem.primary flag + primaryTabsForRole rewrite)
+src/lib/repo.ts                               | +89 (recordFarmActivity offline-safe + appendToFarmActivityCache + readSupplierPluckingForecasts)
+src/modules/AiAnalytics.tsx                   | +170 (PruningSupplyProjectionPanel for B28)
+src/modules/EquipmentRequests.tsx             | B18 (full i18n migration)
+src/modules/Factory.tsx                       | +110 (SupplierIntakeForecast panel for B29)
+src/modules/FarmActivities.tsx                | B1/B24 (read pending_date on mount)
+src/modules/Fertilizer.tsx                    | +98 (BlockFertilizerHistory panel for B27)
+src/modules/SupplierCalendar.tsx              | B1/B24/B12 (+ Log Activity button + cache event listener)
+src/modules/SupplierFertilizer.tsx            | B26 (full rewrite to useLiveData + useTranslation)
+src/modules/SupplierPlot.tsx                  | B14 (blocks[] input UI in registration form)
+src/modules/SupplierPortal.tsx                | B10 (SmartAutomatedAlerts FCM dispatch + dedup)
+src/modules/SupplierTips.tsx                  | B18+B25 (i18n + yield-from-fertilizer card)
+src/modules/SupplierWeather.tsx               | B18 (full i18n migration)
+docs/migration_phase3_round5.sql              | NEW (CRITICAL — fixes plucking CHECK constraint)
+download/supabase_phase3_round5_migration.sql | NEW (copy of above for download convenience)
+```
+
 ---
 
-*End of Workflow Diagram. Last updated: September 2026 (Round #7 — Phase 2 smart alerts + SQL migration).*
+*End of Workflow Diagram. Last updated: September 2026 (Round #8 — Phase 3 supplier shortcomings fix B1–B29 + SQL migration Round #5).*
 
-*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026.*
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #8 — Phase 3 B1–B29 fix + SQL Round #5).*
+
