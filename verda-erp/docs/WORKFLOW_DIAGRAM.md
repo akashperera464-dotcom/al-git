@@ -2349,9 +2349,138 @@ docs/migration_phase3_round5.sql              | NEW (CRITICAL — fixes plucking
 download/supabase_phase3_round5_migration.sql | NEW (copy of above for download convenience)
 ```
 
+## 27. EMS Scope Reduction — Remove Supplier Leaf-Payment Features (Round #9)
+
+> **Purpose / අරමුණ:** The factory already operates a separate finance system for supplier tea-supply payments. To avoid double-system confusion, all supplier-facing leaf-payment features (Rs figures, payment history, paid/pending status) were removed from the EMS. The rule: **if it shows "Rs" (money) for a SUPPLIER → remove it. If it shows "kg" or a worker's wage → keep it.**
+
+### 27.1 Why This Round
+
+The boss confirmed that supplier tea-supply payments are handled externally by the factory's own finance system. Having payment figures in the EMS as well created:
+- Confusion about which system is authoritative
+- Maintenance overhead of duplicating payment data
+- Risk of figures disagreeing between systems
+
+This round strips every supplier-facing Rs-denominated feature while keeping all kg-based and worker-payment features intact.
+
+### 27.2 Rule Applied
+
+| Shows "Rs" for a SUPPLIER? | Shows "kg" or a worker's wage? |
+|---|---|
+| ❌ REMOVE | ✅ KEEP |
+
+### 27.3 What Was Removed (Supplier Side — Leaf Payments)
+
+| # | What | Where | Why |
+|---|------|-------|-----|
+| 1 | **"My Earnings" module** (entire module) | `supplier-payments` route, `SupplierPayments` component, registry + rbac + i18n | Showed supplier their leaf-payment earnings + payment history + Paid/Pending status. Factory does this. |
+| 2 | **"Earnings" stat card** on Home dashboard | `SupplierHome.tsx` | "Total Earned Rs X" leaf-payment figure. |
+| 3 | **"Pending Payment" rose banner** on Home dashboard | `SupplierHome.tsx` | "Rs X pending payment" leaf-payment figure. |
+| 4 | **Cost vs Earnings area chart** | `SupplierDeliveries` (was `CostEarningsChart` component) | Plotted earned (Rs) vs cost (Rs) over months — purely financial. |
+| 5 | **Total Earned / Fertilizer Cost / Net Earnings stat cards** | `SupplierProfile.tsx` (A8 Cost vs Earnings Summary) | 3 stat cards showing Rs figures. |
+| 6 | **"💰 Payment Alerts" toggle** in notification prefs | `SupplierProfile.tsx` | Toggle for payment-received notifications. |
+| 7 | **"Payment settled: Rs 211,200 credited" preview row** | `SupplierAlerts` → Push Notifications preview card | Example of a payment push notification. |
+| 8 | **`amount` + `status` (Paid/Pending) columns** in delivery list | `SupplierDeliveries` list | The Rs amount + payment status. **Kept kg/grade/date.** |
+| 9 | **`payments.own` capability** + rbac `supplier-payments` NavItem | `rbac.ts` | Permission + nav entry for the removed module. |
+| 10 | **"My Earnings" help-text row** | `SupplierProfile.tsx` help card | Help text referencing the removed module. |
+| 11 | **"payment confirmations" wording** in Notification Center empty state | `SupplierProfile.tsx` | Wording referenced payment alerts. |
+| 12 | **i18n keys** (9 keys × 3 langs = 27 strings) | `en.json` / `si.json` / `ta.json` `supplier` namespace | `payments`, `paymentsDesc`, `totalEarned`, `pendingPayment`, `ratePerKg`, `paymentHistory`, `noPayments`, `pushPaymentTitle`, `pushPaymentBody` |
+| 13 | **`modules.supplier-payments`** i18n entry | `en.json` / `si.json` / `ta.json` `modules` namespace | Module label for the removed module. |
+| 14 | **`paymentAlerts` field** | `SupplierProfile` interface in `data.ts` + `ProfileData` interface in `SupplierProfile.tsx` | Notification pref toggle for the removed alert type. |
+| 15 | **Earnings state + harvest_records.amount loading** | `SupplierHome.tsx`, `SupplierProfile.tsx` | Removed `totalEarned`/`totalFertCost`/`pendingKg` state + the harvest_records `amount` queries that fed them. |
+
+### 27.4 What Was Modified (Gray Area — Fertilizer Credit Ledger)
+
+The fertilizer credit ledger is a borderline case. It tracks how much fertilizer the factory gave each supplier on credit — which IS connected to leaf payments ("deducted from your next leaf payment"). But it also has standalone value (suppliers want to know how much fertilizer they received).
+
+**Decision: KEEP the kg figures, REMOVE the Rs figures + "deducted from leaf" wording.**
+
+| # | What | Where | Change |
+|---|------|-------|--------|
+| 16 | **"Credit Outstanding (kg)" stat card** sub-text | `SupplierFertilizer.tsx` | Was: "deducted from leaf" → Now: "settle at factory office" |
+| 17 | **"Credit issues will be deducted from your leaf payments"** explainer | `SupplierFertilizer.tsx` (how5) | Was: "deducted from your leaf payments at the factory" → Now: "should be settled at the factory finance office" |
+| 18 | **Fertilizer module description** | `SupplierFertilizer.tsx` (desc) | Was: "Credit issues will be deducted from your leaf payments at the factory" → Now: "Settle credit balances at the factory finance office" |
+| 19 | **"Outstanding Fertilizer Credit Balances" panel** (admin) | `SupplierInsights.tsx` | Removed "Est. Value (Rs)" column + "Status: Pending" column + Rs value in CSV export + "auto-deducted when admin marks leaf payment as paid" description. **Kept kg + # Issues columns.** |
+| 20 | **"Credit outstanding: deduct from leaf payment" help text** (admin) | `SupplierInsights.tsx` how-to-use card | Was: "When marking a leaf payment as paid, deduct the fertilizer credit value first" → Now: "Settlement of credit against leaf payments is handled by the factory finance office (separate system)" |
+
+### 27.5 What Was KEPT (NOT removed — different scope)
+
+These features were considered but **deliberately KEPT** because they belong to different domains (worker HR, made-tea sales, agronomy):
+
+| Feature | Module | Why kept |
+|---------|--------|----------|
+| **Payroll** ("Worker Payments") | Admin | Pays YOUR estate workers (pluckers, sprayers, factory hands) + EPF/ETF. HR function, not supplier payments. |
+| **Loans** ("Worker Advances") | Admin | Cash advances to YOUR workers + recovery from wages. HR function. |
+| **Welfare** ("Worker Welfare") | Admin | Worker welfare schemes. HR function. |
+| **Factory → Sales Invoices** | Admin | Invoices for SELLING made tea to wholesale buyers (B2B). Not supplier payments. |
+| **harvest_records table** (kg + grade + date) | Both | Tracks who delivered how much leaf + quality. Needed for yield charts, quality trends, factory intake forecasting (B29). The `amount` and `status` columns remain in the DB schema but are no longer read by any UI. |
+| **SupplierDeliveries → Yield History bar chart** | Supplier | Shows supplier their own monthly kg trend. Motivation, not payment. |
+| **SupplierDeliveries → Quality Trend line chart** | Supplier | Shows supplier their grade trend. Quality improvement, not payment. |
+| **SupplierDeliveries → delivery list** (date, kg, grade) | Supplier | Lets supplier verify their deliveries were recorded. Dispute resolution. Only the Rs + status columns were removed. |
+| **SupplierFertilizer → Total Received (kg) + history list** | Supplier | Supplier knows how much fertilizer factory gave them. Inventory transparency, not payment. |
+| **SupplierFertilizer → Used (kg) + Remaining (kg)** | Supplier | Supplier tracks their own usage. Agronomy, not finance. |
+| **SupplierFertilizer → Credit Outstanding (kg)** | Supplier | Kept the kg figure (supplier should know their credit balance); only removed the "deducted from leaf payments" wording. |
+| **SupplierInsights → Outstanding Fertilizer Credit Balances panel** | Admin | Kept the kg + # issues columns for inventory visibility; only removed the Rs value column + auto-deduct message. |
+| **DailyPriceCard** (today's tea prices per grade) | Supplier → Deliveries | Shows market reference prices. Not a payment — just market info. |
+
+### 27.6 Files Changed (8 files, ~430 lines removed)
+
+```
+src/lib/rbac.ts                       | -3 lines (payments.own cap + supplier-payments NavItem + supplier array entry)
+src/lib/data.ts                       | -1 line (paymentAlerts? field from SupplierProfile interface)
+src/modules/registry.ts               | -2 lines (supplier-payments entry + SupplierPayments import)
+src/modules/SupplierPortal.tsx        | -110 lines (SupplierPayments component + CostEarningsChart component + amount/status columns in delivery list + "Payment settled" preview row)
+src/modules/SupplierHome.tsx          | -25 lines (Earnings card + Pending Payment banner + totalEarned/pendingKg state + harvest_records.amount query)
+src/modules/SupplierProfile.tsx       | -45 lines (Cost-vs-Earnings 3 stat cards + Payment Alerts toggle + earnings-loading effect + netEarnings calc + payment-related help text + paymentAlerts field)
+src/modules/SupplierInsights.tsx      | -15 lines (Est. Value Rs column + Status column + Rs value in CSV + estValueRs field + auto-deduct help text + fmtLKR import)
+src/modules/SupplierFertilizer.tsx    | 0 lines code (i18n key VALUES updated only — no code changes)
+src/i18n/locales/en.json              | -10 keys, 3 values updated
+src/i18n/locales/si.json              | -10 keys, 3 values updated
+src/i18n/locales/ta.json              | -10 keys, 3 values updated
+```
+
+### 27.7 Database Note — NO SQL CHANGES NEEDED
+
+The `harvest_records` table still has its `amount` and `status` columns. They are simply no longer read by any UI. **No migration needed** — leaving the columns in place is harmless and means historical payment data (if any) is preserved. The factory's external finance system is the authoritative source for supplier payments going forward.
+
+The `supplier_fertilizer_ledger` table is unchanged — it always tracked kg + Credit/Cash mode, never Rs values. The Rs calculations were always client-side (kg × Rs 95/kg hardcoded). Those client-side calculations were removed.
+
+### 27.8 Verification
+
+- ✅ `vite build`: succeeds (10.35s, 2778 modules, 3.14 MB bundle / 870 KB gzipped — **-9.5 kB vs. before**)
+- ✅ TypeScript: no new errors (cleaned up unused imports in 3 files)
+- ✅ All removed i18n keys verified absent from source code
+- ✅ `supplier-payments` route returns 404 (not in registry) — falls back to dashboard
+- ✅ Supplier bottom-nav + More sheet no longer show "My Earnings"
+- ✅ Admin SupplierInsights no longer shows Rs column in credit balances table
+- ⏳ Push to GitHub + Vercel deploy
+
+### 27.9 Updated Supplier Module Count
+
+| Before | After |
+|--------|-------|
+| 14 supplier modules (incl. My Earnings) | **13 supplier modules** (My Earnings removed) |
+| 4 primary tabs + More sheet | 4 primary tabs + More sheet (unchanged — My Earnings was never primary) |
+
+### 27.10 User-Facing Impact
+
+**Suppliers will see:**
+- Home dashboard: Earnings card replaced with Today's Weather card (still 4 stat cards)
+- No "Pending Payment" banner on Home
+- No "My Earnings" tab in More sheet
+- My Leaf Deliveries: list shows kg + grade + date only (no Rs amount, no Paid/Pending badge)
+- My Profile: no Cost-vs-Earnings cards at the top, no "💰 Payment Alerts" toggle in notification prefs
+- My Fertilizer: "Credit Outstanding" card still shows kg, but sub-text says "settle at factory office" (was "deducted from leaf")
+- Smart Alerts: Push Notifications preview shows only the rain-wash-in example (was 2 examples including "Payment settled")
+
+**Admin will see:**
+- Supplier Insights → Outstanding Fertilizer Credit Balances panel: shows Supplier Name + Outstanding (kg) + # Issues only (no Est. Value Rs column, no Status column). Help text says "settlement handled by factory finance office (separate system)".
+
+**Workers (admin Payroll/Loans/Welfare modules):** Unchanged — these are HR functions for estate workers, not supplier payments.
+
 ---
 
-*End of Workflow Diagram. Last updated: September 2026 (Round #8 — Phase 3 supplier shortcomings fix B1–B29 + SQL migration Round #5).*
+*End of Workflow Diagram. Last updated: September 2026 (Round #9 — EMS scope reduction: remove supplier leaf-payment features).*
 
-*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #8 — Phase 3 B1–B29 fix + SQL Round #5).*
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #9 — සැපයුම්කරු කොළ ගෙවීම් විශේෂාංග ඉවත් කිරීම).*
+
 

@@ -28,7 +28,7 @@ import SupplierLoans from "./SupplierLoans";
 import AuctionSales from "./AuctionSales";
 import FieldTools from "./FieldTools";
 import { EoRegisterSupplier, EoWeighing } from "./ExtensionOfficer";
-import { SupplierDeliveries, SupplierAlerts, SupplierPayments } from "./SupplierPortal";
+import { SupplierDeliveries, SupplierAlerts } from "./SupplierPortal";
 import { FarmActivities } from "./FarmActivities";
 import Announcements from "./Announcements";
 import { SupplierAnnouncements } from "./SupplierAnnouncements";
@@ -84,7 +84,6 @@ export const REGISTRY: Record<string, ComponentType> = {
   "supplier-home": SupplierHome,
   "supplier-deliveries": SupplierDeliveries,
   "supplier-alerts": SupplierAlerts,
-  "supplier-payments": SupplierPayments,
   "supplier-farm": FarmActivities,
   "supplier-announcements": SupplierAnnouncements,
   "supplier-requests": SupplierRequestForm,

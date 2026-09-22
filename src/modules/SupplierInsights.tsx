@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Users, Sprout, TrendingUp, AlertTriangle, Trees, FileDown, CheckCircle2, XCircle, MapPin, FileText, Clock } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
-import { fmtNum, fmtLKR } from "@/lib/data";
+import { fmtNum } from "@/lib/data";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 import { useApp } from "@/context/AppContext";
 import {
@@ -230,11 +230,13 @@ export function SupplierInsights() {
   });
 
   // Convert bags to kg (1 bag = 50 kg)
+  // EMS NOTE: estValueRs (Rs value) was REMOVED — factory handles supplier
+  // payments externally. Admin can still see outstanding kg per supplier,
+  // but the Rs value + "auto-deduct from leaf payments" logic was removed.
   const creditOutstandingList = Object.entries(creditBySupplier).map(([name, v]) => ({
     supplierName: name,
     totalKg: v.totalKg + (v.totalBags * 50),
     entries: v.entries.length,
-    estValueRs: (v.totalKg + (v.totalBags * 50)) * 95, // assume Rs 95/kg average
   })).sort((a, b) => b.totalKg - a.totalKg);
 
   return (
@@ -490,20 +492,20 @@ export function SupplierInsights() {
         )}
       </Card>
 
-      {/* Fertilizer credit outstanding */}
+      {/* Fertilizer credit outstanding (kg only — Rs value removed; factory handles payments externally) */}
       <Card className="mt-4 p-4">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h3 className="font-display text-sm font-bold text-slate-800">Outstanding Fertilizer Credit Balances</h3>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Suppliers with unpaid fertilizer credit. Will be auto-deducted when admin marks their next leaf payment as paid.
+              Suppliers with unpaid fertilizer credit (in kg). Settle balances at the factory finance office.
             </p>
           </div>
           {ledger.length > 0 && (
             <button
               onClick={() => {
-                const csv = "supplier,kg,entries,est_value_rs\n" + creditOutstandingList.map(c =>
-                  `"${c.supplierName}",${c.totalKg},${c.entries},${c.estValueRs}`
+                const csv = "supplier,kg,entries\n" + creditOutstandingList.map(c =>
+                  `"${c.supplierName}",${c.totalKg},${c.entries}`
                 ).join("\n");
                 const blob = new Blob([csv], { type: "text/csv" });
                 const url = URL.createObjectURL(blob);
@@ -528,8 +530,6 @@ export function SupplierInsights() {
                   <th className="pb-2">Supplier Name</th>
                   <th className="pb-2 text-right">Outstanding (kg)</th>
                   <th className="pb-2 text-right"># Issues</th>
-                  <th className="pb-2 text-right">Est. Value (Rs)</th>
-                  <th className="pb-2 text-center">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -538,10 +538,6 @@ export function SupplierInsights() {
                     <td className="py-2 font-semibold text-slate-800">{c.supplierName}</td>
                     <td className="py-2 text-right tnum">{fmtNum(c.totalKg)} kg</td>
                     <td className="py-2 text-right tnum text-slate-500">{c.entries}</td>
-                    <td className="py-2 text-right tnum font-semibold">{fmtLKR(c.estValueRs)}</td>
-                    <td className="py-2 text-center">
-                      <Badge tone="amber" dot>Pending</Badge>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -550,8 +546,6 @@ export function SupplierInsights() {
                   <td className="py-2 text-xs font-bold text-slate-700">TOTAL</td>
                   <td className="py-2 text-right tnum font-bold">{fmtNum(creditOutstandingList.reduce((s, c) => s + c.totalKg, 0))} kg</td>
                   <td className="py-2 text-right tnum font-bold">{creditOutstandingList.reduce((s, c) => s + c.entries, 0)}</td>
-                  <td className="py-2 text-right tnum font-bold">{fmtLKR(creditOutstandingList.reduce((s, c) => s + c.estValueRs, 0))}</td>
-                  <td></td>
                 </tr>
               </tfoot>
             </table>
@@ -563,7 +557,7 @@ export function SupplierInsights() {
         <p className="font-semibold">📌 How to use this data</p>
         <ul className="mt-1.5 space-y-1 list-disc list-inside">
           <li><strong>Re-verify reminder:</strong> Contact suppliers in the amber alert list — encourage them to update their bush count via My Plot.</li>
-          <li><strong>Credit outstanding:</strong> When marking a leaf payment as paid, deduct the fertilizer credit value first. Phase 2 will automate this.</li>
+          <li><strong>Credit outstanding:</strong> The kg figures shown here are for inventory visibility. Settlement of credit against leaf payments is handled by the factory finance office (separate system).</li>
           <li><strong>Yield forecast:</strong> "Expected Yield" is a max potential based on region averages — actual depends on fertilizer, pruning, weather.</li>
           <li><strong>Phase 1 limitation:</strong> Data is browser-local — admin on Computer A can't see plots entered by suppliers on Phone B. Phase 2 (Supabase sync) fixes this.</li>
         </ul>

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { User, Phone, MapPin, CreditCard, Save, Bell, Wallet, TrendingUp, TrendingDown, Info, CheckCircle2 } from "lucide-react";
-import { PageHeader, Card, Badge, IconChip, StatCard } from "@/components/ui";
+import { User, Save, Bell, Info } from "lucide-react";
+import { PageHeader, Card, Badge, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
-import { fmtLKR } from "@/lib/data";
 
 /**
  * SupplierProfile — "My Profile" module (supplier side)
@@ -10,9 +9,12 @@ import { fmtLKR } from "@/lib/data";
  * Combines:
  *   A2 — Profile/Settings page (edit name, phone, NIC, address, photo)
  *   A3 — Notification Center (persistent notification list from localStorage)
- *   A8 — Cost vs Earnings Summary (combines earnings + fertilizer cost)
  *
  * Also includes notification preferences (C.13 from earlier spec).
+ *
+ * EMS NOTE: Cost-vs-Earnings Summary (A8) was REMOVED — the factory handles
+ * supplier leaf payments externally via a separate finance system, so
+ * earnings/payment figures no longer appear in the supplier portal.
  */
 const PROFILE_KEY = (uid: string) => `kdu.supplier_profile.${uid}`;
 const NOTIFS_KEY = (uid: string) => `kdu.supplier_notifications.${uid}`;
@@ -35,7 +37,6 @@ interface ProfileData {
   emergencyContact: string;
   photoUrl: string;
   notificationPrefs: {
-    paymentAlerts: boolean;
     requestAlerts: boolean;
     announcementAlerts: boolean;
     weatherAlerts: boolean;
@@ -51,7 +52,6 @@ const DEFAULT_PROFILE: ProfileData = {
   emergencyContact: "",
   photoUrl: "",
   notificationPrefs: {
-    paymentAlerts: true,
     requestAlerts: true,
     announcementAlerts: true,
     weatherAlerts: true,
@@ -64,10 +64,6 @@ export function SupplierProfile() {
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
   const [editing, setEditing] = useState(false);
   const [notifications, setNotifications] = useState<StoredNotification[]>([]);
-
-  // Earnings + fertilizer cost data for summary
-  const [totalEarned, setTotalEarned] = useState(0);
-  const [totalFertCost, setTotalFertCost] = useState(0);
 
   useEffect(() => {
     // Load profile
@@ -107,35 +103,6 @@ export function SupplierProfile() {
     };
     window.addEventListener("verda:toast", handleToast);
 
-    // Load earnings from harvest records (localStorage or Supabase)
-    void (async () => {
-      try {
-        const { supabaseConfigured, getSupabase } = await import("@/lib/supabase");
-        if (supabaseConfigured) {
-          const sb = getSupabase()!;
-          const { data: harvests } = await sb
-            .from("harvest_records")
-            .select("amount")
-            .eq("supplier_id", userUid);
-          if (harvests) {
-            setTotalEarned(harvests.reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0));
-          }
-
-          // Load fertilizer credit cost
-          const ledgerRaw = localStorage.getItem("kdu.supplier_fertilizer_ledger");
-          if (ledgerRaw) {
-            const ledger = JSON.parse(ledgerRaw);
-            const myEntries = ledger.filter((e: any) =>
-              e.supplierName?.toLowerCase() === (user?.name ?? "").toLowerCase() &&
-              (e.notes || "").toLowerCase().includes("credit")
-            );
-            const fertCost = myEntries.reduce((s: number, e: any) => s + (e.qtyIssued * 95), 0);
-            setTotalFertCost(fertCost);
-          }
-        }
-      } catch { /* ignore */ }
-    })();
-
     return () => window.removeEventListener("verda:toast", handleToast);
   }, [userUid, user?.name]);
 
@@ -164,23 +131,15 @@ export function SupplierProfile() {
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
-  const netEarnings = totalEarned - totalFertCost;
 
   return (
     <div>
       <PageHeader
         eyebrow="VVIP Supplier Portal"
         title="My Profile"
-        desc="Manage your profile details, notification preferences, view notification history, and see your earnings vs fertilizer cost summary."
+        desc="Manage your profile details, notification preferences, and view your notification history."
         icon={<IconChip icon={User} tone="violet" className="h-12 w-12" />}
       />
-
-      {/* A8: Cost vs Earnings Summary */}
-      <div className="mt-4 grid grid-cols-3 gap-3">
-        <StatCard icon={TrendingUp} label="Total Earned" value={fmtLKR(totalEarned)} sub="from leaf deliveries" tone="emerald" />
-        <StatCard icon={TrendingDown} label="Fertilizer Cost" value={fmtLKR(totalFertCost)} sub="credit outstanding" tone="rose" />
-        <StatCard icon={Wallet} label="Net Earnings" value={fmtLKR(netEarnings)} sub="earned - fertilizer" tone={netEarnings >= 0 ? "sky" : "rose"} />
-      </div>
 
       {/* A2: Profile details */}
       <Card className="mt-4 p-4">
@@ -240,7 +199,6 @@ export function SupplierProfile() {
         </h3>
         <div className="space-y-2">
           {([
-            { key: "paymentAlerts", label: "💰 Payment Alerts", desc: "Payment received confirmations" },
             { key: "requestAlerts", label: "📥 Request Alerts", desc: "Resource/equipment request status" },
             { key: "announcementAlerts", label: "📢 Announcement Alerts", desc: "Estate updates + news" },
             { key: "weatherAlerts", label: "🌦️ Weather Alerts", desc: "Rain warnings + weather guard" },
@@ -280,7 +238,7 @@ export function SupplierProfile() {
           )}
         </div>
         {notifications.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-400">No notifications yet. You'll see payment confirmations, request updates, weather alerts, and announcements here.</p>
+          <p className="py-6 text-center text-sm text-slate-400">No notifications yet. You'll see request updates, weather alerts, and announcements here.</p>
         ) : (
           <div className="space-y-1.5 max-h-80 overflow-y-auto">
             {notifications.map(n => (
@@ -311,7 +269,6 @@ export function SupplierProfile() {
         <ul className="space-y-1 text-xs text-violet-700">
           <li>📊 <strong>My Leaf Deliveries</strong> — ඔබගේ කොළ භාරදීම් පෙන්වයි (your leaf deliveries)</li>
           <li>🔔 <strong>Smart Alerts</strong> — පොහොර/කප්පාදු උපදෙස් + කාලගුණ අනතුරු ඇඟවීම් (fertilizer + weather alerts)</li>
-          <li>💵 <strong>My Earnings</strong> — ඔබගේ ඉපැයීම් සහ ගෙවීම් (your earnings + payments)</li>
           <li>🌾 <strong>My Farm Activities</strong> — පොහොර, කප්පාදු, දලු කඩදීම, නැවත සිටුවීම සටහන් කරන්න (log activities)</li>
           <li>🌳 <strong>My Plot</strong> — වත්ත ලියාපදිංචි කරන්න + GPS + අක්කර/ගස් ගණන (register your plot)</li>
           <li>☁️ <strong>My Weather</strong> — ඔබගේ වත්තේ කාලගුණය (weather for your plot)</li>

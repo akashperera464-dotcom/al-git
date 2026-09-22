@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Home, Leaf, CloudSun, Bell, Wallet, Package, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
-import { PageHeader, Card, Badge, IconChip, StatCard } from "@/components/ui";
+import { Leaf, CloudSun, Bell, Package, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
-import { fmtLKRShort, fmtNum, TODAY_ISO } from "@/lib/data";
+import { fmtNum } from "@/lib/data";
 import { readMyHarvestRecords } from "@/lib/repo";
 import { fetchForecast, getMockForecast } from "@/lib/weather";
 import { readAlerts } from "@/lib/notifications";
@@ -15,9 +15,7 @@ export function SupplierHome() {
   const firstName = (session?.name ?? user?.name ?? "Supplier").split(" ")[0];
 
   const [forecast, setForecast] = useState<WeatherDay[]>(getMockForecast());
-  const [totalEarned, setTotalEarned] = useState(0);
   const [totalKg, setTotalKg] = useState(0);
-  const [pendingKg, setPendingKg] = useState(0);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [superPct, setSuperPct] = useState(0);
 
@@ -31,15 +29,11 @@ export function SupplierHome() {
     const lon = plot?.longitude ?? estate?.longitude;
     void fetchForecast(lat, lon).then(res => setForecast(res.days));
 
-    // Load deliveries
+    // Load deliveries — kg + grade only (no earnings/payment, factory handles payments externally)
     void readMyHarvestRecords(userUid, associatedEntityId).then(recs => {
-      const earned = recs.reduce((s, r) => s + r.amount, 0);
       const kg = recs.reduce((s, r) => s + r.kg, 0);
-      const pending = recs.filter(r => r.status === "Pending").reduce((s, r) => s + r.amount, 0);
       const sup = recs.length ? Math.round((recs.filter(r => r.grade === "Super").length / recs.length) * 100) : 0;
-      setTotalEarned(earned);
       setTotalKg(kg);
-      setPendingKg(pending);
       setSuperPct(sup);
     });
 
@@ -107,7 +101,7 @@ export function SupplierHome() {
           <div className="flex-1">
             <p className="text-sm font-bold text-sky-800">කාලගුණය · Today's Weather</p>
             <p className="text-xs text-sky-600">
-              {weatherToday.tempHi}°C high · Rain {weatherToday.rainProb}% · Wind {weatherToday.windKph} km/h
+              {weatherToday.tempMax}°C high · Rain {weatherToday.rainProb}% · Wind {weatherToday.windKph} km/h
             </p>
           </div>
           <button onClick={() => setActiveModule("supplier-weather")} className="text-sky-600">
@@ -119,9 +113,9 @@ export function SupplierHome() {
       {/* Key stats */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         <StatCard icon={Package} label="මුළු කොළ · Total Supplied" value={`${fmtNum(totalKg)} kg`} tone="emerald" />
-        <StatCard icon={Wallet} label="ඉපයීම් · Earnings" value={fmtLKRShort(totalEarned)} tone="sky" />
         <StatCard icon={TrendingUp} label="Super ශ්රේණිය · Quality" value={`${superPct}%`} tone="violet" />
         <StatCard icon={Bell} label="නොකියවූ · Unread Alerts" value={String(unreadAlerts)} tone={unreadAlerts > 0 ? "rose" : "slate"} />
+        <StatCard icon={CloudSun} label="අද කාලගුණය · Today's Weather" value={weatherToday ? `${weatherToday.tempMax}°C` : "—"} sub={weatherToday ? `Rain ${weatherToday.rainProb}%` : ""} tone="sky" />
       </div>
 
       {/* Smart reminders */}
@@ -189,21 +183,6 @@ export function SupplierHome() {
           </button>
         ))}
       </div>
-
-      {/* Pending payment notice */}
-      {pendingKg > 0 && (
-        <Card className="p-3.5 border-rose-200 bg-rose-50 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-rose-700">⏳ ගෙවීම් එලඹෙමින් · Payment Pending</p>
-              <p className="text-lg font-extrabold text-rose-800 mt-0.5">Rs {pendingKg.toLocaleString()}</p>
-            </div>
-            <button onClick={() => setActiveModule("supplier-payments")} className="rounded-lg bg-rose-500 px-3 py-1.5 text-xs font-bold text-white">
-              View →
-            </button>
-          </div>
-        </Card>
-      )}
     </div>
   );
 }
