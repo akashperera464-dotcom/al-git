@@ -946,6 +946,8 @@ export async function receiveGoods(input: {
   receivedBy: string;
   supplierInvoiceNo?: string;
   notes?: string;
+  /** B28 (Round #9) — Vendor who delivered the fertilizer (e.g., CIC Fertilizer Ltd). */
+  supplierName?: string;
   receipts: {
     stockItemId: string;
     poLineId?: string;
@@ -963,6 +965,7 @@ export async function receiveGoods(input: {
       receivedDate: now().slice(0, 10), receivedBy: input.receivedBy,
       supplierInvoiceNo: input.supplierInvoiceNo, notes: input.notes,
       version: 1,
+      supplierName: input.supplierName,
     };
     mockGRNs.unshift(grn);
     const updated: StockItem[] = [];
@@ -997,6 +1000,8 @@ export async function receiveGoods(input: {
     grn_code: input.grnCode, po_id: input.poId,
     received_date: now().slice(0, 10), received_by: input.receivedBy,
     supplier_invoice_no: input.supplierInvoiceNo, notes: input.notes,
+    // B28 (Round #9) — vendor who delivered
+    supplier_name: input.supplierName,
   }).select().single();
   if (gErr) throw new Error(`receiveGoods: ${gErr.message}`);
   const grn: GoodsReceipt = {
@@ -1004,6 +1009,7 @@ export async function receiveGoods(input: {
     receivedDate: grnRow.received_date, receivedBy: grnRow.received_by,
     supplierInvoiceNo: grnRow.supplier_invoice_no, notes: grnRow.notes,
     version: 1,
+    supplierName: grnRow.supplier_name,
   };
   // Insert GRN lines + stock movements + update on-hand (moving average)
   const grnLinesPayload = input.receipts.map(r => ({
@@ -1060,6 +1066,10 @@ export async function issueStock(input: {
   notes?: string;
   /** B28 (Round #8) — delivery route for the issue (e.g., "Kiriwallapatana"). */
   route?: string;
+  /** B28 (Round #9) — Issue Note Ref. (serial number from the physical issue note book, e.g., IN-2024-0123). */
+  issueNoteCode?: string;
+  /** B28 (Round #9) — Factory's supplier number (e.g., SUP-001). */
+  supplierNo?: string;
 }): Promise<StockItem | null> {
   if (!supabaseConfigured) {
     const idx = mockStock.findIndex(s => s.id === input.stockItemId);
@@ -1076,6 +1086,9 @@ export async function issueStock(input: {
       // B28 (Round #8) — new field
       route: input.route,
       unitPriceAtTxn: s.unitCost,
+      // B28 (Round #9) — new fields
+      issueNoteCode: input.issueNoteCode,
+      supplierNo: input.supplierNo,
     });
     return s;
   }
@@ -1094,6 +1107,9 @@ export async function issueStock(input: {
     // B28 (Round #8) — new fields
     route: input.route,
     unit_price_at_txn: Number(cur.unit_cost),
+    // B28 (Round #9) — new fields
+    issue_note_code: input.issueNoteCode,
+    supplier_no: input.supplierNo,
   });
   return {
     id: cur.id, code: cur.code, name: cur.name, category: cur.category,
@@ -1129,6 +1145,9 @@ export async function listStockMovements(stockItemId?: string): Promise<StockMov
     isFreeIssue: Boolean(r.is_free_issue ?? false),
     unitPriceAtTxn: r.unit_price_at_txn !== undefined ? Number(r.unit_price_at_txn) : undefined,
     vendorInvoiceNo: r.vendor_invoice_no as string | undefined,
+    // B28 (Round #9) — new fields
+    issueNoteCode: r.issue_note_code as string | undefined,
+    supplierNo: r.supplier_no as string | undefined,
   }));
 }
 

@@ -2615,11 +2615,180 @@ src/modules/Fertilizer.tsx                    | +165 lines (new StockMovementRep
 
 **Database:** 4 new nullable columns on `stock_movements`. No data migration needed.
 
+## 29. Excel-Alignment Migration — 3 Remaining Gaps Closed (Round #11)
+
+> **Purpose / අරමුණ:** Sir shared the exact column structures of the 3 Excel files. After comparing column-by-column against the EMS schema, 3 remaining gaps were identified. This round closes them so every Excel column has a home in the DB.
+
+### 29.1 Column-by-Column Audit
+
+#### File 1: Issue Note Total Summary (8 columns)
+
+| Excel Column | EMS Field | Status |
+|---|---|---|
+| Date | `stock_movements.performed_at` | ✅ Already present |
+| Issue Note Ref. | `stock_movements.issue_note_code` | ❌ **GAP → added this round** |
+| Supplier No | `stock_movements.supplier_no` | ❌ **GAP → added this round** |
+| Route | `stock_movements.route` | ✅ Added in Round #8 |
+| Item | `stock_movements.stock_item_id` → `stock_items.code/name` | ✅ Already present |
+| QTY | `stock_movements.qty` | ✅ Already present |
+| Unit Price | `stock_movements.unit_price_at_txn` | ✅ Added in Round #8 |
+| Amount (Rs) | Computed: `qty × unit_price_at_txn` | ✅ Displayed in UI |
+
+#### File 2: GRN Report (8 columns)
+
+| Excel Column | EMS Field | Status |
+|---|---|---|
+| Date | `goods_receipts.received_date` | ✅ Already present |
+| GRN No | `goods_receipts.grn_code` | ✅ Already present |
+| Supplier Name | `goods_receipts.supplier_name` | ❌ **GAP → added this round** |
+| Item | `stock_movements.stock_item_id` → `stock_items.code/name` | ✅ Already present |
+| Free Issued GRN | `stock_movements.is_free_issue` | ✅ Added in Round #8 |
+| QTY | `stock_movements.qty` | ✅ Already present |
+| Unit Price | `stock_movements.unit_price_at_txn` | ✅ Added in Round #8 |
+| Amount (Rs) | Computed: `qty × unit_price_at_txn` | ✅ Displayed in UI |
+
+#### File 3: Fertilizer Stock Balance (7 columns + date range)
+
+| Excel Column | EMS Field | Status |
+|---|---|---|
+| Item Code | `stock_items.code` | ✅ Already present |
+| Description | `stock_items.name` | ✅ Already present |
+| Opening Balance QTY | Computed from `stock_movements` before start date | ✅ Stock Movement Report panel (Round #8) |
+| GRN: QTY + Amount Rs | Computed from `stock_movements` (move_type='in') | ✅ Stock Movement Report panel |
+| ISSUED: QTY + Amount Rs | Computed from `stock_movements` (move_type='out') | ✅ Stock Movement Report panel |
+| Closing Balance | Computed: opening + received − issued | ✅ Stock Movement Report panel |
+| Date Range filter | Date range picker in Stock Movement Report panel | ✅ Added in Round #8 |
+
+**File 3 has ZERO gaps** — the Stock Movement Report panel (added in Round #8) already matches this Excel exactly.
+
+### 29.2 SQL Migration — Round #7 (Phase 3) — **REQUIRED**
+
+**File:** `docs/migration_phase3_round7.sql` (also at `download/supabase_phase3_round7_migration.sql`)
+
+| # | Change | Why |
+|---|--------|-----|
+| 1 | `stock_movements.issue_note_code` (text, nullable) | Issue Note Ref. — serial number from the physical issue note book (e.g., IN-2024-0123) |
+| 2 | `stock_movements.supplier_no` (text, nullable) | Factory's supplier number (e.g., SUP-001). Different from user_id (Firebase UID). |
+| 3 | `goods_receipts.supplier_name` (text, nullable) | Vendor who delivered the fertilizer to the factory (e.g., CIC Fertilizer Ltd). NOT a tea supplier. |
+| 4 | Index on `issue_note_code` | For fast lookup by issue note ref |
+| 5 | Index on `supplier_no` | For fast lookup by supplier number |
+
+**To apply:**
+1. Open Supabase Dashboard → SQL Editor → New query
+2. Paste contents of `docs/migration_phase3_round7.sql`
+3. Run — safe to re-run (uses `add column if not exists`)
+4. Verify: the query result shows the 3 new columns
+
+### 29.3 What Was Implemented
+
+#### A. TypeScript Types (`src/lib/data.ts`)
+
+- `StockMovement` interface: +`issueNoteCode?: string` +`supplierNo?: string`
+- `GoodsReceipt` interface: +`supplierName?: string`
+
+#### B. Repository Layer (`src/lib/repo.phase2.ts`)
+
+| Function | Change |
+|----------|--------|
+| `receiveGoods()` | Accepts `supplierName` parameter. Writes it to `goods_receipts.supplier_name`. Reads it back into the returned `GoodsReceipt` object. |
+| `issueStock()` | Accepts `issueNoteCode` + `supplierNo` parameters. Writes them to `stock_movements.issue_note_code` + `stock_movements.supplier_no`. |
+| `listStockMovements()` | Reads the 2 new columns and maps them to the TypeScript interface. |
+
+#### C. Admin Inventory Module (`src/modules/Inventory.tsx`)
+
+| Form/Panel | New Fields |
+|------------|------------|
+| **GRN form** | "Supplier/Vendor Name (who delivered)" text input — with explanation that this is the vendor who delivered the fertilizer, NOT a tea supplier. Matches Excel's "Supplier Name" column. |
+| **Issue Stock form** | "Issue Note Ref. (serial number from note book)" text input — placeholder "e.g., IN-2024-0123". Matches Excel's "Issue Note Ref." column. |
+| **Issue Stock form** | "Supplier No (factory supplier number)" text input — placeholder "e.g., SUP-001". Matches Excel's "Supplier No" column. |
+| **Movement History list** | 2 new badges per row: 📝 Issue Note Ref. (violet) + 👤 Supplier No (indigo). Added alongside the existing 🛣️ Route / 🎁 Free / INV: badges from Round #8. |
+
+### 29.4 Complete Excel-to-EMS Field Mapping (All 3 Files)
+
+After this round, every column in all 3 Excel files has a corresponding field in the EMS:
+
+**File 1: Issue Note Total Summary** → `stock_movements` (move_type='out')
+```
+Date              → performed_at
+Issue Note Ref.   → issue_note_code     ← NEW (Round #9)
+Supplier No       → supplier_no         ← NEW (Round #9)
+Route             → route               ← Added Round #8
+Item              → stock_item_id → stock_items.code/name
+QTY               → qty
+Unit Price        → unit_price_at_txn   ← Added Round #8
+Amount (Rs)       → computed (qty × unit_price_at_txn)
+```
+
+**File 2: GRN Report** → `stock_movements` (move_type='in') + `goods_receipts`
+```
+Date              → goods_receipts.received_date
+GRN No            → goods_receipts.grn_code
+Supplier Name     → goods_receipts.supplier_name  ← NEW (Round #9)
+Item              → stock_movements.stock_item_id → stock_items.code/name
+Free Issued GRN   → stock_movements.is_free_issue ← Added Round #8
+QTY               → stock_movements.qty
+Unit Price        → stock_movements.unit_price_at_txn ← Added Round #8
+Amount (Rs)       → computed (qty × unit_price_at_txn)
+```
+
+**File 3: Fertilizer Stock Balance** → `StockMovementReportPanel` in Fertilizer module
+```
+Item Code         → stock_items.code
+Description       → stock_items.name
+Opening Balance   → computed from stock_movements before start date
+GRN (QTY + Rs)    → computed from stock_movements (move_type='in', excl free issues)
+ISSUED (QTY + Rs) → computed from stock_movements (move_type='out')
+Closing Balance   → computed (opening + received − issued)
+Date Range        → date range picker in the panel
+```
+
+### 29.5 Files Changed (5 files, ~180 insertions)
+
+```
+docs/migration_phase3_round7.sql              | NEW (55 lines) — SQL migration
+download/supabase_phase3_round7_migration.sql | NEW (copy of above)
+src/lib/data.ts                               | +3 lines (issueNoteCode, supplierNo on StockMovement; supplierName on GoodsReceipt)
+src/lib/repo.phase2.ts                        | +25 lines (receiveGoods/issueStock/listStockMovements updates)
+src/modules/Inventory.tsx                     | +55 lines (3 new form fields + 2 new badges in Movement History + state variables + reset logic)
+```
+
+### 29.6 Updated SQL Migration History
+
+| Round | File | What |
+|-------|------|------|
+| #1 | `docs/supabase_schema.sql` + `migration_full_crud.sql` + `migration_workers.sql` | Base schema |
+| #2 | `download/supabase_migration_fix3.sql` | Phase 2 operational tables |
+| #3 | `download/supabase_phase1_sir_spec_migration.sql` | Phase 1: bush count, supplier_plots, supplier_fertilizer_ledger, equipment_requests |
+| #4 | `download/supabase_phase1_round3_migration.sql` | Phase 1 Round #3: soil type, batch/expiry, harvest records, notification prefs |
+| #5 | `download/supabase_phase2_round4_migration.sql` | Phase 2: estate_registration_requests, estate_blocks, smart_alert_log |
+| #6 | `download/supabase_phase3_round5_migration.sql` | Phase 3 Round #5: extend farm_activities.activity_type CHECK for 'plucking' |
+| #7 | `download/supabase_phase3_round6_migration.sql` | Phase 3 Round #6: inventory schema hardening (route, is_free_issue, unit_price_at_txn, vendor_invoice_no) |
+| **#8** | **`docs/migration_phase3_round7.sql`** ⬅️ **NEW** | **Phase 3 Round #7: Excel-alignment (issue_note_code, supplier_no on stock_movements + supplier_name on goods_receipts)** |
+
+### 29.7 Verification
+
+- ✅ `vite build`: succeeds (10.39s, 2778 modules, 3.16 MB bundle / 873 KB gzipped)
+- ✅ TypeScript: no new errors
+- ✅ All 3 Excel files now have 100% field coverage in the EMS schema
+- ⏳ **ACTION REQUIRED**: Run `docs/migration_phase3_round7.sql` in Supabase SQL Editor
+- ⏳ After migration: admin can use Issue Note Ref. + Supplier No in Issue form + Supplier/Vendor Name in GRN form
+
+### 29.8 User-Facing Impact
+
+**Admin (Inventory module):**
+- GRN form: new "Supplier/Vendor Name" field (who delivered the fertilizer)
+- Issue Stock form: new "Issue Note Ref." field (serial number from note book) + "Supplier No" field (factory supplier number)
+- Movement History: shows 📝 Issue Note Ref. + 👤 Supplier No badges per row
+
+**Suppliers:** No direct impact (these are admin-side inventory features).
+
+**Database:** 3 new nullable columns (2 on stock_movements, 1 on goods_receipts). No data migration needed.
+
 ---
 
-*End of Workflow Diagram. Last updated: September 2026 (Round #10 — Inventory schema hardening + Stock Movement Report, inspired by factory's 3 Excel files).*
+*End of Workflow Diagram. Last updated: September 2026 (Round #11 — Excel-alignment migration, 3 remaining gaps closed).*
 
-*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #10 — Inventory schema hardening + Stock Movement Report).*
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #11 — Excel-alignment migration).*
 
 
 

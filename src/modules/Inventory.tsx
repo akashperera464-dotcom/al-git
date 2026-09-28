@@ -45,6 +45,8 @@ export default function Inventory() {
   // B28 (Round #8) — vendor invoice # (separate from supplier invoice) + free-issue toggle
   const [grnVendorInvoice, setGrnVendorInvoice] = useState("");
   const [grnFreeIssue, setGrnFreeIssue] = useState(false);
+  // B28 (Round #9) — Supplier/Vendor Name (who delivered the fertilizer — matches Excel GRN Report "Supplier Name" column)
+  const [grnSupplierName, setGrnSupplierName] = useState("");
   const [grnLines, setGrnLines] = useState<{ stockItemId: string; poLineId?: string; qtyReceived: number; unitCost: number; isFreeIssue?: boolean }[]>([]);
 
   // Issue form
@@ -58,6 +60,10 @@ export default function Inventory() {
   const [issueSupplierName, setIssueSupplierName] = useState<string>("");  // for credit tracking
   // B28 (Round #8) — Route field (delivery route for issue notes)
   const [issueRoute, setIssueRoute] = useState<string>("");
+  // B28 (Round #9) — Issue Note Ref. (serial number from the physical issue note book)
+  const [issueNoteCode, setIssueNoteCode] = useState<string>("");
+  // B28 (Round #9) — Supplier No (factory's supplier number — matches Excel "Supplier No" column)
+  const [issueSupplierNo, setIssueSupplierNo] = useState<string>("");
 
   // Build divisions list from all estates (flat list of division names)
   const allDivisions = Array.from(
@@ -155,6 +161,8 @@ export default function Inventory() {
         grnCode, poId: grnPoId || undefined,
         receivedBy: userUid,
         supplierInvoiceNo: grnSupplierInvoice || undefined,
+        // B28 (Round #9) — vendor who delivered the fertilizer
+        supplierName: grnSupplierName || undefined,
         receipts: grnLines.map(l => ({
           stockItemId: l.stockItemId, poLineId: l.poLineId,
           qtyReceived: l.qtyReceived, unitCost: l.unitCost,
@@ -164,7 +172,7 @@ export default function Inventory() {
         })),
       });
       setGrnPoId(""); setGrnSupplierInvoice(""); setGrnLines([]);
-      setGrnVendorInvoice(""); setGrnFreeIssue(false);
+      setGrnVendorInvoice(""); setGrnFreeIssue(false); setGrnSupplierName("");
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to receive goods");
@@ -206,6 +214,9 @@ export default function Inventory() {
         performedBy: userUid, notes: finalNotes || undefined,
         // B28 (Round #8) — delivery route for the issue note
         route: issueRoute || undefined,
+        // B28 (Round #9) — Issue Note Ref. + Supplier No (matches Excel Issue Note Report columns)
+        issueNoteCode: issueNoteCode || undefined,
+        supplierNo: issueSupplierNo || undefined,
       });
 
       // NEW (Sir's spec): if Credit + fertilizer, write to supplier fertilizer ledger
@@ -229,7 +240,7 @@ export default function Inventory() {
 
       setIssueItemId(""); setIssueQty(1); setIssueNotes(""); setIssueRequestId("");
       setIssueDivision(""); setIssuePaymentMode("cash"); setIssueSupplierName("");
-      setIssueRoute("");
+      setIssueRoute(""); setIssueNoteCode(""); setIssueSupplierNo("");
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to issue");
@@ -490,6 +501,17 @@ export default function Inventory() {
               <label className="text-[11px] text-slate-400">Supplier Invoice No</label>
               <input value={grnSupplierInvoice} onChange={e => setGrnSupplierInvoice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
+            {/* B28 (Round #9) — Supplier/Vendor Name (who delivered the fertilizer — matches Excel GRN Report "Supplier Name" column) */}
+            <div>
+              <label className="text-[11px] text-slate-400">Supplier/Vendor Name (who delivered)</label>
+              <input
+                value={grnSupplierName}
+                onChange={e => setGrnSupplierName(e.target.value)}
+                placeholder="e.g., CIC Fertilizer Ltd"
+                className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+              />
+              <p className="mt-1 text-[10px] text-slate-400">The vendor who delivered the fertilizer to the factory (NOT a tea supplier).</p>
+            </div>
             {/* B28 (Round #8) — Vendor Invoice No (separate from supplier invoice; for traceability to the vendor's own invoice book) */}
             <div>
               <label className="text-[11px] text-slate-400">Vendor Invoice No (optional)</label>
@@ -592,6 +614,30 @@ export default function Inventory() {
                 </datalist>
                 <p className="mt-1 text-[10px] text-slate-400">For the Issue Note Report — which delivery route this issue went on.</p>
               </div>
+              {/* B28 (Round #9) — Issue Note Ref. (serial number from the physical issue note book) */}
+              <div>
+                <label className="text-[11px] text-slate-400">Issue Note Ref. (serial number from note book)</label>
+                <input
+                  type="text"
+                  value={issueNoteCode}
+                  onChange={e => setIssueNoteCode(e.target.value)}
+                  placeholder="e.g., IN-2024-0123"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+                />
+                <p className="mt-1 text-[10px] text-slate-400">The serial number from the physical issue note book. Matches the factory's "Issue Note Ref." Excel column.</p>
+              </div>
+              {/* B28 (Round #9) — Supplier No (factory's supplier number) */}
+              <div>
+                <label className="text-[11px] text-slate-400">Supplier No (factory supplier number)</label>
+                <input
+                  type="text"
+                  value={issueSupplierNo}
+                  onChange={e => setIssueSupplierNo(e.target.value)}
+                  placeholder="e.g., SUP-001"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+                />
+                <p className="mt-1 text-[10px] text-slate-400">The factory's supplier number (NOT the Firebase UID). Matches the "Supplier No" Excel column.</p>
+              </div>
               {/* NEW (Sir's spec): Payment mode — Cash or Credit (for supplier fertilizer issuing) */}
               <div>
                 <label className="text-[11px] text-slate-400">Payment Mode</label>
@@ -691,6 +737,18 @@ export default function Inventory() {
                         <Badge tone={m.moveType === "in" ? "emerald" : m.moveType === "out" ? "rose" : "amber"}>{m.moveType}</Badge>
                         <span className="font-semibold text-slate-800">{s?.code ?? m.stockItemId}</span>
                         <span className="text-slate-400">{fmtNum(m.qty)} {s?.unit}</span>
+                        {/* B28 (Round #9) — Issue Note Ref. badge */}
+                        {m.issueNoteCode && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold text-violet-700">
+                            📝 {m.issueNoteCode}
+                          </span>
+                        )}
+                        {/* B28 (Round #9) — Supplier No badge */}
+                        {m.supplierNo && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold text-indigo-700">
+                            👤 {m.supplierNo}
+                          </span>
+                        )}
                         {/* B28 (Round #8) — Route badge for issue notes */}
                         {m.route && (
                           <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">

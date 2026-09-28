@@ -1069,6 +1069,8 @@ export interface GoodsReceipt {
   supplierInvoiceNo?: string;
   notes?: string;
   version: number;
+  /** B28 (Round #9) — Vendor who delivered the fertilizer to the factory (e.g., CIC Fertilizer Ltd). NOT a tea supplier. */
+  supplierName?: string;
 }
 
 export interface StockMovement {
@@ -1092,6 +1094,10 @@ export interface StockMovement {
   unitPriceAtTxn?: number;
   /** B28 (Round #8) — vendor's invoice number for GRN traceability. */
   vendorInvoiceNo?: string;
+  /** B28 (Round #9) — Issue Note Ref. (serial number from the physical issue note book, e.g., IN-2024-0123). */
+  issueNoteCode?: string;
+  /** B28 (Round #9) — Factory's supplier number (e.g., SUP-001). Different from user_id (Firebase UID). */
+  supplierNo?: string;
 }
 
 // ---- Conflict resolution result ----
