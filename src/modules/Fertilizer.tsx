@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { Sprout, FileDown, ArrowRight } from "lucide-react";
+import { Sprout, FileDown, ArrowRight, Calendar } from "lucide-react";
 import { PageHeader, Card, Badge, IconChip, StatCard } from "@/components/ui";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 import { useState } from "react";
 import { exportObjectsToCSV } from "@/lib/csvExport";
-import { fmtLKR, fmtNum } from "@/lib/data";
+import { fmtLKR, fmtNum, addDays, TODAY_ISO } from "@/lib/data";
 
 interface FertStockItem {
   id: string;
@@ -153,6 +153,11 @@ export default function Fertilizer() {
         </p>
         <BlockFertilizerHistory />
       </Card>
+
+      {/* B28 (Round #8) — Stock Movement Report (mirrors the factory's
+          "Fertilizer Stock Balance.xlsx" with opening/GRN/issued/closing
+          per item over a date range). Replaces the manual Excel workflow. */}
+      <StockMovementReportPanel />
     </div>
   );
 }
@@ -357,5 +362,163 @@ function DivisionFertilizerSummary() {
         * Division parsed from movement notes — for accurate attribution, mention the division name in the Issue Stock notes field.
       </p>
     </div>
+  );
+}
+
+/**
+ * StockMovementReportPanel — B28 (Round #8) — mirrors the factory's
+ * "Fertilizer Stock Balance.xlsx" report structure:
+ *   - Per-item table with Opening / Received (GRN) / Issued / Closing
+ *   - Date range filter
+ *   - CSV export
+ *
+ * Reads from the new getStockMovementReport() function in repo.phase2.ts.
+ * Replaces the manual Excel workflow with a live, real-time version.
+ */
+function StockMovementReportPanel() {
+  // Default: last 30 days
+  const [startDate, setStartDate] = useState(addDays(TODAY_ISO, -30));
+  const [endDate, setEndDate] = useState(TODAY_ISO);
+  const [rows, setRows] = useState<import("@/lib/repo.phase2").StockMovementReportRow[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [filter, setFilter] = useState<"all" | "fertilizer" | "agrochemical" | "equipment">("fertilizer");
+
+  const load = async () => {
+    setBusy(true);
+    try {
+      const { getStockMovementReport } = await import("@/lib/repo.phase2");
+      const data = await getStockMovementReport(startDate, endDate);
+      setRows(filter === "all" ? data : data.filter(r => r.category === filter));
+    } catch {
+      setRows([]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, filter]);
+
+  const totalOpening = rows.reduce((s, r) => s + r.openingValue, 0);
+  const totalReceived = rows.reduce((s, r) => s + r.receivedValue, 0);
+  const totalIssued = rows.reduce((s, r) => s + r.issuedValue, 0);
+  const totalClosing = rows.reduce((s, r) => s + r.closingValue, 0);
+
+  return (
+    <Card className="mt-4 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="font-display text-sm font-bold text-slate-800 flex items-center gap-1.5">
+            <Calendar className="h-4 w-4 text-violet-600" />
+            📊 Stock Movement Report (B28)
+          </h3>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            Per-item Opening / Received (GRN) / Issued / Closing balance over a date range.
+            Mirrors the factory's "Fertilizer Stock Balance.xlsx" report — now live + real-time.
+          </p>
+        </div>
+        {rows.length > 0 && (
+          <button
+            onClick={() => exportObjectsToCSV("stock_movement_report", rows.map(r => ({
+              code: r.code, name: r.name, category: r.category, unit: r.unit,
+              opening_qty: r.openingQty, opening_value_rs: r.openingValue,
+              received_qty: r.receivedQty, received_value_rs: r.receivedValue,
+              issued_qty: r.issuedQty, issued_value_rs: r.issuedValue,
+              closing_qty: r.closingQty, closing_value_rs: r.closingValue,
+            })))}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+          >
+            <FileDown className="h-3 w-3" /> Export CSV
+          </button>
+        )}
+      </div>
+
+      {/* Date range + category filter */}
+      <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div>
+          <label className="text-[11px] text-slate-400">Start Date</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] text-slate-400">End Date</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={e => setEndDate(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] text-slate-400">Category</label>
+          <select
+            value={filter}
+            onChange={e => setFilter(e.target.value as "all" | "fertilizer" | "agrochemical" | "equipment")}
+            className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+          >
+            <option value="fertilizer">Fertilizer only</option>
+            <option value="agrochemical">Agrochemical only</option>
+            <option value="equipment">Equipment only</option>
+            <option value="all">All categories</option>
+          </select>
+        </div>
+      </div>
+
+      {busy ? (
+        <div className="py-4 text-center text-sm text-slate-400">Loading stock movement report…</div>
+      ) : rows.length === 0 ? (
+        <div className="py-4 text-center text-sm text-slate-400">
+          No stock movements in this period. Use the Inventory module to receive goods (GRN) or issue stock.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+                <th className="pb-2">Code</th>
+                <th className="pb-2">Name</th>
+                <th className="pb-2 text-right">Opening (qty)</th>
+                <th className="pb-2 text-right">Received (qty)</th>
+                <th className="pb-2 text-right">Issued (qty)</th>
+                <th className="pb-2 text-right">Closing (qty)</th>
+                <th className="pb-2 text-right">Closing Value (Rs)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.stockItemId} className="border-t border-slate-100">
+                  <td className="py-2 font-mono text-xs">{r.code}</td>
+                  <td className="py-2 font-semibold text-slate-800">{r.name}</td>
+                  <td className="py-2 text-right tnum text-slate-500">{fmtNum(r.openingQty)} {r.unit}</td>
+                  <td className="py-2 text-right tnum text-emerald-600">+{fmtNum(r.receivedQty)}</td>
+                  <td className="py-2 text-right tnum text-rose-600">-{fmtNum(r.issuedQty)}</td>
+                  <td className="py-2 text-right tnum font-bold text-slate-800">{fmtNum(r.closingQty)} {r.unit}</td>
+                  <td className="py-2 text-right tnum font-semibold">{fmtLKR(r.closingValue)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-slate-200">
+                <td colSpan={2} className="py-2 text-xs font-bold text-slate-700">TOTAL VALUE (Rs)</td>
+                <td className="py-2 text-right tnum font-bold text-slate-600">{fmtLKR(totalOpening)}</td>
+                <td className="py-2 text-right tnum font-bold text-emerald-700">+{fmtLKR(totalReceived)}</td>
+                <td className="py-2 text-right tnum font-bold text-rose-700">-{fmtLKR(totalIssued)}</td>
+                <td className="py-2"></td>
+                <td className="py-2 text-right tnum font-extrabold text-slate-800">{fmtLKR(totalClosing)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+      <p className="mt-2 text-[10px] text-slate-400">
+        * Opening = sum of all movements before start date. Received = move_type='in' (GRN, excluding free issues). Issued = move_type='out'. Closing = opening + received − issued. Values use moving-average unit cost.
+      </p>
+    </Card>
   );
 }

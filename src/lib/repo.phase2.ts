@@ -946,7 +946,16 @@ export async function receiveGoods(input: {
   receivedBy: string;
   supplierInvoiceNo?: string;
   notes?: string;
-  receipts: { stockItemId: string; poLineId?: string; qtyReceived: number; unitCost: number }[];
+  receipts: {
+    stockItemId: string;
+    poLineId?: string;
+    qtyReceived: number;
+    unitCost: number;
+    /** B28 (Round #8) — true when this line was a free promotional issue from the vendor. */
+    isFreeIssue?: boolean;
+    /** B28 (Round #8) — vendor's invoice number for traceability. */
+    vendorInvoiceNo?: string;
+  }[];
 }): Promise<{ grn: GoodsReceipt; updatedStock: StockItem[] }> {
   if (!supabaseConfigured) {
     const grn: GoodsReceipt = {
@@ -960,10 +969,12 @@ export async function receiveGoods(input: {
     for (const r of input.receipts) {
       const idx = mockStock.findIndex(s => s.id === r.stockItemId);
       if (idx !== -1) {
-        // moving-average cost
+        // moving-average cost (skip cost update for free issues — they don't change the average)
         const s = mockStock[idx];
         const newQty = s.qtyOnHand + r.qtyReceived;
-        s.unitCost = +((s.unitCost * s.qtyOnHand + r.unitCost * r.qtyReceived) / Math.max(1, newQty)).toFixed(2);
+        if (!r.isFreeIssue) {
+          s.unitCost = +((s.unitCost * s.qtyOnHand + r.unitCost * r.qtyReceived) / Math.max(1, newQty)).toFixed(2);
+        }
         s.qtyOnHand = newQty;
         s.version += 1;
         updated.push(s);
@@ -973,6 +984,10 @@ export async function receiveGoods(input: {
         qty: r.qtyReceived, unitCost: r.unitCost,
         referenceType: "grn", referenceId: grn.id,
         performedBy: input.receivedBy, performedAt: now(),
+        // B28 (Round #8) — new fields
+        isFreeIssue: r.isFreeIssue ?? false,
+        unitPriceAtTxn: r.unitCost,
+        vendorInvoiceNo: r.vendorInvoiceNo,
       });
     }
     return { grn, updatedStock: updated };
@@ -995,7 +1010,7 @@ export async function receiveGoods(input: {
     grn_id: grn.id, stock_item_id: r.stockItemId,
     po_line_id: r.poLineId, qty_received: r.qtyReceived,
     unit_cost: r.unitCost,
-    line_total: +(r.qtyReceived * r.unitCost).toFixed(2),
+    line_total: r.isFreeIssue ? 0 : +(r.qtyReceived * r.unitCost).toFixed(2),
   }));
   const { error: glErr } = await sb.from("goods_receipt_lines").insert(grnLinesPayload);
   if (glErr) throw new Error(`receiveGoods lines: ${glErr.message}`);
@@ -1004,16 +1019,23 @@ export async function receiveGoods(input: {
     qty: r.qtyReceived, unit_cost: r.unitCost,
     reference_type: "grn", reference_id: grn.id,
     performed_by: input.receivedBy, performed_at: now(),
+    // B28 (Round #8) — new fields
+    is_free_issue: r.isFreeIssue ?? false,
+    unit_price_at_txn: r.unitCost,
+    vendor_invoice_no: r.vendorInvoiceNo,
   }));
   const { error: mErr } = await sb.from("stock_movements").insert(movesPayload);
   if (mErr) throw new Error(`receiveGoods movements: ${mErr.message}`);
-  // Update each stock item (moving average cost) — atomic per-item
+  // Update each stock item (moving average cost — skip for free issues)
   const updated: StockItem[] = [];
   for (const r of input.receipts) {
     const { data: cur } = await sb.from("stock_items").select("*").eq("id", r.stockItemId).single();
     if (cur) {
       const newQty = Number(cur.qty_on_hand) + r.qtyReceived;
-      const newCost = +((Number(cur.unit_cost) * Number(cur.qty_on_hand) + r.unitCost * r.qtyReceived) / Math.max(1, newQty)).toFixed(2);
+      let newCost = Number(cur.unit_cost);
+      if (!r.isFreeIssue) {
+        newCost = +((Number(cur.unit_cost) * Number(cur.qty_on_hand) + r.unitCost * r.qtyReceived) / Math.max(1, newQty)).toFixed(2);
+      }
       await sb.from("stock_items").update({
         qty_on_hand: newQty, unit_cost: newCost,
       }).eq("id", r.stockItemId);
@@ -1036,6 +1058,8 @@ export async function issueStock(input: {
   referenceType?: string;
   referenceId?: string;
   notes?: string;
+  /** B28 (Round #8) — delivery route for the issue (e.g., "Kiriwallapatana"). */
+  route?: string;
 }): Promise<StockItem | null> {
   if (!supabaseConfigured) {
     const idx = mockStock.findIndex(s => s.id === input.stockItemId);
@@ -1049,6 +1073,9 @@ export async function issueStock(input: {
       referenceType: input.referenceType, referenceId: input.referenceId,
       performedBy: input.performedBy, performedAt: now(),
       notes: input.notes,
+      // B28 (Round #8) — new field
+      route: input.route,
+      unitPriceAtTxn: s.unitCost,
     });
     return s;
   }
@@ -1064,6 +1091,9 @@ export async function issueStock(input: {
     reference_type: input.referenceType, reference_id: input.referenceId,
     performed_by: input.performedBy, performed_at: now(),
     notes: input.notes,
+    // B28 (Round #8) — new fields
+    route: input.route,
+    unit_price_at_txn: Number(cur.unit_cost),
   });
   return {
     id: cur.id, code: cur.code, name: cur.name, category: cur.category,
@@ -1094,7 +1124,129 @@ export async function listStockMovements(stockItemId?: string): Promise<StockMov
     performedBy: r.performed_by as string | undefined,
     performedAt: r.performed_at as string,
     notes: r.notes as string | undefined,
+    // B28 (Round #8) — new fields
+    route: r.route as string | undefined,
+    isFreeIssue: Boolean(r.is_free_issue ?? false),
+    unitPriceAtTxn: r.unit_price_at_txn !== undefined ? Number(r.unit_price_at_txn) : undefined,
+    vendorInvoiceNo: r.vendor_invoice_no as string | undefined,
   }));
+}
+
+/**
+ * B28 (Round #8) — Stock Movement Report.
+ * Returns per-item opening / received (GRN) / issued / closing balances
+ * for a given date range. Mirrors the factory's "Fertilizer Stock Balance.xlsx"
+ * report structure (opening + GRN + issued + closing per item).
+ *
+ * - Opening balance = sum of all movements for this item BEFORE startDate
+ * - Received (GRN)  = sum of move_type='in'  movements BETWEEN startDate AND endDate
+ * - Issued          = sum of move_type='out' movements BETWEEN startDate AND endDate
+ * - Closing balance = opening + received - issued
+ *
+ * In demo mode (no Supabase), returns mock data for demo purposes.
+ */
+export interface StockMovementReportRow {
+  stockItemId: string;
+  code: string;
+  name: string;
+  category: string;
+  unit: string;
+  openingQty: number;
+  openingValue: number;
+  receivedQty: number;
+  receivedValue: number;
+  issuedQty: number;
+  issuedValue: number;
+  closingQty: number;
+  closingValue: number;
+}
+
+export async function getStockMovementReport(
+  startDate: string,
+  endDate: string
+): Promise<StockMovementReportRow[]> {
+  if (!supabaseConfigured) {
+    // Demo mode — return mock data based on mockStock + mockMoves
+    const items = mockStock;
+    return items.map(s => {
+      const moves = mockMoves.filter(m => m.stockItemId === s.id);
+      const opening = moves
+        .filter(m => m.performedAt.slice(0, 10) < startDate)
+        .reduce((acc, m) => acc + (m.moveType === "in" ? m.qty : m.moveType === "out" ? -m.qty : 0), 0);
+      const received = moves
+        .filter(m => m.moveType === "in" && m.performedAt.slice(0, 10) >= startDate && m.performedAt.slice(0, 10) <= endDate)
+        .reduce((acc, m) => ({ qty: acc.qty + m.qty, val: acc.val + m.qty * m.unitCost }), { qty: 0, val: 0 });
+      const issued = moves
+        .filter(m => m.moveType === "out" && m.performedAt.slice(0, 10) >= startDate && m.performedAt.slice(0, 10) <= endDate)
+        .reduce((acc, m) => ({ qty: acc.qty + m.qty, val: acc.val + m.qty * m.unitCost }), { qty: 0, val: 0 });
+      const closing = opening + received.qty - issued.qty;
+      return {
+        stockItemId: s.id, code: s.code, name: s.name, category: s.category, unit: s.unit,
+        openingQty: opening, openingValue: opening * s.unitCost,
+        receivedQty: received.qty, receivedValue: received.val,
+        issuedQty: issued.qty, issuedValue: issued.val,
+        closingQty: closing, closingValue: closing * s.unitCost,
+      };
+    });
+  }
+  const sb = getSupabase()!;
+  // Load all stock items + all movements in one go (we'll filter client-side).
+  const [{ data: items }, { data: mvRows }] = await Promise.all([
+    sb.from("stock_items").select("id, code, name, category, unit, unit_cost").order("code"),
+    sb.from("stock_movements")
+      .select("id, stock_item_id, move_type, qty, unit_cost, performed_at, is_free_issue")
+      .gte("performed_at", `${startDate}T00:00:00.000Z`)
+      .or(`performed_at.lte.${endDate}T23:59:59.999Z`),
+  ]);
+  // For opening balance we need ALL movements before startDate — fetch separately.
+  const { data: beforeRows } = await sb.from("stock_movements")
+    .select("stock_item_id, move_type, qty, unit_cost")
+    .lt("performed_at", `${startDate}T00:00:00.000Z`);
+
+  const openingByItem: Record<string, { qty: number; val: number }> = {};
+  for (const r of (beforeRows ?? [])) {
+    const id = r.stock_item_id as string;
+    if (!openingByItem[id]) openingByItem[id] = { qty: 0, val: 0 };
+    const signed = r.move_type === "in" ? 1 : r.move_type === "out" ? -1 : 0;
+    openingByItem[id].qty += signed * Number(r.qty);
+    openingByItem[id].val += signed * Number(r.qty) * Number(r.unit_cost);
+  }
+
+  const periodByItem: Record<string, { recv: { qty: number; val: number }; iss: { qty: number; val: number } }> = {};
+  for (const r of (mvRows ?? [])) {
+    const id = r.stock_item_id as string;
+    if (!periodByItem[id]) periodByItem[id] = { recv: { qty: 0, val: 0 }, iss: { qty: 0, val: 0 } };
+    if (r.move_type === "in" && !r.is_free_issue) {
+      periodByItem[id].recv.qty += Number(r.qty);
+      periodByItem[id].recv.val += Number(r.qty) * Number(r.unit_cost);
+    } else if (r.move_type === "out") {
+      periodByItem[id].iss.qty += Number(r.qty);
+      periodByItem[id].iss.val += Number(r.qty) * Number(r.unit_cost);
+    }
+  }
+
+  return (items ?? []).map((s: Record<string, unknown>) => {
+    const id = s.id as string;
+    const unitCost = Number(s.unit_cost ?? 0);
+    const opening = openingByItem[id] ?? { qty: 0, val: 0 };
+    const period = periodByItem[id] ?? { recv: { qty: 0, val: 0 }, iss: { qty: 0, val: 0 } };
+    const closingQty = opening.qty + period.recv.qty - period.iss.qty;
+    return {
+      stockItemId: id,
+      code: s.code as string,
+      name: s.name as string,
+      category: s.category as string,
+      unit: s.unit as string,
+      openingQty: opening.qty,
+      openingValue: opening.val,
+      receivedQty: period.recv.qty,
+      receivedValue: period.recv.val,
+      issuedQty: period.iss.qty,
+      issuedValue: period.iss.val,
+      closingQty,
+      closingValue: closingQty * unitCost,
+    };
+  });
 }
 
 // ============================================================================

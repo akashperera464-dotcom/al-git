@@ -42,7 +42,10 @@ export default function Inventory() {
   // GRN form
   const [grnPoId, setGrnPoId] = useState("");
   const [grnSupplierInvoice, setGrnSupplierInvoice] = useState("");
-  const [grnLines, setGrnLines] = useState<{ stockItemId: string; poLineId?: string; qtyReceived: number; unitCost: number }[]>([]);
+  // B28 (Round #8) — vendor invoice # (separate from supplier invoice) + free-issue toggle
+  const [grnVendorInvoice, setGrnVendorInvoice] = useState("");
+  const [grnFreeIssue, setGrnFreeIssue] = useState(false);
+  const [grnLines, setGrnLines] = useState<{ stockItemId: string; poLineId?: string; qtyReceived: number; unitCost: number; isFreeIssue?: boolean }[]>([]);
 
   // Issue form
   const [issueItemId, setIssueItemId] = useState("");
@@ -53,11 +56,15 @@ export default function Inventory() {
   const [issueDivision, setIssueDivision] = useState<string>("");     // e.g., "Kiriwallapatana Lower"
   const [issuePaymentMode, setIssuePaymentMode] = useState<"cash" | "credit">("cash");
   const [issueSupplierName, setIssueSupplierName] = useState<string>("");  // for credit tracking
+  // B28 (Round #8) — Route field (delivery route for issue notes)
+  const [issueRoute, setIssueRoute] = useState<string>("");
 
   // Build divisions list from all estates (flat list of division names)
   const allDivisions = Array.from(
     new Set(estates.flatMap(e => e.divisions.map(d => d.name)))
   ).sort();
+  // B28 (Round #8) — common Sri Lankan tea-country delivery routes (editable free-text)
+  const COMMON_ROUTES = ["Kiriwallapatana", "Sutton", "Craighead", "Tennant", "Ragala", "Walapane", "Nuwara Eliya"];
 
   const reload = async () => {
     setBusy(true);
@@ -148,9 +155,16 @@ export default function Inventory() {
         grnCode, poId: grnPoId || undefined,
         receivedBy: userUid,
         supplierInvoiceNo: grnSupplierInvoice || undefined,
-        receipts: grnLines.map(l => ({ stockItemId: l.stockItemId, poLineId: l.poLineId, qtyReceived: l.qtyReceived, unitCost: l.unitCost })),
+        receipts: grnLines.map(l => ({
+          stockItemId: l.stockItemId, poLineId: l.poLineId,
+          qtyReceived: l.qtyReceived, unitCost: l.unitCost,
+          // B28 (Round #8) — pass free-issue flag + vendor invoice to each line
+          isFreeIssue: l.isFreeIssue ?? grnFreeIssue,
+          vendorInvoiceNo: grnVendorInvoice || undefined,
+        })),
       });
       setGrnPoId(""); setGrnSupplierInvoice(""); setGrnLines([]);
+      setGrnVendorInvoice(""); setGrnFreeIssue(false);
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to receive goods");
@@ -190,6 +204,8 @@ export default function Inventory() {
       await issueStock({
         stockItemId: issueItemId, qty: issueQty,
         performedBy: userUid, notes: finalNotes || undefined,
+        // B28 (Round #8) — delivery route for the issue note
+        route: issueRoute || undefined,
       });
 
       // NEW (Sir's spec): if Credit + fertilizer, write to supplier fertilizer ledger
@@ -213,6 +229,7 @@ export default function Inventory() {
 
       setIssueItemId(""); setIssueQty(1); setIssueNotes(""); setIssueRequestId("");
       setIssueDivision(""); setIssuePaymentMode("cash"); setIssueSupplierName("");
+      setIssueRoute("");
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to issue");
@@ -473,6 +490,32 @@ export default function Inventory() {
               <label className="text-[11px] text-slate-400">Supplier Invoice No</label>
               <input value={grnSupplierInvoice} onChange={e => setGrnSupplierInvoice(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
+            {/* B28 (Round #8) — Vendor Invoice No (separate from supplier invoice; for traceability to the vendor's own invoice book) */}
+            <div>
+              <label className="text-[11px] text-slate-400">Vendor Invoice No (optional)</label>
+              <input
+                value={grnVendorInvoice}
+                onChange={e => setGrnVendorInvoice(e.target.value)}
+                placeholder="e.g., VENDOR-INV-2024-001"
+                className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+              />
+              <p className="mt-1 text-[10px] text-slate-400">For GRN traceability — links this receipt to the vendor's own invoice number.</p>
+            </div>
+            {/* B28 (Round #8) — Free Issue toggle (vendor promotional stock, no charge) */}
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-sm cursor-pointer hover:bg-slate-50 w-full">
+                <input
+                  type="checkbox"
+                  checked={grnFreeIssue}
+                  onChange={e => setGrnFreeIssue(e.target.checked)}
+                  className="h-4 w-4 accent-emerald-600"
+                />
+                <div>
+                  <p className="font-semibold text-slate-700">🎁 Free Issue</p>
+                  <p className="text-[10px] text-slate-400">Vendor promotional stock (no charge — won't affect moving-average cost)</p>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div className="mt-3">
@@ -532,6 +575,22 @@ export default function Inventory() {
                 {allDivisions.length === 0 && (
                   <p className="mt-1 text-[10px] text-amber-500">⚠ No divisions found — create them in Estate Master first.</p>
                 )}
+              </div>
+              {/* B28 (Round #8) — Route field (delivery route for issue notes, mirrors factory's Issue Note Report) */}
+              <div>
+                <label className="text-[11px] text-slate-400">Route (delivery route — optional)</label>
+                <input
+                  type="text"
+                  list="common-routes"
+                  value={issueRoute}
+                  onChange={e => setIssueRoute(e.target.value)}
+                  placeholder="e.g., Kiriwallapatana"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
+                />
+                <datalist id="common-routes">
+                  {COMMON_ROUTES.map(r => <option key={r} value={r} />)}
+                </datalist>
+                <p className="mt-1 text-[10px] text-slate-400">For the Issue Note Report — which delivery route this issue went on.</p>
               </div>
               {/* NEW (Sir's spec): Payment mode — Cash or Credit (for supplier fertilizer issuing) */}
               <div>
@@ -628,10 +687,26 @@ export default function Inventory() {
                   const s = stock.find(x => x.id === m.stockItemId);
                   return (
                     <div key={m.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-2 text-xs">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge tone={m.moveType === "in" ? "emerald" : m.moveType === "out" ? "rose" : "amber"}>{m.moveType}</Badge>
                         <span className="font-semibold text-slate-800">{s?.code ?? m.stockItemId}</span>
                         <span className="text-slate-400">{fmtNum(m.qty)} {s?.unit}</span>
+                        {/* B28 (Round #8) — Route badge for issue notes */}
+                        {m.route && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-bold text-sky-700">
+                            🛣️ {m.route}
+                          </span>
+                        )}
+                        {/* B28 (Round #8) — Free Issue badge for GRN */}
+                        {m.isFreeIssue && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">
+                            🎁 Free
+                          </span>
+                        )}
+                        {/* B28 (Round #8) — Vendor Invoice # */}
+                        {m.vendorInvoiceNo && (
+                          <span className="text-[9px] text-slate-400">INV: {m.vendorInvoiceNo}</span>
+                        )}
                       </div>
                       <span className="text-[10px] text-slate-400">{new Date(m.performedAt).toLocaleString()}</span>
                     </div>

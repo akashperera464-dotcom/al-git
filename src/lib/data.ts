@@ -1084,6 +1084,14 @@ export interface StockMovement {
   performedBy?: string;
   performedAt: string;
   notes?: string;
+  /** B28 (Round #8) — delivery route for issue notes (e.g., "Kiriwallapatana"). NULL for GRN/adjust. */
+  route?: string;
+  /** B28 (Round #8) — true when this GRN line was a free promotional issue from the vendor. */
+  isFreeIssue?: boolean;
+  /** B28 (Round #8) — unit price preserved at transaction time (historical pricing). */
+  unitPriceAtTxn?: number;
+  /** B28 (Round #8) — vendor's invoice number for GRN traceability. */
+  vendorInvoiceNo?: string;
 }
 
 // ---- Conflict resolution result ----

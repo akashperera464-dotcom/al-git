@@ -2477,10 +2477,149 @@ The `supplier_fertilizer_ledger` table is unchanged — it always tracked kg + C
 
 **Workers (admin Payroll/Loans/Welfare modules):** Unchanged — these are HR functions for estate workers, not supplier payments.
 
+## 28. Inventory Schema Hardening + Stock Movement Report (Round #10)
+
+> **Purpose / අරමුණ:** Sir shared 3 Excel files (Issue Note Report, GRN Report, Fertilizer Stock Balance) that the factory uses for inventory tracking. This round aligns the EMS schema to capture every field those Excel files track, and adds a new admin "Stock Movement Report" panel that mirrors the factory's Fertilizer Stock Balance report — replacing the manual Excel workflow with a live, real-time version.
+
+### 28.1 Why This Round
+
+The 3 Excel files revealed that the factory's inventory tracking includes fields the EMS didn't capture:
+- **Issue Note Report:** tracks `Route` (delivery route) per issue — EMS didn't have this
+- **GRN Report:** tracks `Free Issue` markers (vendor promotional stock) + `Vendor Invoice #` — EMS didn't have these
+- **Fertilizer Stock Balance:** shows Opening / Received / Issued / Closing per item over a date range — EMS only showed current stock, no period report
+
+This round closes those gaps so the EMS can fully replace the factory's Excel-based inventory tracking.
+
+### 28.2 SQL Migration — Round #6 (Phase 3) — **REQUIRED**
+
+**File:** `docs/migration_phase3_round6.sql` (also at `download/supabase_phase3_round6_migration.sql`)
+
+| # | Change | Why |
+|---|--------|-----|
+| 1 | `stock_movements.route` (text, nullable) | Delivery route for issue notes (e.g., "Kiriwallapatana") |
+| 2 | `stock_movements.is_free_issue` (boolean, default false) | GRN free-issue flag (vendor promotional stock, no charge) |
+| 3 | `stock_movements.unit_price_at_txn` (numeric 12,2, nullable) | Preserves unit price at time of transaction (historical pricing, separate from moving-average cost) |
+| 4 | `stock_movements.vendor_invoice_no` (text, nullable) | Vendor's invoice number for GRN traceability |
+| 5 | Index on `route` | For "Fertilizer Issued by Route" report panel |
+| 6 | Index on `is_free_issue` | For filtering free-issue rows in GRN report |
+| 7 | Composite index on `(move_type, performed_at)` | For Stock Movement Report (opening/closing balance over date range) |
+| 8 | COMMENTs on all 4 new columns | For future devs |
+
+**To apply:**
+1. Open Supabase Dashboard → SQL Editor → New query
+2. Paste contents of `docs/migration_phase3_round6.sql`
+3. Run — safe to re-run (uses `add column if not exists`)
+4. Verify: the query result shows the 4 new columns
+
+**After applying:** No data migration needed — all 4 new columns are nullable. Existing rows get NULL. Existing UI forms continue to work; they just don't populate the new fields yet. The Inventory module UI is updated to include the new form fields.
+
+### 28.3 What Was Implemented
+
+#### A. TypeScript Types (`src/lib/data.ts`)
+
+`StockMovement` interface extended with 4 new optional fields:
+```ts
+route?: string;              // delivery route for issue notes
+isFreeIssue?: boolean;       // GRN free-issue flag
+unitPriceAtTxn?: number;     // unit price preserved at transaction time
+vendorInvoiceNo?: string;    // vendor's invoice number for GRN
+```
+
+#### B. Repository Layer (`src/lib/repo.phase2.ts`)
+
+| Function | Change |
+|----------|--------|
+| `receiveGoods()` | Accepts `isFreeIssue` + `vendorInvoiceNo` per receipt line. Free issues don't update moving-average cost (so promotional stock doesn't dilute the cost basis). Writes the new fields to `stock_movements` + `goods_receipt_lines.line_total` (0 for free issues). |
+| `issueStock()` | Accepts `route` parameter. Writes it to `stock_movements.route` + sets `unit_price_at_txn` to preserve historical pricing. |
+| `listStockMovements()` | Reads the 4 new columns and maps them to the TypeScript interface. |
+| **NEW** `getStockMovementReport(startDate, endDate)` | Returns per-item Opening / Received (GRN) / Issued / Closing balances (qty + Rs value) for a date range. Mirrors the factory's "Fertilizer Stock Balance.xlsx" report structure. |
+
+#### C. Admin Inventory Module (`src/modules/Inventory.tsx`)
+
+| Form/Panel | New Fields |
+|------------|------------|
+| **GRN form** | "Vendor Invoice No" text input + "🎁 Free Issue" checkbox (with explanation that free issues don't affect moving-average cost) |
+| **Issue Stock form** | "Route" text input with datalist of common Sri Lankan tea-country routes (Kiriwallapatana, Sutton, Craighead, Tennant, Ragala, Walapane, Nuwara Eliya) — editable free-text |
+| **Movement History list** | Shows 3 new badges per row: 🛣️ Route badge (sky), 🎁 Free badge (amber), INV: vendor invoice # (slate) |
+
+#### D. Admin Fertilizer Module (`src/modules/Fertilizer.tsx`)
+
+**NEW** `StockMovementReportPanel` component added at the bottom of the Fertilizer module:
+
+- **Date range picker** (start date + end date, defaults to last 30 days)
+- **Category filter** dropdown (Fertilizer / Agrochemical / Equipment / All)
+- **Per-item table** with columns:
+  - Code | Name | Opening (qty) | Received (qty) | Issued (qty) | Closing (qty) | Closing Value (Rs)
+- **Footer totals row** showing total Opening / Received / Issued / Closing values in Rs
+- **CSV export** button (exports the full report)
+- Color-coded: received qty in emerald (+), issued qty in rose (−), closing in bold
+- Help text explaining the calculation: Opening = sum before start date; Received = move_type='in' (excl free issues); Issued = move_type='out'; Closing = opening + received − issued
+
+**This replaces the factory's manual "Fertilizer Stock Balance.xlsx" workflow** — the admin can now generate the same report live, for any date range, without maintaining a separate Excel file.
+
+### 28.4 What Was KEPT (NOT changed)
+
+- **`stock_items` table** — unchanged. Already had `code`, `name`, `category`, `unit`, `qty_on_hand`, `reorder_level`, `unit_cost`, `batch_number`, `expiry_date`, `supplier_source` (from prior rounds).
+- **`goods_receipts` table** — unchanged. Already had `grn_code`, `po_id`, `received_date`, `received_by`, `supplier_invoice_no`, `notes`.
+- **Moving-average cost logic** — unchanged. Free issues now correctly skip the cost recalculation (promotional stock doesn't dilute the average).
+- **Supplier fertilizer ledger** — unchanged. The `supplier_fertilizer_ledger` table tracks kg only (no Rs values, per the EMS scope reduction in Section 27).
+- **The 15 removed payment items (Section 27)** — NOT restored. These Excel files are inventory data, not supplier leaf-payment data. The removal decision stands.
+
+### 28.5 Files Changed (6 files, ~430 insertions)
+
+```
+docs/migration_phase3_round6.sql              | NEW (85 lines) — SQL migration
+download/supabase_phase3_round6_migration.sql | NEW (copy of above)
+src/lib/data.ts                               | +9 lines (4 new fields on StockMovement interface)
+src/lib/repo.phase2.ts                        | +135 lines (receiveGoods/issueStock/listStockMovements updates + new getStockMovementReport function)
+src/modules/Inventory.tsx                     | +60 lines (Route field in Issue form + Vendor Invoice + Free Issue in GRN form + 3 new badges in Movement History)
+src/modules/Fertilizer.tsx                    | +165 lines (new StockMovementReportPanel component)
+```
+
+### 28.6 Updated SQL Migration History
+
+| Round | File | What |
+|-------|------|------|
+| #1 | `docs/supabase_schema.sql` + `migration_full_crud.sql` + `migration_workers.sql` | Base schema |
+| #2 | `download/supabase_migration_fix3.sql` | Phase 2 operational tables |
+| #3 | `download/supabase_phase1_sir_spec_migration.sql` | Phase 1: bush count, supplier_plots, supplier_fertilizer_ledger, equipment_requests |
+| #4 | `download/supabase_phase1_round3_migration.sql` | Phase 1 Round #3: soil type, batch/expiry, harvest records, notification prefs |
+| #5 | `download/supabase_phase2_round4_migration.sql` | Phase 2: estate_registration_requests, estate_blocks, smart_alert_log |
+| #6 | `download/supabase_phase3_round5_migration.sql` | Phase 3 Round #5: extend `farm_activities.activity_type` CHECK to include 'plucking' |
+| **#7** | **`docs/migration_phase3_round6.sql`** ⬅️ **NEW** | **Phase 3 Round #6: inventory schema hardening — route, is_free_issue, unit_price_at_txn, vendor_invoice_no on stock_movements** |
+
+### 28.7 Verification
+
+- ✅ `vite build`: succeeds (12.42s, 2778 modules, 3.16 MB bundle / 872 KB gzipped)
+- ✅ TypeScript: no new errors introduced (pre-existing errors in repo.phase2.ts at lines 935, 1258, 1901, 2832 are unchanged)
+- ✅ All new fields are nullable — existing rows unaffected
+- ✅ Free issues correctly skip moving-average cost recalculation
+- ⏳ **ACTION REQUIRED**: Run `docs/migration_phase3_round6.sql` in Supabase SQL Editor to add the 4 new columns
+- ⏳ After migration: admin can start using Route / Free Issue / Vendor Invoice fields in Inventory module
+- ⏳ After migration: admin can use the new Stock Movement Report panel in Fertilizer module
+
+### 28.8 User-Facing Impact
+
+**Admin (Inventory module):**
+- GRN form now has "Vendor Invoice No" + "🎁 Free Issue" checkbox
+- Issue Stock form now has "Route" field with common-route suggestions
+- Movement History list shows 🛣️ Route / 🎁 Free / INV: badges per row
+
+**Admin (Fertilizer module):**
+- New "📊 Stock Movement Report (B28)" panel at the bottom
+- Date range picker + category filter
+- Per-item Opening/Received/Issued/Closing table with Rs values
+- CSV export
+
+**Suppliers:** No direct impact (these are admin-side inventory features). Suppliers continue to see their fertilizer issue history in "My Fertilizer" module as before.
+
+**Database:** 4 new nullable columns on `stock_movements`. No data migration needed.
+
 ---
 
-*End of Workflow Diagram. Last updated: September 2026 (Round #9 — EMS scope reduction: remove supplier leaf-payment features).*
+*End of Workflow Diagram. Last updated: September 2026 (Round #10 — Inventory schema hardening + Stock Movement Report, inspired by factory's 3 Excel files).*
 
-*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #9 — සැපයුම්කරු කොළ ගෙවීම් විශේෂාංග ඉවත් කිරීම).*
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #10 — Inventory schema hardening + Stock Movement Report).*
+
 
 
