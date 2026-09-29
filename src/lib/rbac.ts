@@ -94,6 +94,7 @@ export type Capability =
   | "tips.own"
   | "fertilizer.own"
   | "profile.own"
+  | "payments.own"
   | "requests.create"
   | "farm.log"
   | "announcements.manage"
@@ -127,7 +128,7 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   // Extension Officers: field tools — log weights + register suppliers.
   extension_officer: ["weighing.capture", "supplier.register", "estate.map.view"],
   // Suppliers: their own data + raise resource requisitions — NO rosters, payroll, other suppliers, dashboards.
-  supplier: ["deliveries.own", "alerts.own", "plot.own", "weather.own", "tips.own", "fertilizer.own", "requests.create", "farm.log", "announcements.view", "home.own", "calendar.own"],
+  supplier: ["deliveries.own", "alerts.own", "plot.own", "weather.own", "tips.own", "fertilizer.own", "payments.own", "requests.create", "farm.log", "announcements.view", "home.own", "calendar.own"],
 };
 
 export const hasCapability = (role: Role, cap: Capability): boolean =>
@@ -214,7 +215,9 @@ export const MODULES: NavItem[] = [
   { key: "supplier-calendar", label: "My Calendar", short: "Calendar", icon: CalendarDays, category: "supplier", roles: ["supplier"], capability: "calendar.own", primary: true },
   { key: "supplier-deliveries", label: "My Leaf Deliveries", short: "Deliveries", icon: Package, category: "supplier", roles: ["supplier"], capability: "deliveries.own" },
   { key: "supplier-alerts", label: "Smart Alerts Panel", short: "Alerts", icon: BellRing, category: "supplier", roles: ["supplier"], capability: "alerts.own" },
-  // EMS REMOVED (was ERP): 'My Earnings' / Payment Tracker — factory handles supplier leaf payments externally.
+  // B30 (Round #12) — RESTORED: "Earnings & Deductions" module (was "My Earnings", removed in Section 27).
+  // Now relabeled with estimate disclaimer — EMS is a live transparency dashboard, factory finance is source of truth.
+  { key: "supplier-payments", label: "Earnings & Deductions", short: "Earnings", icon: Wallet, category: "supplier", roles: ["supplier"], capability: "payments.own" },
   { key: "supplier-farm", label: "My Farm Activities", short: "Farm", icon: Sprout, category: "supplier", roles: ["supplier"], capability: "farm.log", primary: true },
   { key: "supplier-plot", label: "My Plot", short: "Plot", icon: Trees, category: "supplier", roles: ["supplier"], capability: "plot.own" },
   { key: "supplier-weather", label: "My Weather", short: "Weather", icon: CloudSun, category: "supplier", roles: ["supplier"], capability: "weather.own" },

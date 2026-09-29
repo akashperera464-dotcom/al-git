@@ -214,6 +214,10 @@
     "supplier-insights": {
       "l": "Supplier Insights",
       "s": "Insights"
+    },
+    "supplier-payments": {
+      "l": "Earnings & Deductions",
+      "s": "Earnings"
     }
   },
   "roles": {
@@ -291,7 +295,16 @@
     "plantedDateSavedBody": "Advisory recalculated for {{date}}.",
     "saveFailed": "Save failed",
     "dbError": "DB error",
-    "ageSuffix": "old"
+    "ageSuffix": "old",
+    "payments": "Earnings & Deductions",
+    "paymentsDesc": "Live estimate of your gross earnings, fertilizer credit, advances, and net payable. Factory finance office confirms actual amount at month-end.",
+    "totalEarned": "Total Earned",
+    "pendingPayment": "Pending",
+    "ratePerKg": "Rate / kg",
+    "paymentHistory": "Payment History",
+    "noPayments": "No payments yet.",
+    "pushPaymentTitle": "Payment settled",
+    "pushPaymentBody": "Rs 211,200 credited for your last delivery."
   },
   "farm": {
     "title": "My Farm Activities",

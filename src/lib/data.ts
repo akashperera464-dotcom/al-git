@@ -602,6 +602,7 @@ export interface SupplierProfile {
   photoUrl?: string;
   /** NEW (Sir's spec C.13): Notification preferences (which alerts to receive). */
   notificationPrefs?: {
+    paymentAlerts?: boolean;
     requestAlerts?: boolean;
     announcementAlerts?: boolean;
     weatherAlerts?: boolean;

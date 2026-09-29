@@ -2784,11 +2784,74 @@ src/modules/Inventory.tsx                     | +55 lines (3 new form fields + 2
 
 **Database:** 3 new nullable columns (2 on stock_movements, 1 on goods_receipts). No data migration needed.
 
+## 30. B30 — Restore Earnings & Deductions as Live Transparency Dashboard (Round #12)
+
+> **Purpose / අරමුණ:** Section 27 removed all supplier-facing Rs figures because the factory has an external finance system. The boss has now clarified: the EMS should be a **live transparency dashboard** showing estimated earnings, deductions, and net payable — while the factory finance system remains the **source of truth** for actual month-end payments. This round restores the 6 items removed in Section 27, with a clear "estimate" disclaimer.
+
+### 30.1 New Architecture
+
+```
+┌──────────────────────────────────────────────────┐
+│  EMS (this system) — LIVE TRANSPARENCY          │
+│  ├── EO weighs leaf → harvest_records            │
+│  ├── Auto-calculate:                             │
+│  │   Gross Earnings = net_kg × daily_tea_price   │
+│  │   Deductions: Fertilizer Credit + Advances    │
+│  │   Net Payable = Gross − Deductions             │
+│  └── Supplier sees it LIVE (daily updated)        │
+│                                                  │
+│  Factory Finance System (external) — SOURCE OF   │
+│  TRUTH                                           │
+│  └── Month-end: confirms actual net payable      │
+└──────────────────────────────────────────────────┘
+```
+
+### 30.2 What Was Restored (6 items)
+
+| # | Item | Where | What changed vs. Section 27 |
+|---|------|-------|------|
+| 1 | **saveLeafWeighing() auto-calculates amount** | `repo.ts` | Now computes `amount = net_kg × daily_tea_prices[grade].price_per_kg` at weigh-in time. Also stores `status="Pending"` + optional `supplier_id`. |
+| 2 | **amount + status columns in delivery list** | `SupplierPortal.tsx` SupplierDeliveries | Restored `{r.date} · {fmtLKR(r.amount)}` + Paid/Pending badge per delivery. |
+| 3 | **SupplierLoans (advances) un-hidden** | `rbac.ts` + `registry.ts` | `payments.own` capability + `supplier-payments` NavItem restored. SupplierLoans module was already in registry (code was retained in Section 27). |
+| 4 | **Earnings card + Net Payable banner on Home** | `SupplierHome.tsx` | Restored `totalEarned` state + "Earnings (est.)" stat card + "Net Payable (est.)" emerald banner with "View →" button linking to Earnings & Deductions module. |
+| 5 | **Cost-vs-Earnings summary cards on Profile** | `SupplierProfile.tsx` | Restored 3 stat cards: Total Earned / Fert. Credit + Advances / Net Payable (est.) + amber estimate disclaimer. Restored `paymentAlerts` toggle. |
+| 6 | **"Earnings & Deductions" module restored** | `SupplierPortal.tsx` SupplierPayments | Full module restored with: estimate disclaimer banner + CostEarningsChart + Gross/Pending/Rate stat cards + Deductions Breakdown card (Fert Credit + Advances = Net Payable) + payment history list. |
+
+### 30.3 Estimate Disclaimer (appears in 3 places)
+
+Every Rs figure now carries this disclaimer:
+
+> **⚠ මෙය ඇස්තමේන්තුවකි · This is an estimate**
+> The factory finance office confirms the actual net payable amount at month-end.
+
+### 30.4 Files Changed
+
+```
+src/lib/repo.ts                    | +35 lines (saveLeafWeighing amount calc + supplier_id)
+src/lib/rbac.ts                    | +3 lines (payments.own cap + supplier-payments NavItem + supplier array)
+src/lib/data.ts                    | +1 line (paymentAlerts field restored)
+src/modules/registry.ts            | +2 lines (SupplierPayments import + supplier-payments route)
+src/modules/SupplierPortal.tsx     | +175 lines (SupplierPayments component + CostEarningsChart + amount/status in delivery list + push payment preview row)
+src/modules/SupplierHome.tsx       | +20 lines (totalEarned state + Earnings stat card + Net Payable banner)
+src/modules/SupplierProfile.tsx    | +35 lines (earnings state + 3 stat cards + paymentAlerts toggle + estimate disclaimer)
+src/i18n/locales/en.json           | +10 keys restored (payments, totalEarned, etc.)
+src/i18n/locales/si.json           | +10 keys restored
+src/i18n/locales/ta.json           | +10 keys restored
+```
+
+### 30.5 Verification
+
+- ✅ `vite build`: succeeds (11.79s, 3.18 MB / 876 KB gzipped)
+- ✅ TypeScript: no new errors
+- ✅ All 6 items restored with estimate disclaimer
+- ✅ i18n keys restored across EN/SI/TA (10 keys × 3 langs = 30 strings)
+
 ---
 
-*End of Workflow Diagram. Last updated: September 2026 (Round #11 — Excel-alignment migration, 3 remaining gaps closed).*
+*End of Workflow Diagram. Last updated: September 2026 (Round #12 — Restore earnings & deductions as live transparency dashboard).*
 
-*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #11 — Excel-alignment migration).*
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #12 — ආදායම් සහ කැපීම් ප්‍රතිෂ්ඨාපනය).*
+
 
 
 

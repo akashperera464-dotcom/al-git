@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Leaf, CloudSun, Bell, Package, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Leaf, CloudSun, Bell, Wallet, Package, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
-import { fmtNum } from "@/lib/data";
+import { fmtNum, fmtLKRShort } from "@/lib/data";
 import { readMyHarvestRecords } from "@/lib/repo";
 import { fetchForecast, getMockForecast } from "@/lib/weather";
 import { readAlerts } from "@/lib/notifications";
@@ -16,6 +16,7 @@ export function SupplierHome() {
 
   const [forecast, setForecast] = useState<WeatherDay[]>(getMockForecast());
   const [totalKg, setTotalKg] = useState(0);
+  const [totalEarned, setTotalEarned] = useState(0);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [superPct, setSuperPct] = useState(0);
 
@@ -29,11 +30,13 @@ export function SupplierHome() {
     const lon = plot?.longitude ?? estate?.longitude;
     void fetchForecast(lat, lon).then(res => setForecast(res.days));
 
-    // Load deliveries — kg + grade only (no earnings/payment, factory handles payments externally)
+    // B30 (Round #12) — Load deliveries: kg + grade + amount (restored)
     void readMyHarvestRecords(userUid, associatedEntityId).then(recs => {
       const kg = recs.reduce((s, r) => s + r.kg, 0);
+      const earned = recs.reduce((s, r) => s + r.amount, 0);
       const sup = recs.length ? Math.round((recs.filter(r => r.grade === "Super").length / recs.length) * 100) : 0;
       setTotalKg(kg);
+      setTotalEarned(earned);
       setSuperPct(sup);
     });
 
@@ -110,12 +113,12 @@ export function SupplierHome() {
         </Card>
       )}
 
-      {/* Key stats */}
+      {/* Key stats — B30 (Round #12) restored Earnings card */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         <StatCard icon={Package} label="මුළු කොළ · Total Supplied" value={`${fmtNum(totalKg)} kg`} tone="emerald" />
+        <StatCard icon={Wallet} label="ඉපයීම් · Earnings (est.)" value={fmtLKRShort(totalEarned)} tone="sky" />
         <StatCard icon={TrendingUp} label="Super ශ්රේණිය · Quality" value={`${superPct}%`} tone="violet" />
         <StatCard icon={Bell} label="නොකියවූ · Unread Alerts" value={String(unreadAlerts)} tone={unreadAlerts > 0 ? "rose" : "slate"} />
-        <StatCard icon={CloudSun} label="අද කාලගුණය · Today's Weather" value={weatherToday ? `${weatherToday.tempMax}°C` : "—"} sub={weatherToday ? `Rain ${weatherToday.rainProb}%` : ""} tone="sky" />
       </div>
 
       {/* Smart reminders */}
@@ -183,6 +186,22 @@ export function SupplierHome() {
           </button>
         ))}
       </div>
+
+      {/* B30 (Round #12) — Restored Earnings quick-link banner */}
+      {totalEarned > 0 && (
+        <Card className="p-3.5 border-emerald-200 bg-emerald-50 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-emerald-700">💰 ශුද්ධ ගෙවිය යුතු මුදල (ඇස්තමේන්තුව) · Net Payable (est.)</p>
+              <p className="text-lg font-extrabold text-emerald-800 mt-0.5">{fmtLKRShort(totalEarned)}</p>
+              <p className="text-[10px] text-emerald-600 mt-0.5">⚠ කර්මාන්තශාලා මූල්‍ය කාර්යාලය මසක අවසානයේ තහවුරු කරයි</p>
+            </div>
+            <button onClick={() => setActiveModule("supplier-payments")} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white">
+              View →
+            </button>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

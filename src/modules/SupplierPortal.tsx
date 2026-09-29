@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Package, BellRing, Leaf, TrendingUp, CalendarCheck, Droplets, Sparkles, Building2 } from "lucide-react";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area } from "recharts";
+import { Package, BellRing, Wallet, Leaf, TrendingUp, CalendarCheck, Droplets, Sparkles, Building2 } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { Icon } from "@/components/Icon";
 import { evaluateFertilizerWindow, recommendPlucking, type AdviceLevel } from "@/lib/predictive";
-import { supplier, pluckFields, fmtNum, TODAY_ISO, type WeatherDay } from "@/lib/data";
+import { supplier, pluckFields, fmtLKR, fmtLKRShort, fmtNum, TODAY_ISO, type WeatherDay } from "@/lib/data";
 import { readMyHarvestRecords } from "@/lib/repo";
 import { useLiveData } from "@/lib/useLiveData";
 import { fetchForecast, getMockForecast } from "@/lib/weather";
@@ -203,8 +203,9 @@ export function SupplierDeliveries() {
                 <p className="text-sm font-bold text-slate-800">{fmtNum(r.kg)} kg net</p>
                 <Badge tone={GRADE_TONE[r.grade]}>{r.grade}</Badge>
               </div>
-              <p className="text-[11px] text-slate-400">{r.date}</p>
+              <p className="text-[11px] text-slate-400">{r.date} · {fmtLKR(r.amount)}</p>
             </div>
+            <Badge tone={r.status === "Paid" ? "emerald" : "amber"} dot>{r.status}</Badge>
           </Card>
         ))}
       </div>
@@ -297,6 +298,7 @@ export function SupplierAlerts() {
           </div>
           <div className="space-y-2">
             {[
+              { t: t("supplier.pushPaymentTitle"), d: t("supplier.pushPaymentBody"), i: "Wallet" },
               { t: t("supplier.pushRainTitle"), d: t("supplier.pushRainBody", { date: advice.recommendedDate }), i: "Droplets" },
             ].map((n, idx) => (
               <div key={idx} className="flex items-start gap-3 rounded-xl border border-slate-100 p-2.5">
@@ -310,6 +312,208 @@ export function SupplierAlerts() {
           </div>
         </Card>
       </div>
+    </div>
+  );
+}
+
+/** B30 (Round #12) — Cost vs Earnings Summary card with chart (A8 RESTORED).
+ *  Shows gross earnings vs fertilizer credit cost (kg × Rs 95/kg estimate).
+ *  Includes disclaimer: "This is an estimate — factory finance office confirms at month-end." */
+function CostEarningsChart({ records }: { records: { date: string; amount: number }[] }) {
+  const ledgerRaw = typeof window !== "undefined" ? localStorage.getItem("kdu.supplier_fertilizer_ledger") : null;
+  const fertLedger: { date?: string; issuedDate?: string; totalCost?: number; costRs?: number }[] = ledgerRaw ? JSON.parse(ledgerRaw) : [];
+
+  const monthlyData = useMemo(() => {
+    const map: Record<string, { month: string; earned: number; cost: number }> = {};
+    for (const r of records) {
+      const m = r.date.slice(0, 7);
+      if (!map[m]) map[m] = { month: m, earned: 0, cost: 0 };
+      map[m].earned += r.amount;
+    }
+    for (const f of fertLedger) {
+      const d = f.date ?? f.issuedDate ?? "";
+      const m = d.slice(0, 7);
+      if (m && map[m]) map[m].cost += (f.totalCost ?? f.costRs ?? 0);
+    }
+    return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).slice(-5).map(d => ({
+      ...d,
+      label: new Date(d.month + "-01").toLocaleDateString("en-LK", { month: "short", year: "2-digit" }),
+      net: d.earned - d.cost,
+    }));
+  }, [records, fertLedger]);
+
+  const totalEarned = records.reduce((s, r) => s + r.amount, 0);
+  const totalCost = fertLedger.reduce((s, f) => s + (f.totalCost ?? f.costRs ?? 0), 0);
+  const netEarnings = totalEarned - totalCost;
+
+  return (
+    <Card className="mt-3 mb-4 p-4 border-emerald-100">
+      <h3 className="font-display text-sm font-bold text-slate-800 mb-3">💰 ආදායම් vs වියදම් · Earnings vs Cost</h3>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="rounded-lg bg-emerald-50 p-2.5 text-center">
+          <p className="text-[9px] font-semibold text-emerald-600">ඉපයීම්</p>
+          <p className="font-bold text-emerald-700 text-sm">Rs {(totalEarned / 1000).toFixed(0)}k</p>
+        </div>
+        <div className="rounded-lg bg-rose-50 p-2.5 text-center">
+          <p className="text-[9px] font-semibold text-rose-600">වියදම්</p>
+          <p className="font-bold text-rose-700 text-sm">Rs {(totalCost / 1000).toFixed(0)}k</p>
+        </div>
+        <div className={`rounded-lg p-2.5 text-center ${netEarnings >= 0 ? "bg-sky-50" : "bg-amber-50"}`}>
+          <p className={`text-[9px] font-semibold ${netEarnings >= 0 ? "text-sky-600" : "text-amber-600"}`}>ශුද්ධ</p>
+          <p className={`font-bold text-sm ${netEarnings >= 0 ? "text-sky-700" : "text-amber-700"}`}>Rs {(netEarnings / 1000).toFixed(0)}k</p>
+        </div>
+      </div>
+      {monthlyData.length >= 2 && (
+        <ResponsiveContainer width="100%" height={110}>
+          <AreaChart data={monthlyData}>
+            <defs>
+              <linearGradient id="earnGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="costGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+            <Tooltip formatter={(v: number) => [`Rs ${v.toLocaleString()}`, ""]} contentStyle={{ fontSize: 10, borderRadius: 8 }} />
+            <Area type="monotone" dataKey="earned" stroke="#10b981" strokeWidth={2} fill="url(#earnGrad)" name="Earned" />
+            <Area type="monotone" dataKey="cost" stroke="#f43f5e" strokeWidth={1.5} fill="url(#costGrad)" name="Cost" strokeDasharray="4 2" />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </Card>
+  );
+}
+
+/** 3 · Earnings & Deductions — B30 (Round #12) RESTORED.
+ *  Live transparency dashboard showing:
+ *    - Gross earnings (from leaf deliveries × daily tea price)
+ *    - Fertilizer credit outstanding (kg × Rs 95/kg estimate)
+ *    - Advance balance (from SupplierLoans)
+ *    - Net payable estimate
+ *  Disclaimer: "This is an estimate — factory finance office confirms at month-end." */
+export function SupplierPayments() {
+  const { t } = useTranslation();
+  const { records, loading } = useOwnSupply();
+  const earned = records.reduce((s, r) => s + r.amount, 0);
+  const pending = records.filter(r => r.status === "Pending").reduce((s, r) => s + r.amount, 0);
+
+  // Fertilizer credit cost estimate (kg × Rs 95/kg average)
+  const { user } = useApp();
+  const [fertCreditKg, setFertCreditKg] = useState(0);
+  const [advanceBalance, setAdvanceBalance] = useState(0);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("kdu.supplier_fertilizer_ledger");
+      if (raw) {
+        const all: { supplierName: string; qtyIssued: number; unit: string; notes?: string }[] = JSON.parse(raw);
+        const mine = (user?.name ?? "")
+          ? all.filter(e => e.supplierName?.toLowerCase() === (user?.name ?? "").toLowerCase() && (e.notes || "").toLowerCase().includes("credit"))
+          : [];
+        const kg = mine
+          .filter(e => e.unit === "kg")
+          .reduce((s, e) => s + e.qtyIssued, 0);
+        const bags = mine
+          .filter(e => e.unit === "bag" || e.unit === "bags")
+          .reduce((s, e) => s + e.qtyIssued, 0);
+        setFertCreditKg(kg + bags * 50);
+      }
+    } catch { /* ignore */ }
+    // Advance balance — best-effort read from Supabase supplier_fertilizer_loans table
+    void (async () => {
+      try {
+        const { supabaseConfigured, getSupabase } = await import("@/lib/supabase");
+        if (supabaseConfigured) {
+          const sb = getSupabase()!;
+          const { data } = await sb
+            .from("supplier_fertilizer_loans")
+            .select("balance, status")
+            .eq("status", "active");
+          if (data) {
+            const total = data.reduce((s: number, r: { balance: number }) => s + Number(r.balance ?? 0), 0);
+            setAdvanceBalance(total);
+          }
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [user?.name]);
+
+  const fertCreditCost = fertCreditKg * 95; // Rs 95/kg average
+  const netPayable = earned - fertCreditCost - advanceBalance;
+
+  return (
+    <div>
+      <PageHeader
+        eyebrow={t("supplier.eyebrow")}
+        title={t("supplier.payments")}
+        desc={t("supplier.paymentsDesc")}
+        icon={<IconChip icon={Wallet} tone="emerald" className="h-12 w-12" />}
+      />
+      <LinkedEstateBanner />
+
+      {/* B30 (Round #12) — Estimate disclaimer banner */}
+      <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+        <p className="font-bold">⚠ මෙය ඇස්තමේන්තුවකි · This is an estimate</p>
+        <p className="mt-0.5">The factory finance office confirms the actual net payable amount at month-end. Figures shown here are computed live from your leaf deliveries × today's tea price, minus fertilizer credit and active advances.</p>
+      </div>
+
+      <CostEarningsChart records={records} />
+
+      {/* Gross earnings + pending + rate */}
+      <div className="grid grid-cols-3 gap-2.5">
+        <StatCard icon={Wallet} label={t("supplier.totalEarned")} value={fmtLKRShort(earned)} tone="emerald" />
+        <StatCard icon={CalendarCheck} label={t("supplier.pendingPayment")} value={fmtLKRShort(pending)} tone="amber" />
+        <StatCard icon={TrendingUp} label={t("supplier.ratePerKg")} value={fmtLKR(supplier.pricePerKg)} tone="sky" />
+      </div>
+
+      {/* B30 (Round #12) — Deductions breakdown */}
+      <Card className="mt-4 p-4">
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">📋 කැපීම් · Deductions Breakdown</h3>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between rounded-lg border border-rose-100 bg-rose-50/50 p-2.5">
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Fertilizer Credit (kg × Rs 95/kg est.)</p>
+              <p className="text-[10px] text-slate-400">{fertCreditKg} kg outstanding</p>
+            </div>
+            <p className="text-sm font-bold text-rose-600">− {fmtLKR(fertCreditCost)}</p>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50/50 p-2.5">
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Active Advances (loans)</p>
+              <p className="text-[10px] text-slate-400">From supplier loans module</p>
+            </div>
+            <p className="text-sm font-bold text-amber-600">− {fmtLKR(advanceBalance)}</p>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm font-bold text-slate-800">ශුද්ධ ගෙවිය යුතු මුදල · Net Payable (estimate)</p>
+            <p className={`font-display text-lg font-extrabold ${netPayable >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{fmtLKR(netPayable)}</p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Payment history list */}
+      <Card className="mt-4 p-4">
+        <h3 className="mb-1 font-display text-sm font-bold text-slate-800">{t("supplier.paymentHistory")}</h3>
+        <div>
+          {loading && <p className="py-3 text-center text-xs text-slate-500">{t("supplier.syncing")}</p>}
+          {!loading && records.length === 0 && <p className="py-6 text-center text-sm text-slate-400">{t("supplier.noPayments")}</p>}
+          {records.map((r) => (
+            <div key={r.id} className="flex items-center justify-between border-b border-slate-50 py-2.5 last:border-0">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">{r.date}</p>
+                <p className="text-[11px] text-slate-400">{fmtNum(r.kg)} kg · {r.grade}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-slate-800">{fmtLKR(r.amount)}</p>
+                <Badge tone={r.status === "Paid" ? "emerald" : "amber"}>{r.status}</Badge>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { User, Save, Bell, Info } from "lucide-react";
-import { PageHeader, Card, Badge, IconChip } from "@/components/ui";
+import { User, Save, Bell, Info, Wallet, TrendingUp, TrendingDown, CheckCircle2 } from "lucide-react";
+import { PageHeader, Card, Badge, IconChip, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
+import { fmtLKR } from "@/lib/data";
 
 /**
  * SupplierProfile — "My Profile" module (supplier side)
@@ -37,6 +38,7 @@ interface ProfileData {
   emergencyContact: string;
   photoUrl: string;
   notificationPrefs: {
+    paymentAlerts: boolean;
     requestAlerts: boolean;
     announcementAlerts: boolean;
     weatherAlerts: boolean;
@@ -52,6 +54,7 @@ const DEFAULT_PROFILE: ProfileData = {
   emergencyContact: "",
   photoUrl: "",
   notificationPrefs: {
+    paymentAlerts: true,
     requestAlerts: true,
     announcementAlerts: true,
     weatherAlerts: true,
@@ -64,6 +67,11 @@ export function SupplierProfile() {
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
   const [editing, setEditing] = useState(false);
   const [notifications, setNotifications] = useState<StoredNotification[]>([]);
+
+  // B30 (Round #12) — RESTORED: Earnings + fertilizer cost + advance data
+  const [totalEarned, setTotalEarned] = useState(0);
+  const [totalFertCost, setTotalFertCost] = useState(0);
+  const [advanceBalance, setAdvanceBalance] = useState(0);
 
   useEffect(() => {
     // Load profile
@@ -81,6 +89,42 @@ export function SupplierProfile() {
       const raw = localStorage.getItem(NOTIFS_KEY(userUid));
       if (raw) setNotifications(JSON.parse(raw));
     } catch { /* ignore */ }
+
+    // B30 (Round #12) — RESTORED: Load earnings from harvest_records + fertilizer credit cost
+    void (async () => {
+      try {
+        const { supabaseConfigured, getSupabase } = await import("@/lib/supabase");
+        if (supabaseConfigured) {
+          const sb = getSupabase()!;
+          const { data: harvests } = await sb
+            .from("harvest_records")
+            .select("amount")
+            .eq("supplier_id", userUid);
+          if (harvests) {
+            setTotalEarned(harvests.reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0));
+          }
+          // Active advances
+          const { data: loans } = await sb
+            .from("supplier_fertilizer_loans")
+            .select("balance, status")
+            .eq("status", "active");
+          if (loans) {
+            setAdvanceBalance(loans.reduce((s: number, r: any) => s + Number(r.balance ?? 0), 0));
+          }
+        }
+        // Fertilizer credit cost
+        const ledgerRaw = localStorage.getItem("kdu.supplier_fertilizer_ledger");
+        if (ledgerRaw) {
+          const ledger = JSON.parse(ledgerRaw);
+          const myEntries = ledger.filter((e: any) =>
+            e.supplierName?.toLowerCase() === (user?.name ?? "").toLowerCase() &&
+            (e.notes || "").toLowerCase().includes("credit")
+          );
+          const fertCost = myEntries.reduce((s: number, e: any) => s + (e.qtyIssued * 95), 0);
+          setTotalFertCost(fertCost);
+        }
+      } catch { /* ignore */ }
+    })();
 
     // Listen for new toasts and persist them
     const handleToast = (e: Event) => {
@@ -131,15 +175,24 @@ export function SupplierProfile() {
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  const netEarnings = totalEarned - totalFertCost - advanceBalance;
 
   return (
     <div>
       <PageHeader
         eyebrow="VVIP Supplier Portal"
         title="My Profile"
-        desc="Manage your profile details, notification preferences, and view your notification history."
+        desc="Manage your profile details, notification preferences, view notification history, and see your earnings vs deductions summary."
         icon={<IconChip icon={User} tone="violet" className="h-12 w-12" />}
       />
+
+      {/* B30 (Round #12) — RESTORED: Cost vs Earnings Summary (with estimate disclaimer) */}
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        <StatCard icon={TrendingUp} label="Total Earned" value={fmtLKR(totalEarned)} sub="from leaf deliveries" tone="emerald" />
+        <StatCard icon={TrendingDown} label="Fert. Credit + Advances" value={fmtLKR(totalFertCost + advanceBalance)} sub="deductions" tone="rose" />
+        <StatCard icon={Wallet} label="Net Payable (est.)" value={fmtLKR(netEarnings)} sub="⚠ factory confirms" tone={netEarnings >= 0 ? "sky" : "rose"} />
+      </div>
+      <p className="mt-1 text-[10px] text-amber-600 text-center">⚠ මෙය ඇස්තමේන්තුවකි · The factory finance office confirms the actual net payable at month-end.</p>
 
       {/* A2: Profile details */}
       <Card className="mt-4 p-4">
@@ -199,6 +252,7 @@ export function SupplierProfile() {
         </h3>
         <div className="space-y-2">
           {([
+            { key: "paymentAlerts", label: "💰 Payment Alerts", desc: "Payment received confirmations (estimate updates)" },
             { key: "requestAlerts", label: "📥 Request Alerts", desc: "Resource/equipment request status" },
             { key: "announcementAlerts", label: "📢 Announcement Alerts", desc: "Estate updates + news" },
             { key: "weatherAlerts", label: "🌦️ Weather Alerts", desc: "Rain warnings + weather guard" },

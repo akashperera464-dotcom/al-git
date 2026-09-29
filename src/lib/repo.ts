@@ -279,12 +279,39 @@ export async function saveLeafWeighing(role: Role, input: {
   grossKg: number;
   netKg: number;
   grade: string;
+  /** B30 (Round #12) — supplier_id for the supplier who delivered this leaf.
+   *  When provided, the harvest_record is linked to the supplier so it shows
+   *  up in their "My Leaf Deliveries" module + feeds the earnings calculation. */
+  supplierId?: string;
 }): Promise<WeighInResult> {
   void role; // RLS enforces supervisor/admin writes server-side
 
+  // B30 (Round #12) — compute gross earnings = net_kg × today's tea price for this grade.
+  // Falls back to 0 if no price found (supplier still sees the kg + grade; admin can set price later).
+  let amount = 0;
+  if (supabaseConfigured) {
+    try {
+      const sb0 = getSupabase()!;
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: priceRow } = await sb0
+        .from("daily_tea_prices")
+        .select("price_per_kg")
+        .eq("price_date", today)
+        .eq("grade", input.grade)
+        .maybeSingle();
+      if (priceRow) {
+        amount = +(Number(priceRow.price_per_kg) * input.netKg).toFixed(2);
+      }
+    } catch { /* price lookup is best-effort */ }
+  } else {
+    // Demo mode — use mock prices
+    const MOCK_PRICES: Record<string, number> = { Super: 165, Standard: 120, Coarse: 90 };
+    amount = +((MOCK_PRICES[input.grade] ?? 100) * input.netKg).toFixed(2);
+  }
+
   // Demo mode (no Supabase configured) — always succeed with mock
   if (!supabaseConfigured) {
-    return { success: true, status: "online", id: mockCreate("harvest_records", input) };
+    return { success: true, status: "online", id: mockCreate("harvest_records", { ...input, amount }) };
   }
 
   const sb = getSupabase()!;
@@ -298,6 +325,10 @@ export async function saveLeafWeighing(role: Role, input: {
         gross_kg: input.grossKg,
         net_kg: input.netKg,
         grade: input.grade,
+        // B30 (Round #12) — store computed amount + supplier link
+        amount,
+        status: "Pending",
+        supplier_id: input.supplierId ?? null,
       })
       .select("id")
       .single();
@@ -317,13 +348,17 @@ export async function saveLeafWeighing(role: Role, input: {
       net_kg: input.netKg,
       grade: input.grade,
       weighed_at: new Date().toISOString().slice(0, 10),
+      // B30 (Round #12) — include amount + status + supplier_id in offline queue
+      amount,
+      status: "Pending",
+      supplier_id: input.supplierId ?? null,
     };
 
     const queuedId = enqueueMutation({
       table: "harvest_records",
       operation: "insert",
       payload,
-      label: `Weigh-in · ${input.grossKg}kg gross · ${input.grade}`,
+      label: `Weigh-in · ${input.grossKg}kg gross · ${input.grade} · Rs ${amount}`,
     });
 
     return {
