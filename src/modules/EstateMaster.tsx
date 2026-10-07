@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Network, MapPin, ChevronDown, Layers, Mountain, Sprout, Plus, Building2, Check, Save, Loader2, MapPinned } from "lucide-react";
+import { Network, MapPin, ChevronDown, Layers, Mountain, Sprout, Plus, Building2, Check, Save, Loader2, MapPinned, UserPlus, Clock, XCircle } from "lucide-react";
 import { PageHeader, StatCard, Panel, Badge, Meter, IconChip, DataTable, Segmented } from "@/components/ui";
 import { Donut, Legend } from "@/components/charts";
 import { useApp } from "@/context/AppContext";
@@ -7,6 +7,14 @@ import { isEstateAdmin } from "@/lib/identity";
 import { fmtNum, type Field, type Estate } from "@/lib/data";
 import { EstateMap } from "@/components/EstateMap";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase";
+import {
+  readAllRegistrationRequests,
+  readAllRegistrationRequestsSupabase,
+  updateRegistrationStatus,
+  updateRegistrationStatusSupabase,
+  promoteApprovedToMyPlot,
+  type EstateRegistrationRequest,
+} from "@/lib/estateRegistration";
 
 const STATUS_TONE: Record<Field["status"], "emerald" | "amber" | "sky" | "teal"> = {
   plucking: "emerald",
@@ -220,6 +228,9 @@ export default function EstateMaster() {
         <StatCard icon={Sprout} label="Fields" value={String(allFields.length)} sub="Across all estates" tone="amber" />
         <StatCard icon={Mountain} label="Total Area" value={`${fmtNum(totalArea)} ha`} sub="Aggregate" tone="violet" />
       </div>
+
+      {/* B31 (Round #13) — Unified: Pending Supplier Registrations panel */}
+      <PendingRegistrationsPanel />
 
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-3">
@@ -458,6 +469,158 @@ function BushCountReminder({ estate }: { estate: Estate }) {
       >
         Verify Now
       </button>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * B31 (Round #13) — PendingRegistrationsPanel
+ * ------------------------------------------------------------------
+ * Unified estate registration: shows supplier-submitted registrations
+ * that are PENDING approval. Admin can approve/reject directly from
+ * Estate Master — no need to go to Supplier Insights.
+ *
+ * On approval:
+ *   1. Status → APPROVED in localStorage + Supabase
+ *   2. promoteApprovedToMyPlot() updates supplier's My Plot cache
+ *   3. The admin can then create estate/division/field records manually
+ *      (or a future enhancement auto-creates them)
+ * ========================================================================== */
+function PendingRegistrationsPanel() {
+  const { addEstate, addDivision, addField, notify } = useApp();
+  const [regs, setRegs] = useState<EstateRegistrationRequest[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const loadRegs = async () => {
+    // B31: try Supabase first, fall back to localStorage
+    const all = await readAllRegistrationRequestsSupabase();
+    setRegs(all);
+  };
+
+  useEffect(() => { void loadRegs(); }, []);
+
+  const pending = regs.filter(r => r.status === "PENDING");
+
+  const approve = async (reqId: string) => {
+    setBusy(true);
+    try {
+      const req = regs.find(r => r.id === reqId);
+      if (!req) return;
+
+      // 1. Update status → APPROVED (localStorage + Supabase)
+      await updateRegistrationStatusSupabase(reqId, "APPROVED", "Approved from Estate Master", "admin");
+
+      // 2. Promote to supplier's My Plot cache
+      promoteApprovedToMyPlot({ ...req, status: "APPROVED" });
+
+      // 3. Create real estate/division/field records in the hierarchy
+      //    so they appear in Estate Master's tree view
+      const estateName = req.plotName || `${req.supplierName}'s Plot`;
+      const estate = await addEstate({
+        name: estateName,
+        region: req.region || "—",
+        totalAreaHa: +(req.acreage / 2.471).toFixed(4),
+        elevationM: 0,
+        latitude: req.latitude || undefined,
+        longitude: req.longitude || undefined,
+      });
+
+      // Create a default division
+      const division = await addDivision(estate.id, {
+        name: "Main Division",
+        manager: req.supplierName,
+        areaHa: +(req.acreage / 2.471).toFixed(4),
+      });
+
+      // Create a field for the supplier's plot
+      await addField(estate.id, division.id, {
+        code: `SUP-${req.supplierId.slice(-4).toUpperCase()}`,
+        name: req.plotName || "Supplier Plot",
+        cultivar: req.cultivar || "TRI 2025 (VP)",
+        plantingYear: new Date().getFullYear(),
+        areaHa: +(req.acreage / 2.471).toFixed(4),
+        elevationM: 0,
+        status: "plucking" as Field["status"],
+        lastYieldKg: 0,
+      });
+
+      notify({
+        title: "✅ Registration approved + estate created",
+        body: `"${estateName}" (${req.supplierName}) approved. Estate/division/field records created in hierarchy. Supplier's My Plot auto-populated.`,
+        tone: "emerald",
+        channel: "system",
+      });
+
+      await loadRegs();
+    } catch (e) {
+      notify({ title: "Approval failed", body: e instanceof Error ? e.message : "Unknown error", tone: "rose", channel: "system" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reject = async (reqId: string) => {
+    setBusy(true);
+    try {
+      await updateRegistrationStatusSupabase(reqId, "REJECTED", "Rejected from Estate Master", "admin");
+      notify({ title: "❌ Registration rejected", body: "Supplier can edit and resubmit.", tone: "rose", channel: "system" });
+      await loadRegs();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (pending.length === 0) return null;
+
+  return (
+    <div className="mt-4 rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <UserPlus className="h-5 w-5 text-amber-600" />
+        <h3 className="font-display text-sm font-bold text-amber-800">
+          📋 Pending Supplier Registrations ({pending.length})
+        </h3>
+        <span className="text-[11px] text-amber-600 ml-auto">
+          B31 · Unified — approve here to create estate/division/field records automatically
+        </span>
+      </div>
+      <div className="space-y-2">
+        {pending.map(req => (
+          <div key={req.id} className="rounded-lg border border-amber-200 bg-white p-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-slate-800">{req.plotName}</p>
+                <p className="text-[11px] text-slate-500">
+                  {req.supplierName} · {req.acreage} acres · {fmtNum(req.bushCount)} bushes · {req.cultivar}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  📍 {req.latitude?.toFixed(4) ?? "—"}, {req.longitude?.toFixed(4) ?? "—"} · {req.region} · submitted {new Date(req.submittedAt).toLocaleDateString()}
+                </p>
+                {req.blocks && req.blocks.length > 0 && (
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Blocks: {req.blocks.map(b => b.name).join(", ")}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                <button
+                  onClick={() => approve(req.id)}
+                  disabled={busy}
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50 inline-flex items-center gap-1"
+                >
+                  <Check className="h-3 w-3" /> Approve
+                </button>
+                <button
+                  onClick={() => reject(req.id)}
+                  disabled={busy}
+                  className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50 inline-flex items-center gap-1"
+                >
+                  <XCircle className="h-3 w-3" /> Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

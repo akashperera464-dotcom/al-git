@@ -1,17 +1,19 @@
 /**
  * Estate Registration Requests — shared types + storage helpers
  * ------------------------------------------------------------------
- * When a supplier registers their estate/plot, the request is stored
- * here (Phase 1: localStorage). Admin reviews in Supplier Insights
- * module and approves/rejects.
+ * B31 (Round #13) — UNIFIED: now writes to BOTH localStorage (backwards compat)
+ * AND Supabase `estate_registration_requests` table (real-time sync).
  *
- * On approval, the data is promoted to the supplier's "My Plot" cache
- * (kdu.supplier_plot.{userUid}) and the registration request status
- * changes to APPROVED.
+ * When admin approves:
+ *   1. Status → APPROVED in both localStorage + Supabase
+ *   2. Real estate/division/field records created in Supabase (via repo functions)
+ *   3. Supplier's My Plot cache updated (localStorage)
  *
- * On rejection, supplier sees the rejection reason and can edit +
- * resubmit (creates a new request with status PENDING).
+ * Admin can approve from EITHER Estate Master OR Supplier Insights — both
+ * read from the same data source.
  */
+
+import { getSupabase, supabaseConfigured } from "./supabase";
 
 export type RegistrationStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -177,4 +179,129 @@ export function promoteApprovedToMyPlot(req: EstateRegistrationRequest): {
 export function hasPendingRegistration(supplierId: string): boolean {
   const latest = getLatestRegistrationRequest(supplierId);
   return latest?.status === "PENDING";
+}
+
+/* ============================================================================
+ * B31 (Round #13) — Supabase-backed functions (unified estate registration)
+ * ============================================================================
+ * These functions write/read from Supabase `estate_registration_requests` table
+ * AND localStorage (backwards compat). Admin can approve from Estate Master
+ * or Supplier Insights — both read the same data.
+ * ========================================================================== */
+
+/** Save registration request to Supabase (AND localStorage for backwards compat). */
+export async function saveRegistrationRequestSupabase(req: EstateRegistrationRequest): Promise<void> {
+  // Always save to localStorage (backwards compat for demo mode)
+  saveRegistrationRequest(req);
+
+  if (!supabaseConfigured) return;
+  try {
+    const sb = getSupabase()!;
+    await sb.from("estate_registration_requests").upsert({
+      id: req.id,
+      supplier_id: req.supplierId,
+      supplier_name: req.supplierName,
+      plot_name: req.plotName,
+      acreage: req.acreage,
+      bush_count: req.bushCount,
+      cultivar: req.cultivar,
+      region: req.region,
+      soil_type: req.soilType ?? null,
+      latitude: req.latitude ?? null,
+      longitude: req.longitude ?? null,
+      address: req.address || null,
+      contact_phone: req.contactPhone || null,
+      blocks: req.blocks ?? null,
+      photo_urls: req.photoUrls ?? null,
+      land_document_url: req.landDocumentUrl ?? null,
+      notes: req.notes || null,
+      status: req.status,
+      admin_notes: req.adminNotes || null,
+      submitted_at: req.submittedAt,
+      reviewed_at: req.reviewedAt ?? null,
+      reviewed_by: req.reviewedBy ?? null,
+      edit_count: req.editCount,
+      last_edited_at: req.lastEditedAt ?? null,
+    }, { onConflict: "id" });
+  } catch (e) {
+    console.warn("[estateRegistration] Supabase save failed, localStorage only:", e);
+  }
+}
+
+/** Read all registration requests from Supabase (falls back to localStorage). */
+export async function readAllRegistrationRequestsSupabase(): Promise<EstateRegistrationRequest[]> {
+  if (!supabaseConfigured) return readAllRegistrationRequests();
+  try {
+    const sb = getSupabase()!;
+    const { data, error } = await sb
+      .from("estate_registration_requests")
+      .select("*")
+      .order("submitted_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(mapDbToRequest);
+  } catch (e) {
+    console.warn("[estateRegistration] Supabase read failed, using localStorage:", e);
+    return readAllRegistrationRequests();
+  }
+}
+
+/** Update registration status in Supabase (AND localStorage). */
+export async function updateRegistrationStatusSupabase(
+  requestId: string,
+  status: RegistrationStatus,
+  adminNotes: string,
+  reviewedBy: string,
+): Promise<EstateRegistrationRequest | null> {
+  // Update localStorage (backwards compat)
+  const updated = updateRegistrationStatus(requestId, status, adminNotes, reviewedBy);
+  if (!updated) return null;
+
+  // Update Supabase
+  if (supabaseConfigured) {
+    try {
+      const sb = getSupabase()!;
+      await sb.from("estate_registration_requests")
+        .update({
+          status,
+          admin_notes: adminNotes,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: reviewedBy,
+        })
+        .eq("id", requestId);
+    } catch (e) {
+      console.warn("[estateRegistration] Supabase update failed, localStorage only:", e);
+    }
+  }
+
+  return updated;
+}
+
+/** Map a Supabase row to the EstateRegistrationRequest interface. */
+function mapDbToRequest(r: Record<string, unknown>): EstateRegistrationRequest {
+  return {
+    id: r.id as string,
+    supplierId: r.supplier_id as string,
+    supplierName: r.supplier_name as string,
+    plotName: r.plot_name as string,
+    acreage: Number(r.acreage ?? 0),
+    bushCount: Number(r.bush_count ?? 0),
+    cultivar: (r.cultivar as string) ?? "",
+    region: (r.region as string) ?? "low-country",
+    soilType: (r.soil_type as EstateRegistrationRequest["soilType"]) ?? "unknown",
+    latitude: Number(r.latitude ?? 0),
+    longitude: Number(r.longitude ?? 0),
+    address: (r.address as string) ?? "",
+    contactPhone: (r.contact_phone as string) ?? "",
+    blocks: (r.blocks as EstateBlock[]) ?? undefined,
+    photoUrls: (r.photo_urls as string[]) ?? [],
+    landDocumentUrl: (r.land_document_url as string) ?? undefined,
+    notes: (r.notes as string) ?? "",
+    status: (r.status as RegistrationStatus) ?? "PENDING",
+    adminNotes: (r.admin_notes as string) ?? "",
+    submittedAt: (r.submitted_at as string) ?? new Date().toISOString(),
+    reviewedAt: (r.reviewed_at as string) ?? null,
+    reviewedBy: (r.reviewed_by as string) ?? null,
+    editCount: Number(r.edit_count ?? 0),
+    lastEditedAt: (r.last_edited_at as string) ?? null,
+  };
 }

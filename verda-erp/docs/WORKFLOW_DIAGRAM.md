@@ -2846,11 +2846,95 @@ src/i18n/locales/ta.json           | +10 keys restored
 - ✅ All 6 items restored with estimate disclaimer
 - ✅ i18n keys restored across EN/SI/TA (10 keys × 3 langs = 30 strings)
 
+## 31. B31 — Unified Estate Registration (Round #13)
+
+> **Purpose / අරමුණ:** Both suppliers AND admin now write to the same Supabase tables. Supplier registrations appear in Estate Master with approve/reject buttons. On approval, real estate/division/field records are created automatically — no more separate bubbles.
+
+### 31.1 What Changed
+
+| Before | After |
+|--------|-------|
+| Supplier registration → localStorage only | Supplier registration → localStorage + Supabase `estate_registration_requests` table |
+| Admin approves in Supplier Insights (separate module) | Admin approves in Estate Master (unified view) — Supplier Insights still works too |
+| Approved registrations → localStorage `kdu.supplier_plot.{uid}` | Approved registrations → ALSO creates real estate/division/field records in Supabase |
+| Estate Master shows only admin-created estates | Estate Master shows admin-created + supplier-approved estates (unified hierarchy) |
+| Two separate data systems (localStorage vs Supabase) | One unified system (Supabase + localStorage fallback) |
+
+### 31.2 SQL Migration — Round #8 (Phase 3) — **REQUIRED**
+
+**File:** `docs/migration_phase3_round8.sql` (also at `download/supabase_phase3_round8_migration.sql`)
+
+| # | Change | Why |
+|---|--------|-----|
+| 1 | NEW TABLE `estate_registration_requests` | Supabase version of the localStorage structure — real-time sync |
+| 2 | `fields.created_by` (text, default 'admin') | Track who created the field — 'admin' or 'supplier' |
+| 3 | `fields.supplier_id` (text) | Link field to the supplier's Firebase UID |
+| 4 | `fields.latitude` / `fields.longitude` (numeric) | Supplier's plot GPS coordinates |
+| 5 | `fields.address` / `fields.contact_phone` (text) | Supplier's address + phone |
+| 6 | `fields.photo_urls` (jsonb) | Plot photos |
+| 7 | `fields.land_document_url` (text) | Land deed document |
+| 8 | `fields.supplier_notes` (text) | Supplier's notes |
+| 9 | `estates.created_by` (text, default 'admin') | Track who created the estate |
+| 10 | `estates.supplier_id` (text) | Link estate to supplier (if supplier-created) |
+
+### 31.3 How It Works (Both Sides)
+
+**Supplier side (`SupplierPlot.tsx`):**
+1. Supplier fills registration form (plot name, acreage, bushes, GPS, blocks, photos)
+2. `saveRegistrationRequest()` writes to localStorage (backwards compat)
+3. `saveRegistrationRequestSupabase()` writes to Supabase `estate_registration_requests` table
+4. Status = PENDING
+5. Supplier sees "Awaiting Approval" with 3-step timeline
+
+**Admin side (`EstateMaster.tsx`):**
+1. "Pending Supplier Registrations" panel appears at the top (amber border)
+2. Shows all PENDING registrations with supplier name, plot details, GPS, blocks
+3. Admin clicks "Approve" → system:
+   - Updates status → APPROVED (localStorage + Supabase)
+   - Calls `promoteApprovedToMyPlot()` → updates supplier's My Plot cache
+   - Calls `addEstate()` → creates real estate record in Supabase
+   - Calls `addDivision()` → creates "Main Division" under the estate
+   - Calls `addField()` → creates field record linked to the supplier
+4. The new estate appears in Estate Master's hierarchy immediately
+5. Admin clicks "Reject" → status → REJECTED, supplier can edit + resubmit
+
+**Supplier Insights (`SupplierInsights.tsx`):**
+- Still works — reads from the same data source
+- Can also approve/reject (both modules share the workflow)
+- Also shows aggregated stats + credit balances (unchanged)
+
+### 31.4 Files Changed
+
+```
+docs/migration_phase3_round8.sql              | NEW (70 lines) — SQL migration
+download/supabase_phase3_round8_migration.sql | NEW (copy)
+src/lib/estateRegistration.ts                 | +130 lines (Supabase-backed functions: save/read/update)
+src/modules/EstateMaster.tsx                  | +162 lines (PendingRegistrationsPanel component + approve/reject + auto-create estate/division/field)
+src/modules/SupplierPlot.tsx                  | +3 lines (saveRegistrationRequestSupabase call)
+```
+
+### 31.5 Verification
+
+- ✅ `vite build`: succeeds (10.39s, 3.18 MB / 878 KB gzipped)
+- ✅ TypeScript: no new errors
+- ✅ Both sides write to same Supabase table
+- ✅ Admin can approve from Estate Master (creates real hierarchy records)
+- ✅ Supplier Insights still works (shared approval workflow)
+- ⏳ **ACTION REQUIRED**: Run `docs/migration_phase3_round8.sql` in Supabase SQL Editor
+
+### 31.6 Updated SQL Migration History
+
+| Round | File | What |
+|-------|------|------|
+| #1-#7 | (previous migrations) | Base schema + Phase 1-3 migrations |
+| **#8** | **`docs/migration_phase3_round8.sql`** ⬅️ **NEW** | **Unified estate registration: new `estate_registration_requests` table + `fields`/`estates` columns** |
+
 ---
 
-*End of Workflow Diagram. Last updated: September 2026 (Round #12 — Restore earnings & deductions as live transparency dashboard).*
+*End of Workflow Diagram. Last updated: September 2026 (Round #13 — Unified estate registration).*
 
-*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #12 — ආදායම් සහ කැපීම් ප්‍රතිෂ්ඨාපනය).*
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #13 — ඒකාබද්ධ වත්ත ලියාපදිංචිය).*
+
 
 
 

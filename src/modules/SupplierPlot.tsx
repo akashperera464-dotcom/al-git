@@ -5,6 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { fmtNum } from "@/lib/data";
 import {
   saveRegistrationRequest,
+  saveRegistrationRequestSupabase,
   getLatestRegistrationRequest,
   type EstateRegistrationRequest,
   type EstateBlock,
@@ -260,6 +261,8 @@ export function SupplierPlot() {
       lastEditedAt: regReq ? new Date().toISOString() : null,
     };
     saveRegistrationRequest(req);
+    // B31 (Round #13) — also save to Supabase (unified registration)
+    void saveRegistrationRequestSupabase(req);
     setRegReq(req);
     notify({
       title: "✅ Registration submitted!",
