@@ -100,7 +100,8 @@ export type Capability =
   | "announcements.manage"
   | "announcements.view"
   | "home.own"
-  | "calendar.own";
+  | "calendar.own"
+  | "labor.own";
 
 /**
  * The capability matrix. This is the definitive permission boundary.
@@ -128,7 +129,7 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   // Extension Officers: field tools — log weights + register suppliers.
   extension_officer: ["weighing.capture", "supplier.register", "estate.map.view"],
   // Suppliers: their own data + raise resource requisitions — NO rosters, payroll, other suppliers, dashboards.
-  supplier: ["deliveries.own", "alerts.own", "plot.own", "weather.own", "tips.own", "fertilizer.own", "payments.own", "requests.create", "farm.log", "announcements.view", "home.own", "calendar.own"],
+  supplier: ["deliveries.own", "alerts.own", "plot.own", "weather.own", "tips.own", "fertilizer.own", "payments.own", "requests.create", "farm.log", "announcements.view", "home.own", "calendar.own", "labor.own"],
 };
 
 export const hasCapability = (role: Role, cap: Capability): boolean =>
@@ -225,6 +226,8 @@ export const MODULES: NavItem[] = [
   { key: "supplier-fertilizer", label: "My Fertilizer", short: "Fertilizer", icon: Sprout, category: "supplier", roles: ["supplier"], capability: "fertilizer.own" },
   { key: "supplier-announcements", label: "Estate Updates", short: "Updates", icon: Newspaper, category: "supplier", roles: ["supplier"], capability: "announcements.view" },
   { key: "supplier-requests", label: "Request Resources", short: "Request", icon: PackageOpen, category: "supplier", roles: ["supplier"], capability: "requests.create" },
+  // B32 (Round #14) — Supplier Labor: track daily labor cost (own workers from village)
+  { key: "supplier-labor", label: "My Labor", short: "Labor", icon: Users, category: "supplier", roles: ["supplier"], capability: "labor.own" },
   { key: "supplier-profile", label: "My Profile", short: "Profile", icon: UserCog, category: "supplier", roles: ["supplier"], capability: "profile.own" },
 ];
 

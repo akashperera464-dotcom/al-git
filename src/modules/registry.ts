@@ -42,6 +42,7 @@ import { SupplierInsights } from "./SupplierInsights";
 import { SupplierProfile } from "./SupplierProfile";
 import { SupplierHome } from "./SupplierHome";
 import SupplierCalendar from "./SupplierCalendar";
+import { SupplierLabor } from "./SupplierLabor";
 
 export const REGISTRY: Record<string, ComponentType> = {
   // Admin — executive dashboards, core ERP & administration
@@ -95,6 +96,7 @@ export const REGISTRY: Record<string, ComponentType> = {
   "supplier-insights": SupplierInsights,
   "supplier-profile": SupplierProfile,
   "supplier-calendar": SupplierCalendar,
+  "supplier-labor": SupplierLabor,
 
   // Admin — supplier resource requisition inbox (ticket management)
   "resource-requests": ResourceRequests,

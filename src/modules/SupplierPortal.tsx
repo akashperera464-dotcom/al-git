@@ -402,9 +402,11 @@ export function SupplierPayments() {
   const pending = records.filter(r => r.status === "Pending").reduce((s, r) => s + r.amount, 0);
 
   // Fertilizer credit cost estimate (kg × Rs 95/kg average)
-  const { user } = useApp();
+  const { user, userUid } = useApp();
   const [fertCreditKg, setFertCreditKg] = useState(0);
   const [advanceBalance, setAdvanceBalance] = useState(0);
+  // B32 (Round #14) — Labor cost from SupplierLabor module (month total)
+  const [laborCostMonth, setLaborCostMonth] = useState(0);
   useEffect(() => {
     try {
       const raw = localStorage.getItem("kdu.supplier_fertilizer_ledger");
@@ -421,6 +423,11 @@ export function SupplierPayments() {
           .reduce((s, e) => s + e.qtyIssued, 0);
         setFertCreditKg(kg + bags * 50);
       }
+    } catch { /* ignore */ }
+    // B32 (Round #14) — Read labor cost month total from SupplierLabor module
+    try {
+      const laborByUid = localStorage.getItem(`kdu.supplier_labor.month_total.${userUid}`);
+      setLaborCostMonth(Number(laborByUid || 0));
     } catch { /* ignore */ }
     // Advance balance — best-effort read from Supabase supplier_fertilizer_loans table
     void (async () => {
@@ -439,10 +446,11 @@ export function SupplierPayments() {
         }
       } catch { /* ignore */ }
     })();
-  }, [user?.name]);
+  }, [user?.name, userUid]);
 
   const fertCreditCost = fertCreditKg * 95; // Rs 95/kg average
-  const netPayable = earned - fertCreditCost - advanceBalance;
+  // B32 (Round #14) — Labor cost included in net payable calculation
+  const netPayable = earned - fertCreditCost - advanceBalance - laborCostMonth;
 
   return (
     <div>
@@ -486,6 +494,14 @@ export function SupplierPayments() {
               <p className="text-[10px] text-slate-400">From supplier loans module</p>
             </div>
             <p className="text-sm font-bold text-amber-600">− {fmtLKR(advanceBalance)}</p>
+          </div>
+          {/* B32 (Round #14) — Labor Cost deduction */}
+          <div className="flex items-center justify-between rounded-lg border border-orange-100 bg-orange-50/50 p-2.5">
+            <div>
+              <p className="text-sm font-semibold text-slate-700">👷 Labor Cost (this month)</p>
+              <p className="text-[10px] text-slate-400">From My Labor module · {laborCostMonth > 0 ? "logged" : "not logged yet"}</p>
+            </div>
+            <p className="text-sm font-bold text-orange-600">− {fmtLKR(laborCostMonth)}</p>
           </div>
           <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="text-sm font-bold text-slate-800">ශුද්ධ ගෙවිය යුතු මුදල · Net Payable (estimate)</p>

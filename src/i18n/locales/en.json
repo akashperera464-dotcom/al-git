@@ -218,6 +218,10 @@
     "supplier-payments": {
       "l": "Earnings & Deductions",
       "s": "Earnings"
+    },
+    "supplier-labor": {
+      "l": "My Labor",
+      "s": "Labor"
     }
   },
   "roles": {

@@ -2929,11 +2929,62 @@ src/modules/SupplierPlot.tsx                  | +3 lines (saveRegistrationReques
 | #1-#7 | (previous migrations) | Base schema + Phase 1-3 migrations |
 | **#8** | **`docs/migration_phase3_round8.sql`** ⬅️ **NEW** | **Unified estate registration: new `estate_registration_requests` table + `fields`/`estates` columns** |
 
+## 32. B32 — Supplier Labor Cost Tracking (Round #14)
+
+> **Purpose / අරමුණ:** Supplier tracks their own daily labor costs — workers they bring from their village (Kankanam, Casual Plucking, Temporary). Cost auto-calculates and appears as a deduction in Earnings & Deductions.
+
+### 32.1 Sir's Spec
+
+- Phase 1: Supplier brings their own workers (from their village)
+- Supplier enters headcount + daily wage per category
+- System auto-calculates total daily labor cost
+- Cost appears as deduction in "Earnings & Deductions"
+- Phase 2 (future): Factory provides workers when labor shortage hits → Labor Request feature re-enabled
+
+### 32.2 What Was Implemented
+
+| Item | Details |
+|---|---|
+| **New module** `SupplierLabor.tsx` | "My Labor" — daily labor cost calculator |
+| **Labor categories** | Kankanam (Rs 1,800), Casual Plucking (Rs 1,500), Temporary (Rs 1,200) — defaults editable |
+| **Auto-calculation** | `totalCost = Σ(headcount × dailyRate)` — updates live as supplier types |
+| **Snapshots** | Save daily snapshot to localStorage; view history (last 30 days) |
+| **Month total** | Auto-calculates current month's total labor cost |
+| **Earnings & Deductions integration** | Labor Cost appears as orange deduction line in Net Payable calculation |
+| **Phase 2 note** | Info banner explains future factory-provided workers feature |
+| **RBAC** | New `labor.own` capability + `supplier-labor` NavItem |
+| **i18n** | Module label added to EN/SI/TA |
+
+### 32.3 Files Changed
+
+```
+src/modules/SupplierLabor.tsx     | NEW (200 lines) — full labor cost calculator + history + Phase 2 note
+src/modules/registry.ts           | +2 lines (import + route)
+src/lib/rbac.ts                   | +4 lines (labor.own capability + NavItem + supplier array)
+src/modules/SupplierPortal.tsx    | +15 lines (labor cost deduction in Earnings & Deductions)
+src/i18n/locales/en.json          | +1 module entry
+src/i18n/locales/si.json          | +1 module entry
+src/i18n/locales/ta.json          | +1 module entry
+```
+
+### 32.4 No SQL Migration Needed
+
+Labor data is stored in localStorage (`kdu.supplier_labor.{uid}`). Phase 2 will migrate to Supabase when factory-provided workers feature is added.
+
+### 32.5 Verification
+
+- ✅ `vite build`: succeeds (10.82s, 3.19 MB / 880 KB gzipped)
+- ✅ TypeScript: no new errors
+- ✅ Supplier can access "My Labor" via More sheet
+- ✅ Labor cost appears in Earnings & Deductions → Deductions Breakdown
+- ✅ Net Payable = Gross − Fertilizer − Advances − Labor Cost
+
 ---
 
-*End of Workflow Diagram. Last updated: September 2026 (Round #13 — Unified estate registration).*
+*End of Workflow Diagram. Last updated: October 2026 (Round #14 — Supplier Labor Cost Tracking).*
 
-*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: සැප්තැම්බර් 2026 (Round #13 — ඒකාබද්ධ වත්ත ලියාපදිංචිය).*
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: ඔක්තෝබර් 2026 (Round #14 — සැපයුම්කරු කම්කරු පිරිවැය නිරීක්ෂණය).*
+
 
 
 
