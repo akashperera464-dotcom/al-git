@@ -2979,11 +2979,48 @@ Labor data is stored in localStorage (`kdu.supplier_labor.{uid}`). Phase 2 will 
 - ✅ Labor cost appears in Earnings & Deductions → Deductions Breakdown
 - ✅ Net Payable = Gross − Fertilizer − Advances − Labor Cost
 
+## 33. B33 — Supplier Labor Data Persisted to Supabase (Round #15)
+
+> **Purpose:** localStorage-only labor data could be lost on phone reset / cache clear. Now persisted to Supabase `supplier_labor_logs` table.
+
+### 33.1 SQL Migration — Round #9 (REQUIRED)
+
+**File:** `docs/migration_phase3_round9.sql`
+
+Creates `supplier_labor_logs` table with:
+- `supplier_id` (text) + `log_date` (date) — unique index (one snapshot per supplier per day)
+- `lines` (JSONB) — array of {category, headcount, wage, subtotal}
+- `total_cost` (numeric) + `total_headcount` (integer)
+- RLS + real-time enabled
+
+### 33.2 What Changed
+
+| File | Change |
+|---|---|
+| `SupplierLabor.tsx` | Save: upsert to Supabase + localStorage. Load: read from Supabase (falls back to localStorage). |
+| `SupplierPortal.tsx` | Earnings & Deductions now reads labor month total from Supabase (falls back to localStorage). |
+
+### 33.3 Data Flow
+
+```
+Supplier saves snapshot → localStorage (instant UI) + Supabase upsert (survives reset)
+Supplier opens app → localStorage (instant) → Supabase (authoritative, overwrites cache)
+Earnings & Deductions → reads month total from Supabase (falls back to localStorage)
+```
+
+### 33.4 No Data Loss
+
+Even if supplier clears their phone:
+- Supabase has all snapshots
+- On next login, app loads from Supabase → restores full history
+- Month total auto-recalculated from Supabase records
+
 ---
 
-*End of Workflow Diagram. Last updated: October 2026 (Round #14 — Supplier Labor Cost Tracking).*
+*End of Workflow Diagram. Last updated: October 2026 (Round #15 — Supplier labor Supabase persistence).*
 
-*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: ඔක්තෝබර් 2026 (Round #14 — සැපයුම්කරු කම්කරු පිරිවැය නිරීක්ෂණය).*
+*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: ඔක්තෝබර් 2026 (Round #15 — කම්කරු දත්ත Supabase ආරක්ෂණය).*
+
 
 
 

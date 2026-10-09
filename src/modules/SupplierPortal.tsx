@@ -425,10 +425,30 @@ export function SupplierPayments() {
       }
     } catch { /* ignore */ }
     // B32 (Round #14) — Read labor cost month total from SupplierLabor module
+    // B33 (Round #15) — Now reads from Supabase (authoritative), falls back to localStorage
     try {
       const laborByUid = localStorage.getItem(`kdu.supplier_labor.month_total.${userUid}`);
       setLaborCostMonth(Number(laborByUid || 0));
     } catch { /* ignore */ }
+    // Also try Supabase for the authoritative month total
+    void (async () => {
+      if (!supabaseConfigured) return;
+      try {
+        const sb = getSupabase()!;
+        const monthStart = new Date().toISOString().slice(0, 7) + "-01";
+        const { data: laborData } = await sb
+          .from("supplier_labor_logs")
+          .select("total_cost")
+          .eq("supplier_id", userUid)
+          .gte("log_date", monthStart);
+        if (laborData && laborData.length > 0) {
+          const monthLaborTotal = laborData.reduce((s: number, r: { total_cost: number }) => s + Number(r.total_cost ?? 0), 0);
+          setLaborCostMonth(monthLaborTotal);
+          // Also cache to localStorage for instant load next time
+          try { localStorage.setItem(`kdu.supplier_labor.month_total.${userUid}`, String(monthLaborTotal)); } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
+    })();
     // Advance balance — best-effort read from Supabase supplier_fertilizer_loans table
     void (async () => {
       try {

@@ -3,11 +3,15 @@ import { Users, Plus, Trash2, Calendar, TrendingDown, Clock } from "lucide-react
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtLKR, fmtLKRShort, fmtNum, TODAY_ISO } from "@/lib/data";
+import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 
 /**
  * SupplierLabor — "My Labor" module (supplier side)
  * ------------------------------------------------------------------
  * B32 (Round #14) — Supplier tracks their own daily labor costs.
+ * B33 (Round #15) — Now persisted to Supabase `supplier_labor_logs` table
+ *   (survives localStorage clearing / phone reset). localStorage kept as
+ *   backwards-compat fallback + instant UI load.
  *
  * Sir's spec:
  *   Phase 1: Supplier brings their own workers (from their village).
@@ -22,8 +26,6 @@ import { fmtLKR, fmtLKRShort, fmtNum, TODAY_ISO } from "@/lib/data";
  *   - Kankanam (කන්කානම්ලා)
  *   - Casual Plucking (වත්තේ සේවකයෝ / කැෂුවල් දලු කඩන්නෝ)
  *   - Temporary (තාවකාලික සේවකයෝ)
- *
- * Storage: localStorage (Phase 1). Phase 2 will sync to Supabase.
  */
 
 const LABOR_CATEGORIES = [
@@ -61,12 +63,41 @@ export function SupplierLabor() {
   ]);
   const [history, setHistory] = useState<LaborSnapshot[]>([]);
 
-  // Load history from localStorage
+  // Load history from localStorage (instant) + Supabase (authoritative)
   useEffect(() => {
+    // 1. localStorage — instant load
     try {
       const raw = localStorage.getItem(STORAGE_KEY(userUid));
       if (raw) setHistory(JSON.parse(raw));
     } catch { /* ignore */ }
+
+    // 2. Supabase — authoritative source (B33 fix)
+    void (async () => {
+      if (!supabaseConfigured) return;
+      try {
+        const sb = getSupabase()!;
+        const { data, error } = await sb
+          .from("supplier_labor_logs")
+          .select("*")
+          .eq("supplier_id", userUid)
+          .order("log_date", { ascending: false })
+          .limit(365);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          const snapshots: LaborSnapshot[] = data.map((r: Record<string, unknown>) => ({
+            date: r.log_date as string,
+            lines: (r.lines as { category: string; headcount: number; wage: number; subtotal: number }[]) ?? [],
+            total: Number(r.total_cost ?? 0),
+            totalHeadcount: Number(r.total_headcount ?? 0),
+          }));
+          setHistory(snapshots);
+          // Also update localStorage cache
+          try { localStorage.setItem(STORAGE_KEY(userUid), JSON.stringify(snapshots)); } catch { /* ignore */ }
+        }
+      } catch (e) {
+        console.warn("[SupplierLabor] Supabase load failed, using localStorage:", e);
+      }
+    })();
   }, [userUid]);
 
   const updateLine = (idx: number, patch: Partial<LaborLine>) =>
@@ -97,10 +128,29 @@ export function SupplierLabor() {
       total: totalCost,
       totalHeadcount,
     };
-    // Replace existing snapshot for same date, or add new
+    // 1. Save to localStorage (instant UI update)
     const next = [snap, ...history.filter(h => !(h.date === date))].slice(0, 365);
     setHistory(next);
     try { localStorage.setItem(STORAGE_KEY(userUid), JSON.stringify(next)); } catch { /* ignore */ }
+
+    // 2. Save to Supabase (B33 — survives localStorage clearing)
+    void (async () => {
+      if (!supabaseConfigured) return;
+      try {
+        const sb = getSupabase()!;
+        // Upsert: unique index on (supplier_id, log_date) means same date = update
+        await sb.from("supplier_labor_logs").upsert({
+          supplier_id: userUid,
+          log_date: date,
+          lines: snap.lines,
+          total_cost: snap.total,
+          total_headcount: snap.totalHeadcount,
+        }, { onConflict: "supplier_id,log_date" });
+      } catch (e) {
+        console.warn("[SupplierLabor] Supabase save failed, localStorage only:", e);
+      }
+    })();
+
     notify({
       title: "✅ Labor cost saved",
       body: `${date} · ${totalHeadcount} workers · ${fmtLKR(totalCost)}`,
