@@ -138,12 +138,12 @@ export function SupplierHome() {
         </Card>
       )}
 
-      {/* Key stats — Earnings + Expenses (replaced Quality + Unread Alerts) */}
+      {/* Key stats — Earnings + Expenses + Total Supplied + Pending Sync */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         <StatCard icon={Wallet} label="ආදායම් · Earnings" value={fmtLKRShort(totalEarned)} tone="emerald" />
-        <StatCard icon={Package} label="මුළු කොළ · Total Supplied" value={`${fmtNum(totalKg)} kg`} tone="sky" />
         <StatCard icon={TrendingUp} label="වියදම් · Expenses" value={fmtLKRShort(monthExpenses)} sub="labor + fert" tone="rose" />
-        <StatCard icon={Bell} label="නොකියවූ · Unread Alerts" value={String(unreadAlerts)} tone={unreadAlerts > 0 ? "amber" : "slate"} />
+        <StatCard icon={Package} label="මුළු කොළ · Total Supplied" value={`${fmtNum(totalKg)} kg`} tone="sky" />
+        <StatCard icon={AlertCircle} label="සමමුහුර්තය · Pending" value={String(pendingSync)} sub={pendingSync > 0 ? "queued" : "all synced"} tone={pendingSync > 0 ? "amber" : "slate"} />
       </div>
 
       {/* Smart reminders */}

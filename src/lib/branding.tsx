@@ -28,21 +28,21 @@ export interface Branding {
 
 export const DEFAULT_BRANDING: Branding = {
   companyName: "Estate Pulse",
-  companyTagline: "Tea Estate ERP",
-  companyLogoUrl: "https://res.cloudinary.com/dhd06wdov/image/upload/v1781669562/logokdu_xo5m6f.png",
+  companyTagline: "Supplier Management System",
+  companyLogoUrl: "",
   loginTitle: "Estate Pulse",
-  loginSubtitle: "Integrated Tea Estate Enterprise Platform",
-  loginLogoUrl: "https://res.cloudinary.com/dhd06wdov/image/upload/v1781669562/logokdu_xo5m6f.png",
+  loginSubtitle: "Tea Estate Supplier Management Platform",
+  loginLogoUrl: "",
   loginBackgroundUrl: "",
   loginScrimOpacity: 70,
   accentColor: "#10b981",
 };
 
-const CACHE_KEY = "kdu.branding.cache";
+const CACHE_KEY = "estate_pulse.branding.cache";
 // Legacy cache key from before the Estate Pulse rebrand. We fall back to
 // this when the new cache is empty, so any branding the user previously
 // configured (e.g., login background video URL) is not lost.
-const LEGACY_CACHE_KEY = "verda.branding.cache";
+const LEGACY_CACHE_KEY = "kdu.branding.cache";
 
 interface BrandingContextValue {
   branding: Branding;
