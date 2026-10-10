@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Verda ERP",
+    "appName": "Estate Pulse",
     "loading": "Loading…",
     "loadingConsole": "Loading your estate console…",
     "online": "Online",
@@ -64,7 +64,7 @@
     "accountsCreatedByAdmin": "Accounts are created by your Super Admin / Administrator.",
     "securedBy": "Secured by Firebase Authentication · Data by Supabase",
     "signInFailed": "Login failed.",
-    "platformSubtitle": "Integrated Tea Estate Enterprise Platform"
+    "platformSubtitle": "Tea Estate Supplier Management Platform"
   },
   "modules": {
     "dashboard": {

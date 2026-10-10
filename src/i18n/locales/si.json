@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Verda ERP",
+    "appName": "Estate Pulse",
     "loading": "පූරණය වෙමින්…",
     "loadingConsole": "ඔබගේ වතු කොන්සෝලය පූරණය වෙමින්…",
     "online": "සබැඳි",
@@ -64,7 +64,7 @@
     "accountsCreatedByAdmin": "ගිණුම් ඔබගේ මහා පරිපාලක / පරිපාලක විසින් නිර්මාණය කරයි.",
     "securedBy": "Firebase සත්‍යතා තහවුරු කිරීම මගින් ආරක්ෂිත · දත්ත Supabase මගින්",
     "signInFailed": "පිවිසීම අසාර්ථකයි.",
-    "platformSubtitle": "ඒකාබද්ධ තේ වතු ව්‍යවසාය වේදිකාව"
+    "platformSubtitle": "තේ වතු සැපයුම්දාර කළමනාකරණ වේදිකාව"
   },
   "modules": {
     "dashboard": {

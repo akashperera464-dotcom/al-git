@@ -56,7 +56,7 @@ const ROLE_LABEL: Record<Role, { title: string; desc: string; tone: string }> = 
   super_admin: { title: "Super Administrator", desc: "Full system control", tone: "from-emerald-600 to-teal-700" },
   admin: { title: "Estate Director", desc: "Full executive access", tone: "from-emerald-500 to-teal-600" },
   extension_officer: { title: "Extension Officer", desc: "Field registration & weighing", tone: "from-amber-500 to-orange-600" },
-  supplier: { title: "VVIP Supplier", desc: "Alert & advisor portal", tone: "from-violet-500 to-fuchsia-600" },
+  supplier: { title: "Supplier", desc: "Supplier interface", tone: "from-violet-500 to-fuchsia-600" },
 };
 
 function RoleSwitcher({ dark }: { dark?: boolean }) {

@@ -33,7 +33,7 @@ function AuthSplash() {
         <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-amber-400 ring-2 ring-white" />
       </div>
       <div className="text-center">
-        <p className="font-display text-lg font-bold text-slate-800">Verda ERP</p>
+        <p className="font-display text-lg font-bold text-slate-800">Estate Pulse</p>
         <p className="text-sm text-slate-400">Restoring your session…</p>
       </div>
       <div className="h-1.5 w-44 overflow-hidden rounded-full bg-slate-200">

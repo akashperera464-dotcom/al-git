@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 /**
- * Verda / KDU ERP · Supabase (PostgreSQL) connection layer
+ * Estate Pulse · Supabase (PostgreSQL) connection layer
  * ------------------------------------------------------------------
  * HYBRID ARCHITECTURE:
  *   Firebase  → Authentication (Phone OTP) + Cloud Messaging (FCM) only.

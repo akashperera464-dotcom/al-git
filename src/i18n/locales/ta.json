@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Verda ERP",
+    "appName": "Estate Pulse",
     "loading": "ஏற்றுகிறது…",
     "loadingConsole": "உங்கள் தோட்ட கன்சோல் ஏற்றப்படுகிறது…",
     "online": "இணைப்பில்",
@@ -64,7 +64,7 @@
     "accountsCreatedByAdmin": "கணக்குகள் உங்கள் சூப்பர் அட்மின் / அட்மினால் உருவாக்கப்படுகின்றன.",
     "securedBy": "Firebase அங்கீகாரத்தால் பாதுகாக்கப்பட்டது · தரவு Supabase மூலம்",
     "signInFailed": "உள்நுழைவு தோல்வி.",
-    "platformSubtitle": "ஒருங்கிணைந்த தேயிலை தோட்ட நிறுவன தளம்"
+    "platformSubtitle": "தேயிலை தோட்ட வழங்குநர் மேலாண்மை தளம்"
   },
   "modules": {
     "dashboard": {
