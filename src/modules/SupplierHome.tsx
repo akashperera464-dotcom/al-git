@@ -15,7 +15,8 @@ export function SupplierHome() {
   const { t, i18n } = useTranslation();
   const { user, session, setActiveModule, userUid, associatedEntityId, estates, syncQueue, online } = useApp();
   const estate = estates.find(e => e.id === associatedEntityId);
-  const greeting = getGreeting();
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+  const greeting = getGreeting(currentTime);
   const firstName = (session?.name ?? user?.name ?? "Supplier").split(" ")[0];
 
   const [forecast, setForecast] = useState<WeatherDay[]>(getMockForecast());
@@ -26,6 +27,11 @@ export function SupplierHome() {
   const [prices, setPrices] = useState<DailyTeaPrice[]>([]);
 
   const pendingSync = syncQueue.filter(q => q.status === "queued").length;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     // Load weather
@@ -84,7 +90,6 @@ export function SupplierHome() {
   const fertDue = lastFert ? Math.floor((now - new Date(lastFert.loggedDate).getTime()) / DAY) >= 75 : false;
   const pruneDue = lastPrune ? Math.floor((now - new Date(lastPrune.loggedDate).getTime()) / DAY) >= 40 : false;
 
-  const today = new Date();
   const weatherToday = forecast[0];
 
   return (
@@ -94,11 +99,11 @@ export function SupplierHome() {
         <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/5" />
         <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/5" />
         <div className="relative">
-          <p className="text-xs font-semibold text-emerald-200 mb-0.5">
-            {t(`supplierHome.greeting.${greeting}`)} · {today.toLocaleDateString(i18n.language === "si" ? "si-LK" : i18n.language === "ta" ? "ta-LK" : "en-LK", { weekday: "long", day: "numeric", month: "long" })}
+          <p className="mb-0.5 text-xs font-semibold text-emerald-200">
+            {currentTime.toLocaleDateString(i18n.language === "si" ? "si-LK" : i18n.language === "ta" ? "ta-LK" : "en-LK", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Colombo" })}
           </p>
           <h1 className="font-display text-xl font-extrabold tracking-tight">
-            {t("supplierHome.welcome", { name: firstName })}
+            {t("supplierHome.greetingWithName", { greeting: t(`supplierHome.greeting.${greeting}`), name: firstName })}
           </h1>
           <p className="text-sm text-emerald-100 mt-0.5 opacity-90">
             {estate ? t("supplierHome.linkedEstate", { estate: estate.name }) : t("supplierHome.interface")}
@@ -141,7 +146,20 @@ export function SupplierHome() {
         </Card>
       )}
 
-      {prices.length > 0 && <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">{prices.map((price) => <Card key={price.grade} className="p-3 text-center"><p className="text-[10px] font-semibold uppercase text-slate-400">{t(gradeKey(price.grade), { defaultValue: price.grade })}</p><p className="mt-1 text-base font-extrabold text-emerald-700">Rs {price.pricePerKg.toLocaleString()}</p><p className="text-[10px] text-slate-400">{t("supplierHome.perKgToday")}</p></Card>)}</div>}
+      {prices.length > 0 && (
+        <div className="mb-4">
+          <div className="grid grid-cols-3 gap-2.5">
+            {prices.filter((price) => price.grade !== "Coarse").map((price) => (
+              <Card key={price.grade} className="p-3 text-center">
+                <p className="text-[10px] font-semibold uppercase text-slate-400">{t(gradeKey(price.grade), { defaultValue: price.grade })}</p>
+                <p className="mt-1 text-base font-extrabold text-emerald-700">Rs {price.pricePerKg.toLocaleString()}</p>
+                <p className="text-[10px] text-slate-400">{t("supplierHome.perKgToday")}</p>
+              </Card>
+            ))}
+          </div>
+          <p className="mt-1.5 text-center text-[10px] text-slate-400">{t("supplierHome.priceReference")}</p>
+        </div>
+      )}
 
       <LorryLocationCard userId={userUid} />
 
@@ -240,9 +258,15 @@ export function SupplierHome() {
   );
 }
 
-function getGreeting(): "morning" | "afternoon" | "evening" {
-  const h = new Date().getHours();
-  if (h < 12) return "morning";
-  if (h < 17) return "afternoon";
-  return "evening";
+function getGreeting(date: Date): "morning" | "afternoon" | "evening" | "night" {
+  const hourPart = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Colombo",
+  }).formatToParts(date).find((part) => part.type === "hour");
+  const h = Number(hourPart?.value ?? date.getHours()) % 24;
+  if (h >= 5 && h < 12) return "morning";
+  if (h >= 12 && h < 17) return "afternoon";
+  if (h >= 17 && h < 21) return "evening";
+  return "night";
 }

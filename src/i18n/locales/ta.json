@@ -625,10 +625,11 @@
     "autoIssueFailed": "தானிய வழங்குதல் தோல்வி"
   },
   "supplierHome": {
-    "greeting": { "morning": "காலை வணக்கம்", "afternoon": "மதிய வணக்கம்", "evening": "மாலை வணக்கம்" },
+    "greeting": { "morning": "காலை வணக்கம்", "afternoon": "மதிய வணக்கம்", "evening": "மாலை வணக்கம்", "night": "இனிய இரவு" },
+    "greetingWithName": "{{greeting}}, {{name}}",
     "welcome": "வரவேற்கிறோம், {{name}}!", "linkedEstate": "{{estate}} · இணைக்கப்பட்ட தோட்டம்", "interface": "விநியோகஸ்தர் தளம்",
     "pendingSync": "ஒத்திசைக்க {{count}} உள்ளது", "weather": "இன்றைய வானிலை", "weatherDetail": "அதிகம் {{temperature}}°C · மழை {{rain}}% · காற்று {{wind}} km/h",
-    "perKgToday": "கிலோவுக்கு · இன்று", "monthEarnings": "மாத வருமானம்", "monthExpenses": "மாத செலவுகள்", "laborFertilizer": "தொழிலாளர் + உரம்",
+    "perKgToday": "கிலோவுக்கு · குறிப்பு", "priceReference": "இலங்கை குறிப்பு விலை · அக்டோபர் 2026. தொழிற்சாலையின் மாத விலை மாறலாம்.", "monthEarnings": "மாத வருமானம்", "monthExpenses": "மாத செலவுகள்", "laborFertilizer": "தொழிலாளர் + உரம்",
     "monthSupplied": "மாத விநியோகம்", "superQuality": "உயர் தரம்", "byWeight": "இலை எடையின் அடிப்படையில்", "reminders": "பண்ணை நினைவூட்டல்கள்",
     "fertilizerReminder": "உரமிடும் காலம் நெருங்குகிறது", "pruningReminder": "கவாத்து நினைவூட்டல் நிலுவையில் உள்ளது", "viewAlerts": "அனைத்து அறிவிப்புகளையும் காண்க",
     "quickActions": "விரைவு செயல்கள்", "myPlot": "என் நிலம்", "farmLog": "பண்ணைப் பதிவு", "deliveries": "இலை விநியோகங்கள்", "requests": "கோரிக்கைகள்",

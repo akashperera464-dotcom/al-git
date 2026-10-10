@@ -3070,7 +3070,19 @@ Run `docs/migration_phase3_round10.sql` in Supabase SQL Editor. It creates and s
 
 ---
 
-*End of Workflow Diagram. Last updated: October 2026 (Round #17 — short mobile navigation labels).*
+## 36. Supplier Home Greeting and Price Reference
+
+- The supplier greeting refreshes every minute and follows Sri Lanka time: morning, afternoon, evening and night.
+- The greeting is presented as a professional localized heading with the supplier's first name and a separately formatted date.
+- The Coarse Leaf card is hidden from the supplier home price summary; Coarse remains available in historical operational records.
+- The three displayed green-leaf reference rates are Standard Rs.176/kg, Super Rs.186/kg and PV Super Rs.204/kg.
+- Prices are explicitly marked as indicative because the factory-confirmed amount changes under the Sri Lanka Tea Board monthly reasonable-price formula.
+- The Standard reference is derived from the September 2026 national tea sales average using the Tea Board 68:32 reasonable-price formula and 4.65 kg green leaf conversion. The Super reference adds the latest published 5.43% quality premium; PV Super uses the latest published high supplier purchase reference, rounded to the nearest rupee.
+- `docs/migration_round18_supplier_reference_prices.sql` updates existing Supabase installations; new installations receive the same defaults from Round #10.
+
+---
+
+*End of Workflow Diagram. Last updated: October 2026 (Round #18 — supplier greeting and Sri Lanka reference prices).*
 
 
 

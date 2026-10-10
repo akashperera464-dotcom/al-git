@@ -625,10 +625,11 @@
     "autoIssueFailed": "ස්වයංක්‍රීය නිකුතුව අසාර්ථකයි"
   },
   "supplierHome": {
-    "greeting": { "morning": "සුබ උදෑසනක්", "afternoon": "සුබ දහවලක්", "evening": "සුබ සන්ධ්‍යාවක්" },
+    "greeting": { "morning": "සුබ උදෑසනක්", "afternoon": "සුබ දහවලක්", "evening": "සුබ සන්ධ්‍යාවක්", "night": "සුබ රාත්‍රියක්" },
+    "greetingWithName": "{{greeting}}, {{name}}",
     "welcome": "ආයුබෝවන්, {{name}}!", "linkedEstate": "{{estate}} · සම්බන්ධිත වත්ත", "interface": "සැපයුම්කරු ද්වාරය",
     "pendingSync": "සමමුහුර්ත කිරීමට {{count}}ක් ඇත", "weather": "අද කාලගුණය", "weatherDetail": "උපරිම {{temperature}}°C · වැසි {{rain}}% · සුළඟ {{wind}} km/h",
-    "perKgToday": "කිලෝවකට · අද", "monthEarnings": "මාසික ආදායම", "monthExpenses": "මාසික වියදම්", "laborFertilizer": "ශ්‍රමය + පොහොර",
+    "perKgToday": "කිලෝවකට · යොමු මිල", "priceReference": "ශ්‍රී ලංකා යොමු මිල · 2026 ඔක්තෝබර්. කර්මාන්තශාලාවේ මාසික මිල වෙනස් විය හැක.", "monthEarnings": "මාසික ආදායම", "monthExpenses": "මාසික වියදම්", "laborFertilizer": "ශ්‍රමය + පොහොර",
     "monthSupplied": "මාසික සැපයුම", "superQuality": "උසස් තත්ත්වය", "byWeight": "දලු බර අනුව", "reminders": "වගා සිහිකැඳවීම්",
     "fertilizerReminder": "පොහොර යෙදීමේ කාලය ළඟයි", "pruningReminder": "කප්පාදු කිරීමේ කාලය පැමිණ ඇත", "viewAlerts": "සියලු දැනුම්දීම් බලන්න",
     "quickActions": "ඉක්මන් ක්‍රියා", "myPlot": "මගේ ඉඩම", "farmLog": "වගා සටහන", "deliveries": "දලු සැපයුම්", "requests": "ඉල්ලීම්",

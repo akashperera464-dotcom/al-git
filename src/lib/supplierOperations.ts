@@ -161,18 +161,40 @@ export async function registerPendingSupplier(input: {
   }
 }
 
-export async function readDailyTeaPrices(date = new Date().toISOString().slice(0, 10)): Promise<DailyTeaPrice[]> {
+export async function readDailyTeaPrices(date = sriLankaDateISO()): Promise<DailyTeaPrice[]> {
+  const referencePrices: DailyTeaPrice[] = [
+    { grade: "Super", pricePerKg: 186 },
+    { grade: "Standard", pricePerKg: 176 },
+    { grade: "PV Super", pricePerKg: 204 },
+  ];
   if (!supabaseConfigured) {
-    return [
-      { grade: "Super", pricePerKg: 1750 },
-      { grade: "Standard", pricePerKg: 1450 },
-      { grade: "Coarse", pricePerKg: 1200 },
-    ];
+    return referencePrices;
   }
   const { data, error } = await getSupabase()!.from("daily_tea_prices")
-    .select("grade,price_per_kg").eq("price_date", date).order("grade");
+    .select("grade,price_per_kg,price_date")
+    .is("factory_id", null)
+    .lte("price_date", date)
+    .order("price_date", { ascending: false })
+    .limit(100);
   if (error) throw new Error(`Could not load daily tea prices: ${error.message}`);
-  return (data ?? []).map(row => ({ grade: row.grade, pricePerKg: Number(row.price_per_kg ?? 0) }));
+  const latestByGrade = new Map<string, DailyTeaPrice>();
+  for (const row of data ?? []) {
+    if (!latestByGrade.has(row.grade)) {
+      latestByGrade.set(row.grade, { grade: row.grade, pricePerKg: Number(row.price_per_kg ?? 0) });
+    }
+  }
+  return referencePrices.map((reference) => latestByGrade.get(reference.grade) ?? reference);
+}
+
+function sriLankaDateISO(date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Colombo",
+  }).formatToParts(date);
+  const value = (type: "day" | "month" | "year") => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
 export async function publishLorryLocation(input: {

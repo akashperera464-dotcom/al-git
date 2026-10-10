@@ -658,10 +658,11 @@
     "autoIssueFailed": "Auto-issue failed"
   },
   "supplierHome": {
-    "greeting": { "morning": "Good morning", "afternoon": "Good afternoon", "evening": "Good evening" },
+    "greeting": { "morning": "Good morning", "afternoon": "Good afternoon", "evening": "Good evening", "night": "Good night" },
+    "greetingWithName": "{{greeting}}, {{name}}",
     "welcome": "Welcome, {{name}}!", "linkedEstate": "{{estate}} · Linked estate", "interface": "Supplier portal",
     "pendingSync": "{{count}} pending sync", "weather": "Today's weather", "weatherDetail": "High {{temperature}}°C · Rain {{rain}}% · Wind {{wind}} km/h",
-    "perKgToday": "per kg · today", "monthEarnings": "Monthly earnings", "monthExpenses": "Monthly expenses", "laborFertilizer": "labour + fertilizer",
+    "perKgToday": "per kg · reference", "priceReference": "Sri Lanka reference rates · October 2026. Your factory-confirmed monthly price may vary.", "monthEarnings": "Monthly earnings", "monthExpenses": "Monthly expenses", "laborFertilizer": "labour + fertilizer",
     "monthSupplied": "Monthly supplied", "superQuality": "Premium quality", "byWeight": "by leaf weight", "reminders": "Farm reminders",
     "fertilizerReminder": "Fertilizer cycle is approaching", "pruningReminder": "Pruning reminder is due", "viewAlerts": "View all alerts",
     "quickActions": "Quick actions", "myPlot": "My plot", "farmLog": "Farm log", "deliveries": "Deliveries", "requests": "Requests",

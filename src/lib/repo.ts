@@ -300,12 +300,15 @@ export async function saveLeafWeighing(role: Role, input: {
   if (supabaseConfigured) {
     try {
       const sb0 = getSupabase()!;
-      const today = new Date().toISOString().slice(0, 10);
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Colombo" }).format(new Date());
       const { data: priceRow } = await sb0
         .from("daily_tea_prices")
         .select("price_per_kg")
-        .eq("price_date", today)
+        .is("factory_id", null)
+        .lte("price_date", today)
         .eq("grade", input.grade)
+        .order("price_date", { ascending: false })
+        .limit(1)
         .maybeSingle();
       if (priceRow) {
         amount = +(Number(priceRow.price_per_kg) * input.netKg).toFixed(2);
@@ -313,8 +316,8 @@ export async function saveLeafWeighing(role: Role, input: {
     } catch { /* price lookup is best-effort */ }
   } else {
     // Demo mode — use mock prices
-    const MOCK_PRICES: Record<string, number> = { Super: 165, Standard: 120, Coarse: 90 };
-    amount = +((MOCK_PRICES[input.grade] ?? 100) * input.netKg).toFixed(2);
+    const MOCK_PRICES: Record<string, number> = { "PV Super": 204, Super: 186, Standard: 176, Coarse: 150 };
+    amount = +((MOCK_PRICES[input.grade] ?? 176) * input.netKg).toFixed(2);
   }
 
   // Demo mode (no Supabase configured) — always succeed with mock

@@ -121,8 +121,8 @@ create policy "daily_tea_prices_write" on public.daily_tea_prices for all using 
 -- Add today's grade rates as immediately usable defaults. Admins can change them in the daily price screen.
 insert into public.daily_tea_prices(price_date, grade, price_per_kg)
 values
-  (current_date, 'Standard', 1450),
-  (current_date, 'Super', 1750),
-  (current_date, 'PV Super', 1750),
-  (current_date, 'Coarse', 1200)
+  ((now() at time zone 'Asia/Colombo')::date, 'Standard', 176),
+  ((now() at time zone 'Asia/Colombo')::date, 'Super', 186),
+  ((now() at time zone 'Asia/Colombo')::date, 'PV Super', 204),
+  ((now() at time zone 'Asia/Colombo')::date, 'Coarse', 150)
 on conflict do nothing;
