@@ -3017,9 +3017,53 @@ Even if supplier clears their phone:
 
 ---
 
-*End of Workflow Diagram. Last updated: October 2026 (Round #15 — Supplier labor Supabase persistence).*
+## 34. Ideas 1–4 — Supplier Transparency, i18n, Factory Routes and Registration
 
-*ලේඛනයේ අවසානය. අවසන් යාවත්කාලීනය: ඔක්තෝබර් 2026 (Round #15 — කම්කරු දත්ත Supabase ආරක්ෂණය).*
+### 34.1 Connected Operational Flow
+
+```text
+Supplier self-registration
+  → Firebase email/password account
+  → Supabase users row (pending_approval + supplier_no + factory_id + route_id)
+  → Admin verifies and approves
+  → Supplier can sign in
+
+Factory selection → filtered route selection → route-filtered supplier directory
+  → Collector selects supplier + grade + gross weight + deduction
+  → EMS calculates net kg and amount from daily grade price
+  → Supplier deliveries/home/payment estimate update
+
+Collector starts route GPS → lorry_locations upsert
+  → Supabase Realtime route subscription
+  → assigned supplier sees current lorry marker on the home dashboard
+```
+
+### 34.2 Grade and Financial Transparency
+
+- Daily delivery totals are grouped by grade with kg, current rate and calculated amount.
+- Monthly gross income is grouped by grade; the external factory finance system remains the final source of truth.
+- Quality percentage is calculated by leaf weight, not record count. A low premium-grade percentage produces a quality-improvement tip.
+- Fertilizer credit, active advances and labour costs remain deductions in the live estimated net payable.
+
+### 34.3 Professional Internationalization
+
+- English, Sinhala and Tamil locale files have matching `supplierHome`, `supplierDelivery`, `status`, `grade`, `activity`, `moveType`, `landType`, `plotState` and `role` keys.
+- Database values remain in English and are normalized through `src/i18n/databaseValues.ts` before display.
+- The supplier home and core delivery/finance displays no longer combine Sinhala and English in one label.
+
+### 34.4 Database Migration (Required)
+
+Run `docs/migration_phase3_round10.sql` in Supabase SQL Editor. It creates and seeds all six factories and their supplied route lists, adds supplier operational fields and harvest grading fields, enables realtime lorry locations, and inserts today's grade prices.
+
+### 34.5 Protected Architecture
+
+- Firebase remains the email/password authentication provider; Supabase remains the PostgreSQL data platform.
+- `src/lib/auth.hybrid.ts`, `src/lib/rbac.ts`, and `.env` were not changed.
+- Pending-account gating is implemented outside the protected auth module.
+
+---
+
+*End of Workflow Diagram. Last updated: October 2026 (Round #16 — Ideas 1–4 interconnected supplier operations).*
 
 
 

@@ -14,20 +14,15 @@ import { LocationCheckIn } from "@/components/LocationCheckIn";
 import { PruningAdvisory } from "@/components/PruningAdvisory";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 import type { SupplyRecord } from "@/lib/data";
+import { readDailyTeaPrices } from "@/lib/supplierOperations";
+import { gradeKey, statusKey } from "@/i18n/databaseValues";
 
 /** Daily Tea Prices card — shows today's price per kg per grade. */
 function DailyPriceCard() {
+  const { t } = useTranslation();
   const [prices, setPrices] = useState<{ grade: string; pricePerKg: number }[]>([]);
   useEffect(() => {
-    if (!supabaseConfigured) return;
-    const sb = getSupabase()!;
-    void (async () => {
-      try {
-        const today = new Date().toISOString().slice(0, 10);
-        const { data } = await sb.from("daily_tea_prices").select("grade, price_per_kg").eq("price_date", today);
-        if (data) setPrices(data.map((r: Record<string, unknown>) => ({ grade: r.grade as string, pricePerKg: Number(r.price_per_kg) })));
-      } catch { /* ignore */ }
-    })();
+    void readDailyTeaPrices().then(setPrices).catch(() => setPrices([]));
   }, []);
 
   if (prices.length === 0) return null;
@@ -36,9 +31,9 @@ function DailyPriceCard() {
     <div className="mb-4 grid grid-cols-3 gap-2">
       {prices.map(p => (
         <div key={p.grade} className="rounded-xl border border-slate-200 bg-white p-3 text-center">
-          <Badge tone={toneMap[p.grade] ?? "slate"}>{p.grade}</Badge>
+          <Badge tone={toneMap[p.grade] ?? "slate"}>{t(gradeKey(p.grade), { defaultValue: p.grade })}</Badge>
           <p className="mt-1.5 font-display text-lg font-bold text-slate-800">Rs {p.pricePerKg.toLocaleString()}</p>
-          <p className="text-[10px] text-slate-400">per kg · today</p>
+          <p className="text-[10px] text-slate-400">{t("supplierHome.perKgToday")}</p>
         </div>
       ))}
     </div>
@@ -79,6 +74,7 @@ function LinkedEstateBanner() {
 
 /** Yield History BarChart — monthly kg by grade (A6) */
 function YieldHistoryChart({ records }: { records: { date: string; kg: number; grade: string }[] }) {
+  const { t } = useTranslation();
   // Group by month
   const monthlyData = useMemo(() => {
     const map: Record<string, { month: string; Super: number; Standard: number; Coarse: number; total: number }> = {};
@@ -97,7 +93,7 @@ function YieldHistoryChart({ records }: { records: { date: string; kg: number; g
   if (monthlyData.length === 0) return null;
   return (
     <Card className="mt-4 p-4">
-      <h3 className="font-display text-sm font-bold text-slate-800 mb-3">📈 අස්වැන්න ඉතිහාසය · Yield History (kg/month)</h3>
+      <h3 className="font-display text-sm font-bold text-slate-800 mb-3">📈 {t("supplierDelivery.yieldHistory")}</h3>
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={monthlyData} barCategoryGap="30%">
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -122,7 +118,8 @@ function YieldHistoryChart({ records }: { records: { date: string; kg: number; g
 }
 
 /** Quality Trend LineChart — % Super grade over last 8 deliveries (A7) */
-function QualityTrendChart({ records }: { records: { date: string; grade: string }[] }) {
+function QualityTrendChart({ records }: { records: { date: string; grade: string; kg: number }[] }) {
+  const { t } = useTranslation();
   const trendData = useMemo(() => {
     if (records.length < 2) return [];
     // Rolling 4-delivery window
@@ -130,7 +127,9 @@ function QualityTrendChart({ records }: { records: { date: string; grade: string
     const result: { label: string; superPct: number }[] = [];
     for (let i = 3; i < sorted.length; i++) {
       const window = sorted.slice(Math.max(0, i - 3), i + 1);
-      const pct = Math.round((window.filter(r => r.grade === "Super").length / window.length) * 100);
+      const totalKg = window.reduce((sum, record) => sum + record.kg, 0);
+      const superKg = window.filter((record) => record.grade === "Super" || record.grade === "PV Super").reduce((sum, record) => sum + record.kg, 0);
+      const pct = totalKg ? Math.round((superKg / totalKg) * 100) : 0;
       result.push({ label: sorted[i].date.slice(5), superPct: pct });
     }
     return result.slice(-8);
@@ -144,9 +143,9 @@ function QualityTrendChart({ records }: { records: { date: string; grade: string
   return (
     <Card className="mt-3 p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-display text-sm font-bold text-slate-800">🎯 ගුණාත්මකභාවය · Quality Trend</h3>
+        <h3 className="font-display text-sm font-bold text-slate-800">🎯 {t("supplierDelivery.qualityTrend")}</h3>
         <span className={`text-xs font-bold ${improving ? "text-emerald-600" : "text-rose-500"}`}>
-          {improving ? "↑ Improving" : "↓ Declining"}
+          {improving ? `↑ ${t("supplierDelivery.improving")}` : `↓ ${t("supplierDelivery.declining")}`}
         </span>
       </div>
       <ResponsiveContainer width="100%" height={120}>
@@ -167,13 +166,44 @@ function QualityTrendChart({ records }: { records: { date: string; grade: string
   );
 }
 
+function GradeIncomeBreakdown({ records }: { records: SupplyRecord[] }) {
+  const { t } = useTranslation();
+  const [prices, setPrices] = useState<Record<string, number>>({});
+  useEffect(() => {
+    void readDailyTeaPrices().then((rows) => setPrices(Object.fromEntries(rows.map((row) => [row.grade, row.pricePerKg])))).catch(() => setPrices({}));
+  }, []);
+  const today = new Date().toISOString().slice(0, 10);
+  const month = today.slice(0, 7);
+  const group = (source: SupplyRecord[]) => Object.values(source.reduce<Record<string, { grade: string; kg: number; amount: number }>>((map, record) => {
+    const grade = record.grade || "Standard";
+    const entry = map[grade] ?? { grade, kg: 0, amount: 0 };
+    entry.kg += record.kg;
+    entry.amount += record.amount || record.kg * (prices[grade] ?? 0);
+    map[grade] = entry;
+    return map;
+  }, {}));
+  const todayRows = group(records.filter((record) => record.date.startsWith(today)));
+  const monthRows = group(records.filter((record) => record.date.startsWith(month)));
+  const total = todayRows.reduce((sum, row) => sum + row.amount, 0);
+  const monthKg = monthRows.reduce((sum, row) => sum + row.kg, 0);
+
+  return (
+    <div className="mb-4 grid gap-3 lg:grid-cols-2">
+      <Card className="p-4"><div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-bold text-slate-800">{t("supplierDelivery.todayBreakdown")}</h3><strong className="text-emerald-700">{fmtLKR(total)}</strong></div>{todayRows.length ? <div className="space-y-2">{todayRows.map((row) => <div key={row.grade} className="grid grid-cols-3 rounded-lg bg-slate-50 px-3 py-2 text-xs"><span className="font-semibold">{t(gradeKey(row.grade), { defaultValue: row.grade })}</span><span className="text-center">{fmtNum(row.kg)} kg × Rs {fmtNum(prices[row.grade] ?? (row.kg ? row.amount / row.kg : 0))}</span><span className="text-right font-bold text-emerald-700">{fmtLKR(row.amount)}</span></div>)}</div> : <p className="text-xs text-slate-400">{t("supplierDelivery.noToday")}</p>}</Card>
+      <Card className="p-4"><h3 className="mb-2 text-sm font-bold text-slate-800">{t("supplierDelivery.monthIncome")}</h3>{monthRows.length ? <div className="space-y-2">{monthRows.map((row) => <div key={row.grade} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-xs"><span>{t(gradeKey(row.grade), { defaultValue: row.grade })} · {fmtNum(row.kg)} kg</span><strong>{fmtLKR(row.amount)}</strong></div>)}</div> : <p className="text-xs text-slate-400">{t("supplierDelivery.noMonth")}</p>}</Card>
+      {monthKg > 0 && <Card className="p-4 lg:col-span-2"><h3 className="mb-3 text-sm font-bold text-slate-800">{t("supplierDelivery.qualityDistribution")}</h3><div className="space-y-2.5">{monthRows.map((row) => { const percent = Math.round((row.kg / monthKg) * 100); return <div key={row.grade}><div className="mb-1 flex justify-between text-xs"><span>{t(gradeKey(row.grade), { defaultValue: row.grade })}</span><strong>{percent}% · {fmtNum(row.kg)} kg</strong></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${percent}%` }} /></div></div>; })}</div></Card>}
+    </div>
+  );
+}
+
 /** 1 · My Leaf Deliveries — daily net weight & quality grade (own records only). */
 export function SupplierDeliveries() {
   const { t } = useTranslation();
   const { estates, associatedEntityId } = useApp();
   const { records, loading } = useOwnSupply();
   const totalNet = records.reduce((s, r) => s + r.kg, 0);
-  const superPct = records.length ? Math.round((records.filter((r) => r.grade === "Super").length / records.length) * 100) : 0;
+  const superKg = records.filter((record) => record.grade === "Super" || record.grade === "PV Super").reduce((sum, record) => sum + record.kg, 0);
+  const superPct = totalNet ? Math.round((superKg / totalNet) * 100) : 0;
 
   return (
     <div>
@@ -185,6 +215,7 @@ export function SupplierDeliveries() {
       />
       <LinkedEstateBanner />
       <DailyPriceCard />
+      <GradeIncomeBreakdown records={records} />
       <div className="grid grid-cols-3 gap-2.5">
         <StatCard icon={Package} label={t("supplier.netSupplied")} value={fmtNum(totalNet)} sub={t("supplier.kgNet")} tone="emerald" />
         <StatCard icon={Leaf} label={t("supplier.deliveriesCount")} value={String(records.length)} tone="sky" />
@@ -201,11 +232,11 @@ export function SupplierDeliveries() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-bold text-slate-800">{fmtNum(r.kg)} kg net</p>
-                <Badge tone={GRADE_TONE[r.grade]}>{r.grade}</Badge>
+                <Badge tone={GRADE_TONE[r.grade]}>{t(gradeKey(r.grade), { defaultValue: r.grade })}</Badge>
               </div>
               <p className="text-[11px] text-slate-400">{r.date} · {fmtLKR(r.amount)}</p>
             </div>
-            <Badge tone={r.status === "Paid" ? "emerald" : "amber"} dot>{r.status}</Badge>
+            <Badge tone={r.status === "Paid" ? "emerald" : "amber"} dot>{t(statusKey(r.status), { defaultValue: r.status })}</Badge>
           </Card>
         ))}
       </div>
@@ -320,6 +351,7 @@ export function SupplierAlerts() {
  *  Shows gross earnings vs fertilizer credit cost (kg × Rs 95/kg estimate).
  *  Includes disclaimer: "This is an estimate — factory finance office confirms at month-end." */
 function CostEarningsChart({ records }: { records: { date: string; amount: number }[] }) {
+  const { t } = useTranslation();
   const ledgerRaw = typeof window !== "undefined" ? localStorage.getItem("kdu.supplier_fertilizer_ledger") : null;
   const fertLedger: { date?: string; issuedDate?: string; totalCost?: number; costRs?: number }[] = ledgerRaw ? JSON.parse(ledgerRaw) : [];
 
@@ -348,18 +380,18 @@ function CostEarningsChart({ records }: { records: { date: string; amount: numbe
 
   return (
     <Card className="mt-3 mb-4 p-4 border-emerald-100">
-      <h3 className="font-display text-sm font-bold text-slate-800 mb-3">💰 ආදායම් vs වියදම් · Earnings vs Cost</h3>
+      <h3 className="font-display text-sm font-bold text-slate-800 mb-3">💰 {t("supplierDelivery.earningsVsCost")}</h3>
       <div className="grid grid-cols-3 gap-2 mb-3">
         <div className="rounded-lg bg-emerald-50 p-2.5 text-center">
-          <p className="text-[9px] font-semibold text-emerald-600">ඉපයීම්</p>
+          <p className="text-[9px] font-semibold text-emerald-600">{t("supplierDelivery.earnings")}</p>
           <p className="font-bold text-emerald-700 text-sm">Rs {(totalEarned / 1000).toFixed(0)}k</p>
         </div>
         <div className="rounded-lg bg-rose-50 p-2.5 text-center">
-          <p className="text-[9px] font-semibold text-rose-600">වියදම්</p>
+          <p className="text-[9px] font-semibold text-rose-600">{t("supplierDelivery.costs")}</p>
           <p className="font-bold text-rose-700 text-sm">Rs {(totalCost / 1000).toFixed(0)}k</p>
         </div>
         <div className={`rounded-lg p-2.5 text-center ${netEarnings >= 0 ? "bg-sky-50" : "bg-amber-50"}`}>
-          <p className={`text-[9px] font-semibold ${netEarnings >= 0 ? "text-sky-600" : "text-amber-600"}`}>ශුද්ධ</p>
+          <p className={`text-[9px] font-semibold ${netEarnings >= 0 ? "text-sky-600" : "text-amber-600"}`}>{t("supplierDelivery.net")}</p>
           <p className={`font-bold text-sm ${netEarnings >= 0 ? "text-sky-700" : "text-amber-700"}`}>Rs {(netEarnings / 1000).toFixed(0)}k</p>
         </div>
       </div>
@@ -458,6 +490,7 @@ export function SupplierPayments() {
           const { data } = await sb
             .from("supplier_fertilizer_loans")
             .select("balance, status")
+            .eq("supplier_id", userUid)
             .eq("status", "active");
           if (data) {
             const total = data.reduce((s: number, r: { balance: number }) => s + Number(r.balance ?? 0), 0);
@@ -484,7 +517,7 @@ export function SupplierPayments() {
 
       {/* B30 (Round #12) — Estimate disclaimer banner */}
       <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-        <p className="font-bold">⚠ මෙය ඇස්තමේන්තුවකි · This is an estimate</p>
+        <p className="font-bold">⚠ {t("supplierDelivery.estimateTitle")}</p>
         <p className="mt-0.5">The factory finance office confirms the actual net payable amount at month-end. Figures shown here are computed live from your leaf deliveries × today's tea price, minus fertilizer credit and active advances.</p>
       </div>
 
@@ -499,7 +532,7 @@ export function SupplierPayments() {
 
       {/* B30 (Round #12) — Deductions breakdown */}
       <Card className="mt-4 p-4">
-        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">📋 කැපීම් · Deductions Breakdown</h3>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">📋 {t("supplierDelivery.deductions")}</h3>
         <div className="space-y-2">
           <div className="flex items-center justify-between rounded-lg border border-rose-100 bg-rose-50/50 p-2.5">
             <div>
@@ -524,7 +557,7 @@ export function SupplierPayments() {
             <p className="text-sm font-bold text-orange-600">− {fmtLKR(laborCostMonth)}</p>
           </div>
           <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-bold text-slate-800">ශුද්ධ ගෙවිය යුතු මුදල · Net Payable (estimate)</p>
+            <p className="text-sm font-bold text-slate-800">{t("supplierDelivery.netPayable")}</p>
             <p className={`font-display text-lg font-extrabold ${netPayable >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{fmtLKR(netPayable)}</p>
           </div>
         </div>
@@ -540,11 +573,11 @@ export function SupplierPayments() {
             <div key={r.id} className="flex items-center justify-between border-b border-slate-50 py-2.5 last:border-0">
               <div>
                 <p className="text-sm font-semibold text-slate-800">{r.date}</p>
-                <p className="text-[11px] text-slate-400">{fmtNum(r.kg)} kg · {r.grade}</p>
+                <p className="text-[11px] text-slate-400">{fmtNum(r.kg)} kg · {t(gradeKey(r.grade), { defaultValue: r.grade })}</p>
               </div>
               <div className="text-right">
                 <p className="text-sm font-bold text-slate-800">{fmtLKR(r.amount)}</p>
-                <Badge tone={r.status === "Paid" ? "emerald" : "amber"}>{r.status}</Badge>
+                <Badge tone={r.status === "Paid" ? "emerald" : "amber"}>{t(statusKey(r.status), { defaultValue: r.status })}</Badge>
               </div>
             </div>
           ))}
@@ -572,6 +605,7 @@ export function SupplierPayments() {
  * per day per supplier.
  * --------------------------------------------------------------------------- */
 function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast: WeatherDay[] }) {
+  const { t, i18n } = useTranslation();
   const [alerts, setAlerts] = useState<{ type: string; title: string; body: string; tone: "amber" | "sky" | "emerald" | "rose" }[]>([]);
 
   useEffect(() => {
@@ -597,15 +631,15 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
             const block = (lastFert.details as any)?.block ?? "all blocks";
             computed.push({
               type: "fert-cycle",
-              title: "🔄 ඊළඟ පොහොර වටය · Next Fertilizer Cycle Due",
-              body: `පොහොර දැමූයේ ${daysSince} දිනකට පෙර (${new Date(lastFert.loggedDate).toLocaleDateString()}). මාස 3කට පසු ඊළඟ වටය යෙදීමට කාලය පැමිණ ඇත. අවසන් වරට ${fertType} භාවිතා කරන ලද ${block} සඳහා.`,
+              title: `🔄 ${t("smartAlerts.fertilizerDueTitle")}`,
+              body: t("smartAlerts.fertilizerDueBody", { days: daysSince, date: new Date(lastFert.loggedDate).toLocaleDateString(i18n.language), type: fertType, block }),
               tone: "amber",
             });
           } else if (daysSince >= 75) {
             computed.push({
               type: "fert-soon",
-              title: "⏰ පොහොර වටය ඉක්මීමට ආසන් · Fertilizer Cycle Approaching",
-              body: `දින ${90 - daysSince}කින් ඊළඟ පොහොර වටය යෙදීමට කාලය පැමිණේ. පොහොර සූදානම් කරගන්න.`,
+              title: `⏰ ${t("smartAlerts.fertilizerSoonTitle")}`,
+              body: t("smartAlerts.fertilizerSoonBody", { days: 90 - daysSince }),
               tone: "sky",
             });
           }
@@ -620,8 +654,8 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
           if (daysSince >= 40 && daysSince <= 50) {
             computed.push({
               type: "prune-mixture",
-              title: "✂️ කප්පාදු පොහොර · Pruning Mixture Reminder",
-              body: `කප්පාදු කර දින ${daysSince}ක් ගත වී ඇත. දින 45කින් අලුත් කුරුල්ලන්/දලු මතුවනු ඇත. කප්පාදු පොහොර (Pruning Mixture) යෙදීමට සූදානම් වන්න.`,
+              title: `✂️ ${t("smartAlerts.pruningMixTitle")}`,
+              body: t("smartAlerts.pruningMixBody", { days: daysSince }),
               tone: "emerald",
             });
           } else if (daysSince > 50) {
@@ -629,8 +663,8 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
             const block = (lastPrune.details as any)?.block ?? "all blocks";
             computed.push({
               type: "prune-overdue",
-              title: "🌱 අලුත් දලු · New Flush Emerging",
-              body: `කප්පාදු කර දින ${daysSince}ක් වේ. අලුත් දලු මතුව ඇත (${pruneType}, ${block}). කප්පාදු පොහොර යෙදීමට කාලය පැමිණ ඇත.`,
+              title: `🌱 ${t("smartAlerts.newFlushTitle")}`,
+              body: t("smartAlerts.newFlushBody", { days: daysSince, type: pruneType, block }),
               tone: "emerald",
             });
           }
@@ -647,8 +681,8 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
             const weekNum = Math.ceil(daysSince / 7);
             computed.push({
               type: "replant-care",
-              title: "🌿 අලුත් පැළ රැකබලා ගැනීම · New Plant Care",
-              body: `අලුතින් සිටුවූ පැළ ${newPlants}ක් — සති ${weekNum}ක් ගත වී ඇත. ජලය/සෙවන සැපයීමට පියවර ගන්න. Water/shade for new plants.`,
+              title: `🌿 ${t("smartAlerts.newPlantTitle")}`,
+              body: t("smartAlerts.newPlantBody", { plants: newPlants, weeks: weekNum }),
               tone: "sky",
             });
           }
@@ -668,8 +702,8 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
             if (recentFert) {
               computed.push({
                 type: "weather-guard",
-                title: "⚠️ පොහොර සෝදා යාමේ අවදානම · Fertilizer Wash-Out Risk",
-                body: `අදින කිහිපය තුළ පොහොර යොදා ඇත. හෙට වැසි ${rainTomorrow}%, අනිද්ද ${rainDayAfter}%. තද වැසි හේතුවෙන් පොහොර සෝදා යාමේ අවදානමක් ඇත.`,
+                title: `⚠️ ${t("smartAlerts.washoutTitle")}`,
+                body: t("smartAlerts.washoutBody", { tomorrow: rainTomorrow, dayAfter: rainDayAfter }),
                 tone: "rose",
               });
             }
@@ -730,7 +764,7 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
         } catch { /* ignore — push failure should not break UI */ }
       }
     })();
-  }, [userUid, forecast]);
+  }, [userUid, forecast, t, i18n.language]);
 
   if (alerts.length === 0) return null;
 
@@ -738,7 +772,7 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
     <Card className="p-4 border-violet-200">
       <div className="mb-2 flex items-center gap-2">
         <BellRing className="h-4 w-4 text-violet-600" />
-        <h3 className="font-display text-sm font-bold text-slate-800">🤖 ස්වයංක්‍රීය දැනුම්දීම් · Smart Automated Alerts</h3>
+        <h3 className="font-display text-sm font-bold text-slate-800">🤖 {t("smartAlerts.title")}</h3>
       </div>
       <div className="space-y-2">
         {alerts.map((a, i) => (

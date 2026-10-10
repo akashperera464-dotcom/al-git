@@ -64,7 +64,8 @@
     "accountsCreatedByAdmin": "Accounts are created by your Super Admin / Administrator.",
     "securedBy": "Secured by Firebase Authentication · Data by Supabase",
     "signInFailed": "Login failed.",
-    "platformSubtitle": "Tea Estate Supplier Management Platform"
+    "platformSubtitle": "Tea Estate Supplier Management Platform",
+    "pendingApprovalMessage": "Your registration is awaiting administrator approval.", "registrationRequired": "Supplier No, name, email, password, factory and route are required.", "passwordMin6": "Password must contain at least 6 characters.", "registrationFailed": "Registration failed.", "supplierNo": "Supplier No", "factory": "Factory", "route": "Route", "selectFactory": "Select a factory", "selectRoute": "Select a route", "registrationSuccess": "Registration submitted successfully. You can sign in after an administrator approves your account.", "registering": "Registering…", "submitRegistration": "Submit registration", "backToSignIn": "Back to sign in", "newSupplier": "New supplier? Register here"
   },
   "modules": {
     "dashboard": {
@@ -232,7 +233,7 @@
     "superAdminTitle": "Super Administrator",
     "adminTitle": "Estate Director",
     "officerTitle": "Extension Officer",
-    "supplierTitle": "VVIP Supplier",
+    "supplierTitle": "Supplier",
     "superAdminDesc": "Full system control · manages admins",
     "adminDesc": "Full executive access",
     "officerDesc": "Field registration & weighing",
@@ -360,7 +361,7 @@
   "officer": {
     "eyebrow": "Extension Officer · Field",
     "registerTitle": "Register New Supplier",
-    "registerDesc": "Onboard a new VVIP supplier directly into an estate. Creates their Firebase Auth account + Supabase profile instantly.",
+    "registerDesc": "Register a new supplier with their existing factory number, factory and route. Creates their Firebase Auth account and Supabase profile.",
     "fullName": "Full name *",
     "fullNamePh": "e.g. Nimal Suppliers",
     "emailLabel": "Email *",
@@ -592,9 +593,9 @@
     "potentialTitle": "🌱 Your Plot's Potential",
     "potentialBody": "For your {{acreage}} acres plot ({{region}} region), you could harvest up to {{kg}} kg green leaf per year (~{{monthly}} kg/month). Follow the tips below to reach this potential.",
     "fertGuidanceTitle": "🧪 Fertilizer Guidance for Your {{acreage}} Acres",
-    "fertGuidanceHint": "ඔබගේ {{acreage}} අක්කර වත්තට අවශ්‍ය පොහොර ප්‍රමාණය පහත පරිදි යෙදිය යුතුය. (Recommended fertilizer quantities for your plot.)",
+    "fertGuidanceHint": "Recommended fertilizer quantities for your {{acreage}}-acre plot.",
     "tipOfDay": "Today's Tip",
-    "allTips": "All Tips"
+    "allTips": "All Tips", "tip1Title": "Maximum yield per acre", "tip1Body": "Low-country tea can produce about 1,500 kg of green leaf per acre each year when fertilizer and plucking rounds are managed correctly.", "tip2Title": "Fertilizer mix", "tip2Body": "For healthy tea bushes, use the recommended annual mix per acre: Urea 50 kg, TSP 25 kg and MOP 25 kg, adjusted by soil-test advice.", "tip3Title": "Pruning cycle", "tip3Body": "Prune tea bushes every three to four years. Correct pruning can improve sustainable yield by about 20%.", "tip4Title": "Plucking rounds", "tip4Body": "Maintain a seven-to-ten-day plucking round to support consistent yield and leaf quality.", "tip5Title": "Recheck bush count", "tip5Body": "Recheck the number of bushes every six months and update the plot when bushes die or new plants are established."
   },
   "supplierWeather": {
     "eyebrow": "Supplier Interface",
@@ -631,5 +632,28 @@
     "autoIssued": "✅ Auto-issued from Inventory",
     "noMatch": "⚠ No matching stock item",
     "autoIssueFailed": "Auto-issue failed"
-  }
+  },
+  "supplierHome": {
+    "greeting": { "morning": "Good morning", "afternoon": "Good afternoon", "evening": "Good evening" },
+    "welcome": "Welcome, {{name}}!", "linkedEstate": "{{estate}} · Linked estate", "interface": "Supplier portal",
+    "pendingSync": "{{count}} pending sync", "weather": "Today's weather", "weatherDetail": "High {{temperature}}°C · Rain {{rain}}% · Wind {{wind}} km/h",
+    "perKgToday": "per kg · today", "monthEarnings": "Monthly earnings", "monthExpenses": "Monthly expenses", "laborFertilizer": "labour + fertilizer",
+    "monthSupplied": "Monthly supplied", "superQuality": "Premium quality", "byWeight": "by leaf weight", "reminders": "Farm reminders",
+    "fertilizerReminder": "Fertilizer cycle is approaching", "pruningReminder": "Pruning reminder is due", "viewAlerts": "View all alerts",
+    "quickActions": "Quick actions", "myPlot": "My plot", "farmLog": "Farm log", "deliveries": "Deliveries", "requests": "Requests",
+    "qualityTipTitle": "Quality improvement tip", "qualityTipBody": "Only {{percent}}% of this month's leaf weight is premium grade. Pluck two leaves and a bud, avoid coarse stems, and deliver promptly.",
+    "netPayable": "Estimated net payable", "financeDisclaimer": "The factory finance office confirms the final amount at month-end.", "view": "View"
+  },
+  "supplierDelivery": { "todayBreakdown": "Today's grade earnings", "noToday": "No deliveries recorded today.", "monthIncome": "Monthly income by grade", "noMonth": "No deliveries recorded this month.", "qualityDistribution": "Monthly quality distribution by leaf weight", "yieldHistory": "Yield history (kg/month)", "qualityTrend": "Quality performance", "improving": "Improving", "declining": "Declining", "earningsVsCost": "Earnings and costs", "earnings": "Earnings", "costs": "Costs", "net": "Net", "estimateTitle": "This is an estimate", "deductions": "Deductions breakdown", "netPayable": "Estimated net payable" },
+  "supplierProfile": { "eyebrow": "Supplier portal", "title": "My profile", "desc": "Manage your details, notifications and financial estimate.", "totalEarned": "Total earned", "creditAdvances": "Fertilizer credit and advances", "netPayable": "Estimated net payable", "financeDisclaimer": "The factory finance office confirms the final amount at month-end.", "details": "Profile details", "name": "Name", "phone": "Phone", "nic": "National identity card", "emergency": "Emergency contact", "address": "Address", "photo": "Photo URL", "save": "Save profile", "preferences": "Notification preferences", "notificationCenter": "Notification centre", "help": "How to use this app" },
+  "supplierCalendar": { "eyebrow": "Supplier portal", "title": "My calendar", "desc": "View farm activities by date and select a day to record new work.", "monthSummary": "This month's activities", "close": "Close", "noneDay": "No activities were recorded on this day.", "logOn": "Record activity on {{date}}", "logToday": "Record today's activity", "empty": "No farm activities have been recorded.", "emptyHint": "Use the button above to record your first activity." },
+  "smartAlerts": { "title": "Smart automated alerts", "fertilizerDueTitle": "Next fertilizer cycle is due", "fertilizerDueBody": "Fertilizer was applied {{days}} days ago on {{date}}. Prepare the next three-month cycle for {{block}}, where {{type}} was last used.", "fertilizerSoonTitle": "Fertilizer cycle approaching", "fertilizerSoonBody": "The next fertilizer cycle is due in {{days}} days. Prepare the required fertilizer.", "pruningMixTitle": "Pruning mixture reminder", "pruningMixBody": "It has been {{days}} days since pruning. Prepare the pruning mixture as the new flush approaches.", "newFlushTitle": "New flush emerging", "newFlushBody": "It has been {{days}} days since pruning. A new flush is emerging in {{block}} after {{type}} pruning.", "newPlantTitle": "New plant care", "newPlantBody": "{{plants}} new plants are now {{weeks}} weeks old. Provide sufficient water and shade.", "washoutTitle": "Fertilizer wash-out risk", "washoutBody": "Fertilizer was applied recently. Rain probability is {{tomorrow}}% tomorrow and {{dayAfter}}% the following day; heavy rain may wash it away." },
+  "supplierLabor": { "eyebrow": "Supplier portal", "title": "My labour", "desc": "Record daily workers and wages. The total labour cost is calculated automatically.", "noWorkersTitle": "No workers entered", "noWorkersBody": "Enter at least one worker before saving labour costs.", "saved": "Labour cost saved", "savedBody": "{{date}} · {{count}} workers · {{amount}}", "todayCost": "Today's cost", "workerCount": "{{count}} workers", "thisMonth": "This month", "daysRecorded": "{{count}} days recorded", "recordedDays": "Recorded days", "total": "Total", "categories": "Categories", "calculator": "Daily labour cost calculator", "headcount": "Count", "wage": "Wage (Rs)", "workerName": "Worker name (optional)", "workerPhone": "Phone number", "subtotal": "Subtotal", "addWorker": "Add another worker", "totalDaily": "Total daily labour cost", "totalWorkers": "Total workers", "recent": "Recent records", "empty": "No labour costs have been recorded.", "typeCount": "{{count}} types", "futureTitle": "Future plan (Phase 2)", "futureBody": "When a labour shortage occurs, the factory can provide workers through the labour request workflow and include those costs here.", "category": { "kankanam": "Kankanam", "casual_plucking": "Casual plucking", "temporary": "Temporary" } },
+  "status": { "active": "Active", "suspended": "Suspended", "pending_approval": "Pending approval", "paid": "Paid", "pending": "Pending", "approved": "Approved", "rejected": "Rejected", "cleared": "Cleared", "queued": "Queued", "synced": "Synced" },
+  "grade": { "super": "Super leaf", "standard": "Normal leaf", "pv_super": "PV Super", "coarse": "Coarse leaf" },
+  "activity": { "fertilizer": "Fertilizer application", "pruning": "Pruning", "plucking": "Plucking", "self_harvest": "Self harvest", "replanting": "Replanting", "weeding": "Weeding", "spraying": "Spraying" },
+  "moveType": { "in": "Stock in", "out": "Stock out", "adjust": "Adjustment", "transfer": "Transfer" },
+  "landType": { "tea": "Tea land", "forest": "Forest", "water": "Water", "road": "Road", "nursery": "Nursery", "factory": "Factory" },
+  "plotState": { "plucking": "In plucking", "pruned": "Pruned", "young": "Young tea", "nursery": "Nursery" },
+  "role": { "super_admin": "Super admin", "admin": "Admin", "extension_officer": "Extension officer", "supplier": "Supplier" }
 }

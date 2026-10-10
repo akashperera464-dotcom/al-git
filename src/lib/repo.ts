@@ -198,7 +198,7 @@ export async function readUsersForAdmin(): Promise<ManagedUser[]> {
   const sb = getSupabase()!;
   const { data, error } = await sb
     .from("users")
-    .select("id, name, email, phone, division, role, associated_entity_id, status, created_at")
+    .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, status, created_at, factories(name), routes(route_name)")
     .order("created_at", { ascending: false });
   if (error) throw new Error(`Could not load users: ${error.message}`);
   return (data ?? []).map((u): ManagedUser => ({
@@ -209,7 +209,12 @@ export async function readUsersForAdmin(): Promise<ManagedUser[]> {
     phone: u.phone ?? undefined,
     division: u.division ?? undefined,
     associatedEntityId: u.associated_entity_id ?? undefined,
-    status: (u.status ?? "active") as "active" | "suspended",
+    supplierNo: u.supplier_no ?? undefined,
+    factoryId: u.factory_id ?? undefined,
+    routeId: u.route_id ?? undefined,
+    factoryName: (u.factories as unknown as { name?: string } | null)?.name,
+    routeName: (u.routes as unknown as { route_name?: string } | null)?.route_name,
+    status: (u.status ?? "active") as ManagedUser["status"],
     lastActive: relativeTime(u.created_at),
   }));
 }
@@ -279,6 +284,9 @@ export async function saveLeafWeighing(role: Role, input: {
   grossKg: number;
   netKg: number;
   grade: string;
+  deductionPercentage?: number;
+  factoryId?: string;
+  routeId?: string;
   /** B30 (Round #12) — supplier_id for the supplier who delivered this leaf.
    *  When provided, the harvest_record is linked to the supplier so it shows
    *  up in their "My Leaf Deliveries" module + feeds the earnings calculation. */
@@ -325,6 +333,10 @@ export async function saveLeafWeighing(role: Role, input: {
         gross_kg: input.grossKg,
         net_kg: input.netKg,
         grade: input.grade,
+        leaf_type: input.grade,
+        deduction_percentage: input.deductionPercentage ?? 0,
+        factory_id: input.factoryId ?? null,
+        route_id: input.routeId ?? null,
         // B30 (Round #12) — store computed amount + supplier link
         amount,
         status: "Pending",
@@ -347,6 +359,10 @@ export async function saveLeafWeighing(role: Role, input: {
       gross_kg: input.grossKg,
       net_kg: input.netKg,
       grade: input.grade,
+      leaf_type: input.grade,
+      deduction_percentage: input.deductionPercentage ?? 0,
+      factory_id: input.factoryId ?? null,
+      route_id: input.routeId ?? null,
       weighed_at: new Date().toISOString().slice(0, 10),
       // B30 (Round #12) — include amount + status + supplier_id in offline queue
       amount,
@@ -379,7 +395,7 @@ export async function getMyDeliveries(role: Role, callerUid: string, associatedE
   const sb = getSupabase()!;
   const { data, error } = await sb
     .from("harvest_records")
-    .select("id, supplier_id, estate_id, weighed_at, net_kg, grade, amount, status")
+    .select("id, supplier_id, estate_id, weighed_at, gross_kg, net_kg, grade, leaf_type, deduction_percentage, factory_id, route_id, amount, status")
     .eq("supplier_id", callerUid)
     .eq("estate_id", associatedEntityId)
     .order("weighed_at", { ascending: false });
@@ -407,7 +423,7 @@ export async function getMyPayments(role: Role, callerUid: string, associatedEnt
   const sb = getSupabase()!;
   const { data, error } = await sb
     .from("harvest_records")
-    .select("id, supplier_id, estate_id, weighed_at, net_kg, grade, amount, status")
+    .select("id, supplier_id, estate_id, weighed_at, gross_kg, net_kg, grade, leaf_type, deduction_percentage, factory_id, route_id, amount, status")
     .eq("supplier_id", callerUid)
     .eq("estate_id", associatedEntityId)
     .order("weighed_at", { ascending: false });
@@ -627,7 +643,7 @@ export async function readAllHarvestRecords(): Promise<SupplyRecord[]> {
   const sb = getSupabase()!;
   const { data, error } = await sb
     .from("harvest_records")
-    .select("id, supplier_id, estate_id, weighed_at, net_kg, grade, amount, status")
+    .select("id, supplier_id, estate_id, weighed_at, gross_kg, net_kg, grade, leaf_type, deduction_percentage, factory_id, route_id, amount, status")
     .order("weighed_at", { ascending: false });
   if (error) throw new Error(`Could not load harvest: ${error.message}`);
   return (data ?? []).map((r) => ({
@@ -636,7 +652,11 @@ export async function readAllHarvestRecords(): Promise<SupplyRecord[]> {
     estateId: r.estate_id ?? "",
     date: r.weighed_at,
     kg: Number(r.net_kg),
-    grade: r.grade ?? "Standard",
+    grossKg: Number(r.gross_kg ?? r.net_kg),
+    grade: r.leaf_type ?? r.grade ?? "Standard",
+    deductionPercentage: Number(r.deduction_percentage ?? 0),
+    factoryId: r.factory_id ?? undefined,
+    routeId: r.route_id ?? undefined,
     amount: Number(r.amount ?? 0),
     status: (r.status as SupplyRecord["status"]) ?? "Pending",
   }));
@@ -646,18 +666,19 @@ export async function readAllHarvestRecords(): Promise<SupplyRecord[]> {
  * Read a supplier's OWN harvest records (supplier view).
  * Uses `useLiveData("harvest_records", ..., "supplier_id=eq.{uid}")` for real-time.
  */
-export async function readMyHarvestRecords(supplierId: string, estateId: string): Promise<SupplyRecord[]> {
+export async function readMyHarvestRecords(supplierId: string, estateId?: string): Promise<SupplyRecord[]> {
   requireOwnerOrAdmin("supplier", supplierId, supplierId);
   if (!supabaseConfigured) {
-    return supplyHistory.filter((r) => r.supplierId === supplierId && r.estateId === estateId);
+    return supplyHistory.filter((r) => r.supplierId === supplierId && (!estateId || estateId === supplierId || r.estateId === estateId));
   }
   const sb = getSupabase()!;
-  const { data, error } = await sb
+  let query = sb
     .from("harvest_records")
-    .select("id, supplier_id, estate_id, weighed_at, net_kg, grade, amount, status")
+    .select("id, supplier_id, estate_id, weighed_at, gross_kg, net_kg, grade, leaf_type, deduction_percentage, factory_id, route_id, amount, status")
     .eq("supplier_id", supplierId)
-    .eq("estate_id", estateId)
     .order("weighed_at", { ascending: false });
+  if (estateId && estateId !== supplierId && isValidUuid(estateId)) query = query.eq("estate_id", estateId);
+  const { data, error } = await query;
   if (error) throw new Error(`Could not load deliveries: ${error.message}`);
   return (data ?? []).map((r) => ({
     id: r.id,
@@ -665,7 +686,11 @@ export async function readMyHarvestRecords(supplierId: string, estateId: string)
     estateId: r.estate_id ?? "",
     date: r.weighed_at,
     kg: Number(r.net_kg),
-    grade: r.grade ?? "Standard",
+    grossKg: Number(r.gross_kg ?? r.net_kg),
+    grade: r.leaf_type ?? r.grade ?? "Standard",
+    deductionPercentage: Number(r.deduction_percentage ?? 0),
+    factoryId: r.factory_id ?? undefined,
+    routeId: r.route_id ?? undefined,
     amount: Number(r.amount ?? 0),
     status: (r.status as SupplyRecord["status"]) ?? "Pending",
   }));

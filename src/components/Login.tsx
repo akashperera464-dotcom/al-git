@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { signInWithEmail } from "@/lib/auth.hybrid";
+import { signInWithEmail, signOutFirebase } from "@/lib/auth.hybrid";
+import { canActivateUser, readFactories, readRoutes, registerPendingSupplier, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 import { usesAdminShell } from "@/lib/rbac";
 import type { Role } from "@/lib/data";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -26,6 +27,18 @@ export function Login() {
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
+  const [registrationDone, setRegistrationDone] = useState(false);
+  const [factories, setFactories] = useState<FactoryOption[]>([]);
+  const [routes, setRoutes] = useState<RouteOption[]>([]);
+  const [registration, setRegistration] = useState({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeId: "" });
+
+  useEffect(() => { void readFactories().then(setFactories).catch(() => setFactories([])); }, []);
+  useEffect(() => {
+    setRoutes([]);
+    setRegistration(current => ({ ...current, routeId: "" }));
+    if (registration.factoryId) void readRoutes(registration.factoryId).then(setRoutes).catch(() => setRoutes([]));
+  }, [registration.factoryId]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,9 +50,36 @@ export function Login() {
     setBusy(true);
     try {
       const session = await signInWithEmail(email.trim(), password);
+      if (!(await canActivateUser(session.uid))) {
+        await signOutFirebase();
+        throw new Error(t("auth.pendingApprovalMessage"));
+      }
       setSession(session);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t("auth.signInFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!registration.supplierNo.trim() || !registration.name.trim() || !registration.email.trim() || !registration.password || !registration.factoryId || !registration.routeId) {
+      setError(t("auth.registrationRequired"));
+      return;
+    }
+    if (registration.password.length < 6) {
+      setError(t("auth.passwordMin6"));
+      return;
+    }
+    setBusy(true);
+    try {
+      await registerPendingSupplier(registration);
+      setRegistrationDone(true);
+      setRegistration({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeId: "" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("auth.registrationFailed"));
     } finally {
       setBusy(false);
     }
@@ -142,7 +182,19 @@ export function Login() {
             </h2>
           </div>
 
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={registering ? submitRegistration : submit} className="space-y-4">
+            {registering && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.supplierNo")}</label><input value={registration.supplierNo} onChange={e => setRegistration({ ...registration, supplierNo: e.target.value })} placeholder="e.g., 237" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800" disabled={busy} /></div>
+                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("common.name")}</label><input value={registration.name} onChange={e => setRegistration({ ...registration, name: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800" disabled={busy} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.factory")}</label><select value={registration.factoryId} onChange={e => setRegistration({ ...registration, factoryId: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800"><option value="">{t("auth.selectFactory")}</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.route")}</label><select value={registration.routeId} onChange={e => setRegistration({ ...registration, routeId: e.target.value })} disabled={!registration.factoryId} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 disabled:opacity-50"><option value="">{t("auth.selectRoute")}</option>{routes.map(route => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div>
+                </div>
+              </>
+            )}
             {/* email */}
             <div>
               <label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.emailUsername")}</label>
@@ -151,8 +203,8 @@ export function Login() {
                 <input
                   type="email"
                   autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={registering ? registration.email : email}
+                  onChange={(e) => registering ? setRegistration({ ...registration, email: e.target.value }) : setEmail(e.target.value)}
                   placeholder="you@kdu.com"
                   className={`w-full rounded-xl border py-3 pl-10 pr-3 text-sm outline-none transition focus:ring-2 ${
                     hasBg
@@ -171,9 +223,9 @@ export function Login() {
                 <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPw ? "text" : "password"}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={registering ? "new-password" : "current-password"}
+                  value={registering ? registration.password : password}
+                  onChange={(e) => registering ? setRegistration({ ...registration, password: e.target.value }) : setPassword(e.target.value)}
                   placeholder="••••••••"
                   className={`w-full rounded-xl border py-3 pl-10 pr-10 text-sm outline-none transition focus:ring-2 ${
                     hasBg
@@ -193,6 +245,10 @@ export function Login() {
               </div>
             </div>
 
+            {registering && <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("common.phone")}</label><input value={registration.phone} onChange={e => setRegistration({ ...registration, phone: e.target.value })} placeholder="+94 77 000 0000" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800" disabled={busy} /></div>}
+
+            {registrationDone && <div className="rounded-xl border border-emerald-300 bg-emerald-500/20 p-3 text-xs text-emerald-100">{t("auth.registrationSuccess")}</div>}
+
             {/* error */}
             {error && (
               <div className="flex items-start gap-2 rounded-xl border border-rose-300/60 bg-rose-500/20 p-3 text-xs text-rose-100 backdrop-blur">
@@ -209,9 +265,13 @@ export function Login() {
               style={{ background: accent, boxShadow: `0 10px 30px -8px ${accent}80` }}
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-              {busy ? t("auth.signingIn") : t("auth.signIn")}
+              {busy ? (registering ? t("auth.registering") : t("auth.signingIn")) : (registering ? t("auth.submitRegistration") : t("auth.signIn"))}
             </button>
           </form>
+
+          <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); }} className={`mt-4 inline-flex w-full items-center justify-center gap-2 text-sm font-semibold ${hasBg ? "text-white" : "text-emerald-700"}`}>
+            <UserPlus className="h-4 w-4" /> {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
+          </button>
 
           {/* footer */}
           <div className="mt-5 border-t pt-4" style={{ borderColor: hasBg ? "rgba(255,255,255,0.1)" : "rgb(241 245 249)" }}>

@@ -8,6 +8,7 @@ import {
   receiveGoods, issueStock, listStockMovements,
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
+import { readSupplierDirectory, type SupplierDirectoryEntry } from "@/lib/supplierOperations";
 
 /**
  * Inventory & Procurement — stock items with moving-average valuation,
@@ -64,6 +65,8 @@ export default function Inventory() {
   const [issueNoteCode, setIssueNoteCode] = useState<string>("");
   // B28 (Round #9) — Supplier No (factory's supplier number — matches Excel "Supplier No" column)
   const [issueSupplierNo, setIssueSupplierNo] = useState<string>("");
+  const [supplierDirectory, setSupplierDirectory] = useState<SupplierDirectoryEntry[]>([]);
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
 
   // Build divisions list from all estates (flat list of division names)
   const allDivisions = Array.from(
@@ -85,6 +88,16 @@ export default function Inventory() {
   };
 
   useEffect(() => { void reload(); }, []);
+  useEffect(() => { void readSupplierDirectory().then(setSupplierDirectory).catch(() => setSupplierDirectory([])); }, []);
+
+  const selectIssueSupplier = (supplierId: string) => {
+    setSelectedSupplierId(supplierId);
+    const supplier = supplierDirectory.find((entry) => entry.id === supplierId);
+    if (!supplier) { setIssueSupplierName(""); setIssueSupplierNo(""); return; }
+    setIssueSupplierName(supplier.name);
+    setIssueSupplierNo(supplier.supplierNo);
+    if (supplier.routeName) setIssueRoute(supplier.routeName);
+  };
 
   const addStockItem = async () => {
     setError(null);
@@ -240,7 +253,7 @@ export default function Inventory() {
 
       setIssueItemId(""); setIssueQty(1); setIssueNotes(""); setIssueRequestId("");
       setIssueDivision(""); setIssuePaymentMode("cash"); setIssueSupplierName("");
-      setIssueRoute(""); setIssueNoteCode(""); setIssueSupplierNo("");
+      setIssueRoute(""); setIssueNoteCode(""); setIssueSupplierNo(""); setSelectedSupplierId("");
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to issue");
@@ -628,15 +641,9 @@ export default function Inventory() {
               </div>
               {/* B28 (Round #9) — Supplier No (factory's supplier number) */}
               <div>
-                <label className="text-[11px] text-slate-400">Supplier No (factory supplier number)</label>
-                <input
-                  type="text"
-                  value={issueSupplierNo}
-                  onChange={e => setIssueSupplierNo(e.target.value)}
-                  placeholder="e.g., SUP-001"
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
-                />
-                <p className="mt-1 text-[10px] text-slate-400">The factory's supplier number (NOT the Firebase UID). Matches the "Supplier No" Excel column.</p>
+                <label className="text-[11px] text-slate-400">Tea Supplier</label>
+                <select value={selectedSupplierId} onChange={(event) => selectIssueSupplier(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"><option value="">— select supplier —</option>{supplierDirectory.map((supplier) => <option key={supplier.id} value={supplier.id}>#{supplier.supplierNo} · {supplier.name} · {supplier.routeName ?? "No route"}</option>)}</select>
+                <p className="mt-1 text-[10px] text-slate-400">Supplier No, name and route fill automatically from the approved supplier directory.</p>
               </div>
               {/* NEW (Sir's spec): Payment mode — Cash or Credit (for supplier fertilizer issuing) */}
               <div>
@@ -662,13 +669,7 @@ export default function Inventory() {
               {issuePaymentMode === "credit" && (
                 <div>
                   <label className="text-[11px] text-slate-400">Supplier Name (for credit ledger) *</label>
-                  <input
-                    type="text"
-                    value={issueSupplierName}
-                    onChange={e => setIssueSupplierName(e.target.value)}
-                    placeholder="e.g., Nimal Farmers"
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
-                  />
+                  <input type="text" value={issueSupplierName} readOnly placeholder="Select a supplier above" className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-sm" />
                   {(() => {
                     const item = stock.find(s => s.id === issueItemId);
                     if (!item || item.category !== "fertilizer") return null;

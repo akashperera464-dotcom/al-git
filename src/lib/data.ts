@@ -633,6 +633,10 @@ export interface SupplyRecord {
   date: string;
   kg: number;
   grade: string;
+  grossKg?: number;
+  deductionPercentage?: number;
+  factoryId?: string;
+  routeId?: string;
   amount: number;
   status: "Paid" | "Pending";
 }
@@ -711,7 +715,12 @@ export interface ManagedUser {
   tier?: string;
   /** Estate this user is scoped to (suppliers → their linked estate id). */
   associatedEntityId?: string;
-  status: "active" | "suspended";
+  supplierNo?: string;
+  factoryId?: string;
+  routeId?: string;
+  factoryName?: string;
+  routeName?: string;
+  status: "active" | "suspended" | "pending_approval";
   lastActive: string;
 }
 export const managedUsers: ManagedUser[] = [

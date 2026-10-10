@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
-import { Leaf, CloudSun, Bell, Wallet, Package, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Leaf, Bell, Wallet, Package, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum, fmtLKRShort } from "@/lib/data";
 import { readMyHarvestRecords } from "@/lib/repo";
 import { fetchForecast, getMockForecast } from "@/lib/weather";
-import { readAlerts } from "@/lib/notifications";
 import type { WeatherDay } from "@/lib/data";
+import { useTranslation } from "react-i18next";
+import { LorryLocationCard } from "@/components/LorryLocationCard";
+import { readDailyTeaPrices, type DailyTeaPrice } from "@/lib/supplierOperations";
+import { gradeKey } from "@/i18n/databaseValues";
 
 export function SupplierHome() {
+  const { t, i18n } = useTranslation();
   const { user, session, setActiveModule, userUid, associatedEntityId, estates, syncQueue, online } = useApp();
   const estate = estates.find(e => e.id === associatedEntityId);
   const greeting = getGreeting();
@@ -18,8 +22,8 @@ export function SupplierHome() {
   const [totalKg, setTotalKg] = useState(0);
   const [totalEarned, setTotalEarned] = useState(0);
   const [monthExpenses, setMonthExpenses] = useState(0);
-  const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [superPct, setSuperPct] = useState(0);
+  const [prices, setPrices] = useState<DailyTeaPrice[]>([]);
 
   const pendingSync = syncQueue.filter(q => q.status === "queued").length;
 
@@ -33,18 +37,17 @@ export function SupplierHome() {
 
     // B30 (Round #12) — Load deliveries: kg + grade + amount (restored)
     void readMyHarvestRecords(userUid, associatedEntityId).then(recs => {
-      const kg = recs.reduce((s, r) => s + r.kg, 0);
-      const earned = recs.reduce((s, r) => s + r.amount, 0);
-      const sup = recs.length ? Math.round((recs.filter(r => r.grade === "Super").length / recs.length) * 100) : 0;
+      const month = new Date().toISOString().slice(0, 7);
+      const monthly = recs.filter((record) => record.date.startsWith(month));
+      const kg = monthly.reduce((sum, record) => sum + record.kg, 0);
+      const earned = monthly.reduce((sum, record) => sum + record.amount, 0);
+      const superKg = monthly.filter((record) => record.grade === "Super" || record.grade === "PV Super").reduce((sum, record) => sum + record.kg, 0);
+      const sup = kg ? Math.round((superKg / kg) * 100) : 0;
       setTotalKg(kg);
       setTotalEarned(earned);
       setSuperPct(sup);
     });
-
-    // Load unread alerts
-    void readAlerts(userUid, 30).then(alerts => {
-      setUnreadAlerts(alerts.filter(a => !a.read).length);
-    });
+    void readDailyTeaPrices().then(setPrices).catch(() => setPrices([]));
 
     // B35 — Load monthly expenses (labor cost + fertilizer credit estimate)
     void (async () => {
@@ -92,29 +95,29 @@ export function SupplierHome() {
         <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/5" />
         <div className="relative">
           <p className="text-xs font-semibold text-emerald-200 mb-0.5">
-            {greeting} · {today.toLocaleDateString("en-LK", { weekday: "long", day: "numeric", month: "long" })}
+            {t(`supplierHome.greeting.${greeting}`)} · {today.toLocaleDateString(i18n.language === "si" ? "si-LK" : i18n.language === "ta" ? "ta-LK" : "en-LK", { weekday: "long", day: "numeric", month: "long" })}
           </p>
           <h1 className="font-display text-xl font-extrabold tracking-tight">
-            ආයුබෝවන්, {firstName}!
+            {t("supplierHome.welcome", { name: firstName })}
           </h1>
           <p className="text-sm text-emerald-100 mt-0.5 opacity-90">
-            {estate ? `${estate.name} · Linked Estate` : "Supplier Interface"}
+            {estate ? t("supplierHome.linkedEstate", { estate: estate.name }) : t("supplierHome.interface")}
           </p>
         </div>
         {/* Connectivity badge */}
         <div className="mt-3 flex items-center gap-2">
           {online ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/30 px-2.5 py-1 text-[10px] font-bold text-emerald-100">
-              <CheckCircle2 className="h-3 w-3" /> Online
+              <CheckCircle2 className="h-3 w-3" /> {t("common.online")}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/30 px-2.5 py-1 text-[10px] font-bold text-rose-100">
-              <AlertCircle className="h-3 w-3" /> Offline
+              <AlertCircle className="h-3 w-3" /> {t("common.offline")}
             </span>
           )}
           {pendingSync > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/30 px-2.5 py-1 text-[10px] font-bold text-amber-100">
-              ⏳ {pendingSync} pending sync
+              ⏳ {t("supplierHome.pendingSync", { count: pendingSync })}
             </span>
           )}
         </div>
@@ -127,9 +130,9 @@ export function SupplierHome() {
             {weatherToday.rainProb > 60 ? "🌧" : weatherToday.rainProb > 30 ? "⛅" : "☀️"}
           </span>
           <div className="flex-1">
-            <p className="text-sm font-bold text-sky-800">කාලගුණය · Today's Weather</p>
+            <p className="text-sm font-bold text-sky-800">{t("supplierHome.weather")}</p>
             <p className="text-xs text-sky-600">
-              {weatherToday.tempMax}°C high · Rain {weatherToday.rainProb}% · Wind {weatherToday.windKph} km/h
+              {t("supplierHome.weatherDetail", { temperature: weatherToday.tempMax, rain: weatherToday.rainProb, wind: weatherToday.windKph })}
             </p>
           </div>
           <button onClick={() => setActiveModule("supplier-weather")} className="text-sky-600">
@@ -138,29 +141,33 @@ export function SupplierHome() {
         </Card>
       )}
 
+      {prices.length > 0 && <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">{prices.map((price) => <Card key={price.grade} className="p-3 text-center"><p className="text-[10px] font-semibold uppercase text-slate-400">{t(gradeKey(price.grade), { defaultValue: price.grade })}</p><p className="mt-1 text-base font-extrabold text-emerald-700">Rs {price.pricePerKg.toLocaleString()}</p><p className="text-[10px] text-slate-400">{t("supplierHome.perKgToday")}</p></Card>)}</div>}
+
+      <LorryLocationCard userId={userUid} />
+
       {/* Key stats — Earnings + Expenses + Total Supplied + Pending Sync */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
-        <StatCard icon={Wallet} label="ආදායම් · Earnings" value={fmtLKRShort(totalEarned)} tone="emerald" />
-        <StatCard icon={TrendingUp} label="වියදම් · Expenses" value={fmtLKRShort(monthExpenses)} sub="labor + fert" tone="rose" />
-        <StatCard icon={Package} label="මුළු කොළ · Total Supplied" value={`${fmtNum(totalKg)} kg`} tone="sky" />
-        <StatCard icon={AlertCircle} label="සමමුහුර්තය · Pending" value={String(pendingSync)} sub={pendingSync > 0 ? "queued" : "all synced"} tone={pendingSync > 0 ? "amber" : "slate"} />
+        <StatCard icon={Wallet} label={t("supplierHome.monthEarnings")} value={fmtLKRShort(totalEarned)} tone="emerald" />
+        <StatCard icon={TrendingUp} label={t("supplierHome.monthExpenses")} value={fmtLKRShort(monthExpenses)} sub={t("supplierHome.laborFertilizer")} tone="rose" />
+        <StatCard icon={Package} label={t("supplierHome.monthSupplied")} value={`${fmtNum(totalKg)} kg`} tone="sky" />
+        <StatCard icon={Leaf} label={t("supplierHome.superQuality")} value={`${superPct}%`} sub={t("supplierHome.byWeight")} tone="violet" />
       </div>
 
       {/* Smart reminders */}
       {(fertDue || pruneDue) && (
         <Card className="mb-4 p-3.5 border-amber-200 bg-amber-50">
-          <p className="text-xs font-bold text-amber-700 mb-2">📋 ගොවිතැන් කාර්ය · Reminders</p>
+          <p className="text-xs font-bold text-amber-700 mb-2">📋 {t("supplierHome.reminders")}</p>
           <div className="space-y-1.5">
             {fertDue && (
               <div className="flex items-center gap-2 text-xs text-amber-700">
                 <Sprout className="h-3.5 w-3.5 shrink-0" />
-                <span>පොහොර දැමීමේ කාලය · Fertilizer cycle approaching</span>
+                <span>{t("supplierHome.fertilizerReminder")}</span>
               </div>
             )}
             {pruneDue && (
               <div className="flex items-center gap-2 text-xs text-amber-700">
                 <Leaf className="h-3.5 w-3.5 shrink-0" />
-                <span>කප්පාදු සිහිකැඳවීම · Pruning reminder due</span>
+                <span>{t("supplierHome.pruningReminder")}</span>
               </div>
             )}
           </div>
@@ -168,19 +175,19 @@ export function SupplierHome() {
             onClick={() => setActiveModule("supplier-alerts")}
             className="mt-2 text-[10px] font-semibold text-amber-600 underline"
           >
-            සියලු දැනුම්දීම් බලන්න · View All Alerts →
+            {t("supplierHome.viewAlerts")} →
           </button>
         </Card>
       )}
 
       {/* Quick actions */}
-      <h3 className="font-display text-sm font-bold text-slate-800 mb-2.5">⚡ ඉක්මන් ක්රියා · Quick Actions</h3>
+      <h3 className="font-display text-sm font-bold text-slate-800 mb-2.5">⚡ {t("supplierHome.quickActions")}</h3>
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         {([
-          { key: "supplier-plot", icon: Leaf, label: "මගේ වත්ත · My Plot", tone: "amber" },
-          { key: "supplier-farm", icon: Sprout, label: "ගොවිතැන් · Farm Log", tone: "emerald" },
-          { key: "supplier-deliveries", icon: Package, label: "බෙදාහැරීම් · Deliveries", tone: "sky" },
-          { key: "supplier-requests", icon: Bell, label: "ඉල්ලීම් · Requests", tone: "violet" },
+          { key: "supplier-plot", icon: Leaf, label: t("supplierHome.myPlot"), tone: "amber" },
+          { key: "supplier-farm", icon: Sprout, label: t("supplierHome.farmLog"), tone: "emerald" },
+          { key: "supplier-deliveries", icon: Package, label: t("supplierHome.deliveries"), tone: "sky" },
+          { key: "supplier-requests", icon: Bell, label: t("supplierHome.requests"), tone: "violet" },
         ] as const).map(({ key, icon: Icon, label, tone }) => (
           <button
             key={key}
@@ -212,17 +219,19 @@ export function SupplierHome() {
         ))}
       </div>
 
+      {totalKg > 0 && superPct < 35 && <Card className="mb-4 border-amber-200 bg-amber-50 p-3.5"><p className="text-xs font-bold text-amber-800">{t("supplierHome.qualityTipTitle")}</p><p className="mt-1 text-xs text-amber-700">{t("supplierHome.qualityTipBody", { percent: superPct })}</p></Card>}
+
       {/* B30 (Round #12) — Restored Earnings quick-link banner */}
       {totalEarned > 0 && (
         <Card className="p-3.5 border-emerald-200 bg-emerald-50 mb-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-bold text-emerald-700">💰 ශුද්ධ ගෙවිය යුතු මුදල (ඇස්තමේන්තුව) · Net Payable (est.)</p>
+              <p className="text-xs font-bold text-emerald-700">💰 {t("supplierHome.netPayable")}</p>
               <p className="text-lg font-extrabold text-emerald-800 mt-0.5">{fmtLKRShort(totalEarned)}</p>
-              <p className="text-[10px] text-emerald-600 mt-0.5">⚠ කර්මාන්තශාලා මූල්‍ය කාර්යාලය මසක අවසානයේ තහවුරු කරයි</p>
+              <p className="text-[10px] text-emerald-600 mt-0.5">⚠ {t("supplierHome.financeDisclaimer")}</p>
             </div>
             <button onClick={() => setActiveModule("supplier-payments")} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white">
-              View →
+              {t("supplierHome.view")} →
             </button>
           </div>
         </Card>
@@ -231,9 +240,9 @@ export function SupplierHome() {
   );
 }
 
-function getGreeting(): string {
+function getGreeting(): "morning" | "afternoon" | "evening" {
   const h = new Date().getHours();
-  if (h < 12) return "සුබ උදෑසනක් · Good Morning";
-  if (h < 17) return "සුබ දහවලක් · Good Afternoon";
-  return "සුබ සන්ධ්යාවක් · Good Evening";
+  if (h < 12) return "morning";
+  if (h < 17) return "afternoon";
+  return "evening";
 }

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { User, Save, Bell, Info, Wallet, TrendingUp, TrendingDown, CheckCircle2 } from "lucide-react";
+import { User, Save, Bell, Info, Wallet, TrendingUp, TrendingDown } from "lucide-react";
 import { PageHeader, Card, Badge, IconChip, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtLKR } from "@/lib/data";
+import { readUserOperationalProfile } from "@/lib/supplierOperations";
+import { useTranslation } from "react-i18next";
 
 /**
  * SupplierProfile — "My Profile" module (supplier side)
@@ -63,6 +65,7 @@ const DEFAULT_PROFILE: ProfileData = {
 };
 
 export function SupplierProfile() {
+  const { t } = useTranslation();
   const { userUid, user, notify } = useApp();
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
   const [editing, setEditing] = useState(false);
@@ -72,6 +75,7 @@ export function SupplierProfile() {
   const [totalEarned, setTotalEarned] = useState(0);
   const [totalFertCost, setTotalFertCost] = useState(0);
   const [advanceBalance, setAdvanceBalance] = useState(0);
+  const [assignment, setAssignment] = useState<{ supplierNo?: string; factoryName?: string; routeName?: string } | null>(null);
 
   useEffect(() => {
     // Load profile
@@ -107,6 +111,7 @@ export function SupplierProfile() {
           const { data: loans } = await sb
             .from("supplier_fertilizer_loans")
             .select("balance, status")
+            .eq("supplier_id", userUid)
             .eq("status", "active");
           if (loans) {
             setAdvanceBalance(loans.reduce((s: number, r: any) => s + Number(r.balance ?? 0), 0));
@@ -125,6 +130,7 @@ export function SupplierProfile() {
         }
       } catch { /* ignore */ }
     })();
+    void readUserOperationalProfile(userUid).then(setAssignment).catch(() => setAssignment(null));
 
     // Listen for new toasts and persist them
     const handleToast = (e: Event) => {
@@ -180,24 +186,30 @@ export function SupplierProfile() {
   return (
     <div>
       <PageHeader
-        eyebrow="Supplier Interface"
-        title="My Profile"
-        desc="Manage your profile details, notification preferences, view notification history, and see your earnings vs deductions summary."
+        eyebrow={t("supplierProfile.eyebrow")}
+        title={t("supplierProfile.title")}
+        desc={t("supplierProfile.desc")}
         icon={<IconChip icon={User} tone="violet" className="h-12 w-12" />}
       />
 
+      <Card className="mt-4 grid grid-cols-3 gap-3 p-4 text-sm">
+        <div><p className="text-[10px] uppercase text-slate-400">Supplier No</p><p className="font-bold text-slate-800">{assignment?.supplierNo ?? "—"}</p></div>
+        <div><p className="text-[10px] uppercase text-slate-400">Factory</p><p className="font-bold text-slate-800">{assignment?.factoryName ?? "—"}</p></div>
+        <div><p className="text-[10px] uppercase text-slate-400">Route</p><p className="font-bold text-slate-800">{assignment?.routeName ?? "—"}</p></div>
+      </Card>
+
       {/* B30 (Round #12) — RESTORED: Cost vs Earnings Summary (with estimate disclaimer) */}
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <StatCard icon={TrendingUp} label="Total Earned" value={fmtLKR(totalEarned)} sub="from leaf deliveries" tone="emerald" />
-        <StatCard icon={TrendingDown} label="Fert. Credit + Advances" value={fmtLKR(totalFertCost + advanceBalance)} sub="deductions" tone="rose" />
-        <StatCard icon={Wallet} label="Net Payable (est.)" value={fmtLKR(netEarnings)} sub="⚠ factory confirms" tone={netEarnings >= 0 ? "sky" : "rose"} />
+        <StatCard icon={TrendingUp} label={t("supplierProfile.totalEarned")} value={fmtLKR(totalEarned)} tone="emerald" />
+        <StatCard icon={TrendingDown} label={t("supplierProfile.creditAdvances")} value={fmtLKR(totalFertCost + advanceBalance)} tone="rose" />
+        <StatCard icon={Wallet} label={t("supplierProfile.netPayable")} value={fmtLKR(netEarnings)} tone={netEarnings >= 0 ? "sky" : "rose"} />
       </div>
-      <p className="mt-1 text-[10px] text-amber-600 text-center">⚠ මෙය ඇස්තමේන්තුවකි · The factory finance office confirms the actual net payable at month-end.</p>
+      <p className="mt-1 text-[10px] text-amber-600 text-center">⚠ {t("supplierProfile.financeDisclaimer")}</p>
 
       {/* A2: Profile details */}
       <Card className="mt-4 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-sm font-bold text-slate-800">👤 පෞද්ගලික තොරතුරු · Profile Details</h3>
+          <h3 className="font-display text-sm font-bold text-slate-800">👤 {t("supplierProfile.details")}</h3>
           <button onClick={() => setEditing(!editing)} className="text-xs font-semibold text-emerald-600 hover:underline">
             {editing ? "Cancel" : "Edit"}
           </button>
@@ -206,32 +218,32 @@ export function SupplierProfile() {
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-slate-400">👤 නම · Name</label>
+                <label className="text-[11px] text-slate-400">👤 {t("supplierProfile.name")}</label>
                 <input value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">📞 දුරකථන · Phone</label>
+                <label className="text-[11px] text-slate-400">📞 {t("supplierProfile.phone")}</label>
                 <input value={profile.phone} onChange={e => setProfile({ ...profile, phone: e.target.value })} placeholder="+94 77 123 4567" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">🆔 ජාතික හැඳුනුම්පත · NIC</label>
+                <label className="text-[11px] text-slate-400">🆔 {t("supplierProfile.nic")}</label>
                 <input value={profile.nic} onChange={e => setProfile({ ...profile, nic: e.target.value })} placeholder="e.g., 851234567V" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">🚨 හදිසි ආරක්ෂක · Emergency Contact</label>
+                <label className="text-[11px] text-slate-400">🚨 {t("supplierProfile.emergency")}</label>
                 <input value={profile.emergencyContact} onChange={e => setProfile({ ...profile, emergencyContact: e.target.value })} placeholder="Name + phone" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
               </div>
             </div>
             <div>
-              <label className="text-[11px] text-slate-400">📍 ලිපිනය · Address</label>
+              <label className="text-[11px] text-slate-400">📍 {t("supplierProfile.address")}</label>
               <textarea value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} rows={2} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             <div>
-              <label className="text-[11px] text-slate-400">📷 ඡායාරූප URL · Photo URL</label>
+              <label className="text-[11px] text-slate-400">📷 {t("supplierProfile.photo")}</label>
               <input value={profile.photoUrl} onChange={e => setProfile({ ...profile, photoUrl: e.target.value })} placeholder="URL to your photo" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             <button onClick={saveProfile} className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 inline-flex items-center justify-center gap-1.5">
-              <Save className="h-3.5 w-3.5" /> Save Profile
+              <Save className="h-3.5 w-3.5" /> {t("supplierProfile.save")}
             </button>
           </div>
         ) : (
@@ -248,7 +260,7 @@ export function SupplierProfile() {
       {/* C.13: Notification Preferences */}
       <Card className="mt-4 p-4">
         <h3 className="mb-3 font-display text-sm font-bold text-slate-800 flex items-center gap-1.5">
-          <Bell className="h-4 w-4 text-violet-600" /> දැනුම්දීම් අභිරුචි · Notification Preferences
+          <Bell className="h-4 w-4 text-violet-600" /> {t("supplierProfile.preferences")}
         </h3>
         <div className="space-y-2">
           {([
@@ -282,7 +294,7 @@ export function SupplierProfile() {
       <Card className="mt-4 p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-display text-sm font-bold text-slate-800 flex items-center gap-1.5">
-            <Bell className="h-4 w-4 text-sky-600" /> දැනුම්දීම් මධ්‍යස්ථානය · Notification Center
+            <Bell className="h-4 w-4 text-sky-600" /> {t("supplierProfile.notificationCenter")}
             {unreadCount > 0 && <Badge tone="rose" dot>{unreadCount} new</Badge>}
           </h3>
           {unreadCount > 0 && (
@@ -318,7 +330,7 @@ export function SupplierProfile() {
       {/* A5: Help/Tutorial */}
       <Card className="mt-4 p-4 border-violet-200 bg-violet-50">
         <h3 className="mb-2 font-display text-sm font-bold text-violet-800 flex items-center gap-1.5">
-          <Info className="h-4 w-4" /> උදව් · How to Use This App
+          <Info className="h-4 w-4" /> {t("supplierProfile.help")}
         </h3>
         <ul className="space-y-1 text-xs text-violet-700">
           <li>📊 <strong>My Leaf Deliveries</strong> — ඔබගේ කොළ භාරදීම් පෙන්වයි (your leaf deliveries)</li>

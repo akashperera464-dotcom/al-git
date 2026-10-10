@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { UserPlus, Scale, Loader2, CheckCircle2, Building2, Layers, Phone, WifiOff, MapPin, AlertTriangle } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
@@ -7,6 +7,7 @@ import { readEstateOptions, readDivisionOptions, saveLeafWeighing, type WeighInR
 import { provisionUser } from "@/lib/auth.hybrid";
 import { useLiveData } from "@/lib/useLiveData";
 import { createAlert } from "@/lib/notifications";
+import { publishLorryLocation, readFactories, readRoutes, readSupplierDirectory, updateSupplierOperationalFields, type FactoryOption, type RouteOption, type SupplierDirectoryEntry } from "@/lib/supplierOperations";
 
 /* ====================== 1 · REGISTER NEW SUPPLIER ====================== */
 
@@ -27,11 +28,22 @@ export function EoRegisterSupplier() {
   const [phone, setPhone] = useState("");
   const [estateId, setEstateId] = useState("");
   const [divisionId, setDivisionId] = useState("");
+  const [supplierNo, setSupplierNo] = useState("");
+  const [factoryId, setFactoryId] = useState("");
+  const [routeId, setRouteId] = useState("");
+  const [factories, setFactories] = useState<FactoryOption[]>([]);
+  const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Cascading: filter divisions by selected estate.
   const filteredDivisions = estateId ? allDivisions.filter((d) => d.id === estateId || d.estateName === estateOptions.find((e) => e.id === estateId)?.name) : [];
+
+  useEffect(() => { void readFactories().then(setFactories).catch(() => setFactories([])); }, []);
+  useEffect(() => {
+    if (!factoryId) { setRoutes([]); return; }
+    void readRoutes(factoryId).then(setRoutes).catch(() => setRoutes([]));
+  }, [factoryId]);
 
   const register = async () => {
     setError(null);
@@ -39,8 +51,8 @@ export function EoRegisterSupplier() {
       setError(t("officer.errNameEmailPwRequired"));
       return;
     }
-    if (!estateId) {
-      setError(t("officer.errSelectFactory"));
+    if (!supplierNo.trim() || !factoryId || !routeId) {
+      setError("Supplier No, factory and route are required.");
       return;
     }
     if (password.length < 6) {
@@ -49,15 +61,16 @@ export function EoRegisterSupplier() {
     }
     setBusy(true);
     try {
-      await provisionUser(email.trim(), password, {
+      const newUserId = await provisionUser(email.trim(), password, {
         name: name.trim(),
         role: "supplier",
         associatedEntityId: estateId,
         division: divisionId || null, // nullable — optional
         phone: phone.trim() || null,
       });
+      await updateSupplierOperationalFields(newUserId, { supplierNo: supplierNo.trim(), factoryId, routeId });
       notify({ title: t("officer.registered"), body: t("officer.registeredBody", { name: name.trim() }), tone: "emerald", channel: "system" });
-      setName(""); setEmail(""); setPassword(""); setPhone(""); setEstateId(""); setDivisionId("");
+      setName(""); setEmail(""); setPassword(""); setPhone(""); setEstateId(""); setDivisionId(""); setSupplierNo(""); setFactoryId(""); setRouteId("");
     } catch (e) {
       setError(e instanceof Error ? e.message : t("officer.registerFailed"));
     } finally {
@@ -93,8 +106,11 @@ export function EoRegisterSupplier() {
             <label className="text-[11px] font-medium text-slate-400"><Phone className="mr-1 inline h-3 w-3" />{t("officer.phoneOptional")}</label>
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("officer.phonePh")} className={inputCls} />
           </div>
+          <div><label className="text-[11px] font-medium text-slate-400">Supplier No *</label><input value={supplierNo} onChange={(e) => setSupplierNo(e.target.value)} placeholder="e.g. 237" className={inputCls} /></div>
+          <div><label className="text-[11px] font-medium text-slate-400">Factory *</label><select value={factoryId} onChange={(e) => { setFactoryId(e.target.value); setRouteId(""); }} className={inputCls}><option value="">— select factory —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+          <div><label className="text-[11px] font-medium text-slate-400">Route *</label><select value={routeId} onChange={(e) => setRouteId(e.target.value)} disabled={!factoryId} className={inputCls}><option value="">— select route —</option>{routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div>
           <div>
-            <label className="text-[11px] font-medium text-slate-400"><Building2 className="mr-1 inline h-3 w-3" />{t("officer.factoryLabel")}</label>
+            <label className="text-[11px] font-medium text-slate-400"><Building2 className="mr-1 inline h-3 w-3" />Linked estate (optional)</label>
             <select
               value={estateId}
               onChange={(e) => { setEstateId(e.target.value); setDivisionId(""); }}
@@ -131,23 +147,41 @@ export function EoRegisterSupplier() {
 
 export function EoWeighing() {
   const { t } = useTranslation();
-  const { estates, notify, syncQueue, enqueueSync } = useApp();
+  const { estates, notify, syncQueue, enqueueSync, userUid } = useApp();
   const [gross, setGross] = useState(0);
   const [ded, setDed] = useState(4);
   const [grade, setGrade] = useState("Standard");
   const [savedCount, setSavedCount] = useState(0);
   const [tripNumber, setTripNumber] = useState(1);
   const [busy, setBusy] = useState(false);
+  const [factoryId, setFactoryId] = useState("");
+  const [routeId, setRouteId] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+  const [factories, setFactories] = useState<FactoryOption[]>([]);
+  const [routes, setRoutes] = useState<RouteOption[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierDirectoryEntry[]>([]);
   const net = +(gross * (1 - ded / 100)).toFixed(1);
 
   const estate = estates[0];
   const estateId = estate?.id ?? "";
 
+  useEffect(() => { void readFactories().then(setFactories).catch(() => setFactories([])); }, []);
+  useEffect(() => {
+    setRouteId(""); setSupplierId(""); setSuppliers([]);
+    if (!factoryId) { setRoutes([]); return; }
+    void readRoutes(factoryId).then(setRoutes).catch(() => setRoutes([]));
+  }, [factoryId]);
+  useEffect(() => {
+    setSupplierId("");
+    if (!routeId) { setSuppliers([]); return; }
+    void readSupplierDirectory(factoryId, routeId).then(setSuppliers).catch(() => setSuppliers([]));
+  }, [factoryId, routeId]);
+
   // Count of pending offline mutations (for the badge)
   const pendingSyncCount = syncQueue.filter(q => q.status === "queued").length;
 
   const save = async () => {
-    if (gross <= 0) {
+    if (gross <= 0 || !factoryId || !routeId || !supplierId) {
       notify({ title: t("officer.errInvalidWeight"), body: t("officer.errInvalidWeightBody"), tone: "rose", channel: "system" });
       return;
     }
@@ -158,6 +192,10 @@ export function EoWeighing() {
         grossKg: gross,
         netKg: net,
         grade,
+        deductionPercentage: ded,
+        factoryId,
+        routeId,
+        supplierId,
       });
 
       setSavedCount((c) => c + 1);
@@ -173,7 +211,7 @@ export function EoWeighing() {
         });
         // Alert all suppliers linked to this estate about the new weigh-in.
         void createAlert({
-          targetUserId: estateId,
+          targetUserId: supplierId,
           title: t("officer.weighInRecorded"),
           body: t("officer.weighInAlertBody", { net: String(net), grade, estate: estate?.name ?? "" }),
           type: "delivery",
@@ -241,17 +279,23 @@ export function EoWeighing() {
         <StatCard icon={Building2} label={t("officer.estate")} value={estate?.name?.slice(0, 10) ?? "—"} tone="amber" />
       </div>
 
+      <LorryTrackingControls routeId={routeId} driverId={userUid} />
+
       {/* EO Geo-Location Verification — Sir's spec #2: confirm EO is at the registered estate */}
       <EoLocationVerify estate={estate} />
 
       <Card className="mt-4 p-4">
         <h3 className="mb-3 font-display text-sm font-bold text-slate-800">{t("officer.newWeighIn")}</h3>
         <div className="grid grid-cols-2 gap-2.5 text-sm">
+          <div><label className="text-[11px] font-medium text-slate-400">Factory</label><select value={factoryId} onChange={(e) => setFactoryId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select factory —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+          <div><label className="text-[11px] font-medium text-slate-400">Route</label><select value={routeId} onChange={(e) => setRouteId(e.target.value)} disabled={!factoryId} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select route —</option>{routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div>
+          <div className="col-span-2"><label className="text-[11px] font-medium text-slate-400">Supplier</label><select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} disabled={!routeId} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select supplier —</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>#{supplier.supplierNo} · {supplier.name}</option>)}</select></div>
           <div>
             <label className="text-[11px] font-medium text-slate-400">{t("officer.gradeLabel")}</label>
             <select value={grade} onChange={(e) => setGrade(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5">
               <option value="Super">{t("farm.gradeSuper")}</option>
               <option value="Standard">{t("farm.gradeStandard")}</option>
+              <option value="PV Super">PV Super</option>
               <option value="Coarse">{t("farm.gradeCoarse")}</option>
             </select>
           </div>
@@ -285,6 +329,53 @@ export function EoWeighing() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function LorryTrackingControls({ routeId, driverId }: { routeId: string; driverId: string }) {
+  const [watchId, setWatchId] = useState<number | null>(null);
+  const [message, setMessage] = useState("Select a route, then start tracking while the collection lorry is running.");
+
+  useEffect(() => () => {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  }, [watchId]);
+
+  const stop = () => {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    setWatchId(null);
+    setMessage("Live lorry tracking stopped.");
+  };
+
+  const start = () => {
+    if (!routeId) { setMessage("Select a route before starting lorry tracking."); return; }
+    if (!("geolocation" in navigator)) { setMessage("GPS is not supported on this device."); return; }
+    const id = navigator.geolocation.watchPosition(
+      (position) => {
+        void publishLorryLocation({
+          routeId,
+          driverId,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracyM: position.coords.accuracy,
+        }).then(() => setMessage(`Live location updated at ${new Date().toLocaleTimeString()}.`))
+          .catch((error) => setMessage(error instanceof Error ? error.message : "Could not update location."));
+      },
+      (error) => setMessage(error.message || "Could not read GPS location."),
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 },
+    );
+    setWatchId(id);
+    setMessage("Live lorry tracking is active. Keep this screen open during collection.");
+  };
+
+  return (
+    <Card className="mt-4 border-sky-200 bg-sky-50 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div><p className="text-sm font-bold text-sky-900">Collection lorry live GPS</p><p className="mt-0.5 text-[11px] text-sky-700">{message}</p></div>
+        {watchId === null
+          ? <button onClick={start} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white">Start GPS</button>
+          : <button onClick={stop} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white">Stop GPS</button>}
+      </div>
+    </Card>
   );
 }
 

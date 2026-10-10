@@ -21,28 +21,23 @@ const STORAGE_KEY = (uid: string) => `kdu.supplier_plot.${uid}`;
 
 const MOTIVATIONAL_TIPS = [
   {
-    title: "අක්කරයකට උපරිම අස්වැන්න · Max yield per acre",
-    body: "සාමාන්‍යයෙන් පහතරට තේ අක්කරයකින් දලු කිලෝ 1500ක් කඩාගත හැක. ඒ සඳහා නිවැරදි පොහොර භාවිතය සහ දලු රවුම් පවත්වාගන්න. (Low-country: up to ~1500 kg green leaf per acre per year.)",
+    titleKey: "supplierTips.tip1Title", bodyKey: "supplierTips.tip1Body",
     tone: "emerald",
   },
   {
-    title: "පොහොර වර්ග · Fertilizer mix",
-    body: "තේ වත්තක නිසි වර්ධනයට වර්ෂයකට අක්කරයකට Urea 50kg + TSP 25kg + MOP 25kg යෙදීම නිර්දේශිතයි. Apply Urea 50kg + TSP 25kg + MOP 25kg per acre per year for healthy bushes.",
+    titleKey: "supplierTips.tip2Title", bodyKey: "supplierTips.tip2Body",
     tone: "amber",
   },
   {
-    title: "කප්පාදු චක්‍රය · Pruning cycle",
-    body: "තේ පැළ වසර 3-4 කට සැරයක් කප්පාදු කළ යුතුය. නිසි කප්පාදුව අස්වැන්න 20%කින් වැඩි කරයි. Prune every 3-4 years; correct pruning boosts yield by ~20%.",
+    titleKey: "supplierTips.tip3Title", bodyKey: "supplierTips.tip3Body",
     tone: "sky",
   },
   {
-    title: "දලු රවුම් · Plucking rounds",
-    body: "දලු රවුම් 7-10 දිනකට සැරයක් පවත්වාගෙන යාම මගින් අස්වැන්න ස්ථාවරව පවතියි. Maintain 7-10 day plucking rounds for consistent yield quality.",
+    titleKey: "supplierTips.tip4Title", bodyKey: "supplierTips.tip4Body",
     tone: "violet",
   },
   {
-    title: "පැළ ගණන නැවත පරීක්ෂා කිරීම · Re-verify bush count",
-    body: "මස 6කට සැරයක් ඔබේ වත්තේ ගස් ගණන නැවත පරීක්ෂා කරන්න. පැළ මැරීම හෝ අලුතින් සිටුවීම නිසා ගස් ගණන වෙනස් වී ඇත්නම් යාවත්කාලීන කරන්න. Re-verify bush count every 6 months — update if bushes died or were replanted.",
+    titleKey: "supplierTips.tip5Title", bodyKey: "supplierTips.tip5Body",
     tone: "rose",
   },
 ];
@@ -289,8 +284,8 @@ export function SupplierTips() {
             </button>
           </div>
         </div>
-        <p className="text-base font-bold mb-2">🌱 {tip.title}</p>
-        <p className="text-sm leading-relaxed">{tip.body}</p>
+        <p className="text-base font-bold mb-2">🌱 {t(tip.titleKey)}</p>
+        <p className="text-sm leading-relaxed">{t(tip.bodyKey)}</p>
         <p className="mt-3 text-[10px] text-slate-500">
           Tip {tipIndex + 1} of {MOTIVATIONAL_TIPS.length} · Tap arrows to browse all tips.
         </p>
@@ -305,8 +300,8 @@ export function SupplierTips() {
               key={i}
               className={`rounded-lg border p-3 ${i === tipIndex ? toneClass(tip.tone) + " ring-2 ring-offset-1" : "border-slate-200 bg-slate-50"}`}
             >
-              <p className="text-sm font-bold mb-1">{tip.title}</p>
-              <p className="text-xs leading-relaxed text-slate-700">{tip.body}</p>
+              <p className="text-sm font-bold mb-1">{t(tip.titleKey)}</p>
+              <p className="text-xs leading-relaxed text-slate-700">{t(tip.bodyKey)}</p>
             </div>
           ))}
         </div>

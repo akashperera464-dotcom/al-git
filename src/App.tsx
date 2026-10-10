@@ -8,7 +8,8 @@ import { Toaster } from "@/components/Toaster";
 import { Login } from "@/components/Login";
 import { REGISTRY } from "@/modules/registry";
 import { homeModuleFor } from "@/lib/rbac";
-import { watchHybridSession } from "@/lib/auth.hybrid";
+import { signOutFirebase, watchHybridSession } from "@/lib/auth.hybrid";
+import { canActivateUser } from "@/lib/supplierOperations";
 import { Leaf } from "lucide-react";
 
 /** Resolves the module for the active nav key, behind the RouteGuard. */
@@ -49,7 +50,11 @@ function Root() {
   // Replay any persisted Firebase session on mount (so refresh keeps you logged in).
   useEffect(() => {
     const unsub = watchHybridSession((s) => {
-      if (s) setSession(s);
+      if (!s) return;
+      void canActivateUser(s.uid).then(async allowed => {
+        if (allowed) setSession(s);
+        else await signOutFirebase();
+      }).catch(async () => { await signOutFirebase(); });
     });
     return () => unsub();
   }, [setSession]);

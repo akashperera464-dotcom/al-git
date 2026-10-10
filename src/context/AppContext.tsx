@@ -63,7 +63,7 @@ export const USERS: Record<Role, UserProfile> = {
   supplier: {
     name: "Sumithra Green Leaf Co.",
     role: "supplier",
-    title: "VVIP Supplier · Ragala",
+    title: "Supplier · Ragala",
     initials: "SG",
     avatarTone: "from-violet-500 to-fuchsia-600",
   },

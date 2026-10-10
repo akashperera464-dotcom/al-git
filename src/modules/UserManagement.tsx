@@ -8,6 +8,7 @@ import { readUsersForAdmin, readEstateOptions, readDivisionOptions } from "@/lib
 import { useLiveData } from "@/lib/useLiveData";
 import { supabaseConfigured } from "@/lib/supabase";
 import { SupplierLocationHistory } from "@/components/LocationCheckIn";
+import { readFactories, readRoutes, updateSupplierOperationalFields, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 
 /** Badge tone per role. */
 const ROLE_TONE: Record<Role, "emerald" | "amber" | "violet" | "sky"> = {
@@ -20,7 +21,7 @@ const ROLE_LABEL: Record<Role, string> = {
   super_admin: "Super Admin",
   admin: "Admin",
   extension_officer: "Extension Officer",
-  supplier: "VVIP Supplier",
+  supplier: "Supplier",
 };
 
 interface UserForm {
@@ -31,8 +32,11 @@ interface UserForm {
   phone: string;
   estateId: string;
   divisionId: string;
+  supplierNo: string;
+  factoryId: string;
+  routeId: string;
 }
-const EMPTY_FORM: UserForm = { name: "", email: "", password: "", role: "extension_officer", phone: "", estateId: "", divisionId: "" };
+const EMPTY_FORM: UserForm = { name: "", email: "", password: "", role: "extension_officer", phone: "", estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeId: "" };
 
 interface EditForm {
   id: string;
@@ -41,7 +45,10 @@ interface EditForm {
   phone: string;
   estateId: string;
   divisionId: string;
-  status: "active" | "suspended";
+  supplierNo: string;
+  factoryId: string;
+  routeId: string;
+  status: "active" | "suspended" | "pending_approval";
 }
 
 /**
@@ -64,17 +71,31 @@ export default function UserManagement() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<UserForm>(EMPTY_FORM);
+  const [factories, setFactories] = useState<FactoryOption[]>([]);
+  const [formRoutes, setFormRoutes] = useState<RouteOption[]>([]);
+  const [editRoutes, setEditRoutes] = useState<RouteOption[]>([]);
 
   // Load estate + division dropdown options once (rarely change).
   useEffect(() => {
     void (async () => {
       try {
-        const [e, d] = await Promise.all([readEstateOptions(), readDivisionOptions()]);
+        const [e, d, f] = await Promise.all([readEstateOptions(), readDivisionOptions(), readFactories()]);
         setEstateOptions(e);
         setDivisionOptions(d);
+        setFactories(f);
       } catch { /* ignore */ }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!form.factoryId) { setFormRoutes([]); return; }
+    void readRoutes(form.factoryId).then(setFormRoutes).catch(() => setFormRoutes([]));
+  }, [form.factoryId]);
+
+  useEffect(() => {
+    if (!editing?.factoryId) { setEditRoutes([]); return; }
+    void readRoutes(editing.factoryId).then(setEditRoutes).catch(() => setEditRoutes([]));
+  }, [editing?.factoryId]);
 
   const filtered = users.filter((u) => filter === "all" || u.role === filter);
   const active = users.filter((u) => u.status === "active").length;
@@ -93,6 +114,16 @@ export default function UserManagement() {
       notify({ title: `${next === "active" ? "Reactivated" : "Suspended"} ${u.name}`, body: `Status set to ${next}.`, tone: next === "active" ? "emerald" : "amber", channel: "system" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status.");
+    }
+  };
+
+  const approve = async (u: ManagedUser) => {
+    try {
+      await updateSupplierOperationalFields(u.id, { status: "active" });
+      void reload();
+      notify({ title: "Supplier approved ✅", body: `${u.name} can now sign in.`, tone: "emerald", channel: "system" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve supplier.");
     }
   };
 
@@ -117,8 +148,12 @@ export default function UserManagement() {
       setError("Name is required.");
       return;
     }
-    if (editing.role === "supplier" && !editing.estateId) {
-      setError("Suppliers must be linked to an estate.");
+    if (editing.role === "supplier" && !editing.supplierNo.trim()) {
+      setError("Supplier No is required for suppliers.");
+      return;
+    }
+    if (editing.role === "supplier" && (!editing.factoryId || !editing.routeId)) {
+      setError("Factory and route are required for suppliers.");
       return;
     }
     // Division is optional for Extension Officers.
@@ -133,8 +168,13 @@ export default function UserManagement() {
         associatedEntityId: association,
         division,
         phone: editing.phone.trim() || null,
-        status: editing.status,
+        ...(editing.status === "pending_approval" ? {} : { status: editing.status }),
       });
+      if (editing.role === "supplier") {
+        await updateSupplierOperationalFields(editing.id, {
+          supplierNo: editing.supplierNo.trim(), factoryId: editing.factoryId || null, routeId: editing.routeId || null,
+        });
+      }
       void reload(); // refresh from DB
       notify({ title: "User updated", body: `${editing.name}'s profile saved.`, tone: "emerald", channel: "system" });
       setEditing(null);
@@ -151,7 +191,8 @@ export default function UserManagement() {
       setError("Name, email and a temporary password are required.");
       return;
     }
-    if (form.role === "supplier" && !form.estateId) { setError("Suppliers must be linked to an estate."); return; }
+    if (form.role === "supplier" && !form.supplierNo.trim()) { setError("Supplier No is required for suppliers."); return; }
+    if (form.role === "supplier" && (!form.factoryId || !form.routeId)) { setError("Factory and route are required for suppliers."); return; }
     // Division is optional for Extension Officers.
     if ((form.role === "admin" || form.role === "super_admin") && !canManageAdmins) { setError("Only a Super Admin can create admin accounts."); return; }
     if (form.password.length < 6) { setError("Temporary password must be at least 6 characters."); return; }
@@ -160,13 +201,18 @@ export default function UserManagement() {
     try {
       const association = form.role === "supplier" ? form.estateId : null;
       const division = form.role === "extension_officer" ? allDivisions.find((d) => d.id === form.divisionId)?.name ?? form.divisionId : null;
-      await provisionUser(form.email.trim(), form.password, {
+      const newUserId = await provisionUser(form.email.trim(), form.password, {
         name: form.name.trim(),
         role: form.role,
         associatedEntityId: association,
         division,
         phone: form.phone.trim() || null,
       });
+      if (form.role === "supplier") {
+        await updateSupplierOperationalFields(newUserId, {
+          supplierNo: form.supplierNo.trim(), factoryId: form.factoryId, routeId: form.routeId,
+        });
+      }
       void reload(); // refresh from DB — new user appears instantly across all screens
       notify({ title: "Account created ✅", body: `${form.name.trim()} (${ROLE_LABEL[form.role]}) can now log in.`, tone: "emerald", channel: "system" });
       setForm(EMPTY_FORM);
@@ -218,9 +264,9 @@ export default function UserManagement() {
             <div><label className={labelCls}>Full name</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Nimal Perera" className={inputCls} /></div>
             <div>
               <label className={labelCls}>Role</label>
-              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role, estateId: "", divisionId: "" })} className={inputCls}>
+              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role, estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeId: "" })} className={inputCls}>
                 <option value="extension_officer">Extension Officer</option>
-                <option value="supplier">VVIP Supplier</option>
+                <option value="supplier">Supplier</option>
                 {canManageAdmins && <option value="admin">Admin</option>}
                 {canManageAdmins && <option value="super_admin">Super Admin</option>}
               </select>
@@ -229,12 +275,18 @@ export default function UserManagement() {
             <div><label className={labelCls}><KeyRound className="mr-1 inline h-3 w-3" />Temporary password</label><input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="min 6 chars" className={inputCls} /></div>
             <div><label className={labelCls}>Phone (optional)</label><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+94 77 000 0000" className={inputCls} /></div>
             {form.role === "supplier" && (
-              <div><label className={labelCls}><Building2 className="mr-1 inline h-3 w-3" />Link to Estate</label>
+              <>
+              <div><label className={labelCls}>Supplier No (factory number) *</label><input value={form.supplierNo} onChange={e => setForm({ ...form, supplierNo: e.target.value })} placeholder="e.g., 237" className={inputCls} /></div>
+              <div><label className={labelCls}>Factory *</label><select value={form.factoryId} onChange={e => setForm({ ...form, factoryId: e.target.value, routeId: "" })} className={inputCls}><option value="">— select factory —</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+              <div><label className={labelCls}>Route *</label><select value={form.routeId} onChange={e => setForm({ ...form, routeId: e.target.value })} disabled={!form.factoryId} className={inputCls}><option value="">— select route —</option>{formRoutes.map(route => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div>
+              <div><label className={labelCls}><Building2 className="mr-1 inline h-3 w-3" />Link to Estate (optional)</label>
                 <select value={form.estateId} onChange={(e) => setForm({ ...form, estateId: e.target.value })} className={inputCls}>
-                  <option value="">— select estate —</option>
+                  <option value="">— no linked estate —</option>
                   {estateOptions.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
+                <p className="mt-1 text-[10px] text-slate-400">If no estate is selected, the supplier can register their own plots after signing in.</p>
               </div>
+              </>
             )}
             {form.role === "extension_officer" && (
               <div><label className={labelCls}><Layers className="mr-1 inline h-3 w-3" />Assigned Division (optional)</label>
@@ -269,9 +321,9 @@ export default function UserManagement() {
             <div><label className={labelCls}>Full name</label><input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className={inputCls} /></div>
             <div>
               <label className={labelCls}>Role {canManageAdmins ? "" : "(admins only super_admin can change)"}</label>
-              <select value={editing.role} onChange={(e) => setEditing({ ...editing, role: e.target.value as Role, estateId: "", divisionId: "" })} className={inputCls}>
+              <select value={editing.role} onChange={(e) => setEditing({ ...editing, role: e.target.value as Role, estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeId: "" })} className={inputCls}>
                 <option value="extension_officer">Extension Officer</option>
-                <option value="supplier">VVIP Supplier</option>
+                <option value="supplier">Supplier</option>
                 {canManageAdmins && <option value="admin">Admin</option>}
                 {canManageAdmins && <option value="super_admin">Super Admin</option>}
               </select>
@@ -279,18 +331,24 @@ export default function UserManagement() {
             <div><label className={labelCls}>Phone</label><input value={editing.phone} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} placeholder="+94 77 000 0000" className={inputCls} /></div>
             <div>
               <label className={labelCls}>Status</label>
-              <select value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value as "active" | "suspended" })} className={inputCls}>
+              <select value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value as EditForm["status"] })} className={inputCls}>
                 <option value="active">Active</option>
                 <option value="suspended">Suspended</option>
+                <option value="pending_approval">Pending approval</option>
               </select>
             </div>
             {editing.role === "supplier" && (
-              <div><label className={labelCls}><Building2 className="mr-1 inline h-3 w-3" />Link to Estate</label>
+              <>
+              <div><label className={labelCls}>Supplier No *</label><input value={editing.supplierNo} onChange={(e) => setEditing({ ...editing, supplierNo: e.target.value })} className={inputCls} /></div>
+              <div><label className={labelCls}>Factory *</label><select value={editing.factoryId} onChange={(e) => setEditing({ ...editing, factoryId: e.target.value, routeId: "" })} className={inputCls}><option value="">— select factory —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+              <div><label className={labelCls}>Route *</label><select value={editing.routeId} onChange={(e) => setEditing({ ...editing, routeId: e.target.value })} disabled={!editing.factoryId} className={inputCls}><option value="">— select route —</option>{editRoutes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div>
+              <div><label className={labelCls}><Building2 className="mr-1 inline h-3 w-3" />Link to Estate (optional)</label>
                 <select value={editing.estateId} onChange={(e) => setEditing({ ...editing, estateId: e.target.value })} className={inputCls}>
-                  <option value="">— select estate —</option>
+                  <option value="">— no linked estate —</option>
                   {estateOptions.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
               </div>
+              </>
             )}
             {editing.role === "extension_officer" && (
               <div><label className={labelCls}><Layers className="mr-1 inline h-3 w-3" />Assigned Division (optional)</label>
@@ -389,28 +447,30 @@ export default function UserManagement() {
               key: "scope", header: "Scope / Link",
               render: (u) =>
                 u.role === "supplier" ? (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-700"><Building2 className="h-3 w-3" /> {estateName(u.associatedEntityId)}</span>
+                  <div className="text-xs"><p className="font-semibold text-violet-700">#{u.supplierNo ?? "—"} · {u.factoryName ?? "No factory"}</p><p className="text-slate-400">{u.routeName ?? "No route"} · {estateName(u.associatedEntityId)}</p></div>
                 ) : u.role === "extension_officer" ? (
                   <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700"><Layers className="h-3 w-3" /> {divisionName(u.division)}</span>
                 ) : <span className="text-xs text-slate-400">—</span>,
             },
-            { key: "status", header: "Status", align: "center", render: (u) => <Badge tone={u.status === "active" ? "emerald" : "rose"} dot>{u.status}</Badge> },
+            { key: "status", header: "Status", align: "center", render: (u) => <Badge tone={u.status === "active" ? "emerald" : u.status === "pending_approval" ? "amber" : "rose"} dot>{u.status === "pending_approval" ? "Pending approval" : u.status}</Badge> },
             {
               key: "actions", header: "Actions", align: "right",
               render: (u) => (
                 <div className="flex items-center justify-end gap-1.5">
                   {/* Edit — all admins can edit (their own scope) */}
                   <button
-                    onClick={() => { setEditing({ id: u.id, name: u.name, role: u.role, phone: u.phone ?? "", estateId: u.associatedEntityId ?? "", divisionId: u.division ?? "", status: u.status }); setAdding(false); setConfirmDelete(null); setError(null); }}
+                    onClick={() => { setEditing({ id: u.id, name: u.name, role: u.role, phone: u.phone ?? "", estateId: u.associatedEntityId ?? "", divisionId: u.division ?? "", supplierNo: u.supplierNo ?? "", factoryId: u.factoryId ?? "", routeId: u.routeId ?? "", status: u.status }); setAdding(false); setConfirmDelete(null); setError(null); }}
                     title="Edit"
                     className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
                   {/* Suspend/Reactivate — admins */}
-                  <button onClick={() => toggle(u)} title={u.status === "active" ? "Suspend" : "Reactivate"} className={`rounded-lg p-1.5 ${u.status === "active" ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50"}`}>
-                    <Ban className="h-4 w-4" />
-                  </button>
+                  {u.status === "pending_approval" ? (
+                    <><button onClick={() => approve(u)} title="Approve supplier" className="rounded-lg px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-50">Approve</button><button onClick={() => { setConfirmDelete(u); setError(null); }} title="Reject registration" className="rounded-lg px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50">Reject</button></>
+                  ) : (
+                    <button onClick={() => toggle(u)} title={u.status === "active" ? "Suspend" : "Reactivate"} className={`rounded-lg p-1.5 ${u.status === "active" ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50"}`}><Ban className="h-4 w-4" /></button>
+                  )}
                   {/* Delete — SUPER ADMIN ONLY */}
                   {canManageAdmins && !isSelf(u) && (
                     <button onClick={() => { setConfirmDelete(u); setError(null); }} title="Delete (Super Admin)" className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50">
