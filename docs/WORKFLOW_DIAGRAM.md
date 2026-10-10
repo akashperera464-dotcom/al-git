@@ -3089,7 +3089,15 @@ Run `docs/migration_phase3_round10.sql` in Supabase SQL Editor. It creates and s
 
 ---
 
-*End of Workflow Diagram. Last updated: October 2026 (Round #19 — simplified login screen copy).*
+## 38. Login Language Selector Position
+
+- The login language selector is anchored to the top-right corner on desktop and mobile screens.
+- Mobile safe-area spacing keeps it below notches and system status areas.
+- Its language-switching behavior and authentication flow remain unchanged.
+
+---
+
+*End of Workflow Diagram. Last updated: October 2026 (Round #20 — login language selector position).*
 
 
 

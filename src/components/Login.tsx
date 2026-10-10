@@ -134,8 +134,9 @@ export function Login() {
         </>
       )}
 
-      {/* language switcher — safe-top-absolute pushes it below the iPhone notch */}
-      <div className="absolute safe-top-absolute right-4 z-10">
+      {/* Keep the selector in the viewport's top-right corner on every screen size.
+          safe-top-absolute moves it below a mobile display notch when necessary. */}
+      <div className="safe-top-absolute absolute right-4 top-4 z-20">
         <LanguageSwitcher dark />
       </div>
 
