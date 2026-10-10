@@ -3082,7 +3082,14 @@ Run `docs/migration_phase3_round10.sql` in Supabase SQL Editor. It creates and s
 
 ---
 
-*End of Workflow Diagram. Last updated: October 2026 (Round #18 — supplier greeting and Sri Lanka reference prices).*
+## 37. Login Screen Copy Simplification
+
+- Removed the role-list, account-creation and Firebase/Supabase informational sentences from the login screen.
+- Authentication behavior, supplier registration and language selection remain unchanged.
+
+---
+
+*End of Workflow Diagram. Last updated: October 2026 (Round #19 — simplified login screen copy).*
 
 
 

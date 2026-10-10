@@ -60,9 +60,6 @@
     "signInToAccount": "Sign in to your account",
     "emailUsername": "Email / Username",
     "enterEmailPassword": "Please enter your email and password.",
-    "allRolesSignIn": "Super Admin, Admin, Extension Officer & Supplier — all sign in here.",
-    "accountsCreatedByAdmin": "Accounts are created by your Super Admin / Administrator.",
-    "securedBy": "Secured by Firebase Authentication · Data by Supabase",
     "signInFailed": "Login failed.",
     "platformSubtitle": "Tea Estate Supplier Management Platform",
     "pendingApprovalMessage": "Your registration is awaiting administrator approval.", "registrationRequired": "Supplier No, name, email, password, factory and route are required.", "passwordMin6": "Password must contain at least 6 characters.", "registrationFailed": "Registration failed.", "supplierNo": "Supplier No", "factory": "Factory", "route": "Route", "selectFactory": "Select a factory", "selectRoute": "Select a route", "registrationSuccess": "Registration submitted successfully. You can sign in after an administrator approves your account.", "registering": "Registering…", "submitRegistration": "Submit registration", "backToSignIn": "Back to sign in", "newSupplier": "New supplier? Register here"

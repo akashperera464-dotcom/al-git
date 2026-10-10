@@ -273,19 +273,7 @@ export function Login() {
             <UserPlus className="h-4 w-4" /> {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
           </button>
 
-          {/* footer */}
-          <div className="mt-5 border-t pt-4" style={{ borderColor: hasBg ? "rgba(255,255,255,0.1)" : "rgb(241 245 249)" }}>
-            <p className={`text-center text-[11px] leading-relaxed ${hasBg ? "text-white/60" : "text-slate-400"}`}>
-              {t("auth.allRolesSignIn")}
-              <br />
-              {t("auth.accountsCreatedByAdmin")}
-            </p>
-          </div>
         </div>
-
-        <p className={`mt-5 text-center text-[11px] ${hasBg ? "text-white/50" : "text-slate-400"}`}>
-          {t("auth.securedBy")}
-        </p>
       </div>
     </div>
   );
