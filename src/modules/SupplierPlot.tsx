@@ -10,6 +10,8 @@ import {
   type EstateRegistrationRequest,
   type EstateBlock,
 } from "@/lib/estateRegistration";
+import { useTranslation } from "react-i18next";
+import { plotStateKey } from "@/i18n/databaseValues";
 
 /**
  * SupplierPlot — "My Plot" module (supplier side)
@@ -73,6 +75,7 @@ const YIELD_BY_REGION: Record<string, number> = {
 };
 
 export function SupplierPlot() {
+  const { t } = useTranslation();
   const { userUid, user, notify } = useApp();
 
   const [plot, setPlot] = useState<PlotData>(DEFAULT_PLOT);
@@ -392,9 +395,9 @@ export function SupplierPlot() {
   return (
     <div>
       <PageHeader
-        eyebrow="Supplier Interface"
-        title="My Plot"
-        desc="Register your tea plot with all details. Admin must approve before your plot becomes active. You can auto-detect your GPS location or enter it manually."
+        eyebrow={t("supplierPlot.eyebrow")}
+        title={t("supplierPlot.title")}
+        desc={t("supplierPlot.desc")}
         icon={<IconChip icon={Sprout} tone="emerald" className="h-12 w-12" />}
       />
 
@@ -406,19 +409,19 @@ export function SupplierPlot() {
             {/* Step 1: Submitted */}
             <div className="flex flex-col items-center">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white text-xs font-bold">✓</div>
-              <p className="mt-1 text-[9px] font-bold text-emerald-700 text-center">ඉදිරිපත් කළා<br/>Submitted</p>
+              <p className="mt-1 text-[9px] font-bold text-emerald-700 text-center">{t("supplierPlot.submitted")}</p>
             </div>
             <div className="flex-1 h-0.5 bg-amber-300 mx-1" />
             {/* Step 2: Under Review */}
             <div className="flex flex-col items-center">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400 text-white text-xs font-bold animate-pulse">⏳</div>
-              <p className="mt-1 text-[9px] font-bold text-amber-700 text-center">සමාලෝචනය<br/>Under Review</p>
+              <p className="mt-1 text-[9px] font-bold text-amber-700 text-center">{t("supplierPlot.underReview")}</p>
             </div>
             <div className="flex-1 h-0.5 bg-slate-200 mx-1" />
             {/* Step 3: Approved */}
             <div className="flex flex-col items-center">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-400 text-xs font-bold">3</div>
-              <p className="mt-1 text-[9px] font-bold text-slate-400 text-center">අනුමත කළා<br/>Approved</p>
+              <p className="mt-1 text-[9px] font-bold text-slate-400 text-center">{t("supplierPlot.approved")}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 mb-2">
@@ -475,68 +478,67 @@ export function SupplierPlot() {
       {(mode === "register" || mode === "rejected") && (
         <Card className="mt-4 p-4">
           <h3 className="mb-3 font-display text-sm font-bold text-slate-800">
-            {mode === "rejected" ? "📝 Update & Resubmit Registration" : "📝 Register Your Tea Plot"}
+            {mode === "rejected" ? `📝 ${t("supplierPlot.resubmitTitle")}` : `📝 ${t("supplierPlot.registerTitle")}`}
           </h3>
           <p className="text-[11px] text-slate-500 mb-3">
-            Fill in all details below. Your plot will be reviewed by the admin before activation.
-            Use the 📍 Auto-Detect button to fill your GPS coordinates automatically.
+            {t("supplierPlot.formHint")}
           </p>
           <div className="space-y-3">
             {/* Plot name + phone */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-slate-400">🏞️ වත්තේ නම · Plot Name *</label>
-                <input value={formPlotName} onChange={e => setFormPlotName(e.target.value)} placeholder="උදා: නිමල්ගේ තේ වත්ත / e.g., Nimal's Tea Plot" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+                <label className="text-[11px] text-slate-400">🏞️ {t("supplierPlot.plotName")} *</label>
+                <input value={formPlotName} onChange={e => setFormPlotName(e.target.value)} placeholder={t("supplierPlot.plotNamePh")} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">📞 දුරකථන · Contact Phone</label>
+                <label className="text-[11px] text-slate-400">📞 {t("supplierPlot.contactPhone")}</label>
                 <input value={formPhone} onChange={e => setFormPhone(e.target.value)} placeholder="+94 77 123 4567" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
               </div>
             </div>
             {/* Acreage + bush count */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-slate-400">📐 අක්කර ගණන · Acreage (acres) *</label>
-                <input type="number" min={0} step="any" value={formAcreage || ""} onChange={e => setFormAcreage(+e.target.value)} placeholder="උදා: 2.5" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+                <label className="text-[11px] text-slate-400">📐 {t("supplierPlot.acreage")} *</label>
+                <input type="number" min={0} step="any" value={formAcreage || ""} onChange={e => setFormAcreage(+e.target.value)} placeholder="2.5" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">🌳 තේ ගස් ගණන · Bush Count *</label>
-                <input type="number" min={0} value={formBushCount || ""} onChange={e => setFormBushCount(+e.target.value)} placeholder="උදා: 5400" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
+                <label className="text-[11px] text-slate-400">🌳 {t("supplierPlot.bushCount")} *</label>
+                <input type="number" min={0} value={formBushCount || ""} onChange={e => setFormBushCount(+e.target.value)} placeholder="5400" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
               </div>
             </div>
             {/* Cultivar + region */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-slate-400">🌱 තේ ප්‍රභේදය · Cultivar (TRI Clone)</label>
+                <label className="text-[11px] text-slate-400">🌱 {t("supplierPlot.cultivar")}</label>
                 <select value={formCultivar} onChange={e => setFormCultivar(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
                   <option value="TRI 2025 (VP)">TRI 2025 (VP)</option>
                   <option value="TRI 2023 (VP)">TRI 2023 (VP)</option>
                   <option value="TRI 2024 (VP)">TRI 2024 (VP)</option>
-                  <option value="Seedling">Seedling (බීජ පැළ)</option>
-                  <option value="Other">Other (වෙනත්)</option>
+                  <option value="Seedling">{t("supplierPlot.seedling")}</option>
+                  <option value="Other">{t("supplierPlot.other")}</option>
                 </select>
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">🌍 ප්‍රදේශය · Region</label>
+                <label className="text-[11px] text-slate-400">🌍 {t("supplierPlot.region")}</label>
                 <select value={formRegion} onChange={e => setFormRegion(e.target.value as any)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
-                  <option value="low-country">Low-Country (පහතරට) — ~1,500 kg/acre</option>
-                  <option value="mid-country">Mid-Country (මැදරට) — ~1,100 kg/acre</option>
-                  <option value="up-country">Up-Country (ඉහළරට) — ~800 kg/acre</option>
+                  <option value="low-country">{t("supplierPlot.lowCountry")}</option>
+                  <option value="mid-country">{t("supplierPlot.midCountry")}</option>
+                  <option value="up-country">{t("supplierPlot.upCountry")}</option>
                 </select>
               </div>
             </div>
             {/* Soil type — NEW per spec */}
             <div>
-              <label className="text-[11px] text-slate-400">🪨 පසේ ස්වභාවය · Soil Type</label>
+              <label className="text-[11px] text-slate-400">🪨 {t("supplierPlot.soilType")}</label>
               <select value={formSoilType} onChange={e => setFormSoilType(e.target.value as any)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm">
-                <option value="unknown">— නොදනී / Unknown —</option>
-                <option value="sandy">�වැලි පස / Sandy</option>
-                <option value="loam">ලෝම පස / Loam (best for tea)</option>
-                <option value="clay">මැටි පස / Clay</option>
-                <option value="sandy-loam">වැලි-ලෝම / Sandy-Loam</option>
-                <option value="clay-loam">මැටි-ලෝම / Clay-Loam</option>
+                <option value="unknown">{t("supplierPlot.soilUnknown")}</option>
+                <option value="sandy">{t("supplierPlot.soilSandy")}</option>
+                <option value="loam">{t("supplierPlot.soilLoam")}</option>
+                <option value="clay">{t("supplierPlot.soilClay")}</option>
+                <option value="sandy-loam">{t("supplierPlot.soilSandyLoam")}</option>
+                <option value="clay-loam">{t("supplierPlot.soilClayLoam")}</option>
               </select>
-              <p className="mt-1 text-[10px] text-slate-400">පසේ ස්වභාවය අනුව පොහොර නිර්දේශ වෙනස් වේ. (Soil type affects fertilizer recommendations.)</p>
+              <p className="mt-1 text-[10px] text-slate-400">{t("supplierPlot.soilHint")}</p>
             </div>
             {/* GPS coordinates with auto-detect */}
             <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
@@ -580,19 +582,18 @@ export function SupplierPlot() {
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-[11px] text-emerald-700 font-semibold">
-                  🏞️ Plot Blocks / Divisions (optional but recommended)
+                  {t("supplierPlot.blocksSection")}
                 </label>
                 <button
                   type="button"
                   onClick={addBlock}
                   className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:brightness-110 inline-flex items-center gap-1"
                 >
-                  <Plus className="h-3 w-3" /> Add Block
+                  <Plus className="h-3 w-3" /> {t("supplierPlot.addBlock")}
                 </button>
               </div>
               <p className="text-[10px] text-emerald-700 mb-2 leading-relaxed">
-                Divide your plot into blocks (e.g., උඩ කොටස / Upper Block, පහළ කොටස / Lower Block).
-                On admin approval, these become My Plot sub-fields automatically — no need to re-enter them later.
+                {t("supplierPlot.blocksHint")}
               </p>
               {formBlocks.length === 0 ? (
                 <p className="text-[10px] text-emerald-600 italic text-center py-2">
@@ -609,21 +610,21 @@ export function SupplierPlot() {
                           onClick={() => removeBlock(b.id)}
                           className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-600 hover:text-rose-700"
                         >
-                          <Trash2 className="h-3 w-3" /> Remove
+                          <Trash2 className="h-3 w-3" /> {t("supplierPlot.removeBlock")}
                         </button>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="col-span-2">
-                          <label className="text-[10px] text-slate-400">Block Name *</label>
+                          <label className="text-[10px] text-slate-400">{t("supplierPlot.blockName")} *</label>
                           <input
                             value={b.name}
                             onChange={e => updateBlock(b.id, { name: e.target.value })}
-                            placeholder="e.g., Upper Block / උඩ කොටස"
+                            placeholder={t("supplierPlot.blockNamePh")}
                             className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-xs"
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-slate-400">Area (acres)</label>
+                          <label className="text-[10px] text-slate-400">{t("supplierPlot.blockArea")}</label>
                           <input
                             type="number" step="any" min={0}
                             value={b.areaAcres ? b.areaAcres : ""}
@@ -636,7 +637,7 @@ export function SupplierPlot() {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-slate-400">Bush Count</label>
+                          <label className="text-[10px] text-slate-400">{t("supplierPlot.blockBushes")}</label>
                           <input
                             type="number" min={0}
                             value={b.bushCount || ""}
@@ -654,13 +655,13 @@ export function SupplierPlot() {
 
             {/* Address */}
             <div>
-              <label className="text-[11px] text-slate-400">📍 ලිපිනය · Address (village, district)</label>
-              <input value={formAddress} onChange={e => setFormAddress(e.target.value)} placeholder="උදා: රගල, වලපානේ / e.g., Ragala, Walapane" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
+              <label className="text-[11px] text-slate-400">📍 {t("supplierPlot.address")}</label>
+              <input value={formAddress} onChange={e => setFormAddress(e.target.value)} placeholder={t("supplierPlot.addressPh")} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             {/* Photo URLs (Phase 1: text input; Phase 2: file upload) */}
             <div className="rounded-lg border border-slate-200 p-3">
               <label className="text-[11px] text-slate-400 font-semibold flex items-center gap-1 mb-2">
-                📷 වත්තේ ඡායාරූප · Plot Photos (URLs — optional)
+                📷 {t("supplierPlot.photos")}
               </label>
               <div className="space-y-2">
                 <input value={formPhoto1} onChange={e => setFormPhoto1(e.target.value)} placeholder="Photo 1 URL (boundary/entrance)" className="w-full rounded border border-slate-200 px-2 py-1.5 text-xs" />
@@ -671,13 +672,13 @@ export function SupplierPlot() {
             {/* Land document URL (optional) */}
             <div>
               <label className="text-[11px] text-slate-400 font-semibold flex items-center gap-1">
-                📄 ඉඩම් ඔප්පු · Land Document URL (optional — deed/ඔප්පු)
+                📄 {t("supplierPlot.landDocument")}
               </label>
               <input value={formLandDoc} onChange={e => setFormLandDoc(e.target.value)} placeholder="URL to scan/photo of land deed" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             {/* Notes */}
             <div>
-              <label className="text-[11px] text-slate-400">📝 සටහන් · Notes (optional)</label>
+              <label className="text-[11px] text-slate-400">📝 {t("supplierPlot.notes")}</label>
               <textarea value={formNotes} onChange={e => setFormNotes(e.target.value)} rows={2} placeholder="Any additional information about your plot" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
             {/* Submit button */}
@@ -812,9 +813,9 @@ export function SupplierPlot() {
                   onChange={e => setFormRegion(e.target.value as any)}
                   className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2.5 text-sm"
                 >
-                  <option value="low-country">Low-Country (පහතරට) — ~1,500 kg/acre</option>
-                  <option value="mid-country">Mid-Country (මැදරට) — ~1,100 kg/acre</option>
-                  <option value="up-country">Up-Country (ඉහළරට) — ~800 kg/acre</option>
+                  <option value="low-country">{t("supplierPlot.lowCountry")}</option>
+                  <option value="mid-country">{t("supplierPlot.midCountry")}</option>
+                  <option value="up-country">{t("supplierPlot.upCountry")}</option>
                 </select>
               </div>
             </div>
@@ -953,22 +954,22 @@ export function SupplierPlot() {
           {showSubFieldForm && (
             <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
               <h4 className="mb-3 font-display text-sm font-bold text-emerald-800">
-                {editingSubFieldId ? "✏️ Sub-field සංස්කරණය · Edit Sub-Field" : "➕ නව කොටස · Add Sub-Field"}
+                {editingSubFieldId ? `✏️ ${t("supplierPlot.editSubField")}` : `➕ ${t("supplierPlot.addSubField")}`}
               </h4>
               <div className="space-y-2">
                 {/* Simple fields — always visible */}
                 <div>
-                  <label className="text-[11px] text-slate-400">🏷️ කොටසේ නම · Block Name *</label>
+                  <label className="text-[11px] text-slate-400">🏷️ {t("supplierPlot.blockName")} *</label>
                   <input
                     value={subName}
                     onChange={e => setSubName(e.target.value)}
-                    placeholder="උදා: උඩ කොටස, පහළ කොටස / e.g. Upper Block, Lower Block"
+                    placeholder={t("supplierPlot.blockNamePh")}
                     className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[11px] text-slate-400">📐 ප්රමාණය · Area (acres)</label>
+                    <label className="text-[11px] text-slate-400">📐 {t("supplierPlot.blockArea")}</label>
                     <input
                       type="number" step="any" min={0}
                       value={subAreaHa ? +(subAreaHa * 2.471).toFixed(3) : ""}
@@ -979,7 +980,7 @@ export function SupplierPlot() {
                     <p className="mt-0.5 text-[9px] text-slate-400">{subAreaHa > 0 ? `= ${subAreaHa.toFixed(4)} ha` : ""}</p>
                   </div>
                   <div>
-                    <label className="text-[11px] text-slate-400">🌳 ගස් ගණන · Bush Count</label>
+                    <label className="text-[11px] text-slate-400">🌳 {t("supplierPlot.blockBushes")}</label>
                     <input
                       type="number" min={0}
                       value={subBush || ""}
@@ -995,7 +996,7 @@ export function SupplierPlot() {
                   <div className="mt-2 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[11px] text-slate-400">ප්රභේදය · Cultivar</label>
+                        <label className="text-[11px] text-slate-400">{t("supplierPlot.cultivarLabel")}</label>
                         <select value={subCultivar} onChange={e => setSubCultivar(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-xs">
                           <option value="TRI 2025 (VP)">TRI 2025 (VP)</option>
                           <option value="TRI 2023 (VP)">TRI 2023 (VP)</option>
@@ -1005,21 +1006,21 @@ export function SupplierPlot() {
                         </select>
                       </div>
                       <div>
-                        <label className="text-[11px] text-slate-400">තත්ත්වය · Status</label>
+                        <label className="text-[11px] text-slate-400">{t("supplierPlot.statusLabel")}</label>
                         <select value={subStatus} onChange={e => setSubStatus(e.target.value as any)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-xs">
-                          <option value="plucking">Plucking (දලු කැඩීම)</option>
-                          <option value="pruned">Pruned (කප්පාදු)</option>
-                          <option value="young">Young (තරුණ)</option>
-                          <option value="nursery">Nursery (නර්සරි)</option>
+                          <option value="plucking">{t(plotStateKey("plucking"))}</option>
+                          <option value="pruned">{t(plotStateKey("pruned"))}</option>
+                          <option value="young">{t(plotStateKey("young"))}</option>
+                          <option value="nursery">{t(plotStateKey("nursery"))}</option>
                         </select>
                       </div>
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-400">වගා වර්ෂය · Planting Year</label>
+                      <label className="text-[11px] text-slate-400">{t("supplierPlot.plantingYear")}</label>
                       <input type="number" value={subYear} onChange={e => setSubYear(+e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm tnum" />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-400">කේතය · Code (auto-generated)</label>
+                      <label className="text-[11px] text-slate-400">{t("supplierPlot.code")}</label>
                       <input value={subCode} onChange={e => setSubCode(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm font-mono" />
                     </div>
                   </div>
@@ -1052,7 +1053,7 @@ export function SupplierPlot() {
         <Card className="mt-4 p-4 border-emerald-200 bg-emerald-50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-emerald-700">🌱 තවත් වත්තක් ලියාපදිංචි කරන්න</p>
+              <p className="text-sm font-bold text-emerald-700">🌱 {t("supplierPlot.morePlot")}</p>
               <p className="text-[11px] text-emerald-600 mt-0.5">Register another tea plot you own</p>
             </div>
             <button
@@ -1071,7 +1072,7 @@ export function SupplierPlot() {
               }}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:brightness-110"
             >
-              + අලුත් වත්තක්
+              + {t("supplierPlot.addPlot")}
             </button>
           </div>
         </Card>

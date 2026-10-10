@@ -333,15 +333,15 @@ export function SupplierProfile() {
           <Info className="h-4 w-4" /> {t("supplierProfile.help")}
         </h3>
         <ul className="space-y-1 text-xs text-violet-700">
-          <li>📊 <strong>My Leaf Deliveries</strong> — ඔබගේ කොළ භාරදීම් පෙන්වයි (your leaf deliveries)</li>
-          <li>🔔 <strong>Smart Alerts</strong> — පොහොර/කප්පාදු උපදෙස් + කාලගුණ අනතුරු ඇඟවීම් (fertilizer + weather alerts)</li>
-          <li>🌾 <strong>My Farm Activities</strong> — පොහොර, කප්පාදු, දලු කඩදීම, නැවත සිටුවීම සටහන් කරන්න (log activities)</li>
-          <li>🌳 <strong>My Plot</strong> — වත්ත ලියාපදිංචි කරන්න + GPS + අක්කර/ගස් ගණන (register your plot)</li>
-          <li>☁️ <strong>My Weather</strong> — ඔබගේ වත්තේ කාලගුණය (weather for your plot)</li>
-          <li>💡 <strong>Tips & Guidance</strong> — දිනපතා කෘෂිකර්ම උපදෙස් (daily agronomy tips)</li>
-          <li>🌱 <strong>My Fertilizer</strong> — කම්හලෙන් ලැබූ පොහොර ඉතිරිය (fertilizer balance)</li>
-          <li>📰 <strong>Estate Updates</strong> — නිවේදන කියවන්න (read announcements)</li>
-          <li>📥 <strong>Request Resources</strong> — උපකරණ/පොහොර ඉල්ලන්න (request resources)</li>
+          <li>📊 {t("supplierProfile.helpDeliveries")}</li>
+          <li>🔔 {t("supplierProfile.helpAlerts")}</li>
+          <li>🌾 {t("supplierProfile.helpFarm")}</li>
+          <li>🌳 {t("supplierProfile.helpPlot")}</li>
+          <li>☁️ {t("supplierProfile.helpWeather")}</li>
+          <li>💡 {t("supplierProfile.helpTips")}</li>
+          <li>🌱 {t("supplierProfile.helpFertilizer")}</li>
+          <li>📰 {t("supplierProfile.helpUpdates")}</li>
+          <li>📥 {t("supplierProfile.helpRequests")}</li>
         </ul>
       </Card>
     </div>

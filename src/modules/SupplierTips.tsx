@@ -265,7 +265,7 @@ export function SupplierTips() {
           </p>
           {plot?.fromPending && (
             <p className="mt-2 text-[10px] text-slate-400 italic">
-              * ඔබේ ලියාපදිංචිය තවම අනුමත කර නොමැත. ⏳ Tips pending-registration acreage ඇසුරෙන් ගනු ලැබේ.
+              * {t("supplierTips.pendingHint")}
             </p>
           )}
         </Card>
@@ -287,7 +287,7 @@ export function SupplierTips() {
         <p className="text-base font-bold mb-2">🌱 {t(tip.titleKey)}</p>
         <p className="text-sm leading-relaxed">{t(tip.bodyKey)}</p>
         <p className="mt-3 text-[10px] text-slate-500">
-          Tip {tipIndex + 1} of {MOTIVATIONAL_TIPS.length} · Tap arrows to browse all tips.
+          {t("supplierTips.tipCounter", { current: tipIndex + 1, total: MOTIVATIONAL_TIPS.length })}
         </p>
       </Card>
 
@@ -308,7 +308,7 @@ export function SupplierTips() {
       </Card>
 
       <p className="mt-3 text-[10px] text-slate-400 px-1">
-        * Tips sourced from Sri Lankan tea agronomy best practices (TRI — Tea Research Institute guidelines).
+        * {t("supplierTips.source")}
       </p>
     </div>
   );

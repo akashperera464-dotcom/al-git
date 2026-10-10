@@ -3049,7 +3049,7 @@ Collector starts route GPS → lorry_locations upsert
 
 - English, Sinhala and Tamil locale files have matching `supplierHome`, `supplierDelivery`, `status`, `grade`, `activity`, `moveType`, `landType`, `plotState` and `role` keys.
 - Database values remain in English and are normalized through `src/i18n/databaseValues.ts` before display.
-- The supplier home and core delivery/finance displays no longer combine Sinhala and English in one label.
+- The supplier home, delivery/finance, calendar, labour, plot, profile, tips and automated-alert displays no longer combine Sinhala and English in one label.
 
 ### 34.4 Database Migration (Required)
 
