@@ -36,6 +36,9 @@ export interface Block {
   areaHa: number;
 }
 export interface Field {
+  supplierId?: string;
+  latitude?: number;
+  longitude?: number;
   id: string;
   code: string;
   name: string;

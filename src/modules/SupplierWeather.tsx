@@ -6,6 +6,8 @@ import { Icon } from "@/components/Icon";
 import { useApp } from "@/context/AppContext";
 import { fetchForecast, getMockForecast, weatherConfigured } from "@/lib/weather";
 import type { WeatherDay } from "@/lib/data";
+import { useLiveData } from "@/lib/useLiveData";
+import { readSupplierPlot } from "@/lib/supplierData";
 
 /**
  * SupplierWeather — "My Weather" module (supplier side)
@@ -22,23 +24,11 @@ export function SupplierWeather() {
   const { estates, associatedEntityId, userUid } = useApp();
   const estate = estates.find((e) => e.id === associatedEntityId);
 
-  const [plotLat, setPlotLat] = useState<number | undefined>(undefined);
-  const [plotLon, setPlotLon] = useState<number | undefined>(undefined);
-  const [plotName, setPlotName] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(`kdu.supplier_plot.${userUid}`);
-      if (raw) {
-        const plot = JSON.parse(raw);
-        if (typeof plot.latitude === "number" && typeof plot.longitude === "number") {
-          setPlotLat(plot.latitude);
-          setPlotLon(plot.longitude);
-          setPlotName(plot.plotName ?? plot.cultivar);
-        }
-      }
-    } catch { /* ignore */ }
-  }, [userUid]);
+  const { data: plots, error: plotError } = useLiveData(
+    "fields", () => readSupplierPlot(userUid), `supplier_id=eq.${userUid}`);
+  const plotLat = plots[0]?.latitude;
+  const plotLon = plots[0]?.longitude;
+  const plotName = plots[0]?.plotName;
 
   const useLat = plotLat ?? estate?.latitude;
   const useLon = plotLon ?? estate?.longitude;
@@ -63,6 +53,7 @@ export function SupplierWeather() {
 
   return (
     <div>
+      {plotError && <p role="alert" className="text-sm text-rose-700">{plotError}</p>}
       <PageHeader
         eyebrow={t("supplierWeather.eyebrow")}
         title={t("supplierWeather.title")}

@@ -535,6 +535,9 @@ function PendingRegistrationsPanel() {
       // Create a field for the supplier's plot
       await addField(estate.id, division.id, {
         code: `SUP-${req.supplierId.slice(-4).toUpperCase()}`,
+        supplierId: req.supplierId,
+        latitude: req.latitude,
+        longitude: req.longitude,
         name: req.plotName || "Supplier Plot",
         cultivar: req.cultivar || "TRI 2025 (VP)",
         plantingYear: new Date().getFullYear(),

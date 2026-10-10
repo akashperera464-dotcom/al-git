@@ -25,6 +25,20 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
+// This claim grants the PostgreSQL authenticated role, not application admin.
+// Application permissions are always resolved from the protected users table.
+exports.ensureSupabaseRole = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const user = await admin.auth().getUser(request.auth.uid);
+  if (user.disabled) throw new HttpsError("permission-denied", "Account disabled.");
+  if (user.customClaims?.role !== "authenticated") {
+    await admin.auth().setCustomUserClaims(user.uid, {
+      ...user.customClaims, role: "authenticated",
+    });
+  }
+  return { ok: true };
+});
+
 // ============================================================
 // CLOUD FUNCTION: Send FCM Push when a new alert is created
 // ============================================================

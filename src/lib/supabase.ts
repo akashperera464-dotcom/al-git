@@ -3,19 +3,20 @@
  * Verda / KDU ERP · Supabase (PostgreSQL) connection layer
  * ------------------------------------------------------------------
  * HYBRID ARCHITECTURE:
- *   Firebase  → Authentication (Phone OTP) + Cloud Messaging (FCM) only.
+ *   Firebase  → Email/password authentication + Cloud Messaging (FCM).
  *   Supabase  → ALL business logic, master data & transactional tables.
  *
  * CONNECTED PROJECT: KDU ERP
  *
  * A Firebase-authenticated user's `uid` becomes the PRIMARY KEY (`id`) of the
  * Supabase `users` table (see auth.hybrid.ts). Supabase RLS then authorizes
- * every operational query using `auth.uid()`.
+ * operational queries using the text subject `auth.jwt()->>'sub'`.
  *
  * Demo mode (no env): exports a null client; repo.ts falls back to mock data
  * so the app + RBAC boundaries remain runnable & auditable.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { initFirebase } from "./firebase";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -37,17 +38,23 @@ export function initSupabase(): SupabaseClient | null {
   if (client) return client;
   if (!supabaseConfigured) return null;
   client = createClient(SUPABASE_PROJECT_URL!, SUPABASE_ANON_KEY!, {
+    // Firebase is the identity provider. Enable Firebase Third-Party Auth in
+    // Supabase; its text UID is available to RLS as auth.jwt()->>'sub'.
+    accessToken: async () => {
+      const { auth } = initFirebase();
+      if (!auth) return null;
+      await auth.authStateReady();
+      return (await auth.currentUser?.getIdToken()) ?? null;
+    },
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
+      persistSession: false,
+      autoRefreshToken: false,
       // We authenticate via Firebase; Supabase RLS trusts the Firebase uid claim
       // rather than Supabase's own auth session.
       detectSessionInUrl: false,
     },
     global: { headers: { "x-client-info": "verda-erp-web" } },
   });
-  // One-time connection confirmation (non-blocking).
-  void pingSupabase();
   return client;
 }
 

@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
-import { User, Save, Bell, Info, Wallet, TrendingUp, TrendingDown, CheckCircle2 } from "lucide-react";
+import { User, Save, Bell, Info, Wallet, TrendingUp, TrendingDown } from "lucide-react";
 import { PageHeader, Card, Badge, IconChip, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtLKR } from "@/lib/data";
+import { readSupplierProfile, saveSupplierProfile, readSupplierLedger } from "@/lib/supplierData";
+import { getSupabase } from "@/lib/supabase";
+import { useLiveData } from "@/lib/useLiveData";
+import { readAlerts } from "@/lib/notifications";
 
 /**
  * SupplierProfile — "My Profile" module (supplier side)
  * ------------------------------------------------------------------
  * Combines:
  *   A2 — Profile/Settings page (edit name, phone, NIC, address, photo)
- *   A3 — Notification Center (persistent notification list from localStorage)
+ *   A3 — Notification Center (Supabase alerts, scoped to the signed-in UID)
  *
  * Also includes notification preferences (C.13 from earlier spec).
  *
@@ -17,8 +21,6 @@ import { fmtLKR } from "@/lib/data";
  * supplier leaf payments externally via a separate finance system, so
  * earnings/payment figures no longer appear in the supplier portal.
  */
-const PROFILE_KEY = (uid: string) => `kdu.supplier_profile.${uid}`;
-const NOTIFS_KEY = (uid: string) => `kdu.supplier_notifications.${uid}`;
 
 interface StoredNotification {
   id: string;
@@ -63,122 +65,85 @@ const DEFAULT_PROFILE: ProfileData = {
 };
 
 export function SupplierProfile() {
-  const { userUid, user, notify } = useApp();
+  const { userUid, user, session, notify } = useApp();
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE);
   const [editing, setEditing] = useState(false);
-  const [notifications, setNotifications] = useState<StoredNotification[]>([]);
-
-  // B30 (Round #12) — RESTORED: Earnings + fertilizer cost + advance data
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [totalEarned, setTotalEarned] = useState(0);
   const [totalFertCost, setTotalFertCost] = useState(0);
   const [advanceBalance, setAdvanceBalance] = useState(0);
+  const [missingPrices, setMissingPrices] = useState(false);
+  const { data: alerts, error: alertsError, reload: reloadAlerts } = useLiveData(
+    "alerts", () => readAlerts(userUid, 50), `target_user_id=eq.${userUid}`);
+  const notifications: StoredNotification[] = alerts.map(a => ({
+    id: a.id, title: a.title, body: a.body, tone: "sky", channel: "system",
+    timestamp: new Date(a.created_at).getTime(), read: a.read,
+  }));
 
   useEffect(() => {
-    // Load profile
-    try {
-      const raw = localStorage.getItem(PROFILE_KEY(userUid));
-      if (raw) {
-        setProfile({ ...DEFAULT_PROFILE, ...JSON.parse(raw) });
-      } else if (user?.name) {
-        setProfile({ ...DEFAULT_PROFILE, name: user.name });
-      }
-    } catch { /* ignore */ }
-
-    // Load notifications (from toast history — we also listen for new toasts)
-    try {
-      const raw = localStorage.getItem(NOTIFS_KEY(userUid));
-      if (raw) setNotifications(JSON.parse(raw));
-    } catch { /* ignore */ }
-
-    // B30 (Round #12) — RESTORED: Load earnings from harvest_records + fertilizer credit cost
+    let active = true;
+    setLoaded(false); setError(null); setEditing(false);
+    setProfile({ ...DEFAULT_PROFILE, name: session?.name ?? user.name, phone: session?.phone ?? "" });
+    setTotalEarned(0); setTotalFertCost(0); setAdvanceBalance(0);
+    void readSupplierProfile(userUid).then(data => {
+      if (!active) return;
+      if (data) setProfile({ ...DEFAULT_PROFILE, ...data,
+        notificationPrefs: { ...DEFAULT_PROFILE.notificationPrefs, ...data.notificationPrefs } });
+      setLoaded(true);
+    }).catch(e => { if (active) setError(e.message); });
     void (async () => {
-      try {
-        const { supabaseConfigured, getSupabase } = await import("@/lib/supabase");
-        if (supabaseConfigured) {
-          const sb = getSupabase()!;
-          const { data: harvests } = await sb
-            .from("harvest_records")
-            .select("amount")
-            .eq("supplier_id", userUid);
-          if (harvests) {
-            setTotalEarned(harvests.reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0));
-          }
-          // Active advances
-          const { data: loans } = await sb
-            .from("supplier_fertilizer_loans")
-            .select("balance, status")
-            .eq("status", "active");
-          if (loans) {
-            setAdvanceBalance(loans.reduce((s: number, r: any) => s + Number(r.balance ?? 0), 0));
-          }
-        }
-        // Fertilizer credit cost
-        const ledgerRaw = localStorage.getItem("kdu.supplier_fertilizer_ledger");
-        if (ledgerRaw) {
-          const ledger = JSON.parse(ledgerRaw);
-          const myEntries = ledger.filter((e: any) =>
-            e.supplierName?.toLowerCase() === (user?.name ?? "").toLowerCase() &&
-            (e.notes || "").toLowerCase().includes("credit")
-          );
-          const fertCost = myEntries.reduce((s: number, e: any) => s + (e.qtyIssued * 95), 0);
-          setTotalFertCost(fertCost);
-        }
-      } catch { /* ignore */ }
-    })();
+      const sb = getSupabase();
+      if (!sb) return;
+      const [harvests, loans, ledger] = await Promise.all([
+        sb.from("harvest_records").select("amount").eq("supplier_id", userUid),
+        sb.from("supplier_fertilizer_loans").select("balance").eq("supplier_id", userUid).eq("status", "active"),
+        readSupplierLedger(userUid),
+      ]);
+      if (harvests.error) throw harvests.error;
+      if (loans.error) throw loans.error;
+      if (!active) return;
+      setTotalEarned((harvests.data ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0));
+      setAdvanceBalance((loans.data ?? []).reduce((sum, row) => sum + Number(row.balance ?? 0), 0));
+      const credit = ledger.filter(e => e.paymentMode === "credit" && !e.settled);
+      setMissingPrices(credit.some(e => e.unitPrice === null));
+      setTotalFertCost(credit.reduce((sum, e) => sum + e.qtyIssued * (e.unitPrice ?? 0), 0));
+    })().catch(e => { if (active) setError(e.message); });
+    return () => { active = false; };
+  }, [userUid, session?.name, session?.phone, user.name]);
 
-    // Listen for new toasts and persist them
-    const handleToast = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (!detail) return;
-      const newNotif: StoredNotification = {
-        id: `n-${Date.now()}`,
-        title: detail.title || "",
-        body: detail.body || "",
-        tone: detail.tone || "sky",
-        channel: detail.channel || "system",
-        timestamp: Date.now(),
-        read: false,
-      };
-      setNotifications(prev => {
-        const next = [newNotif, ...prev].slice(0, 50);
-        try { localStorage.setItem(NOTIFS_KEY(userUid), JSON.stringify(next)); } catch { /* ignore */ }
-        return next;
-      });
-    };
-    window.addEventListener("verda:toast", handleToast);
-
-    return () => window.removeEventListener("verda:toast", handleToast);
-  }, [userUid, user?.name]);
-
-  const saveProfile = () => {
+  const persistProfile = async (next: ProfileData) => {
+    if (!loaded || saving) return;
+    setSaving(true); setError(null);
     try {
-      localStorage.setItem(PROFILE_KEY(userUid), JSON.stringify(profile));
-      setEditing(false);
-      notify({ title: "Profile saved ✅", body: "Your profile details have been updated.", tone: "emerald", channel: "system" });
-    } catch { /* ignore */ }
+      await saveSupplierProfile(userUid, next);
+      setProfile(next); setEditing(false);
+      notify({ title: "Profile saved", body: "Your details and preferences are saved.", tone: "emerald", channel: "system" });
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not save profile"); }
+    finally { setSaving(false); }
   };
-
-  const markNotifRead = (id: string) => {
-    setNotifications(prev => {
-      const next = prev.map(n => n.id === id ? { ...n, read: true } : n);
-      try { localStorage.setItem(NOTIFS_KEY(userUid), JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
+  const saveProfile = () => { void persistProfile(profile); };
+  const markRead = async (id?: string) => {
+    const sb = getSupabase();
+    if (!sb) return;
+    let query = sb.from("alerts").update({ read: true }).eq("target_user_id", userUid);
+    if (id) query = query.eq("id", id);
+    const result = await query;
+    if (result.error) setError(result.error.message);
+    else await reloadAlerts();
   };
-
-  const markAllRead = () => {
-    setNotifications(prev => {
-      const next = prev.map(n => ({ ...n, read: true }));
-      try { localStorage.setItem(NOTIFS_KEY(userUid), JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
-  };
+  const markNotifRead = (id: string) => { void markRead(id); };
+  const markAllRead = () => { void markRead(); };
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const netEarnings = totalEarned - totalFertCost - advanceBalance;
 
   return (
     <div>
+      {(error || alertsError) && <p role="alert" className="mb-3 text-sm text-rose-700">{error || alertsError}</p>}
+      {!loaded && !error && <p role="status">Loading profile…</p>}
+      {missingPrices && <p className="text-sm text-amber-700">Some older fertilizer entries have no price; the estimate excludes those amounts.</p>}
       <PageHeader
         eyebrow="VVIP Supplier Portal"
         title="My Profile"
@@ -198,7 +163,7 @@ export function SupplierProfile() {
       <Card className="mt-4 p-4">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-display text-sm font-bold text-slate-800">👤 පෞද්ගලික තොරතුරු · Profile Details</h3>
-          <button onClick={() => setEditing(!editing)} className="text-xs font-semibold text-emerald-600 hover:underline">
+          <button disabled={!loaded || saving} onClick={() => setEditing(!editing)} className="text-xs font-semibold text-emerald-600 hover:underline">
             {editing ? "Cancel" : "Edit"}
           </button>
         </div>
@@ -230,7 +195,7 @@ export function SupplierProfile() {
               <label className="text-[11px] text-slate-400">📷 ඡායාරූප URL · Photo URL</label>
               <input value={profile.photoUrl} onChange={e => setProfile({ ...profile, photoUrl: e.target.value })} placeholder="URL to your photo" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
-            <button onClick={saveProfile} className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 inline-flex items-center justify-center gap-1.5">
+            <button disabled={!loaded || saving} onClick={saveProfile} className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 inline-flex items-center justify-center gap-1.5">
               <Save className="h-3.5 w-3.5" /> Save Profile
             </button>
           </div>
@@ -265,11 +230,11 @@ export function SupplierProfile() {
               </div>
               <input
                 type="checkbox"
+                disabled={!loaded || saving || editing}
                 checked={profile.notificationPrefs[pref.key]}
                 onChange={e => {
                   const next = { ...profile, notificationPrefs: { ...profile.notificationPrefs, [pref.key]: e.target.checked } };
-                  setProfile(next);
-                  try { localStorage.setItem(PROFILE_KEY(userUid), JSON.stringify(next)); } catch { /* ignore */ }
+                  void persistProfile(next);
                 }}
                 className="h-4 w-4 accent-emerald-600"
               />

@@ -191,13 +191,10 @@ export function hasPendingRegistration(supplierId: string): boolean {
 
 /** Save registration request to Supabase (AND localStorage for backwards compat). */
 export async function saveRegistrationRequestSupabase(req: EstateRegistrationRequest): Promise<void> {
-  // Always save to localStorage (backwards compat for demo mode)
-  saveRegistrationRequest(req);
-
-  if (!supabaseConfigured) return;
-  try {
+  if (!supabaseConfigured) { saveRegistrationRequest(req); return; }
+  {
     const sb = getSupabase()!;
-    await sb.from("estate_registration_requests").upsert({
+    const { error } = await sb.from("estate_registration_requests").upsert({
       id: req.id,
       supplier_id: req.supplierId,
       supplier_name: req.supplierName,
@@ -223,8 +220,8 @@ export async function saveRegistrationRequestSupabase(req: EstateRegistrationReq
       edit_count: req.editCount,
       last_edited_at: req.lastEditedAt ?? null,
     }, { onConflict: "id" });
-  } catch (e) {
-    console.warn("[estateRegistration] Supabase save failed, localStorage only:", e);
+    if (error) throw new Error(`Registration was not saved: ${error.message}`);
+    saveRegistrationRequest(req);
   }
 }
 
@@ -252,27 +249,13 @@ export async function updateRegistrationStatusSupabase(
   adminNotes: string,
   reviewedBy: string,
 ): Promise<EstateRegistrationRequest | null> {
-  // Update localStorage (backwards compat)
-  const updated = updateRegistrationStatus(requestId, status, adminNotes, reviewedBy);
-  if (!updated) return null;
-
-  // Update Supabase
-  if (supabaseConfigured) {
-    try {
-      const sb = getSupabase()!;
-      await sb.from("estate_registration_requests")
-        .update({
-          status,
-          admin_notes: adminNotes,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: reviewedBy,
-        })
-        .eq("id", requestId);
-    } catch (e) {
-      console.warn("[estateRegistration] Supabase update failed, localStorage only:", e);
-    }
-  }
-
+  if (!supabaseConfigured) return updateRegistrationStatus(requestId, status, adminNotes, reviewedBy);
+  const { data, error } = await getSupabase()!.from("estate_registration_requests")
+    .update({ status, admin_notes: adminNotes, reviewed_at: new Date().toISOString(), reviewed_by: reviewedBy })
+    .eq("id", requestId).select("*").single();
+  if (error) throw new Error(`Registration update failed: ${error.message}`);
+  const updated = mapDbToRequest(data);
+  saveRegistrationRequest(updated);
   return updated;
 }
 
@@ -286,7 +269,7 @@ function mapDbToRequest(r: Record<string, unknown>): EstateRegistrationRequest {
     acreage: Number(r.acreage ?? 0),
     bushCount: Number(r.bush_count ?? 0),
     cultivar: (r.cultivar as string) ?? "",
-    region: (r.region as string) ?? "low-country",
+    region: r.region === "mid-country" || r.region === "up-country" ? r.region : "low-country",
     soilType: (r.soil_type as EstateRegistrationRequest["soilType"]) ?? "unknown",
     latitude: Number(r.latitude ?? 0),
     longitude: Number(r.longitude ?? 0),

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Leaf, CloudSun, Bell, Wallet, Package, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Leaf, Bell, Wallet, Package, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum, fmtLKRShort } from "@/lib/data";
@@ -7,6 +7,8 @@ import { readMyHarvestRecords } from "@/lib/repo";
 import { fetchForecast, getMockForecast } from "@/lib/weather";
 import { readAlerts } from "@/lib/notifications";
 import type { WeatherDay } from "@/lib/data";
+import { useLiveData } from "@/lib/useLiveData";
+import { readSupplierActivities, readSupplierPlot } from "@/lib/supplierData";
 
 export function SupplierHome() {
   const { user, session, setActiveModule, userUid, associatedEntityId, estates, syncQueue, online } = useApp();
@@ -22,14 +24,19 @@ export function SupplierHome() {
 
   const pendingSync = syncQueue.filter(q => q.status === "queued").length;
 
+  const { data: plots, error: plotError } = useLiveData(
+    "fields", () => readSupplierPlot(userUid), `supplier_id=eq.${userUid}`);
+  const { data: farmLogs, error: farmError } = useLiveData(
+    "farm_activities", () => readSupplierActivities(userUid), `user_id=eq.${userUid}`);
+  const lat = plots[0]?.latitude ?? estate?.latitude;
+  const lon = plots[0]?.longitude ?? estate?.longitude;
   useEffect(() => {
-    // Load weather
-    const plotRaw = localStorage.getItem(`kdu.supplier_plot.${userUid}`);
-    const plot = plotRaw ? JSON.parse(plotRaw) : null;
-    const lat = plot?.latitude ?? estate?.latitude;
-    const lon = plot?.longitude ?? estate?.longitude;
-    void fetchForecast(lat, lon).then(res => setForecast(res.days));
+    let active = true;
+    void fetchForecast(lat, lon).then(res => { if (active) setForecast(res.days); });
+    return () => { active = false; };
+  }, [lat, lon]);
 
+  useEffect(() => {
     // B30 (Round #12) — Load deliveries: kg + grade + amount (restored)
     void readMyHarvestRecords(userUid, associatedEntityId).then(recs => {
       const kg = recs.reduce((s, r) => s + r.kg, 0);
@@ -47,8 +54,6 @@ export function SupplierHome() {
   }, [userUid, associatedEntityId, estate?.latitude, estate?.longitude]);
 
   // Smart reminders from farm activities
-  const farmRaw = localStorage.getItem("kdu.farm_activities.cache");
-  const farmLogs: { activityType: string; loggedDate: string }[] = farmRaw ? JSON.parse(farmRaw) : [];
   const lastFert = farmLogs.filter(a => a.activityType === "fertilizer").sort((a, b) => b.loggedDate.localeCompare(a.loggedDate))[0];
   const lastPrune = farmLogs.filter(a => a.activityType === "pruning").sort((a, b) => b.loggedDate.localeCompare(a.loggedDate))[0];
   const now = Date.now();
@@ -61,6 +66,7 @@ export function SupplierHome() {
 
   return (
     <div>
+      {(plotError || farmError) && <p role="alert" className="text-sm text-rose-700">{plotError || farmError}</p>}
       {/* Hero greeting */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-pine-800 p-5 text-white mb-4">
         <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/5" />

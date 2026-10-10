@@ -8,7 +8,7 @@ dist/
 
 # Files with API keys / secrets
 .env
-.env.example
+!.env.example
 .env.local
 app/.env
 app/.env.example
@@ -20,3 +20,7 @@ docs/GETTING_STARTED.md
 docs/WORKFLOW_GUIDE.md
 SYSTEM_ARCHITECTURE_AND_WORKFLOW.md
 tool-results/
+.stabilization-upstream/
+.stabilization-backup/
+.npm-cache/
+coverage/

@@ -9,7 +9,8 @@
  *
  * Flow on sign-in:
  *   1. Firebase verifies email+password → returns a UserCredential with `.uid`.
- *   2. fetchUserByUid() reads the Supabase `users` row (id == firebaseUid).
+ *   2. Prepare the Firebase JWT; Supabase validates it via Third-Party Auth.
+ *      fetchUserByUid() reads the protected `users` row (id == firebaseUid).
  *   3. The resolved profile (incl. canonical role) → AppContext.setSession().
  *
  * Account creation (admins, from UserManagement):
@@ -23,7 +24,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  onAuthStateChanged,
+  onIdTokenChanged,
+  deleteUser,
   setPersistence,
   inMemoryPersistence,
   type User as FirebaseUser,
@@ -35,6 +37,7 @@ import { getSupabase, supabaseConfigured } from "./supabase";
 import { canonicalRole } from "./identity";
 import { isValidUuid } from "./repo";
 import type { Role } from "./data";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 /** Canonical application auth state. */
 export interface AuthState {
@@ -48,17 +51,32 @@ export interface AuthState {
   provider: "firebase";
 }
 
-/**
- * The configured Super Admin seed. On first login with these credentials,
- * the account is auto-provisioned in BOTH Firebase Auth and Supabase so the
- * very first sign-in "just works" without manual console setup.
- */
-export const SUPER_ADMIN_SEED = {
-  email: "akashperera@kdu.com",
-  password: "akashperera123*#",
-  name: "Akash Perera",
-  role: "super_admin" as Role,
-};
+// VITE_* values are public. Administrative accounts are provisioned only by
+// the trusted functions/bootstrap-admin.cjs script, never from the browser.
+export const SUPER_ADMIN_EMAIL = (import.meta.env.VITE_SUPER_ADMIN_EMAIL ?? "").trim().toLowerCase();
+
+const bridgeRequests = new Map<string, Promise<void>>();
+
+/** Obtain the database role claim before the first profile query. */
+async function prepareSupabaseIdentity(user: FirebaseUser): Promise<void> {
+  const pending = bridgeRequests.get(user.uid);
+  if (pending) return pending;
+  const request = (async () => {
+    let token = await user.getIdTokenResult();
+    if (token.claims.role !== "authenticated") {
+      const { app } = initFirebase();
+      if (!app) throw new Error("Firebase is not configured.");
+      await httpsCallable(getFunctions(app), "ensureSupabaseRole")();
+      token = await user.getIdTokenResult(true);
+    }
+    if (token.claims.role !== "authenticated") {
+      throw new Error("Your database access is not configured. Contact your administrator.");
+    }
+    await getSupabase()?.realtime.setAuth(token.token);
+  })();
+  bridgeRequests.set(user.uid, request);
+  try { await request; } finally { bridgeRequests.delete(user.uid); }
+}
 
 /* ======================= Firebase Auth handle ======================= */
 
@@ -110,51 +128,28 @@ export async function signInWithEmail(email: string, password: string): Promise<
     throw new Error("Firebase is not configured. Set VITE_FIREBASE_* in .env.");
   }
 
-  // ---- Super Admin bootstrap: auto-provision on first login ----
-  if (email.trim().toLowerCase() === SUPER_ADMIN_SEED.email) {
-    try {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      return await resolveSession(cred.user);
-    } catch (err: unknown) {
-      const code = (err as { code?: string })?.code ?? "";
-      if (code === "auth/user-not-found" || code === "auth/invalid-credential" || code === "auth/wrong-password") {
-        // First-ever login for the seed → create it, then sign in, then provision Supabase.
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        await provisionSupabaseUser(cred.user.uid, {
-          email,
-          name: SUPER_ADMIN_SEED.name,
-          role: SUPER_ADMIN_SEED.role,
-        });
-        return await resolveSession(cred.user);
-      }
-      throw new Error(friendlyError(code));
-    }
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+    return await resolveSession(cred.user);
+  } catch (err: unknown) {
+    await signOut(auth);
+    const code = (err as { code?: string })?.code;
+    throw new Error(code ? friendlyError(code) : err instanceof Error ? err.message : "Sign-in failed.");
   }
-
-  const cred = await signInWithEmailAndPassword(auth, email, password);
-  return await resolveSession(cred.user);
 }
 
 /* ======================= Resolve session from a Firebase user ======================= */
 
-/** Read (or create) the Supabase `users` row for this Firebase user. */
+/** Resolve an existing provisioned profile; the browser cannot bootstrap admins. */
 async function resolveSession(fb: FirebaseUser): Promise<AuthState> {
-  if (!supabaseConfigured) return demoAuthStateFromEmail(fb.uid, fb.email, fb.displayName);
+  if (!supabaseConfigured) throw new Error("The database is not configured. Contact your administrator.");
+
+  await prepareSupabaseIdentity(fb);
 
   const row = await fetchUserByUid(fb.uid);
-  if (row) return toAuthState(row);
-
-  // Row missing → the account exists in Firebase but not yet provisioned in Supabase.
-  // Self-heal ONLY for the Super Admin seed (e.g. a previous bootstrap whose Supabase
-  // insert failed because the schema hadn't been migrated yet).
-  if (fb.email?.trim().toLowerCase() === SUPER_ADMIN_SEED.email) {
-    await provisionSupabaseUser(fb.uid, {
-      email: fb.email,
-      name: SUPER_ADMIN_SEED.name,
-      role: SUPER_ADMIN_SEED.role,
-    });
-    const retry = await fetchUserByUid(fb.uid);
-    if (retry) return toAuthState(retry);
+  if (row) {
+    if (row.status === "suspended") throw new Error("Your account is suspended. Contact your administrator.");
+    return toAuthState(row);
   }
 
   // Everyone else: fail closed — admins must provision their accounts.
@@ -171,14 +166,15 @@ export async function fetchUserByUid(uid: string): Promise<UserRow | null> {
     .from("users")
     .select("id, name, email, phone, role, associated_entity_id, status")
     .eq("id", uid)
-    .single();
-  if (error || !data) return null;
+    .maybeSingle();
+  if (error) throw new Error(`Could not load your profile: ${error.message}`);
+  if (!data) return null;
   return data as UserRow;
 }
 
 /**
- * INSERT a profile into Supabase `users` (id == firebaseUid). Used by both the
- * Super Admin bootstrap and the admin user-creation flow.
+ * INSERT a profile into Supabase `users` (id == firebaseUid). RLS limits this
+ * to authorized provisioning roles; the browser never bootstraps an admin.
  */
 export async function provisionSupabaseUser(
   firebaseUid: string,
@@ -244,10 +240,7 @@ export async function provisionUser(
   }
 ): Promise<string> {
   if (!firebaseConfigured) {
-    // Demo mode — synthesize a deterministic uid and provision the (mock) profile.
-    const uid = `demo-${Date.now()}`;
-    await provisionSupabaseUser(uid, { email, ...profile });
-    return uid;
+    throw new Error("Firebase is not configured.");
   }
 
   // 1) Spin up a throwaway Firebase app + auth, separate from the admin's.
@@ -262,7 +255,12 @@ export async function provisionUser(
     const cred: UserCredential = await createUserWithEmailAndPassword(tmpAuth, email, password);
     const uid = cred.user.uid;
     // 2) Persist the profile to Supabase with that exact uid.
-    await provisionSupabaseUser(uid, { email, ...profile });
+    try {
+      await provisionSupabaseUser(uid, { email, ...profile });
+    } catch (error) {
+      await deleteUser(cred.user).catch(() => {});
+      throw error;
+    }
     // 3) Sign out + tear down the temp app (best-effort cleanup).
     await signOut(tmpAuth);
     return uid;
@@ -403,24 +401,32 @@ export function watchHybridSession(cb: (state: AuthState | null) => void): () =>
     cb(null);
     return () => {};
   }
-  return onAuthStateChanged(auth, async (fb: FirebaseUser | null) => {
+  let active = true;
+  const unsubscribe = onIdTokenChanged(auth, async (fb: FirebaseUser | null) => {
     if (!fb) {
-      cb(null);
+      if (active) cb(null);
       return;
     }
     try {
       const state = await resolveSession(fb);
-      cb(state);
+      if (active && auth.currentUser?.uid === fb.uid) cb(state);
     } catch {
       // Profile not provisioned — treat as not authenticated.
-      cb(null);
+      if (active && auth.currentUser?.uid === fb.uid) cb(null);
     }
   });
+  return () => { active = false; unsubscribe(); };
 }
 
 export async function signOutFirebase(): Promise<void> {
   const auth = getFirebaseAuth();
   if (auth) await signOut(auth);
+  const sb = getSupabase();
+  if (sb) {
+    await sb.removeAllChannels();
+    // setAuth without a value re-reads the callback (now returns null).
+    await sb.realtime.setAuth();
+  }
 }
 
 /* ======================= helpers ======================= */
@@ -444,21 +450,6 @@ function toAuthState(row: UserRow): AuthState {
     role: canonicalRole(row.role ?? undefined),
     associatedEntityId: row.associated_entity_id,
     status: row.status === "suspended" ? "suspended" : "active",
-    provider: "firebase",
-  };
-}
-
-/** Demo fallback so the app is usable without a live backend. */
-function demoAuthStateFromEmail(uid: string, email: string | null, name: string | null): AuthState {
-  const role: Role = email === SUPER_ADMIN_SEED.email ? "super_admin" : "supplier";
-  return {
-    uid,
-    email,
-    name: name ?? "KDU User",
-    phone: null,
-    role,
-    associatedEntityId: role === "supplier" ? "est-glenview" : null,
-    status: "active",
     provider: "firebase",
   };
 }

@@ -4,7 +4,6 @@ import { PageHeader, StatCard, Card, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum } from "@/lib/data";
 import {
-  saveRegistrationRequest,
   saveRegistrationRequestSupabase,
   getLatestRegistrationRequest,
   type EstateRegistrationRequest,
@@ -216,7 +215,9 @@ export function SupplierPlot() {
   };
 
   // ---- NEW (Sir's spec): Submit registration request for admin approval ----
-  const submitRegistration = () => {
+  const [submitting, setSubmitting] = useState(false);
+  const submitRegistration = async () => {
+    if (submitting) return;
     if (!formPlotName.trim()) { notify({ title: "Missing plot name", body: "Please enter a name for your plot.", tone: "rose", channel: "system" }); return; }
     if (formAcreage <= 0) { notify({ title: "Missing acreage", body: "Please enter your plot acreage.", tone: "rose", channel: "system" }); return; }
     if (formBushCount <= 0) { notify({ title: "Missing bush count", body: "Please enter your bush count.", tone: "rose", channel: "system" }); return; }
@@ -233,7 +234,7 @@ export function SupplierPlot() {
       }));
 
     const req: EstateRegistrationRequest = {
-      id: `reg-${Date.now()}`,
+      id: crypto.randomUUID(),
       supplierId: userUid,
       supplierName: user?.name ?? userUid,
       plotName: formPlotName.trim(),
@@ -260,9 +261,13 @@ export function SupplierPlot() {
       editCount: regReq ? regReq.editCount + 1 : 0,
       lastEditedAt: regReq ? new Date().toISOString() : null,
     };
-    saveRegistrationRequest(req);
-    // B31 (Round #13) — also save to Supabase (unified registration)
-    void saveRegistrationRequestSupabase(req);
+    setSubmitting(true);
+    try {
+      await saveRegistrationRequestSupabase(req);
+    } catch (error) {
+      notify({ title: "Registration not saved", body: error instanceof Error ? error.message : "Please try again.", tone: "rose", channel: "system" });
+      return;
+    } finally { setSubmitting(false); }
     setRegReq(req);
     notify({
       title: "✅ Registration submitted!",
@@ -682,6 +687,7 @@ export function SupplierPlot() {
             </div>
             {/* Submit button */}
             <button
+              disabled={submitting}
               onClick={submitRegistration}
               className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-bold text-white hover:brightness-110 inline-flex items-center justify-center gap-1.5"
             >

@@ -152,17 +152,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // On mount: load the REAL estates from Supabase (replaces the mock seed).
   useEffect(() => {
+    if (!session) { setEstates([]); return; }
     let active = true;
     void (async () => {
       try {
-        const live = await readEstateHierarchy("admin");
-        if (active && live.length) setEstates(live);
+        const live = await readEstateHierarchy(session.role);
+        if (active) setEstates(live);
       } catch {
-        // DB not reachable — keep the mock seed data.
+        if (active) setEstates([]);
       }
     })();
     return () => { active = false; };
-  }, []);
+  }, [session?.uid, session?.role]);
   // (local ID counters removed — Supabase gen_random_uuid() provides real IDs)
 
   // ---- derived identity ----
@@ -261,7 +262,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsub = watchHybridSession((s) => {
       setAuthReady(true);
-      if (s) setSessionState(s);
+      setSessionState(s);
     });
     // If Firebase isn't configured (demo mode), resolve after a brief check.
     const fallback = window.setTimeout(() => setAuthReady(true), 1500);
@@ -279,11 +280,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Auto-flush the offline queue when connectivity returns.
   useEffect(() => {
-    if (online && syncQueue.some((q) => q.status === "queued")) {
+    if (online && isAuthenticated && syncQueue.some((q) => q.status === "queued")) {
       const t = window.setTimeout(() => void flushSync(), 1200);
       return () => window.clearTimeout(t);
     }
-  }, [online, syncQueue, flushSync]);
+  }, [online, isAuthenticated, syncQueue, flushSync]);
 
   // Listen for queue-updated events from offlineQueue.ts (fired on enqueue)
   useEffect(() => {
@@ -386,7 +387,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       role,
       setRole: setPreviewRole,
-      user: USERS[role],
+      user: session ? { ...USERS[role], name: session.name } : USERS[role],
       activeModule,
       setActiveModule,
       online,

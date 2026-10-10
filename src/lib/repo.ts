@@ -122,6 +122,10 @@ export async function createField(role: Role, estateId: string, divisionId: stri
       elevation_m: data.elevationM,
       status: data.status,
       last_yield_kg: data.lastYieldKg,
+      ...(data.supplierId ? {
+        supplier_id: data.supplierId, created_by: "supplier",
+        latitude: data.latitude ?? null, longitude: data.longitude ?? null,
+      } : {}),
     })
     .select("id")
     .single();

@@ -19,12 +19,16 @@ create index if not exists idx_alerts_user on alerts(target_user_id, created_at 
 -- RLS + Real-time
 alter table alerts enable row level security;
 drop policy if exists "alerts open write" on alerts;
-create policy "alerts open write" on alerts for all using (true) with check (true);
+-- Prerequisite: migration_security_helpers.sql.
+drop policy if exists alerts_scoped on alerts;
+create policy alerts_scoped on alerts for all to authenticated
+  using (public.app_is_admin() or (public.app_role() is not null and target_user_id = public.app_uid()))
+  with check (public.app_is_admin() or (public.app_role() is not null and target_user_id = public.app_uid()));
 
-begin
+do $$ begin
   alter publication supabase_realtime add table alerts;
 exception when duplicate_object then null;
-end;
+end $$;
 
 -- 2) PUSH TOKEN COLUMN on users (stores the FCM device token)
 alter table users add column if not exists push_token text;

@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Sprout, Lightbulb, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader, Card, IconChip, Badge } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { predictYieldFromFertilizer } from "@/lib/predictive";
+import { useLiveData } from "@/lib/useLiveData";
+import { readSupplierActivities, readSupplierPlot } from "@/lib/supplierData";
 
 /**
  * SupplierTips — "Tips & Guidance" module (supplier side)
@@ -17,7 +19,7 @@ import { predictYieldFromFertilizer } from "@/lib/predictive";
  * predictYieldFromFertilizer() function from predictive.ts.
  */
 
-const STORAGE_KEY = (uid: string) => `kdu.supplier_plot.${uid}`;
+
 
 const MOTIVATIONAL_TIPS = [
   {
@@ -102,63 +104,22 @@ export function SupplierTips() {
   const { t } = useTranslation();
   const { userUid } = useApp();
 
-  // Load supplier's plot (for personalized yield estimate)
-  // B15 FIX: Check both localStorage (approved plot) AND registration requests (pending/approved)
-  const [plot, setPlot] = useState<{ acreage: number; region?: string; fromPending?: boolean } | null>(null);
-  useEffect(() => {
-    // 1. Check approved plot data in localStorage
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY(userUid));
-      if (raw) {
-        const data = JSON.parse(raw);
-        if (data.acreage > 0) { setPlot(data); return; }
-      }
-    } catch { /* ignore */ }
-
-    // 2. Check registration requests (APPROVED or PENDING — B15 FIX)
-    try {
-      const regRaw = localStorage.getItem("kdu.estate_registration_requests");
-      if (regRaw) {
-        const allReqs = JSON.parse(regRaw);
-        // Prefer APPROVED first, fall back to PENDING
-        const myReq = allReqs.find((r: any) =>
-          r.supplierId === userUid && (r.status === "APPROVED" || r.status === "PENDING")
-        );
-        if (myReq && myReq.acreage > 0) {
-          setPlot({ acreage: myReq.acreage, region: myReq.region, fromPending: myReq.status === "PENDING" });
-          return;
-        }
-      }
-    } catch { /* ignore */ }
-  }, [userUid]);
-
-  // B25 FIX: Read fertilizer usage from farm_activities cache to compute
-  // yield projection via predictYieldFromFertilizer().
-  const [fertUsage, setFertUsage] = useState<{ ureaKg: number; tspKg: number; mopKg: number; dolomiteKg: number; compostKg: number }>({ ureaKg: 0, tspKg: 0, mopKg: 0, dolomiteKg: 0, compostKg: 0 });
-  useEffect(() => {
-    const refresh = () => {
-      try {
-        const raw = localStorage.getItem("kdu.farm_activities.cache");
-        if (!raw) return;
-        const logs: { activityType: string; details: { type?: string; quantityKg?: number } }[] = JSON.parse(raw);
-        const usage = { ureaKg: 0, tspKg: 0, mopKg: 0, dolomiteKg: 0, compostKg: 0 };
-        for (const log of logs) {
-          if (log.activityType !== "fertilizer") continue;
-          const type = log.details?.type ?? "";
-          const qty = Number(log.details?.quantityKg ?? 0);
-          if (/urea/i.test(type)) usage.ureaKg += qty;
-          else if (/tsp|phosphate/i.test(type)) usage.tspKg += qty;
-          else if (/mop|potash/i.test(type)) usage.mopKg += qty;
-          else if (/dolomite/i.test(type)) usage.dolomiteKg += qty;
-          else if (/compost|organic/i.test(type)) usage.compostKg += qty;
-        }
-        setFertUsage(usage);
-      } catch { /* ignore */ }
-    };
-    refresh();
-    window.addEventListener("verda:farm-cache-updated", refresh);
-    return () => window.removeEventListener("verda:farm-cache-updated", refresh);
-  }, [userUid]);
+  const { data: plots, error: plotError } = useLiveData(
+    "fields", () => readSupplierPlot(userUid), `supplier_id=eq.${userUid}`);
+  const plot = plots[0] ?? null;
+  const { data: logs, error: farmError } = useLiveData(
+    "farm_activities", () => readSupplierActivities(userUid), `user_id=eq.${userUid}`);
+  const fertUsage = { ureaKg: 0, tspKg: 0, mopKg: 0, dolomiteKg: 0, compostKg: 0 };
+  for (const log of logs) {
+    if (log.activityType !== "fertilizer") continue;
+    const type = String(log.details.type ?? "");
+    const qty = Number(log.details.quantityKg ?? 0);
+    if (/urea/i.test(type)) fertUsage.ureaKg += qty;
+    else if (/tsp|phosphate/i.test(type)) fertUsage.tspKg += qty;
+    else if (/mop|potash/i.test(type)) fertUsage.mopKg += qty;
+    else if (/dolomite/i.test(type)) fertUsage.dolomiteKg += qty;
+    else if (/compost|organic/i.test(type)) fertUsage.compostKg += qty;
+  }
 
   const fertProjection = (plot && plot.acreage > 0 && (fertUsage.ureaKg + fertUsage.tspKg + fertUsage.mopKg > 0))
     ? predictYieldFromFertilizer({
@@ -189,6 +150,7 @@ export function SupplierTips() {
 
   return (
     <div>
+      {(plotError || farmError) && <p role="alert" className="text-sm text-rose-700">{plotError || farmError}</p>}
       <PageHeader
         eyebrow={t("supplierTips.eyebrow")}
         title={t("supplierTips.title")}

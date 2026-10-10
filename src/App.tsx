@@ -49,7 +49,7 @@ function Root() {
   // Replay any persisted Firebase session on mount (so refresh keeps you logged in).
   useEffect(() => {
     const unsub = watchHybridSession((s) => {
-      if (s) setSession(s);
+      setSession(s);
     });
     return () => unsub();
   }, [setSession]);

@@ -1,156 +1,20 @@
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Sprout, CalendarDays, TrendingDown, Package, AlertTriangle } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { useLiveData } from "@/lib/useLiveData";
 import { fmtNum } from "@/lib/data";
-import { getSupabase, supabaseConfigured } from "@/lib/supabase";
-
-/**
- * SupplierFertilizer — "My Fertilizer" module (supplier side)
- * ------------------------------------------------------------------
- * Per Sir's spec: "Personal Fertilizer Stock / History — Factory එකෙන්
- * ලබාගත් පොහොර ප්‍රමාණය සහ තමන් ලඟ දැනට ඉතිරි පොහොර ප්‍රමාණය බලාගැනීම."
- *
- * Shows:
- *   - Total fertilizer received from factory (credit + cash)
- *   - Per-issue history (date, type, qty, division)
- *   - Outstanding balance (credit only — to be deducted from leaf payments)
- *
- * B26 FIX (real-time sync): The ledger now reads from Supabase via
- * useLiveData (with a localStorage fallback), so admin issues appear
- * instantly in the supplier view without a page refresh. The "Used (kg)"
- * figure now reads from BOTH the Supabase `farm_activities` table AND
- * the localStorage cache (kept in sync by recordFarmActivity write-through).
- */
-
-interface LedgerEntry {
-  id: string;
-  supplierName: string;
-  stockItemCode: string;
-  stockItemName: string;
-  qtyIssued: number;
-  unit: string;
-  date: string;
-  notes?: string;
-}
-
-interface FarmActivityRecord {
-  activityType: string;
-  loggedDate: string;
-  details: { type?: string; quantityKg?: number; [k: string]: unknown };
-}
-
-const LEDGER_KEY = "kdu.supplier_fertilizer_ledger";
-
-/** Fetch the supplier's fertilizer ledger from Supabase (real-time). */
-async function fetchLedger(supplierName: string): Promise<LedgerEntry[]> {
-  if (!supabaseConfigured) {
-    // Demo mode fallback to localStorage.
-    try {
-      const raw = localStorage.getItem(LEDGER_KEY);
-      const all: LedgerEntry[] = raw ? JSON.parse(raw) : [];
-      return supplierName
-        ? all.filter(e => e.supplierName.toLowerCase() === supplierName.toLowerCase())
-        : [];
-    } catch { return []; }
-  }
-  const sb = getSupabase()!;
-  const { data, error } = await sb
-    .from("supplier_fertilizer_ledger")
-    .select("id, supplier_name, stock_item_code, stock_item_name, qty_issued, unit, date, notes")
-    .ilike("supplier_name", supplierName || "_")
-    .order("date", { ascending: false });
-  if (error) {
-    // Fall back to localStorage on error.
-    try {
-      const raw = localStorage.getItem(LEDGER_KEY);
-      const all: LedgerEntry[] = raw ? JSON.parse(raw) : [];
-      return supplierName
-        ? all.filter(e => e.supplierName.toLowerCase() === supplierName.toLowerCase())
-        : [];
-    } catch { return []; }
-  }
-  return (data ?? []).map((r: Record<string, unknown>) => ({
-    id: r.id as string,
-    supplierName: r.supplier_name as string,
-    stockItemCode: r.stock_item_code as string,
-    stockItemName: r.stock_item_name as string,
-    qtyIssued: Number(r.qty_issued ?? 0),
-    unit: r.unit as string,
-    date: r.date as string,
-    notes: r.notes as string | undefined,
-  }));
-}
-
-/** Fetch fertilizer-usage total (kg) from Supabase farm_activities. */
-async function fetchUsedKg(userId: string): Promise<number> {
-  if (!supabaseConfigured) {
-    // Demo mode: read from localStorage cache.
-    try {
-      const farmRaw = localStorage.getItem("kdu.farm_activities.cache");
-      const farmLogs: FarmActivityRecord[] = farmRaw ? JSON.parse(farmRaw) : [];
-      return farmLogs
-        .filter(a => a.activityType === "fertilizer")
-        .reduce((sum, a) => sum + (a.details.quantityKg ?? 0), 0);
-    } catch { return 0; }
-  }
-  const sb = getSupabase()!;
-  const { data } = await sb
-    .from("farm_activities")
-    .select("details")
-    .eq("user_id", userId)
-    .eq("activity_type", "fertilizer");
-  return (data ?? []).reduce((sum, r) => {
-    const d = r.details as { quantityKg?: number };
-    return sum + (Number(d?.quantityKg ?? 0));
-  }, 0);
-}
+import { readSupplierLedger, readSupplierActivities } from "@/lib/supplierData";
 
 export function SupplierFertilizer() {
   const { t } = useTranslation();
-  const { user, associatedEntityId } = useApp();
-  const mySupplierName = user?.name ?? "";
-
-  // B26 FIX: Real-time ledger via useLiveData. Falls back to localStorage in demo mode.
-  const { data: ledger } = useLiveData<LedgerEntry>(
-    "supplier_fertilizer_ledger",
-    () => fetchLedger(mySupplierName),
-    `supplier_name=ilike.${mySupplierName || "_"}`,
-  );
-
-  const [usedKg, setUsedKg] = useState<number>(0);
-
-  // Read fertilizer usage from localStorage cache (instant) + Supabase (authoritative).
-  // Also listen for the verda:farm-cache-updated event so the figure updates immediately
-  // when a new fertilizer log is recorded via FarmActivities (B12 fix).
-  useEffect(() => {
-    let cancelled = false;
-    const refresh = () => {
-      // 1. Instant value from localStorage cache.
-      try {
-        const farmRaw = localStorage.getItem("kdu.farm_activities.cache");
-        if (farmRaw) {
-          const farmLogs: FarmActivityRecord[] = JSON.parse(farmRaw);
-          const total = farmLogs
-            .filter(a => a.activityType === "fertilizer")
-            .reduce((sum, a) => sum + (a.details.quantityKg ?? 0), 0);
-          if (!cancelled) setUsedKg(total);
-        }
-      } catch { /* ignore */ }
-      // 2. Authoritative value from Supabase (overrides cache if non-zero).
-      void fetchUsedKg(associatedEntityId).then(kg => {
-        if (!cancelled && kg > 0) setUsedKg(kg);
-      });
-    };
-    refresh();
-    window.addEventListener("verda:farm-cache-updated", refresh);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("verda:farm-cache-updated", refresh);
-    };
-  }, [associatedEntityId]);
+  const { userUid } = useApp();
+  const { data: ledger, error: ledgerError } = useLiveData(
+    "supplier_fertilizer_ledger", () => readSupplierLedger(userUid), `supplier_id=eq.${userUid}`);
+  const { data: activities, error: activityError } = useLiveData(
+    "farm_activities", () => readSupplierActivities(userUid), `user_id=eq.${userUid}`);
+  const usedKg = activities.filter(a => a.activityType === "fertilizer")
+    .reduce((sum, a) => sum + Number(a.details.quantityKg ?? 0), 0);
 
   // Aggregate stats
   const totalReceivedKg = ledger
@@ -160,18 +24,19 @@ export function SupplierFertilizer() {
     .filter(e => e.unit === "bag" || e.unit === "bags")
     .reduce((sum, e) => sum + e.qtyIssued, 0);
   const creditEntries = ledger.filter(e =>
-    (e.notes || "").toLowerCase().includes("credit")
+    e.paymentMode === "credit" && !e.settled
   );
   const totalCreditKg = creditEntries
     .filter(e => e.unit === "kg")
     .reduce((sum, e) => sum + e.qtyIssued, 0);
 
   // Remaining balance (rough estimate — assumes 1 bag = 50 kg)
-  const usedKgEquiv = usedKg + (totalReceivedBags * 50);
+  const usedKgEquiv = usedKg;
   const remainingKg = Math.max(0, totalReceivedKg + (totalReceivedBags * 50) - usedKgEquiv);
 
   return (
     <div>
+      {(ledgerError || activityError) && <p role="alert" className="mb-4 text-sm text-rose-700">{ledgerError || activityError}</p>}
       <PageHeader
         eyebrow={t("supplierFert.eyebrow")}
         title={t("supplierFert.title")}
@@ -230,7 +95,7 @@ export function SupplierFertilizer() {
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {ledger.map(e => {
-              const isCredit = (e.notes || "").toLowerCase().includes("credit");
+              const isCredit = e.paymentMode === "credit";
               const division = (e.notes || "").match(/division:([^|]+)/i)?.[1]?.trim();
               return (
                 <div key={e.id} className="rounded-lg border border-slate-100 p-3">

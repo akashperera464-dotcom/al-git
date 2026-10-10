@@ -8,6 +8,7 @@ import {
   receiveGoods, issueStock, listStockMovements,
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
+import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 
 /**
  * Inventory & Procurement — stock items with moving-average valuation,
@@ -209,7 +210,18 @@ export default function Inventory() {
       if (notes) parts.push(notes);
       const finalNotes = parts.join(" | ");
 
-      await issueStock({
+      const item = stock.find(s => s.id === issueItemId);
+      const supplierIssue = item?.category === "fertilizer" && issueSupplierName.trim();
+      if (supplierIssue && supabaseConfigured) {
+        const { error } = await getSupabase()!.rpc("issue_supplier_fertilizer", {
+          p_item_id: issueItemId, p_supplier_name: issueSupplierName.trim(),
+          p_quantity: issueQty, p_payment_mode: issuePaymentMode,
+          p_details: { notes: finalNotes, division: issueDivision, route: issueRoute,
+            issue_note_code: issueNoteCode, supplier_no: issueSupplierNo },
+        });
+        if (error) throw new Error(error.message);
+      } else {
+        await issueStock({
         stockItemId: issueItemId, qty: issueQty,
         performedBy: userUid, notes: finalNotes || undefined,
         // B28 (Round #8) — delivery route for the issue note
@@ -218,10 +230,11 @@ export default function Inventory() {
         issueNoteCode: issueNoteCode || undefined,
         supplierNo: issueSupplierNo || undefined,
       });
+      }
 
       // NEW (Sir's spec): if Credit + fertilizer, write to supplier fertilizer ledger
       // (Phase 1: localStorage; Phase 2 will sync to Supabase `supplier_fertilizer_ledger`)
-      if (issuePaymentMode === "credit" && issueSupplierName.trim()) {
+      if (!supabaseConfigured && issueSupplierName.trim()) {
         try {
           const item = stock.find(s => s.id === issueItemId);
           if (item && item.category === "fertilizer") {

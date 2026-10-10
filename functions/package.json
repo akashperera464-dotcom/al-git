@@ -1,0 +1,11 @@
+{
+  "name": "verda-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "scripts": { "check": "node --check index.js", "bootstrap:admin": "node bootstrap-admin.cjs" },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.0"
+  }
+}

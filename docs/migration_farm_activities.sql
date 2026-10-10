@@ -21,10 +21,14 @@ create table if not exists farm_activities (
 );
 create index if not exists idx_farm_activities_user on farm_activities(user_id, activity_type, logged_date desc);
 
--- RLS: open write (client RBAC gates access); suppliers read their own.
+-- Prerequisite: migration_security_helpers.sql. Reapply migration_stabilization.sql
+-- after all historical migrations to replace other legacy permissive policies.
 alter table farm_activities enable row level security;
 drop policy if exists "farm_activities open write" on farm_activities;
-create policy "farm_activities open write" on farm_activities for all using (true) with check (true);
+drop policy if exists farm_scoped on farm_activities;
+create policy farm_scoped on farm_activities for all to authenticated
+  using (public.app_is_admin() or (public.app_role() = 'supplier' and user_id = public.app_uid()))
+  with check (public.app_is_admin() or (public.app_role() = 'supplier' and user_id = public.app_uid()));
 
 -- ============================================================================
 -- HOW details (JSONB) is shaped per activity_type

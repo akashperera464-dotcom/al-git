@@ -25,6 +25,13 @@
 -- ============================================================================
 
 -- 1) Drop the old CHECK constraint (idempotent — drop if exists).
+-- Prerequisite: migration_security_helpers.sql.
+drop policy if exists "farm_activities open write" on farm_activities;
+drop policy if exists farm_scoped on farm_activities;
+create policy farm_scoped on farm_activities for all to authenticated
+  using (public.app_is_admin() or (public.app_role() = 'supplier' and user_id = public.app_uid()))
+  with check (public.app_is_admin() or (public.app_role() = 'supplier' and user_id = public.app_uid()));
+
 alter table farm_activities drop constraint if exists farm_activities_activity_type_check;
 
 -- 2) Re-add WITH 'plucking' included. Order: alphabetical for readability.

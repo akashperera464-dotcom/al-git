@@ -52,7 +52,22 @@ create index if not exists idx_err_status on estate_registration_requests(status
 
 alter table estate_registration_requests enable row level security;
 drop policy if exists "err open write" on estate_registration_requests;
-create policy "err open write" on estate_registration_requests for all using (true) with check (true);
+-- Prerequisite: migration_security_helpers.sql. Suppliers must not approve themselves.
+drop policy if exists registration_read on estate_registration_requests;
+drop policy if exists registration_admin on estate_registration_requests;
+drop policy if exists registration_insert on estate_registration_requests;
+drop policy if exists registration_update on estate_registration_requests;
+create policy registration_read on estate_registration_requests for select to authenticated
+  using (public.app_is_admin() or (public.app_role() = 'supplier' and supplier_id = public.app_uid()));
+create policy registration_admin on estate_registration_requests for all to authenticated
+  using (public.app_is_admin()) with check (public.app_is_admin());
+create policy registration_insert on estate_registration_requests for insert to authenticated
+  with check (public.app_role() = 'supplier' and supplier_id = public.app_uid() and status = 'PENDING'
+    and reviewed_at is null and reviewed_by is null and coalesce(admin_notes, '') = '');
+create policy registration_update on estate_registration_requests for update to authenticated
+  using (public.app_role() = 'supplier' and supplier_id = public.app_uid() and status = 'PENDING')
+  with check (public.app_role() = 'supplier' and supplier_id = public.app_uid() and status = 'PENDING'
+    and reviewed_at is null and reviewed_by is null and coalesce(admin_notes, '') = '');
 
 -- 2) Add columns to fields table
 alter table fields
