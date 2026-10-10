@@ -116,7 +116,7 @@ export default function SupplierCalendar() {
   return (
     <div>
       <PageHeader
-        eyebrow="VVIP Supplier Portal"
+        eyebrow="Supplier Interface"
         title="📅 My Calendar"
         desc="ගොවිතැන් ක්රියාකාරකම් දිනයෙන් දිනය · Farm activities day by day. Tap a date to log a new activity."
         icon={<IconChip icon={CalendarDays} tone="emerald" className="h-12 w-12" />}

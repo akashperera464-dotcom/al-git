@@ -153,7 +153,7 @@ export function SupplierLabor() {
   return (
     <div>
       <PageHeader
-        eyebrow="VVIP Supplier Portal"
+        eyebrow="Supplier Interface"
         title="👷 මාගේ කම්කරු සේවාව"
         desc="දිනපතා වත්තේ වැඩට පැමිණෙන කම්කරුවන්ගේ විස්තර සහ දෛනික ආයතන පිරිවැය මෙහි ඇතුළත් කරන්න. මුළු කම්කරු පිරිවැය ස්වයංක්‍රීයව ගණනය වේ."
         icon={<IconChip icon={Users} tone="amber" className="h-12 w-12" />}

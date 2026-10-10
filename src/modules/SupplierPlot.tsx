@@ -392,7 +392,7 @@ export function SupplierPlot() {
   return (
     <div>
       <PageHeader
-        eyebrow="VVIP Supplier Portal"
+        eyebrow="Supplier Interface"
         title="My Plot"
         desc="Register your tea plot with all details. Admin must approve before your plot becomes active. You can auto-detect your GPS location or enter it manually."
         icon={<IconChip icon={Sprout} tone="emerald" className="h-12 w-12" />}
@@ -1045,6 +1045,36 @@ export function SupplierPlot() {
       )}
       {/* ===== END VIEW MODE ===== */}
       </>
+      )}
+
+      {/* B35 — Allow supplier to register another plot (unlimited plots) */}
+      {mode === "view" && (
+        <Card className="mt-4 p-4 border-emerald-200 bg-emerald-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-emerald-700">🌱 තවත් වත්තක් ලියාපදිංචි කරන්න</p>
+              <p className="text-[11px] text-emerald-600 mt-0.5">Register another tea plot you own</p>
+            </div>
+            <button
+              onClick={() => {
+                // Reset form for a new plot registration
+                setFormPlotName(""); setFormAcreage(0); setFormBushCount(0);
+                setFormCultivar("TRI 2025 (VP)"); setFormRegion("low-country");
+                setFormSoilType("unknown"); setFormLat(""); setFormLon("");
+                setFormAddress(""); setFormPhone(""); setFormNotes("");
+                setFormPhoto1(""); setFormPhoto2(""); setFormPhoto3("");
+                setFormLandDoc(""); setFormBlocks([]);
+                setRegReq(null);
+                // Clear the current plot data so mode switches to "register"
+                persist({ acreage: 0, bushCount: 0, verifiedAt: null, subFields: [] } as any);
+                setPlot({ acreage: 0, bushCount: 0, verifiedAt: null, subFields: [] } as any);
+              }}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:brightness-110"
+            >
+              + අලුත් වත්තක්
+            </button>
+          </div>
+        </Card>
       )}
     </div>
   );

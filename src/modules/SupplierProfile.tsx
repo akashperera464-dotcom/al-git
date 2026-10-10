@@ -180,7 +180,7 @@ export function SupplierProfile() {
   return (
     <div>
       <PageHeader
-        eyebrow="VVIP Supplier Portal"
+        eyebrow="Supplier Interface"
         title="My Profile"
         desc="Manage your profile details, notification preferences, view notification history, and see your earnings vs deductions summary."
         icon={<IconChip icon={User} tone="violet" className="h-12 w-12" />}

@@ -8,9 +8,9 @@ import { recordFarmActivity, readFarmActivities } from "@/lib/repo";
 import { TODAY_ISO, type FarmActivity, type FarmActivityType } from "@/lib/data";
 
 const TAB_KEYS = [
+  { id: "plucking", labelKey: "farm.plucking", icon: Package, tone: "sky" },
   { id: "fertilizer", labelKey: "farm.fertilizer", icon: Sprout, tone: "emerald" },
   { id: "pruning", labelKey: "farm.pruning", icon: Scissors, tone: "amber" },
-  { id: "plucking", labelKey: "farm.plucking", icon: Package, tone: "sky" },
   { id: "replanting", labelKey: "farm.replanting", icon: Leaf, tone: "violet" },
 ] as const;
 
@@ -51,7 +51,7 @@ export function FarmActivities() {
     return [];
   })();
   const hasBlocks = plotBlocks.length > 0;
-  const [tab, setTab] = useState<FarmActivityType>("fertilizer");
+  const [tab, setTab] = useState<FarmActivityType>("plucking");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);

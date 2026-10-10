@@ -17,6 +17,7 @@ export function SupplierHome() {
   const [forecast, setForecast] = useState<WeatherDay[]>(getMockForecast());
   const [totalKg, setTotalKg] = useState(0);
   const [totalEarned, setTotalEarned] = useState(0);
+  const [monthExpenses, setMonthExpenses] = useState(0);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [superPct, setSuperPct] = useState(0);
 
@@ -44,7 +45,31 @@ export function SupplierHome() {
     void readAlerts(userUid, 30).then(alerts => {
       setUnreadAlerts(alerts.filter(a => !a.read).length);
     });
-  }, [userUid, associatedEntityId, estate?.latitude, estate?.longitude]);
+
+    // B35 — Load monthly expenses (labor cost + fertilizer credit estimate)
+    void (async () => {
+      let expenses = 0;
+      // Labor cost from localStorage (SupplierLabor module writes this)
+      try {
+        const laborRaw = localStorage.getItem(`kdu.supplier_labor.month_total.${userUid}`);
+        expenses += Number(laborRaw || 0);
+      } catch { /* ignore */ }
+      // Fertilizer credit estimate (kg × Rs 95/kg)
+      try {
+        const ledgerRaw = localStorage.getItem("kdu.supplier_fertilizer_ledger");
+        if (ledgerRaw) {
+          const all: { supplierName: string; qtyIssued: number; unit: string; notes?: string }[] = JSON.parse(ledgerRaw);
+          const mine = (user?.name ?? "")
+            ? all.filter(e => e.supplierName?.toLowerCase() === (user?.name ?? "").toLowerCase() && (e.notes || "").toLowerCase().includes("credit"))
+            : [];
+          const kg = mine.filter(e => e.unit === "kg").reduce((s, e) => s + e.qtyIssued, 0);
+          const bags = mine.filter(e => e.unit === "bag" || e.unit === "bags").reduce((s, e) => s + e.qtyIssued, 0);
+          expenses += (kg + bags * 50) * 95;
+        }
+      } catch { /* ignore */ }
+      setMonthExpenses(expenses);
+    })();
+  }, [userUid, associatedEntityId, estate?.latitude, estate?.longitude, user?.name]);
 
   // Smart reminders from farm activities
   const farmRaw = localStorage.getItem("kdu.farm_activities.cache");
@@ -73,7 +98,7 @@ export function SupplierHome() {
             ආයුබෝවන්, {firstName}!
           </h1>
           <p className="text-sm text-emerald-100 mt-0.5 opacity-90">
-            {estate ? `${estate.name} · Linked Estate` : "VVIP Supplier Portal"}
+            {estate ? `${estate.name} · Linked Estate` : "Supplier Interface"}
           </p>
         </div>
         {/* Connectivity badge */}
@@ -113,12 +138,12 @@ export function SupplierHome() {
         </Card>
       )}
 
-      {/* Key stats — B30 (Round #12) restored Earnings card */}
+      {/* Key stats — Earnings + Expenses (replaced Quality + Unread Alerts) */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
-        <StatCard icon={Package} label="මුළු කොළ · Total Supplied" value={`${fmtNum(totalKg)} kg`} tone="emerald" />
-        <StatCard icon={Wallet} label="ඉපයීම් · Earnings (est.)" value={fmtLKRShort(totalEarned)} tone="sky" />
-        <StatCard icon={TrendingUp} label="Super ශ්රේණිය · Quality" value={`${superPct}%`} tone="violet" />
-        <StatCard icon={Bell} label="නොකියවූ · Unread Alerts" value={String(unreadAlerts)} tone={unreadAlerts > 0 ? "rose" : "slate"} />
+        <StatCard icon={Wallet} label="ආදායම් · Earnings" value={fmtLKRShort(totalEarned)} tone="emerald" />
+        <StatCard icon={Package} label="මුළු කොළ · Total Supplied" value={`${fmtNum(totalKg)} kg`} tone="sky" />
+        <StatCard icon={TrendingUp} label="වියදම් · Expenses" value={fmtLKRShort(monthExpenses)} sub="labor + fert" tone="rose" />
+        <StatCard icon={Bell} label="නොකියවූ · Unread Alerts" value={String(unreadAlerts)} tone={unreadAlerts > 0 ? "amber" : "slate"} />
       </div>
 
       {/* Smart reminders */}
@@ -152,10 +177,10 @@ export function SupplierHome() {
       <h3 className="font-display text-sm font-bold text-slate-800 mb-2.5">⚡ ඉක්මන් ක්රියා · Quick Actions</h3>
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         {([
+          { key: "supplier-plot", icon: Leaf, label: "මගේ වත්ත · My Plot", tone: "amber" },
           { key: "supplier-farm", icon: Sprout, label: "ගොවිතැන් · Farm Log", tone: "emerald" },
           { key: "supplier-deliveries", icon: Package, label: "බෙදාහැරීම් · Deliveries", tone: "sky" },
           { key: "supplier-requests", icon: Bell, label: "ඉල්ලීම් · Requests", tone: "violet" },
-          { key: "supplier-plot", icon: Leaf, label: "මගේ වත්ත · My Plot", tone: "amber" },
         ] as const).map(({ key, icon: Icon, label, tone }) => (
           <button
             key={key}

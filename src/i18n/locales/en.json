@@ -239,7 +239,7 @@
     "supplierDesc": "Alert & advisor portal"
   },
   "supplier": {
-    "eyebrow": "VVIP Supplier Portal",
+    "eyebrow": "Supplier Interface",
     "deliveries": "My Leaf Deliveries",
     "deliveriesDesc": "Your daily net green-leaf weight and quality grade recorded at collection centers.",
     "alerts": "Smart Alerts Panel",
@@ -313,7 +313,7 @@
   "farm": {
     "title": "My Farm Activities",
     "desc": "Log your real field actions. The Smart Advisory Engine reads these to recompute your next recommendations.",
-    "eyebrow": "VVIP Supplier Portal",
+    "eyebrow": "Supplier Interface",
     "fertilizerLogs": "Fertilizer Logs",
     "pruningLogs": "Pruning Logs",
     "harvestLogs": "Harvest Logs",
@@ -458,7 +458,7 @@
     "pwaManifest": "PWA Manifest"
   },
   "request": {
-    "eyebrow": "VVIP Supplier Portal",
+    "eyebrow": "Supplier Interface",
     "title": "Request Resources",
     "desc": "Raise a ticket for workers or equipment directly from the estate. Track PENDING / APPROVED / REJECTED live.",
     "pending": "Pending",
@@ -492,7 +492,7 @@
     "durationShort": "{{d}}d"
   },
   "announcements": {
-    "eyebrow": "VVIP Supplier Portal",
+    "eyebrow": "Supplier Interface",
     "title": "Estate Updates",
     "desc": "Latest news, advisories, and announcements from the estate.",
     "loading": "Loading updates…",
@@ -536,7 +536,7 @@
     "skip": "Skip tour — I'll explore myself"
   },
   "supplierFert": {
-    "eyebrow": "VVIP Supplier Portal",
+    "eyebrow": "Supplier Interface",
     "title": "My Fertilizer",
     "desc": "Track fertilizer received from factory (credit + cash) + your remaining balance. Settle credit balances at the factory finance office.",
     "totalReceived": "Total Received (kg)",
@@ -583,7 +583,7 @@
     "cancel": "Cancel"
   },
   "supplierTips": {
-    "eyebrow": "VVIP Supplier Portal",
+    "eyebrow": "Supplier Interface",
     "title": "Tips & Guidance",
     "desc": "Daily agronomy tips to maximize your tea plot's yield. Bilingual (English + Sinhala). Personalized to your plot acreage if you've entered it in 'My Plot'.",
     "yieldFromFertTitle": "🌱 Expected Yield from Your Fertilizer",
@@ -597,7 +597,7 @@
     "allTips": "All Tips"
   },
   "supplierWeather": {
-    "eyebrow": "VVIP Supplier Portal",
+    "eyebrow": "Supplier Interface",
     "title": "My Weather",
     "desc": "Live weather forecast for your plot's location. Plan fertilizer application around rain forecasts — rain within 3 days can wash away fertilizer.",
     "rainAlertTitle": "🌧️ Rain expected within 3 days",

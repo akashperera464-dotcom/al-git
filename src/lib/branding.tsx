@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { readBrandingFromDb, writeBrandingToDb } from "./repo";
 
 /**
- * KDU TEA FACTORY · Branding / White-label settings (Super Admin controlled)
+ * Estate Pulse · Branding / White-label settings (Super Admin controlled)
  * ------------------------------------------------------------------
  * PERSISTED TO THE DATABASE (Supabase `settings` table, key='branding') so the
  * branding is shared across ALL devices, browsers, and users — and survives
@@ -27,10 +27,10 @@ export interface Branding {
 }
 
 export const DEFAULT_BRANDING: Branding = {
-  companyName: "KDU TEA FACTORY",
+  companyName: "Estate Pulse",
   companyTagline: "Tea Estate ERP",
   companyLogoUrl: "https://res.cloudinary.com/dhd06wdov/image/upload/v1781669562/logokdu_xo5m6f.png",
-  loginTitle: "KDU TEA FACTORY",
+  loginTitle: "Estate Pulse",
   loginSubtitle: "Integrated Tea Estate Enterprise Platform",
   loginLogoUrl: "https://res.cloudinary.com/dhd06wdov/image/upload/v1781669562/logokdu_xo5m6f.png",
   loginBackgroundUrl: "",
@@ -39,7 +39,7 @@ export const DEFAULT_BRANDING: Branding = {
 };
 
 const CACHE_KEY = "kdu.branding.cache";
-// Legacy cache key from before the KDU TEA FACTORY rebrand. We fall back to
+// Legacy cache key from before the Estate Pulse rebrand. We fall back to
 // this when the new cache is empty, so any branding the user previously
 // configured (e.g., login background video URL) is not lost.
 const LEGACY_CACHE_KEY = "verda.branding.cache";
@@ -59,7 +59,7 @@ const BrandingContext = createContext<BrandingContextValue | null>(null);
 /** Read the localStorage cache synchronously (instant first paint).
  * Falls back to legacy cache (pre-rebrand) when the new cache is empty,
  * so branding the user previously set (e.g., login background video URL)
- * is not lost after the KDU TEA FACTORY rebrand. */
+ * is not lost after the Estate Pulse rebrand. */
 function readCache(): Branding | null {
   if (typeof window === "undefined") return null;
   try {
