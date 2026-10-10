@@ -113,6 +113,7 @@ const ADMIN_CAPS: Capability[] = [
   "fertilizer.manage", "agrochemical.manage", "payroll.manage", "loans.view",
   "loyalty.manage", "welfare.view", "finance.view", "weather.view", "ai.view", "supplier.insights",
   "audit.view", "offline.manage", "users.manage", "platform.view", "requests.manage", "announcements.manage",
+  "field.tools",
 ];
 
 /** Super Admin gets every admin capability PLUS branding/settings control. */
@@ -129,7 +130,7 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
   // Extension Officers: field tools — log weights + register suppliers.
   extension_officer: ["weighing.capture", "supplier.register", "estate.map.view"],
   // Suppliers: their own data + raise resource requisitions — NO rosters, payroll, other suppliers, dashboards.
-  supplier: ["deliveries.own", "alerts.own", "plot.own", "weather.own", "tips.own", "fertilizer.own", "payments.own", "requests.create", "farm.log", "announcements.view", "home.own", "calendar.own", "labor.own"],
+  supplier: ["deliveries.own", "alerts.own", "plot.own", "weather.own", "tips.own", "fertilizer.own", "payments.own", "requests.create", "farm.log", "announcements.view", "home.own", "calendar.own", "labor.own", "profile.own"],
 };
 
 export const hasCapability = (role: Role, cap: Capability): boolean =>
