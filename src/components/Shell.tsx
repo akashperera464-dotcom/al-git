@@ -392,7 +392,7 @@ function BottomNav({ onMore }: { onMore: () => void }) {
             <span className={cn("flex h-7 w-7 items-center justify-center rounded-lg transition", active && "bg-emerald-100")}>
               <Icon className="h-[18px] w-[18px]" />
             </span>
-            <span className="text-[10px] font-semibold">{moduleShort(t, tab.key)}</span>
+            <span className="w-full truncate px-1 text-center text-[10px] font-semibold">{moduleShort(t, tab.key)}</span>
           </button>
         );
       })}

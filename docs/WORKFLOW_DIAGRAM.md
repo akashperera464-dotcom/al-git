@@ -3061,9 +3061,16 @@ Run `docs/migration_phase3_round10.sql` in Supabase SQL Editor. It creates and s
 - `src/lib/auth.hybrid.ts`, `src/lib/rbac.ts`, and `.env` were not changed.
 - Pending-account gating is implemented outside the protected auth module.
 
+## 35. Navigation Label Stabilization
+
+- Supplier bottom navigation uses short localized labels for Home, Calendar and Profile in English, Sinhala and Tamil.
+- Equipment, Equipment Requests and Field Tools now also have complete localized navigation labels.
+- Missing translations fall back to a readable short name instead of exposing an internal key such as `modules.supplier-home.s`.
+- Bottom-navigation labels are constrained to one line so long text cannot distort the mobile navigation bar.
+
 ---
 
-*End of Workflow Diagram. Last updated: October 2026 (Round #16 — Ideas 1–4 interconnected supplier operations).*
+*End of Workflow Diagram. Last updated: October 2026 (Round #17 — short mobile navigation labels).*
 
 
 

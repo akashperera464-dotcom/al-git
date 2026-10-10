@@ -9,14 +9,24 @@
  */
 import type { TFunction } from "i18next";
 
+function readableFallback(key: string, short = false): string {
+  const words = key.replace(/^(supplier|eo)-/, "").split("-");
+  const selected = short ? words.slice(-1) : words;
+  return selected.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+}
+
 /** Translated full module label (sidebar + page header title). */
 export function moduleLabel(t: TFunction, key: string): string {
-  return t(`modules.${key}.l`);
+  const translationKey = `modules.${key}.l`;
+  const translated = t(translationKey);
+  return translated === translationKey ? readableFallback(key) : translated;
 }
 
 /** Translated short module label (bottom-nav + "More" sheet). */
 export function moduleShort(t: TFunction, key: string): string {
-  return t(`modules.${key}.s`);
+  const translationKey = `modules.${key}.s`;
+  const translated = t(translationKey);
+  return translated === translationKey ? readableFallback(key, true) : translated;
 }
 
 import type { Role } from "@/lib/data";

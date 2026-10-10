@@ -164,6 +164,18 @@
       "l": "Branding & Settings",
       "s": "Settings"
     },
+    "equipment": {
+      "l": "Equipment",
+      "s": "Equipment"
+    },
+    "equipment-requests": {
+      "l": "Equipment Requests",
+      "s": "Requests"
+    },
+    "field-tools": {
+      "l": "Field Tools",
+      "s": "Tools"
+    },
     "eo-register": {
       "l": "Register New Supplier",
       "s": "Register"
@@ -223,6 +235,18 @@
     "supplier-labor": {
       "l": "My Labor",
       "s": "Labor"
+    },
+    "supplier-home": {
+      "l": "Home",
+      "s": "Home"
+    },
+    "supplier-calendar": {
+      "l": "My Calendar",
+      "s": "Calendar"
+    },
+    "supplier-profile": {
+      "l": "My Profile",
+      "s": "Profile"
     }
   },
   "roles": {

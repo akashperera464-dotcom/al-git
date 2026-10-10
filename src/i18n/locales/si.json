@@ -208,7 +208,13 @@
     "supplier-weather": { "l": "මගේ කාලගුණය", "s": "කාලගුණය" },
     "supplier-tips": { "l": "උපදෙස් සහ මාර්ගෝපදේශ", "s": "උපදෙස්" },
     "supplier-fertilizer": { "l": "මගේ පොහොර", "s": "පොහොර" },
-    "supplier-insights": { "l": "සැපයුම්කරු විශ්ලේෂණ", "s": "විශ්ලේෂණ" }
+    "supplier-insights": { "l": "සැපයුම්කරු විශ්ලේෂණ", "s": "විශ්ලේෂණ" },
+    "equipment": { "l": "උපකරණ", "s": "උපකරණ" },
+    "equipment-requests": { "l": "උපකරණ ඉල්ලීම්", "s": "ඉල්ලීම්" },
+    "field-tools": { "l": "ක්ෂේත්‍ර මෙවලම්", "s": "මෙවලම්" },
+    "supplier-home": { "l": "මුල් පිටුව", "s": "මුල්" },
+    "supplier-calendar": { "l": "මගේ දින දසුන", "s": "දින දසුන" },
+    "supplier-profile": { "l": "මගේ පැතිකඩ", "s": "පැතිකඩ" }
   },
   "roles": {
     "superAdmin": "මහා පරිපාලක",
