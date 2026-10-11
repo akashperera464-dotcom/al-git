@@ -1,3 +1,4 @@
+/** @deprecated Round 11 routes supplier-plot to SupplierEstates.tsx. Kept for compatibility. */
 import { useEffect, useState } from "react";
 import { Sprout, Save, Check, CalendarDays, TrendingUp, Trees, RefreshCw, MapPin, Send, Clock, XCircle, Plus, Trash2 } from "lucide-react";
 import { PageHeader, StatCard, Card, IconChip } from "@/components/ui";

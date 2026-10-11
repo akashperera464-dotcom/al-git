@@ -32,11 +32,13 @@ function sriLankaMonth(): string {
 
 export function SupplierDeliveries() {
   const { t } = useTranslation();
-  const { userUid, associatedEntityId } = useApp();
+  const { userUid } = useApp();
   const [prices, setPrices] = useState<Record<string, number>>({});
   const { data: records, loading } = useLiveData<SupplyRecord>(
     "harvest_records",
-    () => readMyHarvestRecords(userUid, associatedEntityId),
+    // Round 11 multi-estate: supplier ownership, not one legacy primary estate,
+    // scopes the feed. Records from every owned estate remain visible.
+    () => readMyHarvestRecords(userUid),
     `supplier_id=eq.${userUid}`,
   );
 

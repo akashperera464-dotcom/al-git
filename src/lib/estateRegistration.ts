@@ -15,6 +15,12 @@
 
 import { getSupabase, supabaseConfigured } from "./supabase";
 
+/**
+ * @deprecated Round 11 uses `src/lib/estateRepo.ts` as the canonical estate
+ * source.  These legacy functions remain intact for SupplierInsights and old
+ * cached requests while the SQL migration imports them into `estates`.
+ */
+
 export type RegistrationStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface EstateRegistrationRequest {

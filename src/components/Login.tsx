@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { registerSupplier, signInWithEmail, signOutFirebase } from "@/lib/auth.hybrid";
-import { canActivateUser, readFactories, readRoutes, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
+import { readFactories, readRoutes, readUserOperationalProfile, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 import { usesAdminShell } from "@/lib/rbac";
 import type { Role } from "@/lib/data";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -33,6 +33,10 @@ export function Login() {
   const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [registration, setRegistration] = useState({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeId: "" });
 
+  useEffect(() => {
+    const blocked = sessionStorage.getItem("verda.auth.blocked");
+    if (blocked) { setError(blocked); sessionStorage.removeItem("verda.auth.blocked"); }
+  }, []);
   useEffect(() => { void readFactories().then(setFactories).catch(() => setFactories([])); }, []);
   useEffect(() => {
     setRoutes([]);
@@ -50,7 +54,12 @@ export function Login() {
     setBusy(true);
     try {
       const session = await signInWithEmail(email.trim(), password);
-      if (!(await canActivateUser(session.uid))) {
+      const access = await readUserOperationalProfile(session.uid);
+      if (access?.deactivatedAt) {
+        await signOutFirebase();
+        throw new Error("Your account has been deactivated. Please contact your administrator.");
+      }
+      if (access?.status !== "active") {
         await signOutFirebase();
         throw new Error(t("auth.pendingApprovalMessage"));
       }

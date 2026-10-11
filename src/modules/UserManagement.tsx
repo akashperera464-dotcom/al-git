@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { UserCog, UserPlus, Users, CheckCircle2, Package, Ban, Trash2, ShieldCheck, Building2, Crown, Loader2, Mail, KeyRound, Layers, Pencil, X, AlertTriangle, RefreshCw } from "lucide-react";
+import { UserCog, UserPlus, Users, CheckCircle2, Package, Ban, ShieldCheck, Building2, Crown, Loader2, Mail, KeyRound, Layers, Pencil, X, AlertTriangle, RefreshCw, ScrollText } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip, DataTable } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { type Role, type ManagedUser } from "@/lib/data";
-import { provisionUser, updateUserProfile, deleteUserProfile } from "@/lib/auth.hybrid";
+import { provisionUser, updateUserProfile } from "@/lib/auth.hybrid";
 import { readUsersForAdmin, readEstateOptions, readDivisionOptions } from "@/lib/repo";
 import { useLiveData } from "@/lib/useLiveData";
 import { supabaseConfigured } from "@/lib/supabase";
 import { SupplierLocationHistory } from "@/components/LocationCheckIn";
 import { readFactories, readRoutes, updateSupplierOperationalFields, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
+import { readAuditLog, setUserDeactivated, type AuditLogEntry } from "@/lib/estateRepo";
 
 /** Badge tone per role. */
 const ROLE_TONE: Record<Role, "emerald" | "amber" | "violet" | "sky"> = {
@@ -56,8 +57,7 @@ interface EditForm {
  *
  *  Create → provisionUser() registers Firebase Auth (secondary app) + Supabase row.
  *  Edit   → updateUserProfile() updates the Supabase row (re-scopes on next login).
- *  Delete → deleteUserProfile() removes the Supabase row (de-authorizes the user).
- *           DELETE is restricted to Super Admin only.
+ *  Deactivate → recoverable soft-delete; the user row and operational history remain.
  */
 export default function UserManagement() {
   const { role: myRole, notify, userUid } = useApp();
@@ -68,6 +68,10 @@ export default function UserManagement() {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<EditForm | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ManagedUser | null>(null);
+  const [view, setView] = useState<"directory" | "audit">("directory");
+  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [auditAction, setAuditAction] = useState("");
+  const [auditEntity, setAuditEntity] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<UserForm>(EMPTY_FORM);
@@ -88,6 +92,13 @@ export default function UserManagement() {
   }, []);
 
   useEffect(() => {
+    if (view !== "audit") return;
+    void readAuditLog({ action: auditAction || undefined, entityType: auditEntity || undefined, limit: 150 })
+      .then(setAuditLog)
+      .catch((err) => setError(err instanceof Error ? err.message : "Could not load audit log."));
+  }, [view, auditAction, auditEntity]);
+
+  useEffect(() => {
     if (!form.factoryId) { setFormRoutes([]); return; }
     void readRoutes(form.factoryId).then(setFormRoutes).catch(() => setFormRoutes([]));
   }, [form.factoryId]);
@@ -98,7 +109,7 @@ export default function UserManagement() {
   }, [editing?.factoryId]);
 
   const filtered = users.filter((u) => filter === "all" || u.role === filter);
-  const active = users.filter((u) => u.status === "active").length;
+  const active = users.filter((u) => u.status === "active" && !u.deactivatedAt).length;
   const estateName = (id?: string) => estateOptions.find((e) => e.id === id)?.name ?? "—";
   const allDivisions = divisionOptions;
   const divisionName = (id?: string) => divisionOptions.find((d) => d.id === id || d.name === id)?.name ?? (typeof id === "string" && id ? id : "—");
@@ -127,16 +138,16 @@ export default function UserManagement() {
     }
   };
 
-  const remove = async (u: ManagedUser) => {
+  const deactivate = async (u: ManagedUser) => {
     setBusy(true);
     setError(null);
     try {
-      await deleteUserProfile(u.id);
+      await setUserDeactivated(u.id, !u.deactivatedAt, userUid);
       void reload(); // refresh from DB
-      notify({ title: "User deleted", body: `${u.name}'s profile was removed. They can no longer log in.`, tone: "rose", channel: "system" });
+      notify({ title: u.deactivatedAt ? "User reactivated" : "User deactivated", body: `${u.name}'s profile and history were preserved.`, tone: u.deactivatedAt ? "emerald" : "rose", channel: "system" });
       setConfirmDelete(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete user.");
+      setError(err instanceof Error ? err.message : "Failed to change account activation.");
     } finally {
       setBusy(false);
     }
@@ -227,6 +238,29 @@ export default function UserManagement() {
   const inputCls = "mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm";
   const labelCls = "text-[11px] font-medium text-slate-400";
 
+  if (view === "audit") {
+    return (
+      <div>
+        <PageHeader eyebrow="Administration" title="Audit Log" desc="Read-only history of administrator actions on estates and user accounts." icon={<IconChip icon={ScrollText} tone="violet" className="h-12 w-12" />} />
+        <div className="mb-4 inline-flex rounded-xl bg-slate-100 p-1 text-sm font-bold">
+          <button onClick={() => setView("directory")} className="rounded-lg px-4 py-2 text-slate-500">Directory</button>
+          <button className="rounded-lg bg-white px-4 py-2 text-violet-700 shadow-sm">Audit Log</button>
+        </div>
+        {error && <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
+        <Card className="p-4">
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+            <select value={auditAction} onChange={(e) => setAuditAction(e.target.value)} className={inputCls}><option value="">All actions</option><option value="create">Create</option><option value="edit">Edit</option><option value="approve">Approve</option><option value="reject">Reject</option><option value="deactivate">Deactivate</option><option value="reactivate">Reactivate</option></select>
+            <select value={auditEntity} onChange={(e) => setAuditEntity(e.target.value)} className={inputCls}><option value="">All entities</option><option value="estate">Estate</option><option value="user">User</option></select>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-xs"><thead><tr className="border-b text-slate-400"><th className="px-3 py-2">Timestamp</th><th className="px-3 py-2">Admin</th><th className="px-3 py-2">Action</th><th className="px-3 py-2">Entity Type</th><th className="px-3 py-2">Entity ID</th><th className="px-3 py-2">Details</th></tr></thead><tbody>{auditLog.map((entry) => <tr key={entry.id} className="border-b border-slate-100"><td className="whitespace-nowrap px-3 py-3">{new Date(entry.createdAt).toLocaleString("en-LK")}</td><td className="px-3 py-3 font-semibold">{entry.adminName ?? entry.adminId}</td><td className="px-3 py-3"><Badge tone={entry.action === "approve" || entry.action === "reactivate" ? "emerald" : entry.action === "reject" || entry.action === "deactivate" ? "rose" : "sky"}>{entry.action}</Badge></td><td className="px-3 py-3">{entry.entityType}</td><td className="px-3 py-3 font-mono text-[10px]">{entry.entityId}</td><td className="max-w-xs truncate px-3 py-3 text-slate-400">{JSON.stringify(entry.details)}</td></tr>)}</tbody></table>
+            {auditLog.length === 0 && <p className="py-12 text-center text-sm text-slate-400">No audit entries match these filters.</p>}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader
@@ -247,6 +281,11 @@ export default function UserManagement() {
           </div>
         }
       />
+
+      <div className="mb-4 inline-flex rounded-xl bg-slate-100 p-1 text-sm font-bold">
+        <button className="rounded-lg bg-white px-4 py-2 text-emerald-700 shadow-sm">Directory</button>
+        <button onClick={() => setView("audit")} className="rounded-lg px-4 py-2 text-slate-500">Audit Log</button>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard icon={Users} label="Total Users" value={String(users.length)} tone="emerald" />
@@ -387,15 +426,15 @@ export default function UserManagement() {
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600"><AlertTriangle className="h-5 w-5" /></span>
             <div className="flex-1">
-              <p className="text-sm font-bold text-slate-800">Delete {confirmDelete.name}?</p>
-              <p className="mt-0.5 text-xs text-slate-500">This removes their Supabase profile — they will no longer be able to log in. Their Firebase Auth account remains (delete it in the Firebase Console for full removal).</p>
+              <p className="text-sm font-bold text-slate-800">{confirmDelete.deactivatedAt ? "Reactivate" : "Deactivate"} {confirmDelete.name}?</p>
+              <p className="mt-0.5 text-xs text-slate-500">This is recoverable. The user profile, estates and operational history remain stored; a deactivated user cannot access the app.</p>
             </div>
           </div>
           {error && <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
           <div className="mt-3 flex justify-end gap-2">
             <button onClick={() => { setConfirmDelete(null); setError(null); }} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500">Cancel</button>
-            <button onClick={() => remove(confirmDelete)} disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-5 py-2 text-sm font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-60">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Delete permanently
+            <button onClick={() => deactivate(confirmDelete)} disabled={busy} className={`inline-flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white transition enabled:hover:brightness-110 disabled:opacity-60 ${confirmDelete.deactivatedAt ? "bg-emerald-600" : "bg-rose-600"}`}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />} {confirmDelete.deactivatedAt ? "Reactivate user" : "Deactivate user"}
             </button>
           </div>
         </Card>
@@ -452,7 +491,7 @@ export default function UserManagement() {
                   <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700"><Layers className="h-3 w-3" /> {divisionName(u.division)}</span>
                 ) : <span className="text-xs text-slate-400">—</span>,
             },
-            { key: "status", header: "Status", align: "center", render: (u) => <Badge tone={u.status === "active" ? "emerald" : u.status === "pending_approval" ? "amber" : "rose"} dot>{u.status === "pending_approval" ? "Pending approval" : u.status}</Badge> },
+            { key: "status", header: "Status", align: "center", render: (u) => <Badge tone={u.deactivatedAt ? "rose" : u.status === "active" ? "emerald" : u.status === "pending_approval" ? "amber" : "rose"} dot>{u.deactivatedAt ? "Deactivated" : u.status === "pending_approval" ? "Pending approval" : u.status}</Badge> },
             {
               key: "actions", header: "Actions", align: "right",
               render: (u) => (
@@ -466,15 +505,15 @@ export default function UserManagement() {
                     <Pencil className="h-4 w-4" />
                   </button>
                   {/* Suspend/Reactivate — admins */}
-                  {u.status === "pending_approval" ? (
+                  {u.deactivatedAt ? null : u.status === "pending_approval" ? (
                     <><button onClick={() => approve(u)} title="Approve supplier" className="rounded-lg px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-50">Approve</button><button onClick={() => { setConfirmDelete(u); setError(null); }} title="Reject registration" className="rounded-lg px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50">Reject</button></>
                   ) : (
                     <button onClick={() => toggle(u)} title={u.status === "active" ? "Suspend" : "Reactivate"} className={`rounded-lg p-1.5 ${u.status === "active" ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50"}`}><Ban className="h-4 w-4" /></button>
                   )}
-                  {/* Delete — SUPER ADMIN ONLY */}
+                  {/* Recoverable soft-deactivation — SUPER ADMIN ONLY */}
                   {canManageAdmins && !isSelf(u) && (
-                    <button onClick={() => { setConfirmDelete(u); setError(null); }} title="Delete (Super Admin)" className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50">
-                      <Trash2 className="h-4 w-4" />
+                    <button onClick={() => { setConfirmDelete(u); setError(null); }} title={u.deactivatedAt ? "Reactivate user" : "Deactivate user"} className={`rounded-lg p-1.5 ${u.deactivatedAt ? "text-emerald-600 hover:bg-emerald-50" : "text-rose-500 hover:bg-rose-50"}`}>
+                      <Ban className="h-4 w-4" />
                     </button>
                   )}
                 </div>
@@ -488,7 +527,7 @@ export default function UserManagement() {
       <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
         <p className="text-xs text-emerald-700">
-          <strong>Edit</strong> updates the Supabase profile (re-scopes on next login). <strong>Delete</strong> is restricted to <strong>Super Admin</strong> only and permanently removes the Supabase row (de-authorizing the user). New users are created via a secondary Firebase Auth instance so you stay logged in.
+          <strong>Edit</strong> updates the Supabase profile. <strong>Deactivate</strong> is restricted to <strong>Super Admin</strong> and preserves the profile and history for later reactivation. New users are created via a secondary Firebase Auth instance so you stay logged in.
         </p>
       </div>
     </div>

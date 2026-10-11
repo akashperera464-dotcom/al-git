@@ -9,6 +9,7 @@ import { createAlert, readAlerts } from "@/lib/notifications";
 import { createEstate as repoCreateEstate, createDivision as repoCreateDivision, createField as repoCreateField } from "@/lib/repo";
 import { signOutFirebase, watchHybridSession, type AuthState } from "@/lib/auth.hybrid";
 import { flushQueue, getQueueLength, getQueuedItems, clearQueue, type QueuedMutation } from "@/lib/offlineQueue";
+import { isUserDeactivated } from "@/lib/estateRepo";
 
 export interface SyncItem {
   id: string;
@@ -241,9 +242,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ---- session lifecycle ----
   const setSession = useCallback((s: AuthState | null) => {
-    setSessionState(s);
-    if (s) setActiveModule(homeModuleFor(s.role));
-  }, []);
+    if (!s) { setSessionState(null); return; }
+    // Round 11: reject the resolved Firebase session when users.deactivated_at is set.
+    void isUserDeactivated(s.uid).then(async (deactivated) => {
+      if (deactivated) {
+        sessionStorage.setItem("verda.auth.blocked", "Your account has been deactivated. Please contact your administrator.");
+        await signOutFirebase().catch(() => {});
+        setSessionState(null);
+        notify({ title: "Account deactivated", body: "Please contact your administrator.", tone: "rose", channel: "system" });
+        return;
+      }
+      setSessionState(s);
+      setActiveModule(homeModuleFor(s.role));
+    }).catch(() => {
+      // A status-check outage must not silently create an authenticated session.
+      void signOutFirebase();
+      setSessionState(null);
+    });
+  }, [notify]);
 
   const signOut = useCallback(async () => {
     // Clear the Firebase session too, so onAuthStateChanged doesn't re-replay it.
@@ -261,7 +277,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsub = watchHybridSession((s) => {
       setAuthReady(true);
-      if (s) setSessionState(s);
+      if (s) setSession(s);
     });
     // If Firebase isn't configured (demo mode), resolve after a brief check.
     const fallback = window.setTimeout(() => setAuthReady(true), 1500);
@@ -270,7 +286,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(fallback);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setSession]);
 
   // Preview-role switch lands on that role's home module.
   useEffect(() => {

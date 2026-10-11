@@ -1,3 +1,6 @@
+export { default } from "./UnifiedEstateMaster";
+
+/** @deprecated Round 11 UI is implemented in UnifiedEstateMaster.tsx. */
 import { useEffect, useMemo, useState } from "react";
 import { Network, MapPin, ChevronDown, Layers, Mountain, Sprout, Plus, Building2, Check, Save, Loader2, MapPinned, UserPlus, Clock, XCircle } from "lucide-react";
 import { PageHeader, StatCard, Panel, Badge, Meter, IconChip, DataTable, Segmented } from "@/components/ui";
@@ -188,7 +191,7 @@ function CreationPanel() {
   );
 }
 
-export default function EstateMaster() {
+export function LegacyEstateMaster() {
   const { estates, role } = useApp();
   const [selectedId, setSelectedId] = useState<string>(estates[0]?.id ?? "");
   const [open, setOpen] = useState<Record<string, boolean>>({ "div-sutton": true });

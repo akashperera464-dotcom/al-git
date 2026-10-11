@@ -721,6 +721,8 @@ export interface ManagedUser {
   factoryName?: string;
   routeName?: string;
   status: "active" | "suspended" | "pending_approval";
+  /** Recoverable account deactivation timestamp (Round 11 soft-delete). */
+  deactivatedAt?: string;
   lastActive: string;
 }
 export const managedUsers: ManagedUser[] = [

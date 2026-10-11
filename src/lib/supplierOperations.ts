@@ -1,6 +1,7 @@
 import { createUserWithEmailAndPassword, deleteUser, signOut } from "firebase/auth";
 import { firebaseConfigured, initFirebase } from "./firebase";
 import { getSupabase, supabaseConfigured } from "./supabase";
+export { searchSupplierByNo } from "./estateRepo";
 
 export interface FactoryOption {
   id: string;
@@ -97,11 +98,20 @@ export async function readUserOperationalProfile(userId: string): Promise<{
   factoryName?: string;
   routeName?: string;
   status: string;
+  deactivatedAt?: string;
 } | null> {
   if (!supabaseConfigured) return { status: "active" };
-  const { data, error } = await getSupabase()!.from("users")
-    .select("supplier_no,factory_id,route_id,status,factories(name),routes(route_name)")
+  let { data, error } = await getSupabase()!.from("users")
+    .select("supplier_no,factory_id,route_id,status,deactivated_at,factories(name),routes(route_name)")
     .eq("id", userId).maybeSingle();
+  // Deployment-safe fallback while Round 11 SQL is waiting to be pasted.
+  if (error?.message?.includes("deactivated_at")) {
+    const fallback = await getSupabase()!.from("users")
+      .select("supplier_no,factory_id,route_id,status,factories(name),routes(route_name)")
+      .eq("id", userId).maybeSingle();
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
   if (error) throw new Error(`Could not load supplier assignment: ${error.message}`);
   if (!data) return null;
   return {
@@ -111,12 +121,13 @@ export async function readUserOperationalProfile(userId: string): Promise<{
     factoryName: (data.factories as unknown as { name?: string } | null)?.name,
     routeName: (data.routes as unknown as { route_name?: string } | null)?.route_name,
     status: data.status ?? "active",
+    deactivatedAt: data.deactivated_at ?? undefined,
   };
 }
 
 export async function canActivateUser(userId: string): Promise<boolean> {
   const profile = await readUserOperationalProfile(userId);
-  return profile?.status === "active";
+  return profile?.status === "active" && !profile.deactivatedAt;
 }
 
 export async function registerPendingSupplier(input: {

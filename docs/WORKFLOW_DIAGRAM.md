@@ -3125,7 +3125,61 @@ Run `docs/migration_phase3_round10.sql` in Supabase SQL Editor. It creates and s
 
 ---
 
-*End of Workflow Diagram. Last updated: October 2026 (Round #21 — Ideas 1–4 verification pass).*
+## 40. Unified Estate Model + Bi-directional Creation + Approval + Audit (Round 11)
+
+### 40.1 Root Cause and Unified Solution
+
+The earlier system had three parallel representations: the admin estate hierarchy, supplier `My Plot` local/cache data, and `estate_registration_requests`. An approval could therefore create a visible hierarchy without permanently linking the supplier, or a supplier could see cached plot data that another device could not see.
+
+Round 11 makes `public.estates` the single source of truth for both company estates and supplier-owned estates. `owner_supplier_id` links the estate to the Firebase UID stored in `public.users.id`; `estate_blocks` holds every estate's block-level structure. Both admin and supplier interfaces read the same records and display the same `pending`, `approved`, or `rejected` status.
+
+### 40.2 Supported Creation Paths
+
+- **Path A — account first:** supplier self-registers, admin approves the account, then either the supplier registers an estate or the admin creates one for that supplier.
+- **Path B — supplier estate submission:** an active supplier registers one or more estates; each new or edited estate becomes `pending`; an admin approves or rejects it.
+- **Path C — admin creates all:** an admin searches by supplier number/name/phone, optionally creates the missing Firebase/Supabase supplier account inline, then creates an immediately approved estate.
+
+The invariant is bi-directional visibility: regardless of who creates the estate, administrators see it in All Estates and its owner sees it in My Tea Estates.
+
+### 40.3 Schema and Atomic Approval
+
+- `docs/migration_phase3_round11_unified_estates.sql` extends `estates` with ownership, factory/route, size, status, review, audit and contact fields.
+- `estate_blocks` stores block area, bush count, cultivar, soil type and operating status.
+- `admin_audit_log` records creation, approval, rejection, edit, deactivation and reactivation actions.
+- `users.deactivated_at` provides recoverable soft-deletion.
+- `approve_estate_transaction` atomically validates the admin, approves the estate, writes the audit event and sets the supplier's primary `associated_entity_id` when empty.
+- `reject_estate_transaction` atomically validates the admin, stores the reason and writes the audit event.
+- Legacy `estate_registration_requests` rows are imported idempotently into the canonical table.
+
+### 40.4 Hybrid Authentication and RLS
+
+Firebase remains the identity provider and Supabase remains the PostgreSQL data platform. Because the approved frontend does not create a Supabase Auth session, Round 11 retains transitional permissive RLS policies and explicit client-side RouteGuard/identity checks. The security-definer approval RPCs additionally validate the supplied administrator UID against an active, non-deactivated `admin` or `super_admin` row. `auth.uid()` policies must not be enabled until a separately approved Firebase-to-Supabase JWT integration exists.
+
+### 40.5 User Experience and Soft Deactivation
+
+- Admin Estate Master has All Estates, Create New Estate and Pending Approvals tabs, supplier-number autocomplete, inline supplier creation, filters, detail/audit view and approve/reject actions.
+- Supplier My Tea Estates supports multiple estates without replacing existing estates, status cards, empty/pending/rejected states, block entry, editing and resubmission.
+- The Dashboard Pending Estates tile opens Estate Master directly on the Pending Approvals tab.
+- User Management includes a read-only Audit Log tab and replaces permanent profile deletion with Deactivate/Reactivate.
+- AppContext verifies `deactivated_at` before accepting a resolved Firebase session and returns a clear login message when access is blocked.
+
+### 40.6 File-by-file Changes
+
+- `src/lib/estateRepo.ts` — canonical estate CRUD, ownership search, audit reads, soft-deactivation and pending counts.
+- `src/lib/approvalWorkflow.ts` — atomic RPC calls plus alert/FCM notification.
+- `src/lib/supplierOperations.ts` — `searchSupplierByNo` re-export and deactivation-aware activation check.
+- `src/lib/estateRegistration.ts` — marked as a legacy compatibility layer.
+- `src/modules/UnifiedEstateMaster.tsx` + `EstateMaster.tsx` — new three-tab admin experience with compatibility export.
+- `src/modules/SupplierEstates.tsx` + `SupplierPlot.tsx` — multi-estate supplier experience while retaining the old source file for compatibility.
+- `src/modules/SupplierDeliveries.tsx` — supplier-owned deliveries are no longer restricted to one legacy primary estate.
+- `src/modules/UserManagement.tsx` — audit history and recoverable deactivation.
+- `src/modules/Dashboard.tsx` — pending-estate count and navigation tile.
+- `src/context/AppContext.tsx` and `src/components/Login.tsx` — deactivated-session gate and user-facing message.
+- `src/i18n/locales/en.json`, `si.json`, `ta.json` — matching estate workflow keys in all three languages.
+
+---
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 11 — unified estate model).*
 
 
 

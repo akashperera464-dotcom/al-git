@@ -196,10 +196,18 @@ export async function readEstateHierarchy(_role: Role): Promise<Estate[]> {
 export async function readUsersForAdmin(): Promise<ManagedUser[]> {
   if (!supabaseConfigured) return seedUsers;
   const sb = getSupabase()!;
-  const { data, error } = await sb
+  let { data, error } = await sb
     .from("users")
-    .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, status, created_at, factories(name), routes(route_name)")
+    .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, status, deactivated_at, created_at, factories(name), routes(route_name)")
     .order("created_at", { ascending: false });
+  // Keep User Management available between frontend deployment and SQL migration.
+  if (error?.message?.includes("deactivated_at")) {
+    const fallback = await sb.from("users")
+      .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, status, created_at, factories(name), routes(route_name)")
+      .order("created_at", { ascending: false });
+    data = fallback.data as typeof data;
+    error = fallback.error;
+  }
   if (error) throw new Error(`Could not load users: ${error.message}`);
   return (data ?? []).map((u): ManagedUser => ({
     id: u.id,
@@ -215,6 +223,7 @@ export async function readUsersForAdmin(): Promise<ManagedUser[]> {
     factoryName: (u.factories as unknown as { name?: string } | null)?.name,
     routeName: (u.routes as unknown as { route_name?: string } | null)?.route_name,
     status: (u.status ?? "active") as ManagedUser["status"],
+    deactivatedAt: u.deactivated_at ?? undefined,
     lastActive: relativeTime(u.created_at),
   }));
 }

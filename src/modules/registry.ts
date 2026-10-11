@@ -35,7 +35,7 @@ import Announcements from "./Announcements";
 import { SupplierAnnouncements } from "./SupplierAnnouncements";
 import { SupplierRequestForm } from "./SupplierRequest";
 import { ResourceRequests } from "./ResourceRequests";
-import { SupplierPlot } from "./SupplierPlot";
+import SupplierEstates from "./SupplierEstates";
 import { SupplierWeather } from "./SupplierWeather";
 import { SupplierTips } from "./SupplierTips";
 import { SupplierFertilizer } from "./SupplierFertilizer";
@@ -90,7 +90,7 @@ export const REGISTRY: Record<string, ComponentType> = {
   "supplier-farm": FarmActivities,
   "supplier-announcements": SupplierAnnouncements,
   "supplier-requests": SupplierRequestForm,
-  "supplier-plot": SupplierPlot,
+  "supplier-plot": SupplierEstates,
   "supplier-weather": SupplierWeather,
   "supplier-tips": SupplierTips,
   "supplier-fertilizer": SupplierFertilizer,

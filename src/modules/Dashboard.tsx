@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Sprout, Users, Droplets, CircleDollarSign, Bug, CloudSun, Bell,
   CalendarDays, ChevronRight, TrendingUp, Network, ShieldCheck, FileDown,
-  Scale, Package, Loader2,
+  Scale, Package, Loader2, Building2,
 } from "lucide-react";
 import { PageHeader, StatCard, Panel, Badge, Meter, IconChip } from "@/components/ui";
 import { AreaTrend, BarSeries, Donut, Legend } from "@/components/charts";
@@ -13,6 +13,8 @@ import {
   fmtLKRShort, TODAY_ISO,
 } from "@/lib/data";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase";
+import { useApp } from "@/context/AppContext";
+import { countPendingEstates } from "@/lib/estateRepo";
 
 /** Real KPI data fetched from Supabase — replaces ALL mock arrays. */
 interface DashboardData {
@@ -21,6 +23,7 @@ interface DashboardData {
   totalWorkers: number;
   presentToday: number;
   pendingRequests: number;
+  pendingEstates: number;
   harvestCount: number;
   estates: number;
   greenLeafTodayKg: number;
@@ -43,7 +46,7 @@ interface DashboardData {
 function useDashboardData(): DashboardData {
   const [data, setData] = useState<DashboardData>({
     loading: true,
-    totalWorkers: 0, presentToday: 0, pendingRequests: 0, harvestCount: 0, estates: 0,
+    totalWorkers: 0, presentToday: 0, pendingRequests: 0, pendingEstates: 0, harvestCount: 0, estates: 0,
     greenLeafTodayKg: 0, activeSuppliersToday: 0, factoryBatchesActive: 0, recoveryPct: 0,
     harvestTrend: [], divisionPerformance: [],
     revenueMTD: 0, expensesMTD: 0, netPL: 0,
@@ -55,7 +58,7 @@ function useDashboardData(): DashboardData {
       // Demo mode — keep minimal mock
       setData({
         loading: false,
-        totalWorkers: 8, presentToday: 6, pendingRequests: 3, harvestCount: 24, estates: 3,
+        totalWorkers: 8, presentToday: 6, pendingRequests: 3, pendingEstates: 0, harvestCount: 24, estates: 3,
         greenLeafTodayKg: 0, activeSuppliersToday: 0, factoryBatchesActive: 0, recoveryPct: 0,
         harvestTrend: Array.from({ length: 14 }, (_, i) => ({
           day: `D${i + 1}`, kg: 0, target: 13000,
@@ -75,9 +78,10 @@ function useDashboardData(): DashboardData {
         const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 
         // Run all queries in parallel
-        const [workers, pendingReq, harvests, estatesResult, harvestToday, batches, journalLines, glAccounts] = await Promise.all([
+        const [workers, pendingReq, pendingEstates, harvests, estatesResult, harvestToday, batches, journalLines, glAccounts] = await Promise.all([
           sb.from("workers").select("id, present, status", { count: "exact" }),
           sb.from("resource_requests").select("id", { count: "exact", head: true }).eq("status", "PENDING"),
+          countPendingEstates(),
           sb.from("harvest_records").select("id", { count: "exact", head: true }),
           sb.from("estates").select("id", { count: "exact", head: true }),
           sb.from("harvest_records").select("net_kg, supplier_id, weighed_at").eq("weighed_at", today),
@@ -157,6 +161,7 @@ function useDashboardData(): DashboardData {
           loading: false,
           totalWorkers, presentToday,
           pendingRequests: pendingReq.count ?? 0,
+          pendingEstates,
           harvestCount: harvests.count ?? 0,
           estates: estatesResult.count ?? 0,
           greenLeafTodayKg: Math.round(greenLeafTodayKg),
@@ -186,6 +191,7 @@ function Skeleton({ className = "" }: { className?: string }) {
 }
 
 export default function Dashboard() {
+  const { setActiveModule } = useApp();
   const d = useDashboardData();
   const pluck = recommendPlucking(pluckFields, weather7).filter((p) => p.priority === "today").slice(0, 2);
   const alerts = weatherToAlerts(weather7).slice(0, 2);
@@ -242,6 +248,9 @@ export default function Dashboard() {
           <StatCard icon={TrendingUp} tone="sky" label="Estates" value={String(d.estates)} sub="registered" delay={60} />
           <StatCard icon={Users} tone="violet" label="Workforce" value={`${d.presentToday}/${d.totalWorkers}`} sub="present today" delta={d.totalWorkers > 0 ? `${Math.round((d.presentToday / d.totalWorkers) * 100)}%` : undefined} trend="up" delay={120} />
           <StatCard icon={Bell} tone="rose" label="Pending Requests" value={String(d.pendingRequests)} sub="awaiting approval" delay={180} />
+          <button type="button" className="text-left" onClick={() => { sessionStorage.setItem("verda.estateMaster.tab", "pending"); setActiveModule("estate-master"); }}>
+            <StatCard icon={Building2} tone="amber" label="Pending Estates" value={String(d.pendingEstates)} sub="review registrations" delay={210} />
+          </button>
           <StatCard icon={Scale} tone="amber" label="Active Batches" value={String(d.factoryBatchesActive)} sub="in factory now" delay={0} />
           <StatCard icon={Scale} tone="violet" label="Recovery %" value={`${d.recoveryPct}%`} sub="made tea / green leaf" delay={60} />
           <StatCard icon={CircleDollarSign} tone="emerald" label="Revenue (MTD)" value={d.revenueMTD > 0 ? fmtLKRShort(d.revenueMTD) : "—"} sub="posted journals" delay={120} />
