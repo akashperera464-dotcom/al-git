@@ -230,8 +230,11 @@ select
   r.longitude,
   r.contact_phone,
   r.address,
+  -- Existing installations differ here: Round 8 originally documented jsonb,
+  -- while some live databases use text[]. to_jsonb() normalizes either shape
+  -- before expanding it into the canonical estates.photo_urls text[].
   case when r.photo_urls is null then null
-       else array(select jsonb_array_elements_text(r.photo_urls)) end,
+       else array(select jsonb_array_elements_text(to_jsonb(r.photo_urls))) end,
   r.soil_type,
   r.cultivar,
   case when upper(r.status) = 'APPROVED' then 'approved'

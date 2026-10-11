@@ -3133,6 +3133,8 @@ The earlier system had three parallel representations: the admin estate hierarch
 
 Round 11 makes `public.estates` the single source of truth for both company estates and supplier-owned estates. `owner_supplier_id` links the estate to the Firebase UID stored in `public.users.id`; `estate_blocks` holds every estate's block-level structure. Both admin and supplier interfaces read the same records and display the same `pending`, `approved`, or `rejected` status.
 
+Legacy estate-request migration also normalizes `photo_urls` through `to_jsonb()`, allowing the same Round 11 script to migrate installations where that source column is either `text[]` or `jsonb` into the canonical `estates.photo_urls text[]` field.
+
 ### 40.2 Supported Creation Paths
 
 - **Path A — account first:** supplier self-registers, admin approves the account, then either the supplier registers an estate or the admin creates one for that supplier.
