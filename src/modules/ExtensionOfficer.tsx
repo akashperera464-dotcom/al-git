@@ -172,9 +172,16 @@ export function EoWeighing() {
     void readRoutes(factoryId).then(setRoutes).catch(() => setRoutes([]));
   }, [factoryId]);
   useEffect(() => {
+    let active = true;
     setSupplierId("");
     if (!routeId) { setSuppliers([]); return; }
-    void readSupplierDirectory(factoryId, routeId).then(setSuppliers).catch(() => setSuppliers([]));
+    // Collector scope: only active suppliers assigned to this exact factory + route.
+    // The cancellation guard prevents a slower previous-route query replacing the
+    // results after the collector has already selected another route.
+    void readSupplierDirectory(factoryId, routeId)
+      .then((rows) => active && setSuppliers(rows))
+      .catch(() => active && setSuppliers([]));
+    return () => { active = false; };
   }, [factoryId, routeId]);
 
   // Count of pending offline mutations (for the badge)
@@ -289,7 +296,7 @@ export function EoWeighing() {
         <div className="grid grid-cols-2 gap-2.5 text-sm">
           <div><label className="text-[11px] font-medium text-slate-400">Factory</label><select value={factoryId} onChange={(e) => setFactoryId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select factory —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
           <div><label className="text-[11px] font-medium text-slate-400">Route</label><select value={routeId} onChange={(e) => setRouteId(e.target.value)} disabled={!factoryId} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select route —</option>{routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div>
-          <div className="col-span-2"><label className="text-[11px] font-medium text-slate-400">Supplier</label><select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} disabled={!routeId} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select supplier —</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>#{supplier.supplierNo} · {supplier.name}</option>)}</select></div>
+          <div className="col-span-2"><div className="flex items-center justify-between"><label className="text-[11px] font-medium text-slate-400">Supplier</label>{routeId && <span className="text-[10px] text-slate-400">{suppliers.length} on selected route</span>}</div><select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} disabled={!routeId} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select supplier from route —</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>#{supplier.supplierNo} · {supplier.name}</option>)}</select></div>
           <div>
             <label className="text-[11px] font-medium text-slate-400">{t("officer.gradeLabel")}</label>
             <select value={grade} onChange={(e) => setGrade(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5">

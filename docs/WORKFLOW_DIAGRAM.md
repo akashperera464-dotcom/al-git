@@ -3097,7 +3097,35 @@ Run `docs/migration_phase3_round10.sql` in Supabase SQL Editor. It creates and s
 
 ---
 
-*End of Workflow Diagram. Last updated: October 2026 (Round #20 — login language selector position).*
+## 39. Ideas 1–4 Verification Pass
+
+### 39.1 Grade-wise Supplier Deliveries
+
+- `src/modules/SupplierDeliveries.tsx` is the registered supplier-deliveries screen.
+- It groups the current month's DB grades into Normal Leaf and Super Leaf and shows kilograms plus rupee value for each group.
+- A daily breakdown shows Normal Leaf and Super Leaf kg/Rs totals, while Supabase Realtime keeps the supplier-owned records current.
+
+### 39.2 Complete DB-value Internationalization
+
+- `src/i18n/locales/en.json`, `si.json` and `ta.json` contain matching module labels for supplier home, calendar, profile, fertilizer, plot, tips and weather.
+- Matching `status.*`, `grade.*` and `activity.*` namespaces translate stable database values, including Normal Leaf and Super Leaf aliases.
+
+### 39.3 Route Operations and Realtime Lorry Map
+
+- `docs/migration_phase3_round10.sql` creates factories, routes and `lorry_locations`, seeds six factories plus 117 routes, and validates the seed count.
+- `src/modules/LorryTracking.tsx` renders OpenStreetMap through Leaflet and updates the route marker from a filtered Supabase Realtime subscription.
+- `src/modules/ExtensionOfficer.tsx` filters the collector's supplier selector by the exact selected factory and route and guards against stale route requests.
+
+### 39.4 Pending Supplier Registration
+
+- `src/lib/auth.hybrid.ts` exports the new `registerSupplier()` entry point without replacing the existing sign-in/session architecture.
+- `src/components/Login.tsx` uses it for the Register Here form and creates the profile with `pending_approval`.
+- `src/modules/UserManagement.tsx` exposes Approve and Reject actions for pending suppliers.
+- Round 10 adds the unique `supplier_no` column and pending-approval database support.
+
+---
+
+*End of Workflow Diagram. Last updated: October 2026 (Round #21 — Ideas 1–4 verification pass).*
 
 
 

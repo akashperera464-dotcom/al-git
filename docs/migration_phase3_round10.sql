@@ -81,6 +81,37 @@ insert into public.routes(factory_id, route_name)
 select f.id, s.route_name from route_seed s join public.factories f on f.name = s.factory_name
 on conflict (factory_id, route_name) do nothing;
 
+-- Fail visibly if the required operational seed is incomplete. Extra custom
+-- routes are allowed, but the six factories and at least their 117 supplied
+-- routes must be present after this migration runs.
+do $$
+declare
+  seeded_factory_count integer;
+  seeded_route_count integer;
+begin
+  select count(*) into seeded_factory_count
+  from public.factories
+  where name in (
+    'Galpadihenna Tea Factory', 'Kalawana Leaf Center', 'Kuttapitiya Tea Factory',
+    'Madampe Tea Factory', 'Matuwagala Tea Factory', 'Peak view Tea Factory'
+  );
+
+  select count(*) into seeded_route_count
+  from public.routes r
+  join public.factories f on f.id = r.factory_id
+  where f.name in (
+    'Galpadihenna Tea Factory', 'Kalawana Leaf Center', 'Kuttapitiya Tea Factory',
+    'Madampe Tea Factory', 'Matuwagala Tea Factory', 'Peak view Tea Factory'
+  );
+
+  if seeded_factory_count <> 6 then
+    raise exception 'Round 10 seed validation failed: expected 6 factories, found %', seeded_factory_count;
+  end if;
+  if seeded_route_count < 117 then
+    raise exception 'Round 10 seed validation failed: expected at least 117 routes, found %', seeded_route_count;
+  end if;
+end $$;
+
 -- Allow the new registration state without changing the existing auth architecture.
 do $$ begin
   if exists (select 1 from pg_type where typname = 'user_status') then

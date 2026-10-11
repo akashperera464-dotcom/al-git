@@ -7,7 +7,7 @@ import { readMyHarvestRecords } from "@/lib/repo";
 import { fetchForecast, getMockForecast } from "@/lib/weather";
 import type { WeatherDay } from "@/lib/data";
 import { useTranslation } from "react-i18next";
-import { LorryLocationCard } from "@/components/LorryLocationCard";
+import { LorryTracking } from "@/modules/LorryTracking";
 import { readDailyTeaPrices, type DailyTeaPrice } from "@/lib/supplierOperations";
 import { gradeKey } from "@/i18n/databaseValues";
 
@@ -161,7 +161,7 @@ export function SupplierHome() {
         </div>
       )}
 
-      <LorryLocationCard userId={userUid} />
+      <LorryTracking userId={userUid} />
 
       {/* Key stats — Earnings + Expenses + Total Supplied + Pending Sync */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">

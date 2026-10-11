@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { signInWithEmail, signOutFirebase } from "@/lib/auth.hybrid";
-import { canActivateUser, readFactories, readRoutes, registerPendingSupplier, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
+import { registerSupplier, signInWithEmail, signOutFirebase } from "@/lib/auth.hybrid";
+import { canActivateUser, readFactories, readRoutes, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 import { usesAdminShell } from "@/lib/rbac";
 import type { Role } from "@/lib/data";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -75,7 +75,7 @@ export function Login() {
     }
     setBusy(true);
     try {
-      await registerPendingSupplier(registration);
+      await registerSupplier(registration);
       setRegistrationDone(true);
       setRegistration({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeId: "" });
     } catch (err) {

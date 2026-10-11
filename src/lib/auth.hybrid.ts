@@ -135,6 +135,72 @@ export async function signInWithEmail(email: string, password: string): Promise<
   return await resolveSession(cred.user);
 }
 
+/**
+ * Self-register a supplier without replacing the established sign-in flow.
+ * A secondary in-memory Firebase app creates the identity, then the matching
+ * Supabase profile is inserted as `pending_approval` for an administrator to
+ * approve. If the database insert fails, the new Firebase identity is rolled
+ * back so an orphaned account is not left behind.
+ */
+export async function registerSupplier(input: {
+  supplierNo: string;
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  factoryId: string;
+  routeId: string;
+}): Promise<string> {
+  if (!firebaseConfigured || !supabaseConfigured) {
+    throw new Error("Supplier registration services are not configured.");
+  }
+
+  const supplierNo = input.supplierNo.trim();
+  const email = input.email.trim().toLowerCase();
+  const sb = getSupabase()!;
+  const { data: existing, error: lookupError } = await sb
+    .from("users")
+    .select("id")
+    .eq("supplier_no", supplierNo)
+    .maybeSingle();
+  if (lookupError) throw new Error(`Could not validate supplier number: ${lookupError.message}`);
+  if (existing) throw new Error("That supplier number is already registered.");
+
+  const registrationApp = initializeApp(firebaseConfigObject(), `supplier-registration-${Date.now()}`);
+  const registrationAuth = fbGetAuth(registrationApp);
+  await setPersistence(registrationAuth, inMemoryPersistence);
+  let credential: UserCredential | null = null;
+
+  try {
+    credential = await createUserWithEmailAndPassword(registrationAuth, email, input.password);
+    const { error } = await sb.from("users").insert({
+      id: credential.user.uid,
+      supplier_no: supplierNo,
+      name: input.name.trim(),
+      email,
+      phone: input.phone?.trim() || null,
+      role: "supplier",
+      status: "pending_approval",
+      factory_id: input.factoryId,
+      route_id: input.routeId,
+      associated_entity_id: null,
+    });
+    if (error) {
+      await credential.user.delete().catch(() => {});
+      throw new Error(`Registration profile could not be saved: ${error.message}`);
+    }
+    return credential.user.uid;
+  } catch (error) {
+    if ((error as { code?: string })?.code?.startsWith("auth/")) {
+      throw new Error(explainAuthError(error));
+    }
+    throw error;
+  } finally {
+    await signOut(registrationAuth).catch(() => {});
+    await deleteApp(registrationApp).catch(() => {});
+  }
+}
+
 /* ======================= Resolve session from a Firebase user ======================= */
 
 /** Read (or create) the Supabase `users` row for this Firebase user. */
