@@ -3245,6 +3245,10 @@ Price changes remain inactive while pending. The proposed value is audit-logged;
 
 `src/lib/__tests__/rls.test.ts` passes the static policy-contract checks for supplier ownership, assigned-route collector scope, administrator access, anonymous denial and absence of literal permissive operational policies. A live database RLS test cannot be truthfully completed until the Round 12 SQL is applied and the Firebase Third-Party Auth dashboard integration is enabled; the exact six-account live test is therefore retained as a mandatory post-migration step in `docs/MIGRATION_CHECKLIST.md`.
 
+### 42.6 Supabase pgcrypto compatibility hotfix
+
+The registration-permit RLS helper now calls `extensions.digest(bytea, text)` explicitly and converts the normalized email to UTF-8 bytes before hashing. This matches Supabase's standard `pgcrypto` installation schema and prevents PostgreSQL error `42883` (`function digest(text, unknown) does not exist`). The Round 12 migration remains safe to run again after a partial SQL Editor failure because its schema additions, indexes, triggers, policies and seed/version writes are guarded or recreated idempotently.
+
 *End of Workflow Diagram. Last updated: October 2026 (Round 12 — production hardening).*
 
 

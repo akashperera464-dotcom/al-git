@@ -27,7 +27,10 @@ language sql stable security definer set search_path=public as $$
     select 1 from public.admin_audit_log a
     where a.action='registration_attempt'
       and a.created_at >= now()-interval '10 minutes'
-      and a.details->>'email_hash'=encode(digest(lower(trim(p_email)),'sha256'),'hex')
+      and a.details->>'email_hash'=encode(
+        extensions.digest(convert_to(lower(trim(p_email)), 'UTF8'), 'sha256'::text),
+        'hex'
+      )
   )
 $$;
 revoke all on function public.has_recent_registration_permit(text) from public;
