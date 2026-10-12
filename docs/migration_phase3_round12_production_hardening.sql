@@ -374,7 +374,8 @@ do $$ begin
   end if;
   if to_regclass('public.supplier_plots') is not null then
     execute 'alter table public.supplier_plots enable row level security';
-    execute 'create policy supplier_plots_own on public.supplier_plots for all using (supplier_id=public.app_uid()) with check (supplier_id=public.app_uid())';
+    -- Phase 1 created supplier_plots ownership as user_id (Firebase UID).
+    execute 'create policy supplier_plots_own on public.supplier_plots for all using (user_id=public.app_uid()) with check (user_id=public.app_uid())';
   end if;
   if to_regclass('public.resource_requests') is not null then
     execute 'alter table public.resource_requests enable row level security';

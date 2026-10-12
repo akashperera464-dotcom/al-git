@@ -3249,6 +3249,10 @@ Price changes remain inactive while pending. The proposed value is audit-logged;
 
 The registration-permit RLS helper now calls `extensions.digest(bytea, text)` explicitly and converts the normalized email to UTF-8 bytes before hashing. This matches Supabase's standard `pgcrypto` installation schema and prevents PostgreSQL error `42883` (`function digest(text, unknown) does not exist`). The Round 12 migration remains safe to run again after a partial SQL Editor failure because its schema additions, indexes, triggers, policies and seed/version writes are guarded or recreated idempotently.
 
+### 42.7 Legacy supplier plot ownership compatibility
+
+The `supplier_plots` table introduced in Phase 1 stores its Firebase owner UID in `user_id`, unlike several later supplier tables that use `supplier_id`. The Round 12 RLS policy now targets the actual `user_id` column, resolving PostgreSQL error `42703` during migration replay. A regression test verifies that this legacy-table policy cannot silently return to the incorrect column name.
+
 *End of Workflow Diagram. Last updated: October 2026 (Round 12 — production hardening).*
 
 
