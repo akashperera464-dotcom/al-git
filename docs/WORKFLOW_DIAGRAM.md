@@ -3181,7 +3181,33 @@ Firebase remains the identity provider and Supabase remains the PostgreSQL data 
 
 ---
 
-*End of Workflow Diagram. Last updated: October 2026 (Round 11 — unified estate model).*
+## 41. Idea 3 Production Hardening (Round 12)
+
+### 41.1 Verified Existing Interconnection
+
+- Round 10 contains all six supplied factories and exactly 117 factory-scoped routes (45 + 9 + 17 + 13 + 15 + 18).
+- Login, User Management and Extension Officer registration use dependent Factory → Route selection.
+- Collector weighing filters active suppliers by the exact factory and route, records grade/gross/deduction/net/amount and links the record to the supplier.
+- Supplier Deliveries, Supplier Loans, the profile finance cards and the supplier realtime Leaflet map were already connected to Supabase.
+- `lorry_locations.route_id` is unique and location writes use upsert, so each route keeps one current row instead of accumulating GPS history.
+
+### 41.2 GPS Request and State Hardening
+
+- Browser `watchPosition()` remains the location source, but database writes are now throttled to at most one upsert every 30 seconds while retaining the newest pending coordinate.
+- Changing the selected route, pressing Stop, or leaving the collector screen stops the local watcher and marks the old route inactive.
+- Supplier maps distinguish Live, Stopped and stale locations; the last known marker remains available for context.
+- `docs/migration_phase3_round12_lorry_tracking_hardening.sql` adds `lorry_locations.active`, `stopped_at` and an update-time index. The client has a compatibility fallback until this SQL is installed.
+
+### 41.3 Factory-specific Daily Leaf Prices
+
+- Factory Integration now has a **Leaf Prices** tab where an administrator selects a factory and effective date and saves Normal, Super, PV Super and Coarse rates.
+- Collector weigh-ins resolve the selected factory's latest effective grade price first, then the global reference rate, and persist `amount = net_kg × selected rate`.
+- Supplier Home, Deliveries and Earnings screens resolve prices for the supplier's assigned factory. Coarse remains an operational intake grade but stays hidden from supplier summary price cards.
+- External factory finance remains the source of truth; every supplier-facing price and payable display retains the month-end confirmation disclaimer.
+
+---
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 12 — Idea 3 production hardening).*
 
 
 

@@ -32,12 +32,16 @@ export interface LorryLocation {
   latitude: number;
   longitude: number;
   accuracyM?: number;
+  active: boolean;
+  stoppedAt?: string;
   updatedAt: string;
 }
 
 export interface DailyTeaPrice {
   grade: string;
   pricePerKg: number;
+  factoryId?: string;
+  priceDate?: string;
 }
 
 export async function readFactories(): Promise<FactoryOption[]> {
@@ -172,29 +176,76 @@ export async function registerPendingSupplier(input: {
   }
 }
 
-export async function readDailyTeaPrices(date = sriLankaDateISO()): Promise<DailyTeaPrice[]> {
+export async function readDailyTeaPrices(date = sriLankaDateISO(), factoryId?: string): Promise<DailyTeaPrice[]> {
   const referencePrices: DailyTeaPrice[] = [
     { grade: "Super", pricePerKg: 186 },
     { grade: "Standard", pricePerKg: 176 },
     { grade: "PV Super", pricePerKg: 204 },
+    { grade: "Coarse", pricePerKg: 150 },
   ];
   if (!supabaseConfigured) {
     return referencePrices;
   }
-  const { data, error } = await getSupabase()!.from("daily_tea_prices")
-    .select("grade,price_per_kg,price_date")
-    .is("factory_id", null)
+  let query = getSupabase()!.from("daily_tea_prices")
+    .select("grade,price_per_kg,price_date,factory_id")
     .lte("price_date", date)
     .order("price_date", { ascending: false })
-    .limit(100);
+    .limit(250);
+  query = factoryId
+    ? query.or(`factory_id.is.null,factory_id.eq.${factoryId}`)
+    : query.is("factory_id", null);
+  const { data, error } = await query;
   if (error) throw new Error(`Could not load daily tea prices: ${error.message}`);
-  const latestByGrade = new Map<string, DailyTeaPrice>();
+  const globalByGrade = new Map<string, DailyTeaPrice>();
+  const factoryByGrade = new Map<string, DailyTeaPrice>();
   for (const row of data ?? []) {
-    if (!latestByGrade.has(row.grade)) {
-      latestByGrade.set(row.grade, { grade: row.grade, pricePerKg: Number(row.price_per_kg ?? 0) });
+    const price: DailyTeaPrice = {
+      grade: row.grade,
+      pricePerKg: Number(row.price_per_kg ?? 0),
+      factoryId: row.factory_id ?? undefined,
+      priceDate: row.price_date,
+    };
+    if (row.factory_id && !factoryByGrade.has(row.grade)) {
+      factoryByGrade.set(row.grade, price);
+    } else if (!row.factory_id && !globalByGrade.has(row.grade)) {
+      globalByGrade.set(row.grade, price);
     }
   }
-  return referencePrices.map((reference) => latestByGrade.get(reference.grade) ?? reference);
+  return referencePrices.map((reference) => factoryByGrade.get(reference.grade) ?? globalByGrade.get(reference.grade) ?? reference);
+}
+
+export async function saveDailyTeaPrices(input: {
+  factoryId: string;
+  priceDate: string;
+  prices: Array<{ grade: string; pricePerKg: number }>;
+}): Promise<void> {
+  if (!supabaseConfigured) throw new Error("Supabase is not configured.");
+  if (!input.factoryId || !input.priceDate) throw new Error("Factory and price date are required.");
+  if (input.prices.some((price) => !price.grade || !Number.isFinite(price.pricePerKg) || price.pricePerKg < 0)) {
+    throw new Error("Every grade must have a valid non-negative price.");
+  }
+
+  const sb = getSupabase()!;
+  for (const price of input.prices) {
+    const { data: existing, error: lookupError } = await sb.from("daily_tea_prices")
+      .select("id")
+      .eq("factory_id", input.factoryId)
+      .eq("price_date", input.priceDate)
+      .eq("grade", price.grade)
+      .maybeSingle();
+    if (lookupError) throw new Error(`Could not check ${price.grade} price: ${lookupError.message}`);
+
+    const mutation = existing
+      ? sb.from("daily_tea_prices").update({ price_per_kg: price.pricePerKg }).eq("id", existing.id)
+      : sb.from("daily_tea_prices").insert({
+          factory_id: input.factoryId,
+          price_date: input.priceDate,
+          grade: price.grade,
+          price_per_kg: price.pricePerKg,
+        });
+    const { error } = await mutation;
+    if (error) throw new Error(`Could not save ${price.grade} price: ${error.message}`);
+  }
 }
 
 function sriLankaDateISO(date = new Date()): string {
@@ -216,15 +267,41 @@ export async function publishLorryLocation(input: {
   accuracyM?: number;
 }): Promise<void> {
   if (!supabaseConfigured) return;
-  const { error } = await getSupabase()!.from("lorry_locations").upsert({
+  const sb = getSupabase()!;
+  const currentRow = {
     route_id: input.routeId,
     driver_id: input.driverId,
     latitude: input.latitude,
     longitude: input.longitude,
     accuracy_m: input.accuracyM ?? null,
+    active: true,
+    stopped_at: null,
     updated_at: new Date().toISOString(),
-  }, { onConflict: "route_id" });
+  };
+  let { error } = await sb.from("lorry_locations").upsert(currentRow, { onConflict: "route_id" });
+  // Deployment-safe fallback until the Round 12 SQL is pasted.
+  if (error && /active|stopped_at/i.test(error.message)) {
+    const { active: _active, stopped_at: _stoppedAt, ...legacyRow } = currentRow;
+    void _active;
+    void _stoppedAt;
+    const retry = await sb.from("lorry_locations").upsert(legacyRow, { onConflict: "route_id" });
+    error = retry.error;
+  }
   if (error) throw new Error(`Could not publish lorry location: ${error.message}`);
+}
+
+export async function stopLorryLocation(routeId: string, driverId: string): Promise<void> {
+  if (!supabaseConfigured || !routeId) return;
+  const stoppedAt = new Date().toISOString();
+  const { error } = await getSupabase()!.from("lorry_locations")
+    .update({ active: false, stopped_at: stoppedAt, updated_at: stoppedAt })
+    .eq("route_id", routeId)
+    .eq("driver_id", driverId);
+  // Before Round 12 is installed, freshness timeout still safely marks the
+  // last location as stale; the missing optional columns must not break stop.
+  if (error && !/active|stopped_at/i.test(error.message)) {
+    throw new Error(`Could not stop lorry tracking: ${error.message}`);
+  }
 }
 
 function mapLorryLocation(row: Record<string, unknown>): LorryLocation {
@@ -235,6 +312,8 @@ function mapLorryLocation(row: Record<string, unknown>): LorryLocation {
     latitude: Number(row.latitude),
     longitude: Number(row.longitude),
     accuracyM: row.accuracy_m == null ? undefined : Number(row.accuracy_m),
+    active: row.active !== false,
+    stoppedAt: row.stopped_at == null ? undefined : String(row.stopped_at),
     updatedAt: String(row.updated_at ?? ""),
   };
 }

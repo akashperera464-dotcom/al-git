@@ -14,22 +14,26 @@ import { LocationCheckIn } from "@/components/LocationCheckIn";
 import { PruningAdvisory } from "@/components/PruningAdvisory";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 import type { SupplyRecord } from "@/lib/data";
-import { readDailyTeaPrices } from "@/lib/supplierOperations";
+import { readDailyTeaPrices, readUserOperationalProfile } from "@/lib/supplierOperations";
 import { gradeKey, statusKey } from "@/i18n/databaseValues";
 
 /** Daily Tea Prices card — shows today's price per kg per grade. */
 function DailyPriceCard() {
   const { t } = useTranslation();
+  const { userUid } = useApp();
   const [prices, setPrices] = useState<{ grade: string; pricePerKg: number }[]>([]);
   useEffect(() => {
-    void readDailyTeaPrices().then(setPrices).catch(() => setPrices([]));
-  }, []);
+    void readUserOperationalProfile(userUid)
+      .then((profile) => readDailyTeaPrices(undefined, profile?.factoryId))
+      .then(setPrices)
+      .catch(() => setPrices([]));
+  }, [userUid]);
 
   if (prices.length === 0) return null;
   const toneMap: Record<string, "emerald" | "amber" | "rose"> = { Super: "emerald", Standard: "amber", Coarse: "rose" };
   return (
     <div className="mb-4 grid grid-cols-3 gap-2">
-      {prices.map(p => (
+      {prices.filter((price) => price.grade !== "Coarse").map(p => (
         <div key={p.grade} className="rounded-xl border border-slate-200 bg-white p-3 text-center">
           <Badge tone={toneMap[p.grade] ?? "slate"}>{t(gradeKey(p.grade), { defaultValue: p.grade })}</Badge>
           <p className="mt-1.5 font-display text-lg font-bold text-slate-800">Rs {p.pricePerKg.toLocaleString()}</p>
@@ -431,6 +435,8 @@ export function SupplierPayments() {
   const { t } = useTranslation();
   const { records, loading } = useOwnSupply();
   const earned = records.reduce((s, r) => s + r.amount, 0);
+  const suppliedKg = records.reduce((sum, record) => sum + record.kg, 0);
+  const realizedRate = suppliedKg > 0 ? earned / suppliedKg : 0;
   const pending = records.filter(r => r.status === "Pending").reduce((s, r) => s + r.amount, 0);
 
   // Fertilizer credit cost estimate (kg × Rs 95/kg average)
@@ -527,7 +533,7 @@ export function SupplierPayments() {
       <div className="grid grid-cols-3 gap-2.5">
         <StatCard icon={Wallet} label={t("supplier.totalEarned")} value={fmtLKRShort(earned)} tone="emerald" />
         <StatCard icon={CalendarCheck} label={t("supplier.pendingPayment")} value={fmtLKRShort(pending)} tone="amber" />
-        <StatCard icon={TrendingUp} label={t("supplier.ratePerKg")} value={fmtLKR(supplier.pricePerKg)} tone="sky" />
+        <StatCard icon={TrendingUp} label={t("supplier.ratePerKg")} value={fmtLKR(realizedRate)} tone="sky" />
       </div>
 
       {/* B30 (Round #12) — Deductions breakdown */}

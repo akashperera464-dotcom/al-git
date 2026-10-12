@@ -6,7 +6,7 @@ import { useApp } from "@/context/AppContext";
 import { statusKey } from "@/i18n/databaseValues";
 import { fmtLKR, fmtNum, type SupplyRecord } from "@/lib/data";
 import { readMyHarvestRecords } from "@/lib/repo";
-import { readDailyTeaPrices } from "@/lib/supplierOperations";
+import { readDailyTeaPrices, readUserOperationalProfile } from "@/lib/supplierOperations";
 import { useLiveData } from "@/lib/useLiveData";
 
 type LeafGroup = "normal" | "super";
@@ -43,10 +43,11 @@ export function SupplierDeliveries() {
   );
 
   useEffect(() => {
-    void readDailyTeaPrices()
+    void readUserOperationalProfile(userUid)
+      .then((profile) => readDailyTeaPrices(undefined, profile?.factoryId))
       .then((rows) => setPrices(Object.fromEntries(rows.map((row) => [row.grade, row.pricePerKg]))))
       .catch(() => setPrices({}));
-  }, []);
+  }, [userUid]);
 
   const monthRecords = useMemo(
     () => records.filter((record) => record.date.startsWith(sriLankaMonth())),

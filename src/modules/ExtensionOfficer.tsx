@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { UserPlus, Scale, Loader2, CheckCircle2, Building2, Layers, Phone, WifiOff, MapPin, AlertTriangle } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
@@ -7,7 +7,7 @@ import { readEstateOptions, readDivisionOptions, saveLeafWeighing, type WeighInR
 import { provisionUser } from "@/lib/auth.hybrid";
 import { useLiveData } from "@/lib/useLiveData";
 import { createAlert } from "@/lib/notifications";
-import { publishLorryLocation, readFactories, readRoutes, readSupplierDirectory, updateSupplierOperationalFields, type FactoryOption, type RouteOption, type SupplierDirectoryEntry } from "@/lib/supplierOperations";
+import { publishLorryLocation, readFactories, readRoutes, readSupplierDirectory, stopLorryLocation, updateSupplierOperationalFields, type FactoryOption, type RouteOption, type SupplierDirectoryEntry } from "@/lib/supplierOperations";
 
 /* ====================== 1 · REGISTER NEW SUPPLIER ====================== */
 
@@ -340,47 +340,112 @@ export function EoWeighing() {
 }
 
 function LorryTrackingControls({ routeId, driverId }: { routeId: string; driverId: string }) {
-  const [watchId, setWatchId] = useState<number | null>(null);
+  const [tracking, setTracking] = useState(false);
   const [message, setMessage] = useState("Select a route, then start tracking while the collection lorry is running.");
+  const watchIdRef = useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const latestPositionRef = useRef<GeolocationPosition | null>(null);
+  const activeRouteRef = useRef("");
+  const lastPublishedAtRef = useRef(0);
+  const mountedRef = useRef(true);
+  const writeIntervalMs = 30_000;
 
-  useEffect(() => () => {
-    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-  }, [watchId]);
-
-  const stop = () => {
-    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-    setWatchId(null);
-    setMessage("Live lorry tracking stopped.");
+  const clearLocalTracking = () => {
+    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    watchIdRef.current = null;
+    timerRef.current = null;
+    latestPositionRef.current = null;
   };
+
+  const publish = (position: GeolocationPosition) => {
+    const publishingRoute = activeRouteRef.current;
+    if (!publishingRoute) return;
+    lastPublishedAtRef.current = Date.now();
+    latestPositionRef.current = null;
+    timerRef.current = null;
+    void publishLorryLocation({
+      routeId: publishingRoute,
+      driverId,
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracyM: position.coords.accuracy,
+    }).then(() => {
+      if (mountedRef.current && activeRouteRef.current === publishingRoute) {
+        setMessage(`Live location updated at ${new Date().toLocaleTimeString()}. Next update is limited to 30 seconds.`);
+      }
+    }).catch((error) => {
+      if (mountedRef.current) setMessage(error instanceof Error ? error.message : "Could not update location.");
+    });
+  };
+
+  const queuePosition = (position: GeolocationPosition) => {
+    latestPositionRef.current = position;
+    const elapsed = Date.now() - lastPublishedAtRef.current;
+    if (elapsed >= writeIntervalMs && timerRef.current === null) {
+      publish(position);
+      return;
+    }
+    if (timerRef.current === null) {
+      timerRef.current = window.setTimeout(() => {
+        const latest = latestPositionRef.current;
+        if (latest) publish(latest);
+      }, Math.max(0, writeIntervalMs - elapsed));
+    }
+  };
+
+  const stop = (reason = "Live lorry tracking stopped.") => {
+    const stoppedRoute = activeRouteRef.current;
+    clearLocalTracking();
+    activeRouteRef.current = "";
+    setTracking(false);
+    setMessage(reason);
+    if (stoppedRoute) {
+      void stopLorryLocation(stoppedRoute, driverId).catch((error) => {
+        if (mountedRef.current) setMessage(error instanceof Error ? error.message : "Could not mark tracking as stopped.");
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (tracking && activeRouteRef.current && activeRouteRef.current !== routeId) {
+      stop("Route changed. Start GPS again for the newly selected route.");
+    }
+  }, [routeId, tracking]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const stoppedRoute = activeRouteRef.current;
+      clearLocalTracking();
+      activeRouteRef.current = "";
+      if (stoppedRoute) void stopLorryLocation(stoppedRoute, driverId);
+    };
+  }, [driverId]);
 
   const start = () => {
     if (!routeId) { setMessage("Select a route before starting lorry tracking."); return; }
     if (!("geolocation" in navigator)) { setMessage("GPS is not supported on this device."); return; }
+    activeRouteRef.current = routeId;
+    lastPublishedAtRef.current = 0;
     const id = navigator.geolocation.watchPosition(
-      (position) => {
-        void publishLorryLocation({
-          routeId,
-          driverId,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracyM: position.coords.accuracy,
-        }).then(() => setMessage(`Live location updated at ${new Date().toLocaleTimeString()}.`))
-          .catch((error) => setMessage(error instanceof Error ? error.message : "Could not update location."));
-      },
+      queuePosition,
       (error) => setMessage(error.message || "Could not read GPS location."),
       { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 },
     );
-    setWatchId(id);
-    setMessage("Live lorry tracking is active. Keep this screen open during collection.");
+    watchIdRef.current = id;
+    setTracking(true);
+    setMessage("Live lorry tracking is active. Coordinates are upserted at most once every 30 seconds; keep this screen open during collection.");
   };
 
   return (
     <Card className="mt-4 border-sky-200 bg-sky-50 p-4">
       <div className="flex items-center justify-between gap-3">
         <div><p className="text-sm font-bold text-sky-900">Collection lorry live GPS</p><p className="mt-0.5 text-[11px] text-sky-700">{message}</p></div>
-        {watchId === null
+        {!tracking
           ? <button onClick={start} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white">Start GPS</button>
-          : <button onClick={stop} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white">Stop GPS</button>}
+          : <button onClick={() => stop()} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white">Stop GPS</button>}
       </div>
     </Card>
   );

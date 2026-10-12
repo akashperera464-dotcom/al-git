@@ -8,7 +8,7 @@ import { fetchForecast, getMockForecast } from "@/lib/weather";
 import type { WeatherDay } from "@/lib/data";
 import { useTranslation } from "react-i18next";
 import { LorryTracking } from "@/modules/LorryTracking";
-import { readDailyTeaPrices, type DailyTeaPrice } from "@/lib/supplierOperations";
+import { readDailyTeaPrices, readUserOperationalProfile, type DailyTeaPrice } from "@/lib/supplierOperations";
 import { gradeKey } from "@/i18n/databaseValues";
 
 export function SupplierHome() {
@@ -53,7 +53,10 @@ export function SupplierHome() {
       setTotalEarned(earned);
       setSuperPct(sup);
     });
-    void readDailyTeaPrices().then(setPrices).catch(() => setPrices([]));
+    void readUserOperationalProfile(userUid)
+      .then((profile) => readDailyTeaPrices(undefined, profile?.factoryId))
+      .then(setPrices)
+      .catch(() => setPrices([]));
 
     // B35 — Load monthly expenses (labor cost + fertilizer credit estimate)
     void (async () => {

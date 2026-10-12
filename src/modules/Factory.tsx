@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Factory as FactoryIcon, Plus, Loader2, ArrowRight, Thermometer, Droplets, Package, Scale, Clock, History, AlertTriangle, CheckCircle2, FileDown } from "lucide-react";
+import { Factory as FactoryIcon, Plus, Loader2, ArrowRight, Thermometer, Droplets, Package, Scale, Clock, History, AlertTriangle, CheckCircle2, FileDown, BadgeDollarSign } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtNum } from "@/lib/data";
 import { exportObjectsToCSV } from "@/lib/csvExport";
@@ -11,6 +11,7 @@ import {
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
 import type { FactoryBatch, FactoryStageLog, FactoryStage, BatchStatus, SalesInvoice } from "@/lib/data";
+import { DailyTeaPriceManager } from "@/components/DailyTeaPriceManager";
 
 const STAGE_ORDER: FactoryStage[] = ["withering", "rolling", "fermentation", "drying", "sorting", "packing", "dispatched"];
 const STAGE_LABEL: Record<FactoryStage, string> = {
@@ -36,7 +37,7 @@ export default function Factory() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [tab, setTab] = useState<"active" | "create">("active");
+  const [tab, setTab] = useState<"active" | "create" | "prices">("active");
   const [expanded, setExpanded] = useState<string | null>(null);
 
   // Create-form state
@@ -235,6 +236,7 @@ export default function Factory() {
         {([
           { id: "active", label: "Active Batches", icon: Factory },
           { id: "create", label: "New Batch", icon: Plus },
+          { id: "prices", label: "Leaf Prices", icon: BadgeDollarSign },
         ] as const).map(t2 => {
           const Icon = t2.icon;
           const active = tab === t2.id;
@@ -246,6 +248,8 @@ export default function Factory() {
           );
         })}
       </div>
+
+      {tab === "prices" && <DailyTeaPriceManager />}
 
       {/* Tab: Active Batches */}
       {tab === "active" && (

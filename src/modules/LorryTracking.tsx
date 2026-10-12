@@ -81,6 +81,12 @@ export function LorryTracking({ userId }: { userId: string }) {
   const [location, setLocation] = useState<LorryLocation | null>(null);
   const [routeName, setRouteName] = useState("");
   const [error, setError] = useState("");
+  const [clock, setClock] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -142,10 +148,10 @@ export function LorryTracking({ userId }: { userId: string }) {
   }, [userId]);
 
   const minutesOld = useMemo(
-    () => location ? Math.max(0, Math.floor((Date.now() - new Date(location.updatedAt).getTime()) / 60_000)) : null,
-    [location],
+    () => location ? Math.max(0, Math.floor((clock - new Date(location.updatedAt).getTime()) / 60_000)) : null,
+    [clock, location],
   );
-  const live = minutesOld !== null && minutesOld <= 5;
+  const live = Boolean(location?.active) && minutesOld !== null && minutesOld <= 5;
 
   return (
     <Card className="mb-4 overflow-hidden border-sky-200">
@@ -157,7 +163,7 @@ export function LorryTracking({ userId }: { userId: string }) {
             <p className="text-[11px] text-slate-500">{routeName || "No route assigned"} · Leaflet map</p>
           </div>
         </div>
-        {location && <Badge tone={live ? "emerald" : "amber"} dot>{live ? "Live" : `${minutesOld} min ago`}</Badge>}
+        {location && <Badge tone={live ? "emerald" : "amber"} dot>{live ? "Live" : !location.active ? "Stopped" : `${minutesOld} min ago`}</Badge>}
       </div>
 
       <div ref={containerRef} className="h-52 w-full bg-slate-100" aria-label="Realtime collection lorry map" />
@@ -166,7 +172,7 @@ export function LorryTracking({ userId }: { userId: string }) {
       {!error && !location && <p className="px-3.5 py-2 text-xs text-slate-500"><MapPin className="mr-1 inline h-3 w-3" />The driver has not published a location for this route yet.</p>}
       {location && (
         <div className="flex items-center gap-1.5 bg-sky-50 px-3.5 py-2 text-[11px] text-sky-700">
-          <Radio className="h-3 w-3" />Supabase Realtime · GPS accuracy {Math.round(location.accuracyM ?? 0)} m · updated {new Date(location.updatedAt).toLocaleTimeString()}
+          <Radio className="h-3 w-3" />{location.active ? "Supabase Realtime" : "Last known position"} · GPS accuracy {Math.round(location.accuracyM ?? 0)} m · updated {new Date(location.updatedAt).toLocaleTimeString()}
         </div>
       )}
     </Card>

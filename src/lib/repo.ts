@@ -17,6 +17,7 @@
 import { getSupabase, supabaseConfigured } from "./supabase";
 import { requireEstateAdmin, requireOwnerOrAdmin, AuthorizationError } from "./identity";
 import { enqueueMutation } from "./offlineQueue";
+import { readDailyTeaPrices } from "./supplierOperations";
 import {
   estates as seedEstates,
   managedUsers as seedUsers,
@@ -308,19 +309,11 @@ export async function saveLeafWeighing(role: Role, input: {
   let amount = 0;
   if (supabaseConfigured) {
     try {
-      const sb0 = getSupabase()!;
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Colombo" }).format(new Date());
-      const { data: priceRow } = await sb0
-        .from("daily_tea_prices")
-        .select("price_per_kg")
-        .is("factory_id", null)
-        .lte("price_date", today)
-        .eq("grade", input.grade)
-        .order("price_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (priceRow) {
-        amount = +(Number(priceRow.price_per_kg) * input.netKg).toFixed(2);
+      const prices = await readDailyTeaPrices(today, input.factoryId);
+      const price = prices.find((candidate) => candidate.grade === input.grade);
+      if (price) {
+        amount = +(price.pricePerKg * input.netKg).toFixed(2);
       }
     } catch { /* price lookup is best-effort */ }
   } else {

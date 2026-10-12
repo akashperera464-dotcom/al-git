@@ -47,6 +47,8 @@ create table if not exists public.lorry_locations (
   latitude double precision not null check (latitude between -90 and 90),
   longitude double precision not null check (longitude between -180 and 180),
   accuracy_m double precision,
+  active boolean not null default true,
+  stopped_at timestamptz,
   updated_at timestamptz not null default now()
 );
 alter table public.lorry_locations enable row level security;
@@ -143,6 +145,7 @@ create table if not exists public.daily_tea_prices (
 );
 alter table public.daily_tea_prices add column if not exists factory_id uuid references public.factories(id);
 create unique index if not exists daily_tea_prices_global_unique on public.daily_tea_prices(price_date, grade) where factory_id is null;
+create unique index if not exists daily_tea_prices_factory_unique on public.daily_tea_prices(factory_id, price_date, grade) where factory_id is not null;
 alter table public.daily_tea_prices enable row level security;
 drop policy if exists "daily_tea_prices_read" on public.daily_tea_prices;
 drop policy if exists "daily_tea_prices_write" on public.daily_tea_prices;
