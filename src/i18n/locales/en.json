@@ -708,5 +708,11 @@
   "moveType": { "in": "Stock in", "out": "Stock out", "adjust": "Adjustment", "transfer": "Transfer" },
   "landType": { "tea": "Tea land", "forest": "Forest", "water": "Water", "road": "Road", "nursery": "Nursery", "factory": "Factory" },
   "plotState": { "plucking": "In plucking", "pruned": "Pruned", "young": "Young tea", "nursery": "Nursery" },
-  "role": { "super_admin": "Super admin", "admin": "Admin", "extension_officer": "Extension officer", "supplier": "Supplier" }
+  "role": { "super_admin": "Super admin", "admin": "Admin", "extension_officer": "Extension officer", "supplier": "Supplier" },
+  "collector": { "todayRoute": "Today's Route", "noRouteAssigned": "No route assigned for today", "startCollection": "Start Collection", "completeCollection": "Complete Collection", "routeCode": "Route Code" },
+  "lorry": { "distance": "Distance", "eta": "ETA", "approaching": "Lorry is approaching your collection point", "prepareLeaves": "Get your leaves ready" },
+  "priceManagement": { "currentPrices": "Current Prices", "pendingChanges": "Pending Price Changes", "priceHistory": "Price History", "rollback": "Rollback", "previousPrice": "Previous Price", "changedBy": "Changed By", "changeReason": "Change Reason" },
+  "finance": { "grossEarnings": "Gross Earnings", "totalDeductions": "Total Deductions", "paidAmount": "Paid Amount", "estimatedNetPayable": "Estimated Net Payable", "confirmedNetPayable": "Confirmed Net Payable", "confirmMonthEnd": "Confirm Month-End" },
+  "registration": { "suspiciousActivity": "Suspicious activity detected. Please try again later.", "tooManyAttempts": "Too many registration attempts. Try again later.", "accountExists": "An account with this phone/email already exists" },
+  "schema": { "updateRequired": "Database schema update required — contact admin" }
 }

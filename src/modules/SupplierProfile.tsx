@@ -5,6 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { fmtLKR } from "@/lib/data";
 import { readUserOperationalProfile } from "@/lib/supplierOperations";
 import { useTranslation } from "react-i18next";
+import { readSupplierFinancialSummary } from "@/lib/financialSummary";
 
 /**
  * SupplierProfile — "My Profile" module (supplier side)
@@ -94,42 +95,11 @@ export function SupplierProfile() {
       if (raw) setNotifications(JSON.parse(raw));
     } catch { /* ignore */ }
 
-    // B30 (Round #12) — RESTORED: Load earnings from harvest_records + fertilizer credit cost
-    void (async () => {
-      try {
-        const { supabaseConfigured, getSupabase } = await import("@/lib/supabase");
-        if (supabaseConfigured) {
-          const sb = getSupabase()!;
-          const { data: harvests } = await sb
-            .from("harvest_records")
-            .select("amount")
-            .eq("supplier_id", userUid);
-          if (harvests) {
-            setTotalEarned(harvests.reduce((s: number, r: any) => s + Number(r.amount ?? 0), 0));
-          }
-          // Active advances
-          const { data: loans } = await sb
-            .from("supplier_fertilizer_loans")
-            .select("balance, status")
-            .eq("supplier_id", userUid)
-            .eq("status", "active");
-          if (loans) {
-            setAdvanceBalance(loans.reduce((s: number, r: any) => s + Number(r.balance ?? 0), 0));
-          }
-        }
-        // Fertilizer credit cost
-        const ledgerRaw = localStorage.getItem("kdu.supplier_fertilizer_ledger");
-        if (ledgerRaw) {
-          const ledger = JSON.parse(ledgerRaw);
-          const myEntries = ledger.filter((e: any) =>
-            e.supplierName?.toLowerCase() === (user?.name ?? "").toLowerCase() &&
-            (e.notes || "").toLowerCase().includes("credit")
-          );
-          const fertCost = myEntries.reduce((s: number, e: any) => s + (e.qtyIssued * 95), 0);
-          setTotalFertCost(fertCost);
-        }
-      } catch { /* ignore */ }
-    })();
+    void readSupplierFinancialSummary(userUid, new Date().toISOString().slice(0, 7)).then((summary) => {
+      setTotalEarned(summary?.grossEarnings ?? 0);
+      setTotalFertCost(summary?.fertilizerDeduction ?? 0);
+      setAdvanceBalance(summary?.cashAdvanceInstallment ?? 0);
+    }).catch(() => { setTotalEarned(0); setTotalFertCost(0); setAdvanceBalance(0); });
     void readUserOperationalProfile(userUid).then(setAssignment).catch(() => setAssignment(null));
 
     // Listen for new toasts and persist them

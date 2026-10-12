@@ -932,7 +932,7 @@ export async function createPurchaseOrder(input: {
     totalAmount: Number(full!.total_amount), notes: full!.notes,
     version: Number(full!.version ?? 1),
     lines: ((full!.lines as Record<string, unknown>[]) ?? []).map((l): PurchaseOrderLine => ({
-      id: l.id, poId: l.po_id, stockItemId: l.stock_item_id,
+      id: String(l.id), poId: String(l.po_id), stockItemId: String(l.stock_item_id),
       qtyOrdered: Number(l.qty_ordered), qtyReceived: Number(l.qty_received),
       unitCost: Number(l.unit_cost), lineTotal: Number(l.line_total),
     })),
@@ -2845,7 +2845,7 @@ export async function generatePayrollRunWithAttendance(input: {
     deductions?: number;
     daysWorked?: number;            // manual override (if set, used instead of attendance-derived)
     overtimeRatePerHour?: number;   // if set, OT computed from attendance OT hours × this rate
-  };
+  }[];
 }): Promise<{ run: PayrollRun; payslips: Payslip[]; consumedAllowances: number; attendanceSourced: number }> {
   // 1) For each worker, fetch attendance summary for the payroll period
   const workersWithAttendance = await Promise.all(input.workers.map(async w => {

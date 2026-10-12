@@ -12,6 +12,8 @@ export interface RouteOption {
   id: string;
   factoryId: string;
   name: string;
+  code?: string;
+  label: string;
 }
 
 export interface SupplierDirectoryEntry {
@@ -35,6 +37,8 @@ export interface LorryLocation {
   active: boolean;
   stoppedAt?: string;
   updatedAt: string;
+  assignmentId?: string;
+  lastNotificationAt?: string;
 }
 
 export interface DailyTeaPrice {
@@ -42,6 +46,10 @@ export interface DailyTeaPrice {
   pricePerKg: number;
   factoryId?: string;
   priceDate?: string;
+}
+
+export function formatRouteLabel(routeName: string, routeCode?: string | null): string {
+  return routeCode ? `${routeCode} — ${routeName}` : routeName;
 }
 
 export async function readFactories(): Promise<FactoryOption[]> {
@@ -54,9 +62,12 @@ export async function readFactories(): Promise<FactoryOption[]> {
 export async function readRoutes(factoryId?: string): Promise<RouteOption[]> {
   if (!supabaseConfigured || !factoryId) return [];
   const { data, error } = await getSupabase()!.from("routes")
-    .select("id,factory_id,route_name").eq("factory_id", factoryId).order("route_name");
+    .select("id,factory_id,route_name,route_code").eq("factory_id", factoryId).order("route_name");
   if (error) throw new Error(`Could not load routes: ${error.message}`);
-  return (data ?? []).map(row => ({ id: row.id, factoryId: row.factory_id, name: row.route_name }));
+  return (data ?? []).map(row => {
+    const label = formatRouteLabel(row.route_name, row.route_code);
+    return { id: row.id, factoryId: row.factory_id, name: label, code: row.route_code ?? undefined, label };
+  });
 }
 
 export async function readSupplierDirectory(factoryId?: string, routeId?: string): Promise<SupplierDirectoryEntry[]> {
@@ -82,7 +93,7 @@ export async function readSupplierDirectory(factoryId?: string, routeId?: string
 
 export async function updateSupplierOperationalFields(
   userId: string,
-  patch: { supplierNo?: string | null; factoryId?: string | null; routeId?: string | null; status?: "active" | "suspended" | "pending_approval" }
+  patch: { supplierNo?: string | null; factoryId?: string | null; routeId?: string | null; status?: "active" | "suspended" | "pending_approval" | "rejected" }
 ): Promise<void> {
   if (!supabaseConfigured) return;
   const row: Record<string, unknown> = {};
@@ -101,17 +112,18 @@ export async function readUserOperationalProfile(userId: string): Promise<{
   routeId?: string;
   factoryName?: string;
   routeName?: string;
+  routeCode?: string;
   status: string;
   deactivatedAt?: string;
 } | null> {
   if (!supabaseConfigured) return { status: "active" };
   let { data, error } = await getSupabase()!.from("users")
-    .select("supplier_no,factory_id,route_id,status,deactivated_at,factories(name),routes(route_name)")
+    .select("supplier_no,factory_id,route_id,status,deactivated_at,factories(name),routes(route_name,route_code)")
     .eq("id", userId).maybeSingle();
   // Deployment-safe fallback while Round 11 SQL is waiting to be pasted.
   if (error?.message?.includes("deactivated_at")) {
     const fallback = await getSupabase()!.from("users")
-      .select("supplier_no,factory_id,route_id,status,factories(name),routes(route_name)")
+      .select("supplier_no,factory_id,route_id,status,factories(name),routes(route_name,route_code)")
       .eq("id", userId).maybeSingle();
     data = fallback.data as typeof data;
     error = fallback.error;
@@ -124,6 +136,7 @@ export async function readUserOperationalProfile(userId: string): Promise<{
     routeId: data.route_id ?? undefined,
     factoryName: (data.factories as unknown as { name?: string } | null)?.name,
     routeName: (data.routes as unknown as { route_name?: string } | null)?.route_name,
+    routeCode: (data.routes as unknown as { route_code?: string } | null)?.route_code,
     status: data.status ?? "active",
     deactivatedAt: data.deactivated_at ?? undefined,
   };
@@ -262,6 +275,7 @@ function sriLankaDateISO(date = new Date()): string {
 export async function publishLorryLocation(input: {
   routeId: string;
   driverId: string;
+  assignmentId?: string;
   latitude: number;
   longitude: number;
   accuracyM?: number;
@@ -270,6 +284,7 @@ export async function publishLorryLocation(input: {
   const sb = getSupabase()!;
   const currentRow = {
     route_id: input.routeId,
+    assignment_id: input.assignmentId ?? null,
     driver_id: input.driverId,
     latitude: input.latitude,
     longitude: input.longitude,
@@ -278,13 +293,39 @@ export async function publishLorryLocation(input: {
     stopped_at: null,
     updated_at: new Date().toISOString(),
   };
-  let { error } = await sb.from("lorry_locations").upsert(currentRow, { onConflict: "route_id" });
+  let lookup = sb.from("lorry_locations").select("id").eq("route_id", input.routeId).eq("active", true).order("updated_at", { ascending: false }).limit(1);
+  if (input.assignmentId) lookup = lookup.eq("assignment_id", input.assignmentId);
+  const lookupResult = await lookup.maybeSingle();
+  // Keep the deployed Round 10 schema operational while the administrator is
+  // applying Round 12. The legacy table has one location per route and does
+  // not yet contain active/assignment trip columns.
+  if (lookupResult.error && /active|assignment_id/i.test(lookupResult.error.message)) {
+    const legacyRow = {
+      route_id: input.routeId,
+      driver_id: input.driverId,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      accuracy_m: input.accuracyM ?? null,
+      updated_at: new Date().toISOString(),
+    };
+    const retry = await sb.from("lorry_locations").upsert(legacyRow, { onConflict: "route_id" });
+    if (retry.error) throw new Error(`Could not publish lorry location: ${retry.error.message}`);
+    return;
+  }
+  if (lookupResult.error) throw new Error(`Could not find active lorry location: ${lookupResult.error.message}`);
+  const existing = lookupResult.data;
+  let { error } = existing
+    ? await sb.from("lorry_locations").update(currentRow).eq("id", existing.id)
+    : await sb.from("lorry_locations").insert(currentRow);
   // Deployment-safe fallback until the Round 12 SQL is pasted.
-  if (error && /active|stopped_at/i.test(error.message)) {
-    const { active: _active, stopped_at: _stoppedAt, ...legacyRow } = currentRow;
+  if (error && /active|stopped_at|assignment_id/i.test(error.message)) {
+    const { active: _active, stopped_at: _stoppedAt, assignment_id: _assignmentId, ...legacyRow } = currentRow;
     void _active;
     void _stoppedAt;
-    const retry = await sb.from("lorry_locations").upsert(legacyRow, { onConflict: "route_id" });
+    void _assignmentId;
+    const retry = existing
+      ? await sb.from("lorry_locations").update(legacyRow).eq("id", existing.id)
+      : await sb.from("lorry_locations").insert(legacyRow);
     error = retry.error;
   }
   if (error) throw new Error(`Could not publish lorry location: ${error.message}`);
@@ -315,13 +356,15 @@ function mapLorryLocation(row: Record<string, unknown>): LorryLocation {
     active: row.active !== false,
     stoppedAt: row.stopped_at == null ? undefined : String(row.stopped_at),
     updatedAt: String(row.updated_at ?? ""),
+    assignmentId: row.assignment_id == null ? undefined : String(row.assignment_id),
+    lastNotificationAt: row.last_notification_at == null ? undefined : String(row.last_notification_at),
   };
 }
 
 export async function readLatestLorryLocation(routeId: string): Promise<LorryLocation | null> {
   if (!supabaseConfigured || !routeId) return null;
   const { data, error } = await getSupabase()!.from("lorry_locations").select("*")
-    .eq("route_id", routeId).maybeSingle();
+    .eq("route_id", routeId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(`Could not load lorry location: ${error.message}`);
   return data ? mapLorryLocation(data) : null;
 }

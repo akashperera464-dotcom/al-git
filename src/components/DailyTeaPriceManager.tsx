@@ -4,9 +4,9 @@ import { Card } from "@/components/ui";
 import {
   readDailyTeaPrices,
   readFactories,
-  saveDailyTeaPrices,
   type FactoryOption,
 } from "@/lib/supplierOperations";
+import { useApp } from "@/context/AppContext";
 
 const GRADES = ["Standard", "Super", "PV Super", "Coarse"] as const;
 
@@ -22,6 +22,7 @@ function sriLankaDateISO(): string {
 }
 
 export function DailyTeaPriceManager() {
+  const { setActiveModule } = useApp();
   const [factories, setFactories] = useState<FactoryOption[]>([]);
   const [factoryId, setFactoryId] = useState("");
   const [priceDate, setPriceDate] = useState(sriLankaDateISO);
@@ -63,25 +64,7 @@ export function DailyTeaPriceManager() {
   }, [factoryId, priceDate]);
 
   const save = async () => {
-    setError("");
-    setMessage("");
-    if (!factoryId) {
-      setError("Select a factory first.");
-      return;
-    }
-    setSaving(true);
-    try {
-      await saveDailyTeaPrices({
-        factoryId,
-        priceDate,
-        prices: GRADES.map((grade) => ({ grade, pricePerKg: Number(prices[grade] ?? 0) })),
-      });
-      setMessage("Factory prices saved. New weigh-ins will use these rates immediately.");
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not save daily prices.");
-    } finally {
-      setSaving(false);
-    }
+    setSaving(true); sessionStorage.setItem("verda.estateMaster.tab", "prices"); setActiveModule("estate-master"); setSaving(false);
   };
 
   return (
@@ -133,7 +116,7 @@ export function DailyTeaPriceManager() {
 
       <div className="mt-4 flex justify-end">
         <button onClick={save} disabled={saving || loading || !factoryId} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{saving ? "Saving…" : "Save daily prices"}
+          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{saving ? "Opening…" : "Open audited price workflow"}
         </button>
       </div>
     </Card>

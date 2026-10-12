@@ -3207,7 +3207,45 @@ Firebase remains the identity provider and Supabase remains the PostgreSQL data 
 
 ---
 
-*End of Workflow Diagram. Last updated: October 2026 (Round 12 — Idea 3 production hardening).*
+## 42. Production Hardening (Round 12)
+
+### 42.1 Identity and database enforcement
+
+Firebase remains the only sign-in provider and Supabase remains the only operational database. `src/lib/supabase.ts` now uses Supabase's official `accessToken` callback to attach the current, auto-refreshed Firebase ID token to REST and Realtime requests. `AppContext` refreshes Realtime authorization at login/logout boundaries. No existing `auth.hybrid.ts` function was changed.
+
+Firebase UIDs are non-UUID strings. For that reason Round 12 policies read the verified JWT `sub` through `public.app_uid()`; casting the value through `auth.uid()` would fail. `public.app_role()` resolves the canonical role from the active `users` row. Operational `using(true)` policies are removed and replaced by owner, current daily assignment, or administrator checks. Factories and routes remain read-only before login because the supplier registration form requires them.
+
+Supabase Dashboard setup: **Authentication → Third-Party Auth → Firebase → enter Firebase project ID → Enable**. Per current Supabase documentation, the integration verifies Firebase's published signing keys; no Firebase private key is pasted into Supabase. Firebase tokens must contain the custom claim `role: authenticated`; add/backfill it from a trusted Firebase Admin environment and refresh affected ID tokens.
+
+### 42.2 Route, collector and offline integrity
+
+- Every route has a unique code such as `GAL-ANG`, `KUT-BAN`, or `PKV-RAK`; dropdowns and supplier lorry tracking display it.
+- `collector_route_assignments` limits a collector to one route per date. Admin assigns/cancels routes; the collector's factory and route selectors are locked to today's assignment and supplier search is route-scoped.
+- A factory/route trigger rejects mismatched writes in users, estates, harvest records and assignments.
+- Supplier numbers are unique per factory.
+- Every queued weigh-in creates `client_record_id` and stable `device_id`; the database unique index makes replay idempotent.
+- GPS rows link to an assignment, retain trip history, calculate a 30 km/h Haversine ETA, and generate one nearby alert per supplier/day. The scheduled `dispatchLorryNearbyAlerts` Firebase Function sends its FCM push and records delivery in the existing audit log.
+
+### 42.3 Unified finance and price governance
+
+`supplier_financial_summary` is the one authoritative monthly read model for Supplier Home, Deliveries, Payments and Profile. It combines saved delivery amounts, fertilizer deductions, active-loan installment estimates, other deductions, paid amounts and an audited month-end confirmation. Financial localStorage calculations were removed from these screens.
+
+Price changes remain inactive while pending. The proposed value is audit-logged; Super Admin approval applies it, while rejection leaves the active price unchanged. Rollback swaps to the previous approved price and creates another audit event. Historical delivery amounts are never recalculated.
+
+### 42.4 Registration, PWA, tests and operations
+
+- Registration performs client duplicate checks, obtains a silent reCAPTCHA v3 token, verifies it in `verify-recaptcha`, and calls `rate-limit`. The Edge Function stores only SHA-256 hashes for IP/email/phone identifiers in the existing audit log.
+- Deploy with `supabase functions deploy verify-recaptcha`, `supabase functions deploy rate-limit`, then `supabase secrets set RECAPTCHA_SECRET_KEY=...`. Secrets never belong in `.env`.
+- Leaflet is bundled from npm; OpenStreetMap tiles have a seven-day cache, static assets 30 days, and Supabase GET responses use NetworkFirst.
+- Registry modules are lazy-loaded with a visible skeleton. The initial JavaScript chunk fell from 2,231 kB to 1,218 kB (45.4%) in the production build. Vitest covers estate sizing, harvest maths, route codes, ETA/geofence behavior and the RLS policy contract.
+- `schema_migrations` and the startup warning prevent an application/schema mismatch. Full deployment and RLS steps are in `docs/MIGRATION_CHECKLIST.md`.
+- The optional `error_log` table was not created because Round 12 requires separate user approval for it; this keeps the database footprint to two new tables and one view.
+
+### 42.5 RLS verification status
+
+`src/lib/__tests__/rls.test.ts` passes the static policy-contract checks for supplier ownership, assigned-route collector scope, administrator access, anonymous denial and absence of literal permissive operational policies. A live database RLS test cannot be truthfully completed until the Round 12 SQL is applied and the Firebase Third-Party Auth dashboard integration is enabled; the exact six-account live test is therefore retained as a mandatory post-migration step in `docs/MIGRATION_CHECKLIST.md`.
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 12 — production hardening).*
 
 
 

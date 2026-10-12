@@ -10,6 +10,7 @@ import { createEstate as repoCreateEstate, createDivision as repoCreateDivision,
 import { signOutFirebase, watchHybridSession, type AuthState } from "@/lib/auth.hybrid";
 import { flushQueue, getQueueLength, getQueuedItems, clearQueue, type QueuedMutation } from "@/lib/offlineQueue";
 import { isUserDeactivated } from "@/lib/estateRepo";
+import { refreshSupabaseFirebaseAuth } from "@/lib/supabase";
 
 export interface SyncItem {
   id: string;
@@ -242,7 +243,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ---- session lifecycle ----
   const setSession = useCallback((s: AuthState | null) => {
-    if (!s) { setSessionState(null); return; }
+    if (!s) { void refreshSupabaseFirebaseAuth(); setSessionState(null); return; }
+    void refreshSupabaseFirebaseAuth().catch(() => {});
     // Round 11: reject the resolved Firebase session when users.deactivated_at is set.
     void isUserDeactivated(s.uid).then(async (deactivated) => {
       if (deactivated) {
@@ -265,6 +267,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Clear the Firebase session too, so onAuthStateChanged doesn't re-replay it.
     try {
       await signOutFirebase();
+      await refreshSupabaseFirebaseAuth();
     } catch {
       /* ignore — still clear local state */
     }

@@ -289,7 +289,7 @@ export interface WeighInResult {
  */
 export async function saveLeafWeighing(role: Role, input: {
   workerId?: string;
-  fieldId: string;
+  fieldId?: string;
   centerId?: string;
   grossKg: number;
   netKg: number;
@@ -328,12 +328,14 @@ export async function saveLeafWeighing(role: Role, input: {
   }
 
   const sb = getSupabase()!;
+  const clientRecordId = crypto.randomUUID();
+  const deviceId = getOrCreateDeviceId();
   try {
     const { data: row, error } = await sb
       .from("harvest_records")
       .insert({
         worker_id: input.workerId ?? null,
-        field_id: input.fieldId,
+        field_id: input.fieldId || null,
         center_id: input.centerId ?? null,
         gross_kg: input.grossKg,
         net_kg: input.netKg,
@@ -346,6 +348,9 @@ export async function saveLeafWeighing(role: Role, input: {
         amount,
         status: "Pending",
         supplier_id: input.supplierId ?? null,
+        client_record_id: clientRecordId,
+        device_id: deviceId,
+        synced_at: new Date().toISOString(),
       })
       .select("id")
       .single();
@@ -359,7 +364,7 @@ export async function saveLeafWeighing(role: Role, input: {
 
     const payload: Record<string, unknown> = {
       worker_id: input.workerId ?? null,
-      field_id: input.fieldId,
+      field_id: input.fieldId || null,
       center_id: input.centerId ?? null,
       gross_kg: input.grossKg,
       net_kg: input.netKg,
@@ -373,6 +378,9 @@ export async function saveLeafWeighing(role: Role, input: {
       amount,
       status: "Pending",
       supplier_id: input.supplierId ?? null,
+      client_record_id: clientRecordId,
+      device_id: deviceId,
+      synced_at: null,
     };
 
     const queuedId = enqueueMutation({
@@ -389,6 +397,15 @@ export async function saveLeafWeighing(role: Role, input: {
       error: errorMsg,
     };
   }
+}
+
+function getOrCreateDeviceId(): string {
+  const key = "verda.device_id";
+  const existing = localStorage.getItem(key);
+  if (existing) return existing;
+  const created = crypto.randomUUID();
+  localStorage.setItem(key, created);
+  return created;
 }
 
 /** My Leaf Deliveries — scoped to the caller's uid AND linked estate (rule #2 + #3). */

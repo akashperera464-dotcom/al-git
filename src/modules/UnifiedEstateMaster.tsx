@@ -7,8 +7,11 @@ import { approveEstateAndNotify, rejectEstateAndNotify } from "@/lib/approvalWor
 import { provisionUser } from "@/lib/auth.hybrid";
 import { createEstate, deleteEstate, readAuditLog, readEstates, searchSupplierByNo, sizeFromAcreage, type AuditLogEntry, type Estate, type EstateSizeCategory, type EstateStatus, type SupplierSearchResult } from "@/lib/estateRepo";
 import { readFactories, readRoutes, updateSupplierOperationalFields, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
+import CollectorAssignmentModule from "./CollectorAssignment";
+import PriceManagement from "./PriceManagement";
+import FinancialDashboard from "./FinancialDashboard";
 
-type Tab = "all" | "create" | "pending";
+type Tab = "all" | "create" | "pending" | "assignments" | "prices" | "finance";
 interface FormBlock { name: string; areaHa: number; bushCount: number; cultivar: string; soilType: string; }
 interface FormState { ownership: "supplier" | "company"; name: string; acreage: number; bushCount: number; cultivar: string; region: string; soilType: string; latitude: string; longitude: string; address: string; contactPhone: string; photoUrls: string; factoryId: string; routeId: string; notes: string; blocks: FormBlock[]; }
 const EMPTY_FORM: FormState = { ownership: "supplier", name: "", acreage: 0, bushCount: 0, cultivar: "TRI 2025 (VP)", region: "low-country", soilType: "", latitude: "", longitude: "", address: "", contactPhone: "", photoUrls: "", factoryId: "", routeId: "", notes: "", blocks: [] };
@@ -20,7 +23,7 @@ export default function UnifiedEstateMaster() {
   const { t } = useTranslation();
   const { userUid, notify } = useApp();
   const requestedTab = sessionStorage.getItem("verda.estateMaster.tab") as Tab | null;
-  const [tab, setTab] = useState<Tab>(requestedTab && ["all", "create", "pending"].includes(requestedTab) ? requestedTab : "all");
+  const [tab, setTab] = useState<Tab>(requestedTab && ["all", "create", "pending", "assignments", "prices", "finance"].includes(requestedTab) ? requestedTab : "all");
   const [estates, setEstates] = useState<Estate[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -85,7 +88,7 @@ export default function UnifiedEstateMaster() {
 
   return <div>
     <PageHeader eyebrow="Estate Administration" title="Unified Estate Master" desc="Supplier-owned and company estates share one approval, ownership and audit workflow." icon={<IconChip icon={Building2} tone="emerald" className="h-12 w-12" />} actions={<button onClick={() => void load()} className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-500"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /></button>} />
-    <div className="mb-4 inline-flex max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">{([['all', t('estateMaster.allEstates')], ['create', t('estateMaster.createNew')], ['pending', `${t('estateMaster.pendingApprovals')} (${pending.length})`]] as const).map(([key, label]) => <button key={key} onClick={() => setTab(key)} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold ${tab === key ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500"}`}>{label}</button>)}</div>
+    <div className="mb-4 inline-flex max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">{([['all', t('estateMaster.allEstates')], ['create', t('estateMaster.createNew')], ['pending', `${t('estateMaster.pendingApprovals')} (${pending.length})`], ['assignments', 'Collector Routes'], ['prices', 'Price Management'], ['finance', 'Finance']] as const).map(([key, label]) => <button key={key} onClick={() => setTab(key)} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold ${tab === key ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500"}`}>{label}</button>)}</div>
     {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
     {tab === "all" && <Card className="p-4"><div className="mb-4 grid gap-3 sm:grid-cols-3"><div className="relative"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" /><input className={`${inputCls} mt-0 pl-9`} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Supplier No, estate or owner" /></div><select className={`${inputCls} mt-0`} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}><option value="all">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select><select className={`${inputCls} mt-0`} value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value as typeof sizeFilter)}><option value="all">All sizes</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select></div>{loading ? <Loading /> : <EstateTable rows={filtered} busy={busy} onView={view} onApprove={approve} onReject={reject} onDelete={remove} />}</Card>}
@@ -97,6 +100,9 @@ export default function UnifiedEstateMaster() {
     </Card>}
 
     {tab === "pending" && <Card className="p-4">{loading ? <Loading /> : pending.length === 0 ? <Empty text="No supplier estate registrations are awaiting review." /> : <div className="space-y-3">{pending.map((estate) => <div key={estate.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4"><div className="min-w-0 flex-1"><p className="font-bold text-slate-800">{estate.name}</p><p className="text-xs text-slate-500">#{estate.owner?.supplierNo ?? "—"} · {estate.owner?.name ?? "Supplier"} · {estate.acreage.toFixed(2)} acres · {new Date(estate.submittedAt).toLocaleDateString("en-LK")}</p></div><button onClick={() => void view(estate)} className="rounded-lg border bg-white px-3 py-2 text-xs font-bold text-sky-700">View</button><button onClick={() => void approve(estate)} disabled={busy} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve</button><button onClick={() => void reject(estate)} disabled={busy} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white">Reject</button></div>)}</div>}</Card>}
+    {tab === "assignments" && <CollectorAssignmentModule />}
+    {tab === "prices" && <PriceManagement />}
+    {tab === "finance" && <FinancialDashboard />}
     {selected && <DetailModal estate={selected} audit={audit} onClose={() => setSelected(null)} />}
   </div>;
 }

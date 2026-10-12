@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { PackageOpen, Send, Users, Wrench, Clock, CalendarDays, FileText, CheckCircle2, XCircle, Clock3, Sprout, FlaskConical, Package } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip, Segmented } from "@/components/ui";
@@ -93,7 +93,7 @@ export function SupplierRequestForm() {
 
   // Phase 1: Labor Request removed per Sir's spec — Labor is now managed via Labor Management
   // module (admin side). Suppliers can request: Equipment / Fertilizer / Agrochemical only.
-  const typeOptions = availabilities.length > 0
+  const typeOptions: { value: RequestType; label: string; icon: ReactNode }[] = availabilities.length > 0
     ? [
         { value: "Equipment", label: t("request.equipment"), icon: <Wrench className="h-3.5 w-3.5" /> },
         { value: "Fertilizer", label: "Fertilizer", icon: <Sprout className="h-3.5 w-3.5" /> },

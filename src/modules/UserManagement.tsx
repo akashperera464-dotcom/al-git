@@ -6,7 +6,7 @@ import { type Role, type ManagedUser } from "@/lib/data";
 import { provisionUser, updateUserProfile } from "@/lib/auth.hybrid";
 import { readUsersForAdmin, readEstateOptions, readDivisionOptions } from "@/lib/repo";
 import { useLiveData } from "@/lib/useLiveData";
-import { supabaseConfigured } from "@/lib/supabase";
+import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 import { SupplierLocationHistory } from "@/components/LocationCheckIn";
 import { readFactories, readRoutes, updateSupplierOperationalFields, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 import { readAuditLog, setUserDeactivated, type AuditLogEntry } from "@/lib/estateRepo";
@@ -72,6 +72,10 @@ export default function UserManagement() {
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [auditAction, setAuditAction] = useState("");
   const [auditEntity, setAuditEntity] = useState("");
+  const [auditAdmin, setAuditAdmin] = useState("");
+  const [auditEntityId, setAuditEntityId] = useState("");
+  const [auditFrom, setAuditFrom] = useState("");
+  const [auditTo, setAuditTo] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<UserForm>(EMPTY_FORM);
@@ -93,10 +97,15 @@ export default function UserManagement() {
 
   useEffect(() => {
     if (view !== "audit") return;
-    void readAuditLog({ action: auditAction || undefined, entityType: auditEntity || undefined, limit: 150 })
-      .then(setAuditLog)
+    void readAuditLog({ adminId: auditAdmin || undefined, action: auditAction || undefined, entityType: auditEntity || undefined, entityId: auditEntityId || undefined, limit: 500 })
+      .then((rows) => setAuditLog(rows.filter((entry) => (!auditFrom || entry.createdAt >= `${auditFrom}T00:00:00`) && (!auditTo || entry.createdAt <= `${auditTo}T23:59:59`))))
       .catch((err) => setError(err instanceof Error ? err.message : "Could not load audit log."));
-  }, [view, auditAction, auditEntity]);
+  }, [view, auditAction, auditEntity, auditAdmin, auditEntityId, auditFrom, auditTo]);
+
+  const exportAudit = () => {
+    const csv = [["timestamp","admin","action","entity_type","entity_id","details"], ...auditLog.map((entry) => [entry.createdAt,entry.adminId,entry.action,entry.entityType,entry.entityId,JSON.stringify(entry.details)])].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const anchor = document.createElement("a"); anchor.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); anchor.download = "admin-audit-log.csv"; anchor.click(); URL.revokeObjectURL(anchor.href);
+  };
 
   useEffect(() => {
     if (!form.factoryId) { setFormRoutes([]); return; }
@@ -131,11 +140,22 @@ export default function UserManagement() {
   const approve = async (u: ManagedUser) => {
     try {
       await updateSupplierOperationalFields(u.id, { status: "active" });
+      await getSupabase()?.from("admin_audit_log").insert({ admin_id: userUid, action: "approve", entity_type: "user", entity_id: u.id, details: { registration: true } });
       void reload();
       notify({ title: "Supplier approved ✅", body: `${u.name} can now sign in.`, tone: "emerald", channel: "system" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve supplier.");
     }
+  };
+
+  const rejectRegistration = async (u: ManagedUser) => {
+    if (!window.confirm(`Reject ${u.name}'s supplier registration?`)) return;
+    try {
+      await updateSupplierOperationalFields(u.id, { status: "rejected" });
+      await getSupabase()?.from("admin_audit_log").insert({ admin_id: userUid, action: "reject", entity_type: "user", entity_id: u.id, details: { registration: true } });
+      void reload();
+      notify({ title: "Registration rejected", body: "The account will be removed automatically after seven days.", tone: "rose", channel: "system" });
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed to reject supplier."); }
   };
 
   const deactivate = async (u: ManagedUser) => {
@@ -248,9 +268,13 @@ export default function UserManagement() {
         </div>
         {error && <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
         <Card className="p-4">
-          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
             <select value={auditAction} onChange={(e) => setAuditAction(e.target.value)} className={inputCls}><option value="">All actions</option><option value="create">Create</option><option value="edit">Edit</option><option value="approve">Approve</option><option value="reject">Reject</option><option value="deactivate">Deactivate</option><option value="reactivate">Reactivate</option></select>
             <select value={auditEntity} onChange={(e) => setAuditEntity(e.target.value)} className={inputCls}><option value="">All entities</option><option value="estate">Estate</option><option value="user">User</option></select>
+            <input value={auditAdmin} onChange={(e) => setAuditAdmin(e.target.value)} placeholder="Admin UID" className={inputCls} />
+            <input value={auditEntityId} onChange={(e) => setAuditEntityId(e.target.value)} placeholder="Entity ID" className={inputCls} />
+            <input type="date" value={auditFrom} onChange={(e) => setAuditFrom(e.target.value)} className={inputCls} />
+            <div className="flex gap-2"><input type="date" value={auditTo} onChange={(e) => setAuditTo(e.target.value)} className={inputCls} /><button onClick={exportAudit} className="mt-1 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white">Export CSV</button></div>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-xs"><thead><tr className="border-b text-slate-400"><th className="px-3 py-2">Timestamp</th><th className="px-3 py-2">Admin</th><th className="px-3 py-2">Action</th><th className="px-3 py-2">Entity Type</th><th className="px-3 py-2">Entity ID</th><th className="px-3 py-2">Details</th></tr></thead><tbody>{auditLog.map((entry) => <tr key={entry.id} className="border-b border-slate-100"><td className="whitespace-nowrap px-3 py-3">{new Date(entry.createdAt).toLocaleString("en-LK")}</td><td className="px-3 py-3 font-semibold">{entry.adminName ?? entry.adminId}</td><td className="px-3 py-3"><Badge tone={entry.action === "approve" || entry.action === "reactivate" ? "emerald" : entry.action === "reject" || entry.action === "deactivate" ? "rose" : "sky"}>{entry.action}</Badge></td><td className="px-3 py-3">{entry.entityType}</td><td className="px-3 py-3 font-mono text-[10px]">{entry.entityId}</td><td className="max-w-xs truncate px-3 py-3 text-slate-400">{JSON.stringify(entry.details)}</td></tr>)}</tbody></table>
@@ -506,7 +530,7 @@ export default function UserManagement() {
                   </button>
                   {/* Suspend/Reactivate — admins */}
                   {u.deactivatedAt ? null : u.status === "pending_approval" ? (
-                    <><button onClick={() => approve(u)} title="Approve supplier" className="rounded-lg px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-50">Approve</button><button onClick={() => { setConfirmDelete(u); setError(null); }} title="Reject registration" className="rounded-lg px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50">Reject</button></>
+                    <><button onClick={() => approve(u)} title="Approve supplier" className="rounded-lg px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-50">Approve</button><button onClick={() => void rejectRegistration(u)} title="Reject registration" className="rounded-lg px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50">Reject</button></>
                   ) : (
                     <button onClick={() => toggle(u)} title={u.status === "active" ? "Suspend" : "Reactivate"} className={`rounded-lg p-1.5 ${u.status === "active" ? "text-amber-600 hover:bg-amber-50" : "text-emerald-600 hover:bg-emerald-50"}`}><Ban className="h-4 w-4" /></button>
                   )}

@@ -675,5 +675,11 @@
   "moveType": { "in": "තොග ලැබීම", "out": "තොග නිකුතුව", "adjust": "ගැලපීම", "transfer": "මාරු කිරීම" },
   "landType": { "tea": "තේ ඉඩම", "forest": "වනාන්තරය", "water": "ජල ප්‍රදේශය", "road": "මාර්ගය", "nursery": "තවාන", "factory": "කර්මාන්තශාලාව" },
   "plotState": { "plucking": "දලු නෙළන", "pruned": "කප්පාදු කළ", "young": "ළපටි තේ", "nursery": "තවාන" },
-  "role": { "super_admin": "ප්‍රධාන පරිපාලක", "admin": "පරිපාලක", "extension_officer": "ව්‍යාප්ති නිලධාරී", "supplier": "සැපයුම්කරු" }
+  "role": { "super_admin": "ප්‍රධාන පරිපාලක", "admin": "පරිපාලක", "extension_officer": "ව්‍යාප්ති නිලධාරී", "supplier": "සැපයුම්කරු" },
+  "collector": { "todayRoute": "අද මාර්ගය", "noRouteAssigned": "අද සඳහා මාර්ගයක් පවරා නැත", "startCollection": "එකතු කිරීම ආරම්භ කරන්න", "completeCollection": "එකතු කිරීම සම්පූර්ණ කරන්න", "routeCode": "මාර්ග කේතය" },
+  "lorry": { "distance": "දුර", "eta": "පැමිණීමේ කාලය", "approaching": "ලොරිය ඔබගේ එකතු කිරීමේ ස්ථානයට ළඟා වෙමින් පවතී", "prepareLeaves": "ඔබගේ දලු සූදානම් කරන්න" },
+  "priceManagement": { "currentPrices": "වර්තමාන මිල ගණන්", "pendingChanges": "අනුමැතිය බලාපොරොත්තු වන මිල වෙනස්කම්", "priceHistory": "මිල ඉතිහාසය", "rollback": "පෙර මිලට හරවන්න", "previousPrice": "පෙර මිල", "changedBy": "වෙනස් කළ අය", "changeReason": "වෙනස් කිරීමේ හේතුව" },
+  "finance": { "grossEarnings": "සම්පූර්ණ ආදායම", "totalDeductions": "සම්පූර්ණ අඩුකිරීම්", "paidAmount": "ගෙවා ඇති මුදල", "estimatedNetPayable": "ඇස්තමේන්තුගත ශුද්ධ ගෙවිය යුතු මුදල", "confirmedNetPayable": "තහවුරු කළ ශුද්ධ ගෙවිය යුතු මුදල", "confirmMonthEnd": "මාස අවසානය තහවුරු කරන්න" },
+  "registration": { "suspiciousActivity": "සැකකටයුතු ක්‍රියාකාරකමක් හඳුනාගෙන ඇත. කරුණාකර පසුව නැවත උත්සාහ කරන්න.", "tooManyAttempts": "ලියාපදිංචි වීමට බොහෝ උත්සාහයන් සිදු කර ඇත. පසුව උත්සාහ කරන්න.", "accountExists": "මෙම දුරකථන අංකය හෝ ඊමේල් ලිපිනය සහිත ගිණුමක් දැනටමත් පවතී" },
+  "schema": { "updateRequired": "දත්ත සමුදාය යාවත්කාලීන කිරීම අවශ්‍යයි — පරිපාලක අමතන්න" }
 }

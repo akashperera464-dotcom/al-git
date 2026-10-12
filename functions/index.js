@@ -21,9 +21,12 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
+const supabaseUrlSecret = defineSecret("SUPABASE_URL");
+const supabaseServiceRoleSecret = defineSecret("SUPABASE_SERVICE_ROLE_KEY");
 
 // ============================================================
 // CLOUD FUNCTION: Send FCM Push when a new alert is created
@@ -165,10 +168,11 @@ exports.scheduledSupplierTick = onSchedule(
     timeZone: "Asia/Colombo",
     memory: "512MiB",
     timeoutSeconds: 120,
+    secrets: [supabaseUrlSecret, supabaseServiceRoleSecret],
   },
   async () => {
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const SUPABASE_URL = supabaseUrlSecret.value();
+    const SUPABASE_KEY = supabaseServiceRoleSecret.value();
     if (!SUPABASE_URL || !SUPABASE_KEY) {
       console.log("[scheduledSupplierTick] Supabase env vars not set — skipping.");
       return;
@@ -258,6 +262,75 @@ exports.scheduledSupplierTick = onSchedule(
     }
 
     console.log(`[scheduledSupplierTick] Done. Pushes sent: ${pushesSent}`);
+  }
+);
+
+// Round 12: remove supplier registrations rejected for more than seven days.
+// Uses server-only environment variables; no service key is exposed to Vite.
+exports.cleanupRejectedRegistrations = onSchedule(
+  { schedule: "15 2 * * *", timeZone: "Asia/Colombo", timeoutSeconds: 120, secrets: [supabaseUrlSecret, supabaseServiceRoleSecret] },
+  async () => {
+    const url = supabaseUrlSecret.value();
+    const key = supabaseServiceRoleSecret.value();
+    if (!url || !key) { console.warn("[cleanupRejectedRegistrations] Supabase secrets missing."); return; }
+    const cutoff = new Date(Date.now() - 7 * 86400000).toISOString();
+    const headers = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+    const response = await fetch(`${url}/rest/v1/users?status=eq.rejected&created_at=lt.${encodeURIComponent(cutoff)}&select=id,email`, { headers });
+    if (!response.ok) throw new Error(`Rejected-user query failed: ${response.status}`);
+    const users = await response.json();
+    for (const user of users) {
+      await admin.auth().deleteUser(user.id).catch((error) => console.warn(`[cleanupRejectedRegistrations] Firebase ${user.id}:`, error.message));
+      await fetch(`${url}/rest/v1/users?id=eq.${encodeURIComponent(user.id)}`, { method: "DELETE", headers });
+      await fetch(`${url}/rest/v1/admin_audit_log`, { method: "POST", headers: { ...headers, Prefer: "return=minimal" }, body: JSON.stringify({ admin_id: "system:registration-cleanup", action: "registration_cleanup", entity_type: "user", entity_id: user.id, details: { email: user.email, cutoff } }) });
+    }
+    console.log(`[cleanupRejectedRegistrations] Removed ${users.length} rejected registrations.`);
+  }
+);
+
+// Dispatch lorry geofence alerts created by the Supabase GPS trigger. The
+// existing admin_audit_log is the delivery ledger, so retries cannot send the
+// same alert twice and no additional database table is required.
+exports.dispatchLorryNearbyAlerts = onSchedule(
+  { schedule: "every 1 minutes", timeZone: "Asia/Colombo", timeoutSeconds: 60, secrets: [supabaseUrlSecret, supabaseServiceRoleSecret] },
+  async () => {
+    const url = supabaseUrlSecret.value();
+    const key = supabaseServiceRoleSecret.value();
+    if (!url || !key) { console.warn("[dispatchLorryNearbyAlerts] Supabase secrets missing."); return; }
+    const headers = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+    const since = new Date(Date.now() - 10 * 60_000).toISOString();
+    const response = await fetch(`${url}/rest/v1/alerts?alert_type=eq.lorry_nearby&created_at=gte.${encodeURIComponent(since)}&select=id,target_user_id,title,body&order=created_at.asc&limit=100`, { headers });
+    if (!response.ok) throw new Error(`Nearby-alert query failed: ${response.status}`);
+    const alerts = await response.json();
+    let sent = 0;
+    for (const alert of alerts) {
+      const auditResponse = await fetch(`${url}/rest/v1/admin_audit_log?entity_type=eq.lorry_alert&entity_id=eq.${encodeURIComponent(alert.id)}&select=id&limit=1`, { headers });
+      if (auditResponse.ok && (await auditResponse.json()).length) continue;
+      const userDoc = await admin.firestore().collection("users").doc(alert.target_user_id).get();
+      const token = userDoc.data()?.pushToken;
+      let action = "fcm_dispatch_skipped";
+      let details = { reason: "no_push_token" };
+      if (token) {
+        try {
+          await admin.messaging().send({
+            token,
+            notification: { title: alert.title, body: alert.body },
+            data: { type: "lorry_nearby", targetUserId: alert.target_user_id, alertId: alert.id },
+            android: { priority: "high", notification: { channelId: "verda-advisory", color: "#f59e0b" } },
+            apns: { payload: { aps: { badge: 1, sound: "default" } } },
+          });
+          action = "fcm_dispatched";
+          details = { reason: "sent" };
+          sent++;
+        } catch (error) {
+          details = { reason: error instanceof Error ? error.message : "send_failed" };
+        }
+      }
+      await fetch(`${url}/rest/v1/admin_audit_log`, {
+        method: "POST", headers: { ...headers, Prefer: "return=minimal" },
+        body: JSON.stringify({ admin_id: "system:lorry-geofence", action, entity_type: "lorry_alert", entity_id: alert.id, details }),
+      });
+    }
+    console.log(`[dispatchLorryNearbyAlerts] Sent ${sent} push notification(s).`);
   }
 );
 

@@ -15,6 +15,7 @@ import { registerRoute, setCatchHandler } from "workbox-routing";
 import { NetworkFirst, StaleWhileRevalidate, CacheFirst } from "workbox-strategies";
 import { Queue } from "workbox-background-sync";
 import { clientsClaim } from "workbox-core";
+import { ExpirationPlugin } from "workbox-expiration";
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -53,7 +54,13 @@ registerRoute(
 );
 
 // 5. Static assets
-registerRoute(({ request }) => ["style", "script", "image", "font"].includes(request.destination), new CacheFirst({ cacheName: "verda-assets" }));
+registerRoute(({ request }) => ["style", "script", "image", "font"].includes(request.destination), new CacheFirst({ cacheName: "verda-assets", plugins: [new ExpirationPlugin({ maxAgeSeconds: 30 * 24 * 60 * 60, maxEntries: 250 })] }));
+
+// OpenStreetMap tiles: offline-friendly, bounded seven-day cache.
+registerRoute(({ url }) => /(^|\.)tile\.openstreetmap\.org$/.test(url.hostname), new CacheFirst({ cacheName: "verda-map-tiles", plugins: [new ExpirationPlugin({ maxAgeSeconds: 7 * 24 * 60 * 60, maxEntries: 600 })] }), "GET");
+
+// Supabase API reads: prefer fresh data and fall back to the last response.
+registerRoute(({ url, request }) => request.method === "GET" && url.hostname.endsWith(".supabase.co") && url.pathname.startsWith("/rest/v1/"), new NetworkFirst({ cacheName: "verda-supabase-api", networkTimeoutSeconds: 5 }), "GET");
 
 // 6. Catch-all fallback to the app shell for navigation
 setCatchHandler(async ({ event }) => {

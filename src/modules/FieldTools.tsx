@@ -243,7 +243,7 @@ export default function FieldTools() {
                     <Badge tone={d.severity === "critical" ? "rose" : d.severity === "high" ? "amber" : "slate"}>{String(d.severity)}</Badge>
                   </div>
                   <p className="text-[11px] text-slate-400">{String(d.reported_at ?? "").slice(0, 10)} · {String(d.status)}</p>
-                  {d.treatment_notes && <p className="text-[11px] text-slate-500">"{String(d.treatment_notes)}"</p>}
+                  {Boolean(d.treatment_notes) && <p className="text-[11px] text-slate-500">"{String(d.treatment_notes)}"</p>}
                 </div>
               ))}
             </div>
@@ -278,10 +278,10 @@ export default function FieldTools() {
                 <div key={v.id as string} className="rounded-lg border border-slate-100 p-2.5 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-slate-800">{String(v.visit_date)}</span>
-                    {v.latitude && <a href={`https://www.google.com/maps?q=${v.latitude},${v.longitude}`} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline">📍 Map</a>}
+                    {Boolean(v.latitude) && <a href={`https://www.google.com/maps?q=${v.latitude},${v.longitude}`} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline">📍 Map</a>}
                   </div>
                   <p className="text-[11px] text-slate-500">{String(v.notes)}</p>
-                  {v.follow_up_date && <p className="text-[10px] text-amber-600">Follow-up: {String(v.follow_up_date)}</p>}
+                  {Boolean(v.follow_up_date) && <p className="text-[10px] text-amber-600">Follow-up: {String(v.follow_up_date)}</p>}
                 </div>
               ))}
             </div>

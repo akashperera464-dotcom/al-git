@@ -3,19 +3,20 @@
  * Estate Pulse · Supabase (PostgreSQL) connection layer
  * ------------------------------------------------------------------
  * HYBRID ARCHITECTURE:
- *   Firebase  → Authentication (Phone OTP) + Cloud Messaging (FCM) only.
+ *   Firebase  → Email/password authentication + Cloud Messaging (FCM) only.
  *   Supabase  → ALL business logic, master data & transactional tables.
  *
  * CONNECTED PROJECT: KDU ERP
  *
  * A Firebase-authenticated user's `uid` becomes the PRIMARY KEY (`id`) of the
  * Supabase `users` table (see auth.hybrid.ts). Supabase RLS then authorizes
- * every operational query using `auth.uid()`.
+ * every operational query using the verified JWT `sub` claim.
  *
  * Demo mode (no env): exports a null client; repo.ts falls back to mock data
  * so the app + RBAC boundaries remain runnable & auditable.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { initFirebase } from "./firebase";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -37,11 +38,16 @@ export function initSupabase(): SupabaseClient | null {
   if (client) return client;
   if (!supabaseConfigured) return null;
   client = createClient(SUPABASE_PROJECT_URL!, SUPABASE_ANON_KEY!, {
+    // Official Supabase Third-Party Auth integration. Every REST, Storage and
+    // Realtime request asks Firebase for the current (auto-refreshed) ID token.
+    // No Supabase password/session is created and Firebase remains auth-only.
+    accessToken: async () => {
+      const { auth } = initFirebase();
+      return auth?.currentUser ? auth.currentUser.getIdToken(false) : null;
+    },
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      // We authenticate via Firebase; Supabase RLS trusts the Firebase uid claim
-      // rather than Supabase's own auth session.
+      persistSession: false,
+      autoRefreshToken: false,
       detectSessionInUrl: false,
     },
     global: { headers: { "x-client-info": "verda-erp-web" } },
@@ -49,6 +55,22 @@ export function initSupabase(): SupabaseClient | null {
   // One-time connection confirmation (non-blocking).
   void pingSupabase();
   return client;
+}
+
+/**
+ * Refresh the Firebase token used by Supabase and immediately update Realtime.
+ * REST requests already invoke the accessToken callback above on every call;
+ * this helper is used at login/logout boundaries so existing channels switch
+ * identity without waiting for their next heartbeat.
+ */
+export async function refreshSupabaseFirebaseAuth(forceRefresh = false): Promise<string | null> {
+  const sb = initSupabase();
+  if (!sb) return null;
+  const { auth } = initFirebase();
+  const token = auth?.currentUser ? await auth.currentUser.getIdToken(forceRefresh) : null;
+  if (token) await sb.realtime.setAuth(token);
+  else await sb.realtime.setAuth();
+  return token;
 }
 
 /** Convenience accessor used by repo.ts / services. */

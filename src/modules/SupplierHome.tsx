@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Leaf, Bell, Wallet, Package, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
@@ -7,9 +7,11 @@ import { readMyHarvestRecords } from "@/lib/repo";
 import { fetchForecast, getMockForecast } from "@/lib/weather";
 import type { WeatherDay } from "@/lib/data";
 import { useTranslation } from "react-i18next";
-import { LorryTracking } from "@/modules/LorryTracking";
 import { readDailyTeaPrices, readUserOperationalProfile, type DailyTeaPrice } from "@/lib/supplierOperations";
 import { gradeKey } from "@/i18n/databaseValues";
+import { readSupplierFinancialSummary } from "@/lib/financialSummary";
+
+const LorryTracking = lazy(() => import("@/modules/LorryTracking"));
 
 export function SupplierHome() {
   const { t, i18n } = useTranslation();
@@ -46,11 +48,9 @@ export function SupplierHome() {
       const month = new Date().toISOString().slice(0, 7);
       const monthly = recs.filter((record) => record.date.startsWith(month));
       const kg = monthly.reduce((sum, record) => sum + record.kg, 0);
-      const earned = monthly.reduce((sum, record) => sum + record.amount, 0);
       const superKg = monthly.filter((record) => record.grade === "Super" || record.grade === "PV Super").reduce((sum, record) => sum + record.kg, 0);
       const sup = kg ? Math.round((superKg / kg) * 100) : 0;
       setTotalKg(kg);
-      setTotalEarned(earned);
       setSuperPct(sup);
     });
     void readUserOperationalProfile(userUid)
@@ -58,29 +58,10 @@ export function SupplierHome() {
       .then(setPrices)
       .catch(() => setPrices([]));
 
-    // B35 — Load monthly expenses (labor cost + fertilizer credit estimate)
-    void (async () => {
-      let expenses = 0;
-      // Labor cost from localStorage (SupplierLabor module writes this)
-      try {
-        const laborRaw = localStorage.getItem(`kdu.supplier_labor.month_total.${userUid}`);
-        expenses += Number(laborRaw || 0);
-      } catch { /* ignore */ }
-      // Fertilizer credit estimate (kg × Rs 95/kg)
-      try {
-        const ledgerRaw = localStorage.getItem("kdu.supplier_fertilizer_ledger");
-        if (ledgerRaw) {
-          const all: { supplierName: string; qtyIssued: number; unit: string; notes?: string }[] = JSON.parse(ledgerRaw);
-          const mine = (user?.name ?? "")
-            ? all.filter(e => e.supplierName?.toLowerCase() === (user?.name ?? "").toLowerCase() && (e.notes || "").toLowerCase().includes("credit"))
-            : [];
-          const kg = mine.filter(e => e.unit === "kg").reduce((s, e) => s + e.qtyIssued, 0);
-          const bags = mine.filter(e => e.unit === "bag" || e.unit === "bags").reduce((s, e) => s + e.qtyIssued, 0);
-          expenses += (kg + bags * 50) * 95;
-        }
-      } catch { /* ignore */ }
-      setMonthExpenses(expenses);
-    })();
+    // Round 12: one authoritative finance view; no localStorage calculations.
+    void readSupplierFinancialSummary(userUid, new Date().toISOString().slice(0, 7))
+      .then((summary) => { setTotalEarned(summary?.grossEarnings ?? 0); setMonthExpenses(summary?.totalDeductions ?? 0); })
+      .catch(() => { setTotalEarned(0); setMonthExpenses(0); });
   }, [userUid, associatedEntityId, estate?.latitude, estate?.longitude, user?.name]);
 
   // Smart reminders from farm activities
@@ -164,7 +145,7 @@ export function SupplierHome() {
         </div>
       )}
 
-      <LorryTracking userId={userUid} />
+      <Suspense fallback={<div className="mb-4 h-64 animate-pulse rounded-2xl bg-slate-100" />}><LorryTracking userId={userUid} /></Suspense>
 
       {/* Key stats — Earnings + Expenses + Total Supplied + Pending Sync */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">

@@ -200,7 +200,7 @@ export default function AuditCompliance() {
                   <div key={c.id} className="rounded-xl border border-slate-100 p-3">
                     <div className="mb-1.5 flex items-center justify-between">
                       <span className="text-sm font-bold text-slate-800">{c.standard}</span>
-                      <Badge tone={c.status === "Certified" ? "emerald" : c.status === "Action Needed" ? "rose" : c.status === "Expired" ? "rose" : "amber"} dot>{c.status}</Badge>
+                      <Badge tone={c.status === "Certified" ? "emerald" : c.status === "Action Needed" ? "rose" : "amber"} dot>{c.status}</Badge>
                     </div>
                     <Meter value={c.score} tone={c.score >= 85 ? "emerald" : c.score >= 75 ? "amber" : "rose"} showLabel />
                     <p className="mt-1 text-[11px] text-slate-400">Expiry {c.expiry} · {days} days · score {c.score}{c.certBody ? ` · ${c.certBody}` : ""}</p>
@@ -262,7 +262,7 @@ export default function AuditCompliance() {
                       {c.notes && <p className="text-[11px] text-slate-500 mt-0.5">"{c.notes}"</p>}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge tone={c.status === "Certified" ? "emerald" : c.status === "Action Needed" || c.status === "Expired" ? "rose" : "amber"} dot>{c.status}</Badge>
+                      <Badge tone={c.status === "Certified" ? "emerald" : c.status === "Action Needed" ? "rose" : "amber"} dot>{c.status}</Badge>
                       <select value={c.status} onChange={e => updateStatus(c, e.target.value)} disabled={busy}
                         className="rounded-lg border border-slate-200 px-2 py-1 text-[11px]">
                         <option>Certified</option>

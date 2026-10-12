@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area } from "recharts";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Package, BellRing, Wallet, Leaf, TrendingUp, CalendarCheck, Droplets, Sparkles, Building2 } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { Icon } from "@/components/Icon";
@@ -16,6 +16,7 @@ import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 import type { SupplyRecord } from "@/lib/data";
 import { readDailyTeaPrices, readUserOperationalProfile } from "@/lib/supplierOperations";
 import { gradeKey, statusKey } from "@/i18n/databaseValues";
+import { readSupplierFinancialSummary, type SupplierFinancialSummary } from "@/lib/financialSummary";
 
 /** Daily Tea Prices card — shows today's price per kg per grade. */
 function DailyPriceCard() {
@@ -157,7 +158,7 @@ function QualityTrendChart({ records }: { records: { date: string; grade: string
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
           <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={25} unit="%" />
-          <Tooltip formatter={(v: number) => [`${v}%`, "Super Grade"]} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
+          <Tooltip formatter={(v) => [`${Number(v ?? 0)}%`, "Super Grade"]} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
           <Line
             type="monotone" dataKey="superPct"
             stroke={improving ? "#10b981" : "#f43f5e"}
@@ -351,36 +352,13 @@ export function SupplierAlerts() {
   );
 }
 
-/** B30 (Round #12) — Cost vs Earnings Summary card with chart (A8 RESTORED).
- *  Shows gross earnings vs fertilizer credit cost (kg × Rs 95/kg estimate).
- *  Includes disclaimer: "This is an estimate — factory finance office confirms at month-end." */
-function CostEarningsChart({ records }: { records: { date: string; amount: number }[] }) {
+/** Round 12 — unified monthly finance card backed only by
+ *  supplier_financial_summary. Local cache is never authoritative. */
+function CostEarningsChart({ financial }: { financial: SupplierFinancialSummary | null }) {
   const { t } = useTranslation();
-  const ledgerRaw = typeof window !== "undefined" ? localStorage.getItem("kdu.supplier_fertilizer_ledger") : null;
-  const fertLedger: { date?: string; issuedDate?: string; totalCost?: number; costRs?: number }[] = ledgerRaw ? JSON.parse(ledgerRaw) : [];
-
-  const monthlyData = useMemo(() => {
-    const map: Record<string, { month: string; earned: number; cost: number }> = {};
-    for (const r of records) {
-      const m = r.date.slice(0, 7);
-      if (!map[m]) map[m] = { month: m, earned: 0, cost: 0 };
-      map[m].earned += r.amount;
-    }
-    for (const f of fertLedger) {
-      const d = f.date ?? f.issuedDate ?? "";
-      const m = d.slice(0, 7);
-      if (m && map[m]) map[m].cost += (f.totalCost ?? f.costRs ?? 0);
-    }
-    return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).slice(-5).map(d => ({
-      ...d,
-      label: new Date(d.month + "-01").toLocaleDateString("en-LK", { month: "short", year: "2-digit" }),
-      net: d.earned - d.cost,
-    }));
-  }, [records, fertLedger]);
-
-  const totalEarned = records.reduce((s, r) => s + r.amount, 0);
-  const totalCost = fertLedger.reduce((s, f) => s + (f.totalCost ?? f.costRs ?? 0), 0);
-  const netEarnings = totalEarned - totalCost;
+  const totalEarned = financial?.grossEarnings ?? 0;
+  const totalCost = financial?.totalDeductions ?? 0;
+  const netEarnings = financial?.confirmedNetPayable ?? financial?.estimatedNetPayable ?? 0;
 
   return (
     <Card className="mt-3 mb-4 p-4 border-emerald-100">
@@ -399,27 +377,9 @@ function CostEarningsChart({ records }: { records: { date: string; amount: numbe
           <p className={`font-bold text-sm ${netEarnings >= 0 ? "text-sky-700" : "text-amber-700"}`}>Rs {(netEarnings / 1000).toFixed(0)}k</p>
         </div>
       </div>
-      {monthlyData.length >= 2 && (
-        <ResponsiveContainer width="100%" height={110}>
-          <AreaChart data={monthlyData}>
-            <defs>
-              <linearGradient id="earnGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="costGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-            <Tooltip formatter={(v: number) => [`Rs ${v.toLocaleString()}`, ""]} contentStyle={{ fontSize: 10, borderRadius: 8 }} />
-            <Area type="monotone" dataKey="earned" stroke="#10b981" strokeWidth={2} fill="url(#earnGrad)" name="Earned" />
-            <Area type="monotone" dataKey="cost" stroke="#f43f5e" strokeWidth={1.5} fill="url(#costGrad)" name="Cost" strokeDasharray="4 2" />
-          </AreaChart>
-        </ResponsiveContainer>
-      )}
+      <p className="text-[10px] text-slate-400">
+        {financial ? new Date(financial.periodMonth).toLocaleDateString("en-LK", { month: "long", year: "numeric" }) : t("common.noData")}
+      </p>
     </Card>
   );
 }
@@ -434,82 +394,20 @@ function CostEarningsChart({ records }: { records: { date: string; amount: numbe
 export function SupplierPayments() {
   const { t } = useTranslation();
   const { records, loading } = useOwnSupply();
-  const earned = records.reduce((s, r) => s + r.amount, 0);
   const suppliedKg = records.reduce((sum, record) => sum + record.kg, 0);
+  const { userUid } = useApp();
+  const [financial, setFinancial] = useState<SupplierFinancialSummary | null>(null);
+  useEffect(() => { void readSupplierFinancialSummary(userUid, new Date().toISOString().slice(0, 7)).then(setFinancial).catch(() => setFinancial(null)); }, [userUid]);
+  const earned = financial?.grossEarnings ?? 0;
   const realizedRate = suppliedKg > 0 ? earned / suppliedKg : 0;
-  const pending = records.filter(r => r.status === "Pending").reduce((s, r) => s + r.amount, 0);
+  const pending = financial?.estimatedNetPayable ?? 0;
 
   // Fertilizer credit cost estimate (kg × Rs 95/kg average)
-  const { user, userUid } = useApp();
-  const [fertCreditKg, setFertCreditKg] = useState(0);
-  const [advanceBalance, setAdvanceBalance] = useState(0);
-  // B32 (Round #14) — Labor cost from SupplierLabor module (month total)
-  const [laborCostMonth, setLaborCostMonth] = useState(0);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("kdu.supplier_fertilizer_ledger");
-      if (raw) {
-        const all: { supplierName: string; qtyIssued: number; unit: string; notes?: string }[] = JSON.parse(raw);
-        const mine = (user?.name ?? "")
-          ? all.filter(e => e.supplierName?.toLowerCase() === (user?.name ?? "").toLowerCase() && (e.notes || "").toLowerCase().includes("credit"))
-          : [];
-        const kg = mine
-          .filter(e => e.unit === "kg")
-          .reduce((s, e) => s + e.qtyIssued, 0);
-        const bags = mine
-          .filter(e => e.unit === "bag" || e.unit === "bags")
-          .reduce((s, e) => s + e.qtyIssued, 0);
-        setFertCreditKg(kg + bags * 50);
-      }
-    } catch { /* ignore */ }
-    // B32 (Round #14) — Read labor cost month total from SupplierLabor module
-    // B33 (Round #15) — Now reads from Supabase (authoritative), falls back to localStorage
-    try {
-      const laborByUid = localStorage.getItem(`kdu.supplier_labor.month_total.${userUid}`);
-      setLaborCostMonth(Number(laborByUid || 0));
-    } catch { /* ignore */ }
-    // Also try Supabase for the authoritative month total
-    void (async () => {
-      if (!supabaseConfigured) return;
-      try {
-        const sb = getSupabase()!;
-        const monthStart = new Date().toISOString().slice(0, 7) + "-01";
-        const { data: laborData } = await sb
-          .from("supplier_labor_logs")
-          .select("total_cost")
-          .eq("supplier_id", userUid)
-          .gte("log_date", monthStart);
-        if (laborData && laborData.length > 0) {
-          const monthLaborTotal = laborData.reduce((s: number, r: { total_cost: number }) => s + Number(r.total_cost ?? 0), 0);
-          setLaborCostMonth(monthLaborTotal);
-          // Also cache to localStorage for instant load next time
-          try { localStorage.setItem(`kdu.supplier_labor.month_total.${userUid}`, String(monthLaborTotal)); } catch { /* ignore */ }
-        }
-      } catch { /* ignore */ }
-    })();
-    // Advance balance — best-effort read from Supabase supplier_fertilizer_loans table
-    void (async () => {
-      try {
-        const { supabaseConfigured, getSupabase } = await import("@/lib/supabase");
-        if (supabaseConfigured) {
-          const sb = getSupabase()!;
-          const { data } = await sb
-            .from("supplier_fertilizer_loans")
-            .select("balance, status")
-            .eq("supplier_id", userUid)
-            .eq("status", "active");
-          if (data) {
-            const total = data.reduce((s: number, r: { balance: number }) => s + Number(r.balance ?? 0), 0);
-            setAdvanceBalance(total);
-          }
-        }
-      } catch { /* ignore */ }
-    })();
-  }, [user?.name, userUid]);
-
-  const fertCreditCost = fertCreditKg * 95; // Rs 95/kg average
-  // B32 (Round #14) — Labor cost included in net payable calculation
-  const netPayable = earned - fertCreditCost - advanceBalance - laborCostMonth;
+  const fertCreditCost = financial?.fertilizerDeduction ?? 0;
+  const advanceBalance = financial?.cashAdvanceInstallment ?? 0;
+  const laborCostMonth = financial?.otherDeductions ?? 0;
+  const fertCreditKg = 0;
+  const netPayable = financial?.confirmedNetPayable ?? financial?.estimatedNetPayable ?? 0;
 
   return (
     <div>
@@ -527,7 +425,7 @@ export function SupplierPayments() {
         <p className="mt-0.5">The factory finance office confirms the actual net payable amount at month-end. Figures shown here are computed live from your leaf deliveries × today's tea price, minus fertilizer credit and active advances.</p>
       </div>
 
-      <CostEarningsChart records={records} />
+      <CostEarningsChart financial={financial} />
 
       {/* Gross earnings + pending + rate */}
       <div className="grid grid-cols-3 gap-2.5">

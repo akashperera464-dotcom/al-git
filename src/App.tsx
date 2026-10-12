@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { AppProvider, useApp } from "@/context/AppContext";
 import { BrandingProvider } from "@/lib/branding";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -11,6 +11,7 @@ import { homeModuleFor } from "@/lib/rbac";
 import { signOutFirebase, watchHybridSession } from "@/lib/auth.hybrid";
 import { canActivateUser } from "@/lib/supplierOperations";
 import { Leaf } from "lucide-react";
+import { SchemaVersionWarning } from "@/components/SchemaVersionWarning";
 
 /** Resolves the module for the active nav key, behind the RouteGuard. */
 function ModuleView() {
@@ -18,9 +19,7 @@ function ModuleView() {
   const Comp = REGISTRY[activeModule] ?? REGISTRY[homeModuleFor("admin")];
   return (
     <RouteGuard moduleKey={activeModule}>
-      <div key={activeModule} className="animate-fade-in">
-        <Comp />
-      </div>
+      <Suspense fallback={<div className="space-y-3 p-5"><div className="h-10 animate-pulse rounded-xl bg-slate-200" /><div className="h-48 animate-pulse rounded-2xl bg-slate-100" /></div>}><div key={activeModule} className="animate-fade-in"><Comp /></div></Suspense>
     </RouteGuard>
   );
 }
@@ -66,6 +65,7 @@ function Root() {
 
   return (
     <>
+      <SchemaVersionWarning />
       <Shell>
         <ModuleView />
       </Shell>

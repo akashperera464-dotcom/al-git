@@ -8,6 +8,7 @@ import { provisionUser } from "@/lib/auth.hybrid";
 import { useLiveData } from "@/lib/useLiveData";
 import { createAlert } from "@/lib/notifications";
 import { publishLorryLocation, readFactories, readRoutes, readSupplierDirectory, stopLorryLocation, updateSupplierOperationalFields, type FactoryOption, type RouteOption, type SupplierDirectoryEntry } from "@/lib/supplierOperations";
+import { readTodayAssignment, updateAssignmentStatus, type CollectorAssignment } from "@/lib/collectorAssignments";
 
 /* ====================== 1 · REGISTER NEW SUPPLIER ====================== */
 
@@ -18,7 +19,7 @@ import { publishLorryLocation, readFactories, readRoutes, readSupplierDirectory,
  */
 export function EoRegisterSupplier() {
   const { t } = useTranslation();
-  const { notify } = useApp();
+  const { notify, userUid } = useApp();
   const { data: estateOptions } = useLiveData("estates", readEstateOptions);
   const { data: allDivisions } = useLiveData("divisions", readDivisionOptions);
 
@@ -33,13 +34,20 @@ export function EoRegisterSupplier() {
   const [routeId, setRouteId] = useState("");
   const [factories, setFactories] = useState<FactoryOption[]>([]);
   const [routes, setRoutes] = useState<RouteOption[]>([]);
+  const [assignment, setAssignment] = useState<CollectorAssignment | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Cascading: filter divisions by selected estate.
   const filteredDivisions = estateId ? allDivisions.filter((d) => d.id === estateId || d.estateName === estateOptions.find((e) => e.id === estateId)?.name) : [];
 
-  useEffect(() => { void readFactories().then(setFactories).catch(() => setFactories([])); }, []);
+  useEffect(() => {
+    void readFactories().then(setFactories).catch(() => setFactories([]));
+    void readTodayAssignment(userUid).then((todayAssignment) => {
+      setAssignment(todayAssignment);
+      if (todayAssignment) { setFactoryId(todayAssignment.factoryId); setRouteId(todayAssignment.routeId); }
+    }).catch(() => setAssignment(null));
+  }, [userUid]);
   useEffect(() => {
     if (!factoryId) { setRoutes([]); return; }
     void readRoutes(factoryId).then(setRoutes).catch(() => setRoutes([]));
@@ -89,6 +97,7 @@ export function EoRegisterSupplier() {
         icon={<IconChip icon={UserPlus} tone="emerald" className="h-12 w-12" />}
       />
       <Card className="p-4">
+        {!assignment && <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">No route assigned for today — contact admin before registering a supplier.</p>}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className="text-[11px] font-medium text-slate-400">{t("officer.fullName")}</label>
@@ -107,8 +116,8 @@ export function EoRegisterSupplier() {
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("officer.phonePh")} className={inputCls} />
           </div>
           <div><label className="text-[11px] font-medium text-slate-400">Supplier No *</label><input value={supplierNo} onChange={(e) => setSupplierNo(e.target.value)} placeholder="e.g. 237" className={inputCls} /></div>
-          <div><label className="text-[11px] font-medium text-slate-400">Factory *</label><select value={factoryId} onChange={(e) => { setFactoryId(e.target.value); setRouteId(""); }} className={inputCls}><option value="">— select factory —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
-          <div><label className="text-[11px] font-medium text-slate-400">Route *</label><select value={routeId} onChange={(e) => setRouteId(e.target.value)} disabled={!factoryId} className={inputCls}><option value="">— select route —</option>{routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div>
+          <div><label className="text-[11px] font-medium text-slate-400">Factory *</label><select value={factoryId} disabled className={inputCls}><option value="">— assigned by admin —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+          <div><label className="text-[11px] font-medium text-slate-400">Route *</label><select value={routeId} disabled className={inputCls}><option value="">— assigned by admin —</option>{routes.map((route) => <option key={route.id} value={route.id}>{route.label}</option>)}</select></div>
           <div>
             <label className="text-[11px] font-medium text-slate-400"><Building2 className="mr-1 inline h-3 w-3" />Linked estate (optional)</label>
             <select
@@ -134,7 +143,7 @@ export function EoRegisterSupplier() {
           </div>
         </div>
         {error && <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
-        <button onClick={register} disabled={busy} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition enabled:hover:brightness-110 disabled:opacity-60">
+        <button onClick={register} disabled={busy || !assignment} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition enabled:hover:brightness-110 disabled:opacity-60">
           {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserPlus className="h-5 w-5" />}
           {busy ? t("officer.registering") : t("officer.registerBtn")}
         </button>
@@ -160,17 +169,24 @@ export function EoWeighing() {
   const [factories, setFactories] = useState<FactoryOption[]>([]);
   const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierDirectoryEntry[]>([]);
+  const [assignment, setAssignment] = useState<CollectorAssignment | null>(null);
   const net = +(gross * (1 - ded / 100)).toFixed(1);
 
   const estate = estates[0];
   const estateId = estate?.id ?? "";
 
-  useEffect(() => { void readFactories().then(setFactories).catch(() => setFactories([])); }, []);
   useEffect(() => {
-    setRouteId(""); setSupplierId(""); setSuppliers([]);
+    void readFactories().then(setFactories).catch(() => setFactories([]));
+    void readTodayAssignment(userUid).then((todayAssignment) => {
+      setAssignment(todayAssignment);
+      if (todayAssignment) { setFactoryId(todayAssignment.factoryId); setRouteId(todayAssignment.routeId); }
+    }).catch(() => setAssignment(null));
+  }, [userUid]);
+  useEffect(() => {
+    if (!assignment) setRouteId(""); setSupplierId(""); setSuppliers([]);
     if (!factoryId) { setRoutes([]); return; }
     void readRoutes(factoryId).then(setRoutes).catch(() => setRoutes([]));
-  }, [factoryId]);
+  }, [factoryId, assignment]);
   useEffect(() => {
     let active = true;
     setSupplierId("");
@@ -286,7 +302,11 @@ export function EoWeighing() {
         <StatCard icon={Building2} label={t("officer.estate")} value={estate?.name?.slice(0, 10) ?? "—"} tone="amber" />
       </div>
 
-      <LorryTrackingControls routeId={routeId} driverId={userUid} />
+      <Card className={`mt-4 p-4 ${assignment ? "border-emerald-200" : "border-amber-200"}`}>
+        {assignment ? <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase text-slate-400">Today's Route</p><p className="font-bold text-slate-800"><span className="text-emerald-700">{assignment.routeCode}</span> — {assignment.routeName}</p><p className="text-xs text-slate-500">{assignment.factoryName} · {assignment.lorryPlate || "Lorry not specified"}</p></div><div className="flex gap-2">{assignment.status === "assigned" && <button onClick={() => void updateAssignmentStatus(assignment.id, "started").then(() => setAssignment({ ...assignment, status: "started" }))} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Start Collection</button>}{assignment.status === "started" && <button onClick={() => void updateAssignmentStatus(assignment.id, "completed").then(() => setAssignment({ ...assignment, status: "completed" }))} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white">Complete Collection</button>}<Badge tone={assignment.status === "completed" ? "sky" : "emerald"}>{assignment.status}</Badge></div></div> : <p className="text-sm font-bold text-amber-700">No route assigned for today — contact admin</p>}
+      </Card>
+
+      <LorryTrackingControls routeId={routeId} driverId={userUid} assignmentId={assignment?.id} enabled={assignment?.status === "started"} />
 
       {/* EO Geo-Location Verification — Sir's spec #2: confirm EO is at the registered estate */}
       <EoLocationVerify estate={estate} />
@@ -294,8 +314,8 @@ export function EoWeighing() {
       <Card className="mt-4 p-4">
         <h3 className="mb-3 font-display text-sm font-bold text-slate-800">{t("officer.newWeighIn")}</h3>
         <div className="grid grid-cols-2 gap-2.5 text-sm">
-          <div><label className="text-[11px] font-medium text-slate-400">Factory</label><select value={factoryId} onChange={(e) => setFactoryId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select factory —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
-          <div><label className="text-[11px] font-medium text-slate-400">Route</label><select value={routeId} onChange={(e) => setRouteId(e.target.value)} disabled={!factoryId} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select route —</option>{routes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div>
+          <div><label className="text-[11px] font-medium text-slate-400">Factory</label><select value={factoryId} disabled className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-2.5"><option value="">— assigned by admin —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+          <div><label className="text-[11px] font-medium text-slate-400">Route</label><select value={routeId} disabled className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-2.5"><option value="">— assigned by admin —</option>{routes.map((route) => <option key={route.id} value={route.id}>{route.label}</option>)}</select></div>
           <div className="col-span-2"><div className="flex items-center justify-between"><label className="text-[11px] font-medium text-slate-400">Supplier</label>{routeId && <span className="text-[10px] text-slate-400">{suppliers.length} on selected route</span>}</div><select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} disabled={!routeId} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select supplier from route —</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>#{supplier.supplierNo} · {supplier.name}</option>)}</select></div>
           <div>
             <label className="text-[11px] font-medium text-slate-400">{t("officer.gradeLabel")}</label>
@@ -339,7 +359,7 @@ export function EoWeighing() {
   );
 }
 
-function LorryTrackingControls({ routeId, driverId }: { routeId: string; driverId: string }) {
+function LorryTrackingControls({ routeId, driverId, assignmentId, enabled }: { routeId: string; driverId: string; assignmentId?: string; enabled: boolean }) {
   const [tracking, setTracking] = useState(false);
   const [message, setMessage] = useState("Select a route, then start tracking while the collection lorry is running.");
   const watchIdRef = useRef<number | null>(null);
@@ -367,6 +387,7 @@ function LorryTrackingControls({ routeId, driverId }: { routeId: string; driverI
     void publishLorryLocation({
       routeId: publishingRoute,
       driverId,
+      assignmentId,
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,
       accuracyM: position.coords.accuracy,
@@ -414,6 +435,11 @@ function LorryTrackingControls({ routeId, driverId }: { routeId: string; driverI
   }, [routeId, tracking]);
 
   useEffect(() => {
+    if (!enabled && tracking) stop("Collection completed. Live lorry tracking stopped.");
+    else if (!enabled && !tracking) setMessage("Start today's collection before enabling live GPS.");
+  }, [enabled, tracking]);
+
+  useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
@@ -425,6 +451,7 @@ function LorryTrackingControls({ routeId, driverId }: { routeId: string; driverI
   }, [driverId]);
 
   const start = () => {
+    if (!enabled) { setMessage("Start today's collection before enabling live GPS."); return; }
     if (!routeId) { setMessage("Select a route before starting lorry tracking."); return; }
     if (!("geolocation" in navigator)) { setMessage("GPS is not supported on this device."); return; }
     activeRouteRef.current = routeId;
@@ -444,7 +471,7 @@ function LorryTrackingControls({ routeId, driverId }: { routeId: string; driverI
       <div className="flex items-center justify-between gap-3">
         <div><p className="text-sm font-bold text-sky-900">Collection lorry live GPS</p><p className="mt-0.5 text-[11px] text-sky-700">{message}</p></div>
         {!tracking
-          ? <button onClick={start} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white">Start GPS</button>
+          ? <button onClick={start} disabled={!enabled} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Start GPS</button>
           : <button onClick={() => stop()} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white">Stop GPS</button>}
       </div>
     </Card>

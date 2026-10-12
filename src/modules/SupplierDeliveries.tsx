@@ -8,6 +8,7 @@ import { fmtLKR, fmtNum, type SupplyRecord } from "@/lib/data";
 import { readMyHarvestRecords } from "@/lib/repo";
 import { readDailyTeaPrices, readUserOperationalProfile } from "@/lib/supplierOperations";
 import { useLiveData } from "@/lib/useLiveData";
+import { readSupplierFinancialSummary, type SupplierFinancialSummary } from "@/lib/financialSummary";
 
 type LeafGroup = "normal" | "super";
 
@@ -34,6 +35,7 @@ export function SupplierDeliveries() {
   const { t } = useTranslation();
   const { userUid } = useApp();
   const [prices, setPrices] = useState<Record<string, number>>({});
+  const [financial, setFinancial] = useState<SupplierFinancialSummary | null>(null);
   const { data: records, loading } = useLiveData<SupplyRecord>(
     "harvest_records",
     // Round 11 multi-estate: supplier ownership, not one legacy primary estate,
@@ -43,6 +45,7 @@ export function SupplierDeliveries() {
   );
 
   useEffect(() => {
+    void readSupplierFinancialSummary(userUid, sriLankaMonth()).then(setFinancial).catch(() => setFinancial(null));
     void readUserOperationalProfile(userUid)
       .then((profile) => readDailyTeaPrices(undefined, profile?.factoryId))
       .then((rows) => setPrices(Object.fromEntries(rows.map((row) => [row.grade, row.pricePerKg]))))
@@ -85,7 +88,7 @@ export function SupplierDeliveries() {
   }, [monthRecords, prices]);
 
   const totalKg = breakdown.normal.kg + breakdown.super.kg;
-  const totalAmount = breakdown.normal.amount + breakdown.super.amount;
+  const totalAmount = financial?.grossEarnings ?? 0;
   const superPercentage = totalKg ? Math.round((breakdown.super.kg / totalKg) * 100) : 0;
 
   return (

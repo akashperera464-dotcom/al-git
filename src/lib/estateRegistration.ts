@@ -292,7 +292,7 @@ function mapDbToRequest(r: Record<string, unknown>): EstateRegistrationRequest {
     acreage: Number(r.acreage ?? 0),
     bushCount: Number(r.bush_count ?? 0),
     cultivar: (r.cultivar as string) ?? "",
-    region: (r.region as string) ?? "low-country",
+    region: (r.region as EstateRegistrationRequest["region"]) ?? "low-country",
     soilType: (r.soil_type as EstateRegistrationRequest["soilType"]) ?? "unknown",
     latitude: Number(r.latitude ?? 0),
     longitude: Number(r.longitude ?? 0),

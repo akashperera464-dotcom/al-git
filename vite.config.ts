@@ -3,14 +3,21 @@ import { fileURLToPath } from "url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import { viteSingleFile } from "vite-plugin-singlefile";
+import { VitePWA } from "vite-plugin-pwa";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), viteSingleFile()],
+  plugins: [react(), tailwindcss(), VitePWA({
+    strategies: "injectManifest",
+    srcDir: "public",
+    filename: "sw.ts",
+    injectRegister: false,
+    manifest: false,
+    injectManifest: { globPatterns: ["**/*.{js,css,html,png,svg,json,woff2}"], maximumFileSizeToCacheInBytes: 3 * 1024 * 1024 },
+  })],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

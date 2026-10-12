@@ -675,5 +675,11 @@
   "moveType": { "in": "சரக்கு வரவு", "out": "சரக்கு வெளியீடு", "adjust": "சரிசெய்தல்", "transfer": "மாற்றுதல்" },
   "landType": { "tea": "தேயிலை நிலம்", "forest": "காடு", "water": "நீர்ப்பகுதி", "road": "சாலை", "nursery": "நாற்றங்கால்", "factory": "தொழிற்சாலை" },
   "plotState": { "plucking": "பறிப்பு நிலையில்", "pruned": "கவாத்து செய்யப்பட்டது", "young": "இளம் தேயிலை", "nursery": "நாற்றங்கால்" },
-  "role": { "super_admin": "தலைமை நிர்வாகி", "admin": "நிர்வாகி", "extension_officer": "விரிவாக்க அலுவலர்", "supplier": "விநியோகஸ்தர்" }
+  "role": { "super_admin": "தலைமை நிர்வாகி", "admin": "நிர்வாகி", "extension_officer": "விரிவாக்க அலுவலர்", "supplier": "விநியோகஸ்தர்" },
+  "collector": { "todayRoute": "இன்றைய பாதை", "noRouteAssigned": "இன்று பாதை ஒதுக்கப்படவில்லை", "startCollection": "சேகரிப்பைத் தொடங்கு", "completeCollection": "சேகரிப்பை முடிக்கவும்", "routeCode": "பாதை குறியீடு" },
+  "lorry": { "distance": "தூரம்", "eta": "வருகை நேரம்", "approaching": "லாரி உங்கள் சேகரிப்பு இடத்தை நெருங்குகிறது", "prepareLeaves": "உங்கள் இலைகளைத் தயார் செய்யுங்கள்" },
+  "priceManagement": { "currentPrices": "தற்போதைய விலைகள்", "pendingChanges": "நிலுவையில் உள்ள விலை மாற்றங்கள்", "priceHistory": "விலை வரலாறு", "rollback": "மீளமை", "previousPrice": "முந்தைய விலை", "changedBy": "மாற்றியவர்", "changeReason": "மாற்றக் காரணம்" },
+  "finance": { "grossEarnings": "மொத்த வருவாய்", "totalDeductions": "மொத்த கழிப்புகள்", "paidAmount": "செலுத்தப்பட்ட தொகை", "estimatedNetPayable": "கணக்கிடப்பட்ட நிகர செலுத்த வேண்டிய தொகை", "confirmedNetPayable": "உறுதிசெய்யப்பட்ட நிகர தொகை", "confirmMonthEnd": "மாத இறுதியை உறுதிசெய்" },
+  "registration": { "suspiciousActivity": "சந்தேகத்திற்குரிய செயல்பாடு கண்டறியப்பட்டது. பின்னர் முயற்சிக்கவும்.", "tooManyAttempts": "பதிவு முயற்சிகள் அதிகம். பின்னர் முயற்சிக்கவும்.", "accountExists": "இந்த தொலைபேசி அல்லது மின்னஞ்சலுடன் கணக்கு ஏற்கனவே உள்ளது" },
+  "schema": { "updateRequired": "தரவுத்தள புதுப்பிப்பு தேவை — நிர்வாகத்தைத் தொடர்பு கொள்ளவும்" }
 }
