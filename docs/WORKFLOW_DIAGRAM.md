@@ -3253,7 +3253,59 @@ The registration-permit RLS helper now calls `extensions.digest(bytea, text)` ex
 
 The `supplier_plots` table introduced in Phase 1 stores its Firebase owner UID in `user_id`, unlike several later supplier tables that use `supplier_id`. The Round 12 RLS policy now targets the actual `user_id` column, resolving PostgreSQL error `42703` during migration replay. A regression test verifies that this legacy-table policy cannot silently return to the incorrect column name.
 
-*End of Workflow Diagram. Last updated: October 2026 (Round 12 — production hardening).*
+## 43. Zero-write Realtime Lorry Tracking + AI Advisory (Round 13)
+
+### 43.1 Ephemeral, route-isolated GPS flow
+
+```text
+Collector phone watchPosition()
+        │ every ~5 seconds while Start Live GPS is active
+        ▼
+private Realtime topic: route-tracking:<route UUID>
+        │ broadcast event: lorry_location (no INSERT/UPDATE)
+        ▼
+Suppliers assigned to that exact route only
+        │
+        ├─ moving lorry marker + fixed estate marker
+        ├─ Haversine distance + 30 km/h ETA
+        └─ proximity advisory below 1.5 km
+```
+
+- `src/lib/lorryBroadcast.ts` is the only active lorry coordinate transport. It validates the route UUID, uses a private Supabase Broadcast channel, rejects payloads carrying another route ID, and never calls a database table.
+- `src/modules/ExtensionOfficer.tsx` publishes the collector's newest browser GPS reading approximately every five seconds only while tracking is active.
+- `src/modules/LorryTracking.tsx` subscribes exclusively to the supplier profile's assigned route and renders the live lorry and approved estate on one bundled React-Leaflet map.
+- Broadcast data is intentionally ephemeral. Reloading waits for the next GPS message; location history and last-known persistence are deliberately unavailable in zero-write mode.
+- The older `lorry_locations` table remains in the schema for backward compatibility, but Round 13's frontend does not read or write it. Round 13 supersedes the database-write behavior described in sections 41.1, 41.2 and 42.2; assignment and FCM history features that depend on stored GPS rows are not active in zero-write mode.
+
+### 43.2 Realtime authorization
+
+`docs/migration_phase3_round13_realtime_lorry_broadcast.sql` adds RLS policies to `realtime.messages` without creating tables or enabling RLS on Supabase's managed table. Receive access is limited to the supplier's assigned route, today's assigned collector route, or operational administrators. Publish access is limited to the extension officer whose assignment for today is in `started` state and matches the topic's route UUID.
+
+Production configuration:
+
+1. Enable **Authentication → Third-Party Auth → Firebase** and refresh user tokens carrying `role: authenticated`.
+2. In **Realtime → Settings**, disable **Allow public access**; all route channels use `config.private: true`.
+3. Apply the Round 13 SQL after Round 12 and perform the two-route isolation test in `docs/MIGRATION_CHECKLIST.md`.
+
+Realtime authorization is evaluated when the client joins a channel. A role or assignment change therefore requires reconnecting that client so the new policy state is applied.
+
+### 43.3 Secure AI Estate Insights
+
+- Under 1.5 km, the supplier client calls the authenticated `openrouter-advisory` Supabase Edge Function once per route/estate approach.
+- The function verifies the caller is an active supplier, owns the estate and is assigned to the requested route before contacting OpenRouter.
+- The OpenRouter key is read only from the Edge Function secret `OPENROUTER_API_KEY`. It is never stored in `.env`, Vercel, the client bundle or Git.
+- Only distance, ETA and generic tea-leaf preparation context leave Supabase; names, exact coordinates, route IDs and user IDs are not sent to the model.
+- The configured model is `nvidia/nemotron-3-ultra-550b-a55b:free`. If the free provider is unavailable, the UI immediately uses professional localized deterministic advice in English, Sinhala or Tamil.
+- Deploy with `supabase functions deploy openrouter-advisory` and `supabase secrets set OPENROUTER_API_KEY=<new-rotated-key>`.
+
+### 43.4 Operational limitations and proof
+
+- “Zero database writes” applies to every GPS update. Normal authentication, profile/estate reads, assignments and schema-version records still use Supabase PostgreSQL.
+- OpenStreetMap tiles require network connectivity unless already cached by the service worker.
+- The free OpenRouter model has provider availability and rate limits; safe local advice keeps the proximity workflow usable during outages.
+- Automated tests validate the unique topic format, cross-route payload rejection, absence of `lorry_locations` access in the tracking transport, the 1.5 km boundary and localized fallbacks. A live two-route test remains mandatory after dashboard configuration and SQL deployment.
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 13 — private zero-write lorry Broadcast and AI advisory).*
 
 
 

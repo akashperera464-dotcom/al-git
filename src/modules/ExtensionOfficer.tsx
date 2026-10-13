@@ -368,7 +368,9 @@ function LorryTrackingControls({ routeId, driverId, assignmentId, enabled }: { r
   const activeRouteRef = useRef("");
   const lastPublishedAtRef = useRef(0);
   const mountedRef = useRef(true);
-  const writeIntervalMs = 30_000;
+  // Five-second WebSocket cadence keeps the moving marker responsive without
+  // writing any coordinates to PostgreSQL.
+  const broadcastIntervalMs = 5_000;
 
   const clearLocalTracking = () => {
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
@@ -391,9 +393,11 @@ function LorryTrackingControls({ routeId, driverId, assignmentId, enabled }: { r
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,
       accuracyM: position.coords.accuracy,
+      heading: position.coords.heading,
+      speedMps: position.coords.speed,
     }).then(() => {
       if (mountedRef.current && activeRouteRef.current === publishingRoute) {
-        setMessage(`Live location updated at ${new Date().toLocaleTimeString()}. Next update is limited to 30 seconds.`);
+        setMessage(`Live WebSocket broadcast sent at ${new Date().toLocaleTimeString()} — no database write.`);
       }
     }).catch((error) => {
       if (mountedRef.current) setMessage(error instanceof Error ? error.message : "Could not update location.");
@@ -403,7 +407,7 @@ function LorryTrackingControls({ routeId, driverId, assignmentId, enabled }: { r
   const queuePosition = (position: GeolocationPosition) => {
     latestPositionRef.current = position;
     const elapsed = Date.now() - lastPublishedAtRef.current;
-    if (elapsed >= writeIntervalMs && timerRef.current === null) {
+    if (elapsed >= broadcastIntervalMs && timerRef.current === null) {
       publish(position);
       return;
     }
@@ -411,7 +415,7 @@ function LorryTrackingControls({ routeId, driverId, assignmentId, enabled }: { r
       timerRef.current = window.setTimeout(() => {
         const latest = latestPositionRef.current;
         if (latest) publish(latest);
-      }, Math.max(0, writeIntervalMs - elapsed));
+      }, Math.max(0, broadcastIntervalMs - elapsed));
     }
   };
 
@@ -463,7 +467,7 @@ function LorryTrackingControls({ routeId, driverId, assignmentId, enabled }: { r
     );
     watchIdRef.current = id;
     setTracking(true);
-    setMessage("Live lorry tracking is active. Coordinates are upserted at most once every 30 seconds; keep this screen open during collection.");
+    setMessage("Private route broadcast is active. GPS streams by WebSocket with zero database writes; keep this screen open during collection.");
   };
 
   return (

@@ -2,6 +2,8 @@ import { createUserWithEmailAndPassword, deleteUser, signOut } from "firebase/au
 import { firebaseConfigured, initFirebase } from "./firebase";
 import { getSupabase, supabaseConfigured } from "./supabase";
 export { searchSupplierByNo } from "./estateRepo";
+export { publishLorryLocation, stopLorryLocation, subscribeToLorryLocation } from "./lorryBroadcast";
+export type { LorryChannelStatus, LorryLocation } from "./lorryBroadcast";
 
 export interface FactoryOption {
   id: string;
@@ -25,20 +27,6 @@ export interface SupplierDirectoryEntry {
   routeId?: string;
   factoryName?: string;
   routeName?: string;
-}
-
-export interface LorryLocation {
-  id: string;
-  routeId: string;
-  driverId: string;
-  latitude: number;
-  longitude: number;
-  accuracyM?: number;
-  active: boolean;
-  stoppedAt?: string;
-  updatedAt: string;
-  assignmentId?: string;
-  lastNotificationAt?: string;
 }
 
 export interface DailyTeaPrice {
@@ -270,114 +258,4 @@ function sriLankaDateISO(date = new Date()): string {
   }).formatToParts(date);
   const value = (type: "day" | "month" | "year") => parts.find((part) => part.type === type)?.value ?? "";
   return `${value("year")}-${value("month")}-${value("day")}`;
-}
-
-export async function publishLorryLocation(input: {
-  routeId: string;
-  driverId: string;
-  assignmentId?: string;
-  latitude: number;
-  longitude: number;
-  accuracyM?: number;
-}): Promise<void> {
-  if (!supabaseConfigured) return;
-  const sb = getSupabase()!;
-  const currentRow = {
-    route_id: input.routeId,
-    assignment_id: input.assignmentId ?? null,
-    driver_id: input.driverId,
-    latitude: input.latitude,
-    longitude: input.longitude,
-    accuracy_m: input.accuracyM ?? null,
-    active: true,
-    stopped_at: null,
-    updated_at: new Date().toISOString(),
-  };
-  let lookup = sb.from("lorry_locations").select("id").eq("route_id", input.routeId).eq("active", true).order("updated_at", { ascending: false }).limit(1);
-  if (input.assignmentId) lookup = lookup.eq("assignment_id", input.assignmentId);
-  const lookupResult = await lookup.maybeSingle();
-  // Keep the deployed Round 10 schema operational while the administrator is
-  // applying Round 12. The legacy table has one location per route and does
-  // not yet contain active/assignment trip columns.
-  if (lookupResult.error && /active|assignment_id/i.test(lookupResult.error.message)) {
-    const legacyRow = {
-      route_id: input.routeId,
-      driver_id: input.driverId,
-      latitude: input.latitude,
-      longitude: input.longitude,
-      accuracy_m: input.accuracyM ?? null,
-      updated_at: new Date().toISOString(),
-    };
-    const retry = await sb.from("lorry_locations").upsert(legacyRow, { onConflict: "route_id" });
-    if (retry.error) throw new Error(`Could not publish lorry location: ${retry.error.message}`);
-    return;
-  }
-  if (lookupResult.error) throw new Error(`Could not find active lorry location: ${lookupResult.error.message}`);
-  const existing = lookupResult.data;
-  let { error } = existing
-    ? await sb.from("lorry_locations").update(currentRow).eq("id", existing.id)
-    : await sb.from("lorry_locations").insert(currentRow);
-  // Deployment-safe fallback until the Round 12 SQL is pasted.
-  if (error && /active|stopped_at|assignment_id/i.test(error.message)) {
-    const { active: _active, stopped_at: _stoppedAt, assignment_id: _assignmentId, ...legacyRow } = currentRow;
-    void _active;
-    void _stoppedAt;
-    void _assignmentId;
-    const retry = existing
-      ? await sb.from("lorry_locations").update(legacyRow).eq("id", existing.id)
-      : await sb.from("lorry_locations").insert(legacyRow);
-    error = retry.error;
-  }
-  if (error) throw new Error(`Could not publish lorry location: ${error.message}`);
-}
-
-export async function stopLorryLocation(routeId: string, driverId: string): Promise<void> {
-  if (!supabaseConfigured || !routeId) return;
-  const stoppedAt = new Date().toISOString();
-  const { error } = await getSupabase()!.from("lorry_locations")
-    .update({ active: false, stopped_at: stoppedAt, updated_at: stoppedAt })
-    .eq("route_id", routeId)
-    .eq("driver_id", driverId);
-  // Before Round 12 is installed, freshness timeout still safely marks the
-  // last location as stale; the missing optional columns must not break stop.
-  if (error && !/active|stopped_at/i.test(error.message)) {
-    throw new Error(`Could not stop lorry tracking: ${error.message}`);
-  }
-}
-
-function mapLorryLocation(row: Record<string, unknown>): LorryLocation {
-  return {
-    id: String(row.id ?? ""),
-    routeId: String(row.route_id ?? ""),
-    driverId: String(row.driver_id ?? ""),
-    latitude: Number(row.latitude),
-    longitude: Number(row.longitude),
-    accuracyM: row.accuracy_m == null ? undefined : Number(row.accuracy_m),
-    active: row.active !== false,
-    stoppedAt: row.stopped_at == null ? undefined : String(row.stopped_at),
-    updatedAt: String(row.updated_at ?? ""),
-    assignmentId: row.assignment_id == null ? undefined : String(row.assignment_id),
-    lastNotificationAt: row.last_notification_at == null ? undefined : String(row.last_notification_at),
-  };
-}
-
-export async function readLatestLorryLocation(routeId: string): Promise<LorryLocation | null> {
-  if (!supabaseConfigured || !routeId) return null;
-  const { data, error } = await getSupabase()!.from("lorry_locations").select("*")
-    .eq("route_id", routeId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
-  if (error) throw new Error(`Could not load lorry location: ${error.message}`);
-  return data ? mapLorryLocation(data) : null;
-}
-
-export function subscribeToLorryLocation(routeId: string, onLocation: (location: LorryLocation) => void): () => void {
-  if (!supabaseConfigured || !routeId) return () => {};
-  const sb = getSupabase()!;
-  const channel = sb.channel(`lorry-route-${routeId}`)
-    .on("postgres_changes", {
-      event: "*", schema: "public", table: "lorry_locations", filter: `route_id=eq.${routeId}`,
-    }, payload => {
-      if (payload.new && Object.keys(payload.new).length) onLocation(mapLorryLocation(payload.new));
-    })
-    .subscribe();
-  return () => { void sb.removeChannel(channel); };
 }

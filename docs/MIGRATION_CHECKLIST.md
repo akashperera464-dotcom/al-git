@@ -14,6 +14,7 @@ The production database remains Supabase PostgreSQL. Apply migrations in order a
 8. `migration_phase3_round11_unified_estates.sql`
 9. `migration_phase3_round12_lorry_tracking_hardening.sql` (safe prerequisite/compatibility patch)
 10. `migration_phase3_round12_production_hardening.sql`
+11. `migration_phase3_round13_realtime_lorry_broadcast.sql`
 
 ## Before deployment
 
@@ -71,6 +72,40 @@ Use separate Firebase users for supplier A, supplier B, a collector assigned tod
 - Admin reads all operational rows.
 - A request without a Firebase subject cannot read operational tables. Factories/routes are deliberate read-only exceptions required by pre-login supplier registration.
 
+## Apply and verify Round 13 — private lorry Broadcast
+
+1. Paste `docs/migration_phase3_round13_realtime_lorry_broadcast.sql` into Supabase SQL Editor and run it after Round 12.
+2. In **Supabase Dashboard → Realtime → Settings**, turn off **Allow public access**. The app deliberately connects with `config.private: true`; this prevents public channels from bypassing the route policies.
+3. Reconfirm **Authentication → Third-Party Auth → Firebase** is enabled and that refreshed Firebase tokens contain `role: authenticated`.
+4. Deploy the AI advisory Edge Function and store a newly rotated OpenRouter key as a Supabase secret. Never add this secret to `.env`, Vercel variables, or source control:
+
+```bash
+supabase functions deploy openrouter-advisory
+supabase secrets set OPENROUTER_API_KEY=replace_with_a_new_rotated_key
+```
+
+The key shown in a chat or issue must be treated as compromised and revoked in OpenRouter before creating the replacement. The browser receives only the advisory response; it never receives the OpenRouter key. The Edge Function sends only distance, ETA and generic tea-collection context to OpenRouter—no coordinates, names, Firebase UID or other personal data.
+
+Verify the migration:
+
+```sql
+select * from public.schema_migrations where version='round_13';
+select policyname,cmd,roles,qual,with_check
+from pg_policies
+where schemaname='realtime' and tablename='messages'
+order by policyname;
+```
+
+Then run the live isolation test with two different routes:
+
+- Start today's collector assignment, open its collector screen and press **Start Live GPS**.
+- A supplier assigned to that exact route receives moving coordinates.
+- A supplier assigned to another route receives no coordinates.
+- Stop tracking and confirm the supplier receives the stop signal.
+- Query `lorry_locations` before and after several minutes. Its row count and timestamps must remain unchanged; Round 13 never writes coordinates to PostgreSQL.
+
+Because Broadcast payloads are ephemeral, reloading the supplier page intentionally shows “waiting” until the collector's next GPS broadcast. Historical trip playback is not part of this zero-write mode.
+
 ## Rollback
 
-Restore the pre-deployment dump for a full rollback. For an application-only rollback, deploy the previous Git commit while leaving additive columns/tables in place. Do not drop `client_record_id`, route codes, assignment history or audit rows after production writes begin. Price rollback must use the UI/RPC so the audit trail remains intact.
+Restore the pre-deployment dump for a full rollback. For an application-only rollback, deploy the previous Git commit while leaving additive columns/tables in place. To roll back only Round 13, remove the two named policies on `realtime.messages`, restore the previous frontend commit and re-enable public access only if an older public-channel feature explicitly requires it. Do not drop `client_record_id`, route codes, assignment history or audit rows after production writes begin. Price rollback must use the UI/RPC so the audit trail remains intact.
