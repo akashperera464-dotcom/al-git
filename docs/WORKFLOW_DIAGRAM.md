@@ -3267,7 +3267,7 @@ private Realtime topic: route-tracking:<route UUID>
 Suppliers assigned to that exact route only
         │
         ├─ moving lorry marker + fixed estate marker
-        ├─ Haversine distance + 30 km/h ETA
+        ├─ Haversine distance + 27.5 km/h rural-road ETA
         └─ proximity advisory below 1.5 km
 ```
 
@@ -3305,7 +3305,16 @@ Realtime authorization is evaluated when the client joins a channel. A role or a
 - The free OpenRouter model has provider availability and rate limits; safe local advice keeps the proximity workflow usable during outages.
 - Automated tests validate the unique topic format, cross-route payload rejection, absence of `lorry_locations` access in the tracking transport, the 1.5 km boundary and localized fallbacks. A live two-route test remains mandatory after dashboard configuration and SQL deployment.
 
-*End of Workflow Diagram. Last updated: October 2026 (Round 13 — private zero-write lorry Broadcast and AI advisory).*
+### 43.5 Frontend Haversine and ETA refinement
+
+- `src/lib/etaCalculation.ts` exposes `calculateDistance(lat1, lon1, lat2, lon2)`, using the Haversine formula and the IUGG mean Earth radius (`6371.0088 km`) without rounding the returned distance.
+- Latitude/longitude ranges and ETA speed are validated before calculation; the numerical term is bounded to protect the square-root calculation from floating-point drift near antipodal points.
+- Each incoming `lorry_location` Broadcast replaces the React location state. `useMemo` then recalculates distance and ETA immediately in the browser—there is no calculation API, database query or backend write.
+- ETA uses a documented rural estate-road average of `27.5 km/h`, the midpoint of the operational 25–30 km/h assumption. The result is rounded upward to a whole minute so the UI does not promise an earlier arrival.
+- The responsive ETA banner displays localized distance and estimated-arrival sentences in English, Sinhala and Tamil; under 1 km it retains two decimal places, while longer distances use one decimal place.
+- Unit tests cover a known one-degree Haversine result, identical points, invalid coordinates, speed-based ETA and the under-500-metre arrival state.
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 13 — private zero-write lorry Broadcast, frontend Haversine ETA and AI advisory).*
 
 
 

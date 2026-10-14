@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { Badge, Card } from "@/components/ui";
 import { AiEstateInsights } from "@/components/AiEstateInsights";
 import { EtaBanner } from "@/components/EtaBanner";
-import { calculateEta } from "@/lib/etaCalculation";
+import { calculateEta, DEFAULT_RURAL_SPEED_KMH, isValidGeoPoint } from "@/lib/etaCalculation";
 import { readMyEstates } from "@/lib/estateRepo";
 import { AI_ADVISORY_DISTANCE_KM, requestProximityAdvisory, type ProximityAdvisory } from "@/lib/openRouterAdvisory";
 import { readUserOperationalProfile } from "@/lib/supplierOperations";
@@ -53,7 +53,8 @@ export function LorryTracking({ userId }: { userId: string }) {
     setError(""); setLocation(null); setChannelStatus("connecting");
     void Promise.all([readUserOperationalProfile(userId), readMyEstates(userId)]).then(([profile, estates]) => {
       if (!active) return;
-      const estate = estates.find((item) => item.latitude != null && item.longitude != null);
+      const estate = estates.find((item) => item.latitude != null && item.longitude != null
+        && isValidGeoPoint({ latitude: item.latitude, longitude: item.longitude }));
       setEstatePoint(estate?.latitude != null && estate.longitude != null
         ? { id: estate.id, name: estate.name, latitude: estate.latitude, longitude: estate.longitude }
         : null);
@@ -76,7 +77,12 @@ export function LorryTracking({ userId }: { userId: string }) {
 
   const minutesOld = useMemo(() => location ? Math.max(0, Math.floor((clock - new Date(location.updatedAt).getTime()) / 60_000)) : null, [clock, location]);
   const live = channelStatus === "live" && Boolean(location?.active) && minutesOld !== null && minutesOld <= 2;
-  const eta = useMemo(() => location && estatePoint ? calculateEta(location, estatePoint) : null, [location, estatePoint]);
+  // `location` changes for every route Broadcast packet, so this memo performs
+  // an immediate, frontend-only Haversine + ETA recalculation with no query.
+  const eta = useMemo(
+    () => location && estatePoint ? calculateEta(location, estatePoint, DEFAULT_RURAL_SPEED_KMH) : null,
+    [location, estatePoint],
+  );
 
   useEffect(() => {
     if (!eta || !routeId || !estatePoint || eta.distanceKm >= AI_ADVISORY_DISTANCE_KM) {
