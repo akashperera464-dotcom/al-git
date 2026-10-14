@@ -9,6 +9,7 @@ import {
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
 import { readSupplierDirectory, type SupplierDirectoryEntry } from "@/lib/supplierOperations";
+import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 
 /**
  * Inventory & Procurement — stock items with moving-average valuation,
@@ -197,8 +198,8 @@ export default function Inventory() {
   const submitIssue = async () => {
     setError(null);
     if (!issueItemId || issueQty <= 0) { setError("Select item & quantity"); return; }
-    if (issuePaymentMode === "credit" && !issueSupplierName.trim()) {
-      setError("Supplier name required for credit issue");
+    if (issuePaymentMode === "credit" && (!selectedSupplierId || !issueSupplierName.trim())) {
+      setError("Select a supplier for a credit issue");
       return;
     }
     setBusy(true);
@@ -238,14 +239,18 @@ export default function Inventory() {
         try {
           const item = stock.find(s => s.id === issueItemId);
           if (item && item.category === "fertilizer") {
-            writeSupplierFertilizerLedger({
+            await writeSupplierFertilizerLedger({
+              supplierId: selectedSupplierId,
               supplierName: issueSupplierName.trim(),
+              stockItemId: item.id,
               stockItemCode: item.code,
               stockItemName: item.name,
               qtyIssued: issueQty,
               unit: item.unit,
               date: new Date().toISOString(),
               notes: finalNotes,
+              paymentMode: issuePaymentMode,
+              division: issueDivision || undefined,
             });
           }
         } catch { /* ledger write is best-effort */ }
@@ -795,18 +800,33 @@ export default function Inventory() {
 
 export interface SupplierFertilizerLedgerEntry {
   id: string;
+  supplierId: string;
   supplierName: string;       // matches the supplier's display name
+  stockItemId?: string;
   stockItemCode: string;
   stockItemName: string;
   qtyIssued: number;
   unit: string;
   date: string;                // ISO timestamp
   notes?: string;
+  paymentMode?: "cash" | "credit";
+  division?: string;
 }
 
 const LEDGER_KEY = "kdu.supplier_fertilizer_ledger";
 
-export function writeSupplierFertilizerLedger(entry: Omit<SupplierFertilizerLedgerEntry, "id">) {
+export async function writeSupplierFertilizerLedger(entry: Omit<SupplierFertilizerLedgerEntry, "id">): Promise<void> {
+  if (supabaseConfigured) {
+    const { error } = await getSupabase()!.from("supplier_fertilizer_ledger").insert({
+      supplier_id: entry.supplierId, supplier_name: entry.supplierName,
+      stock_item_id: entry.stockItemId ?? null, stock_item_code: entry.stockItemCode,
+      stock_item_name: entry.stockItemName, qty_issued: entry.qtyIssued, unit: entry.unit,
+      payment_mode: entry.paymentMode ?? "credit", division: entry.division ?? null,
+      issue_date: entry.date, notes: entry.notes ?? null,
+    });
+    if (error) throw new Error(`Could not save supplier fertilizer ledger: ${error.message}`);
+    return;
+  }
   try {
     const raw = localStorage.getItem(LEDGER_KEY);
     const list: SupplierFertilizerLedgerEntry[] = raw ? JSON.parse(raw) : [];

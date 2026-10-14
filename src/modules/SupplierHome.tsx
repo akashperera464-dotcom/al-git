@@ -3,20 +3,21 @@ import { Leaf, Bell, Wallet, Package, Sprout, ChevronRight, TrendingUp, AlertCir
 import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum, fmtLKRShort } from "@/lib/data";
-import { readMyHarvestRecords } from "@/lib/repo";
+import { readFarmActivities, readMyHarvestRecords } from "@/lib/repo";
 import { fetchForecast, getMockForecast } from "@/lib/weather";
 import type { WeatherDay } from "@/lib/data";
 import { useTranslation } from "react-i18next";
 import { readDailyTeaPrices, readUserOperationalProfile, type DailyTeaPrice } from "@/lib/supplierOperations";
 import { gradeKey } from "@/i18n/databaseValues";
 import { readSupplierFinancialSummary } from "@/lib/financialSummary";
+import { readMyEstates, type Estate as SupplierEstate } from "@/lib/estateRepo";
 
 const LorryTracking = lazy(() => import("@/modules/LorryTracking"));
 
 export function SupplierHome() {
   const { t, i18n } = useTranslation();
-  const { user, session, setActiveModule, userUid, associatedEntityId, estates, syncQueue, online } = useApp();
-  const estate = estates.find(e => e.id === associatedEntityId);
+  const { user, session, setActiveModule, userUid, associatedEntityId, syncQueue, online } = useApp();
+  const [estate, setEstate] = useState<SupplierEstate | undefined>();
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const greeting = getGreeting(currentTime);
   const firstName = (session?.name ?? user?.name ?? "Supplier").split(" ")[0];
@@ -27,6 +28,7 @@ export function SupplierHome() {
   const [monthExpenses, setMonthExpenses] = useState(0);
   const [superPct, setSuperPct] = useState(0);
   const [prices, setPrices] = useState<DailyTeaPrice[]>([]);
+  const [farmLogs, setFarmLogs] = useState<{ activityType: string; loggedDate: string }[]>([]);
 
   const pendingSync = syncQueue.filter(q => q.status === "queued").length;
 
@@ -36,12 +38,12 @@ export function SupplierHome() {
   }, []);
 
   useEffect(() => {
-    // Load weather
-    const plotRaw = localStorage.getItem(`kdu.supplier_plot.${userUid}`);
-    const plot = plotRaw ? JSON.parse(plotRaw) : null;
-    const lat = plot?.latitude ?? estate?.latitude;
-    const lon = plot?.longitude ?? estate?.longitude;
-    void fetchForecast(lat, lon).then(res => setForecast(res.days));
+    void readMyEstates(userUid).then((rows) => {
+      const selected = rows.find((row) => row.id === associatedEntityId) ?? rows.find((row) => row.status === "approved") ?? rows[0];
+      setEstate(selected);
+      return fetchForecast(selected?.latitude, selected?.longitude);
+    }).then((res) => setForecast(res.days)).catch(() => setForecast(getMockForecast()));
+    void readFarmActivities(userUid, 100).then(setFarmLogs).catch(() => setFarmLogs([]));
 
     // B30 (Round #12) — Load deliveries: kg + grade + amount (restored)
     void readMyHarvestRecords(userUid, associatedEntityId).then(recs => {
@@ -62,11 +64,9 @@ export function SupplierHome() {
     void readSupplierFinancialSummary(userUid, new Date().toISOString().slice(0, 7))
       .then((summary) => { setTotalEarned(summary?.grossEarnings ?? 0); setMonthExpenses(summary?.totalDeductions ?? 0); })
       .catch(() => { setTotalEarned(0); setMonthExpenses(0); });
-  }, [userUid, associatedEntityId, estate?.latitude, estate?.longitude, user?.name]);
+  }, [userUid, associatedEntityId, user?.name]);
 
   // Smart reminders from farm activities
-  const farmRaw = localStorage.getItem("kdu.farm_activities.cache");
-  const farmLogs: { activityType: string; loggedDate: string }[] = farmRaw ? JSON.parse(farmRaw) : [];
   const lastFert = farmLogs.filter(a => a.activityType === "fertilizer").sort((a, b) => b.loggedDate.localeCompare(a.loggedDate))[0];
   const lastPrune = farmLogs.filter(a => a.activityType === "pruning").sort((a, b) => b.loggedDate.localeCompare(a.loggedDate))[0];
   const now = Date.now();

@@ -40,6 +40,47 @@ export function isValidUuid(id: string | null | undefined): id is string {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 }
 
+const HARVEST_BASE_COLUMNS = "id, supplier_id, estate_id, weighed_at, created_at, gross_kg, net_kg, grade, leaf_type, deduction_percentage, factory_id, route_id, amount, status";
+const HARVEST_CONNECTED_COLUMNS = `${HARVEST_BASE_COLUMNS}, collector_id, lorry_plate, delivery_receipt_no, evidence_url, signature_data, record_status, void_reason`;
+
+function isMissingSchemaField(error: { code?: string; message?: string } | null | undefined): boolean {
+  return Boolean(error && (error.code === "42703" || error.code === "PGRST204" || /column .* does not exist|schema cache/i.test(error.message ?? "")));
+}
+
+function toSupplyRecord(r: Record<string, any>): SupplyRecord {
+  return {
+    id: r.id,
+    supplierId: r.supplier_id ?? "",
+    estateId: r.estate_id ?? "",
+    date: r.created_at ?? r.weighed_at,
+    kg: Number(r.net_kg),
+    grossKg: Number(r.gross_kg ?? r.net_kg),
+    grade: r.leaf_type ?? r.grade ?? "Standard",
+    deductionPercentage: Number(r.deduction_percentage ?? 0),
+    factoryId: r.factory_id ?? undefined,
+    routeId: r.route_id ?? undefined,
+    collectorId: r.collector_id ?? undefined,
+    lorryPlate: r.lorry_plate ?? undefined,
+    receiptNo: r.delivery_receipt_no ?? undefined,
+    evidenceUrl: r.evidence_url ?? undefined,
+    signatureData: r.signature_data ?? undefined,
+    recordStatus: r.record_status ?? "valid",
+    voidReason: r.void_reason ?? undefined,
+    amount: Number(r.amount ?? 0),
+    status: (r.status as SupplyRecord["status"]) ?? "Pending",
+  };
+}
+
+async function selectHarvestRows(configure: (query: any) => any): Promise<Record<string, any>[]> {
+  const sb = getSupabase()!;
+  let result = await configure(sb.from("harvest_records").select(HARVEST_CONNECTED_COLUMNS));
+  if (isMissingSchemaField(result.error)) {
+    result = await configure(sb.from("harvest_records").select(HARVEST_BASE_COLUMNS));
+  }
+  if (result.error) throw new Error(`Could not load deliveries: ${result.error.message}`);
+  return result.data ?? [];
+}
+
 /* ======================= 0 · BRANDING / SETTINGS (single-row, DB-persisted) ======================= */
 
 /**
@@ -276,6 +317,7 @@ export interface WeighInResult {
   success: boolean;
   status: "online" | "queued_offline" | "error";
   id?: string;
+  receiptNo?: string;
   error?: string;
 }
 
@@ -301,6 +343,11 @@ export async function saveLeafWeighing(role: Role, input: {
    *  When provided, the harvest_record is linked to the supplier so it shows
    *  up in their "My Leaf Deliveries" module + feeds the earnings calculation. */
   supplierId?: string;
+  estateId?: string;
+  collectorId?: string;
+  lorryPlate?: string;
+  evidenceUrl?: string;
+  signatureData?: string;
 }): Promise<WeighInResult> {
   void role; // RLS enforces supervisor/admin writes server-side
 
@@ -331,9 +378,7 @@ export async function saveLeafWeighing(role: Role, input: {
   const clientRecordId = crypto.randomUUID();
   const deviceId = getOrCreateDeviceId();
   try {
-    const { data: row, error } = await sb
-      .from("harvest_records")
-      .insert({
+    const basePayload = {
         worker_id: input.workerId ?? null,
         field_id: input.fieldId || null,
         center_id: input.centerId ?? null,
@@ -344,6 +389,7 @@ export async function saveLeafWeighing(role: Role, input: {
         deduction_percentage: input.deductionPercentage ?? 0,
         factory_id: input.factoryId ?? null,
         route_id: input.routeId ?? null,
+        estate_id: input.estateId ?? null,
         // B30 (Round #12) — store computed amount + supplier link
         amount,
         status: "Pending",
@@ -351,12 +397,19 @@ export async function saveLeafWeighing(role: Role, input: {
         client_record_id: clientRecordId,
         device_id: deviceId,
         synced_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single();
+    };
+    const connectedPayload = { ...basePayload,
+      collector_id: input.collectorId ?? null, lorry_plate: input.lorryPlate ?? null,
+      evidence_url: input.evidenceUrl ?? null, signature_data: input.signatureData ?? null,
+    };
+    let insertResult = await sb.from("harvest_records").insert(connectedPayload).select("id,delivery_receipt_no").single();
+    if (isMissingSchemaField(insertResult.error)) {
+      insertResult = await sb.from("harvest_records").insert(basePayload).select("id").single();
+    }
+    const { data: row, error } = insertResult;
 
     if (error) throw error;
-    return { success: true, status: "online", id: row.id };
+    return { success: true, status: "online", id: row.id, receiptNo: (row as { delivery_receipt_no?: string }).delivery_receipt_no ?? undefined };
   } catch (err) {
     // Network failure or Supabase error — enqueue for offline sync
     const errorMsg = err instanceof Error ? err.message : "Network error — possibly offline";
@@ -373,6 +426,11 @@ export async function saveLeafWeighing(role: Role, input: {
       deduction_percentage: input.deductionPercentage ?? 0,
       factory_id: input.factoryId ?? null,
       route_id: input.routeId ?? null,
+      estate_id: input.estateId ?? null,
+      collector_id: input.collectorId ?? null,
+      lorry_plate: input.lorryPlate ?? null,
+      evidence_url: input.evidenceUrl ?? null,
+      signature_data: input.signatureData ?? null,
       weighed_at: new Date().toISOString().slice(0, 10),
       // B30 (Round #12) — include amount + status + supplier_id in offline queue
       amount,
@@ -414,24 +472,8 @@ export async function getMyDeliveries(role: Role, callerUid: string, associatedE
   if (!supabaseConfigured) {
     return supplyHistory.filter((r) => r.supplierId === callerUid && r.estateId === associatedEntityId);
   }
-  const sb = getSupabase()!;
-  const { data, error } = await sb
-    .from("harvest_records")
-    .select("id, supplier_id, estate_id, weighed_at, gross_kg, net_kg, grade, leaf_type, deduction_percentage, factory_id, route_id, amount, status")
-    .eq("supplier_id", callerUid)
-    .eq("estate_id", associatedEntityId)
-    .order("weighed_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    supplierId: r.supplier_id,
-    estateId: r.estate_id,
-    date: r.weighed_at,
-    kg: r.net_kg,
-    grade: r.grade,
-    amount: r.amount ?? 0,
-    status: r.status as SupplyRecord["status"],
-  }));
+  const rows = await selectHarvestRows((query) => query.eq("supplier_id", callerUid).eq("estate_id", associatedEntityId).order("weighed_at", { ascending: false }));
+  return rows.map(toSupplyRecord);
 }
 
 /** Payment history — same uid + estate-scoped boundary. */
@@ -442,24 +484,8 @@ export async function getMyPayments(role: Role, callerUid: string, associatedEnt
       .filter((r) => r.supplierId === callerUid && r.estateId === associatedEntityId)
       .sort((a, b) => (a.date < b.date ? 1 : -1));
   }
-  const sb = getSupabase()!;
-  const { data, error } = await sb
-    .from("harvest_records")
-    .select("id, supplier_id, estate_id, weighed_at, gross_kg, net_kg, grade, leaf_type, deduction_percentage, factory_id, route_id, amount, status")
-    .eq("supplier_id", callerUid)
-    .eq("estate_id", associatedEntityId)
-    .order("weighed_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    supplierId: r.supplier_id,
-    estateId: r.estate_id,
-    date: r.weighed_at,
-    kg: r.net_kg,
-    grade: r.grade,
-    amount: r.amount ?? 0,
-    status: r.status as SupplyRecord["status"],
-  }));
+  const rows = await selectHarvestRows((query) => query.eq("supplier_id", callerUid).eq("estate_id", associatedEntityId).order("weighed_at", { ascending: false }));
+  return rows.map(toSupplyRecord);
 }
 
 /* ======================= 3 · RESOURCE REQUESTS ======================= */
@@ -468,10 +494,11 @@ export async function getMyPayments(role: Role, callerUid: string, associatedEnt
 export async function createResourceRequest(role: Role, input: Omit<ResourceRequest, "id" | "status" | "timestamp">): Promise<string> {
   if (!supabaseConfigured) return mockCreate("resource_requests", input);
   const sb = getSupabase()!;
-  const { data: row, error } = await sb
+  let result = await sb
     .from("resource_requests")
     .insert({
       supplier_id: input.supplierId,
+      supplier_name: input.supplierName,
       type: input.type,
       item_details: input.itemDetails,
       quantity: input.quantity,
@@ -482,6 +509,14 @@ export async function createResourceRequest(role: Role, input: Omit<ResourceRequ
     })
     .select("id")
     .single();
+  if (isMissingSchemaField(result.error)) {
+    result = await sb.from("resource_requests").insert({
+      supplier_id: input.supplierId, type: input.type, item_details: input.itemDetails,
+      quantity: input.quantity, date_needed: input.dateNeeded, duration_days: input.durationDays,
+      note: input.note, status: "PENDING",
+    }).select("id").single();
+  }
+  const { data: row, error } = result;
   if (error) throw error;
   void role;
   return row.id;
@@ -491,9 +526,13 @@ export async function createResourceRequest(role: Role, input: Omit<ResourceRequ
 export async function readResourceRequests(_role: Role): Promise<ResourceRequest[]> {
   const sb = getSupabase();
   if (!sb || !supabaseConfigured) return [];
-  const { data, error } = await sb.from("resource_requests").select("*").order("timestamp", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(toResourceRequest);
+  const result = await sb.from("resource_requests").select("*,supplier:users!resource_requests_supplier_id_fkey(name)").order("timestamp", { ascending: false });
+  if (result.error) {
+    const fallback = await sb.from("resource_requests").select("*").order("timestamp", { ascending: false });
+    if (fallback.error) throw fallback.error;
+    return (fallback.data ?? []).map(toResourceRequest);
+  }
+  return (result.data ?? []).map(toResourceRequest);
 }
 
 /** Admin approves/rejects — silent state change, FCM handled by a Supabase trigger. */
@@ -527,7 +566,7 @@ function toResourceRequest(r: Record<string, any>): ResourceRequest {
   return {
     id: r.id,
     supplierId: r.supplier_id,
-    supplierName: r.supplier_name ?? "",
+    supplierName: r.supplier_name ?? r.supplier?.name ?? "Supplier",
     type: r.type,
     itemDetails: r.item_details,
     quantity: r.quantity,
@@ -536,7 +575,11 @@ function toResourceRequest(r: Record<string, any>): ResourceRequest {
     note: r.note ?? "",
     status: r.status,
     adminNotes: r.admin_notes ?? "",
-    timestamp: r.timestamp,
+    timestamp: typeof r.timestamp === "number" ? r.timestamp : new Date(r.timestamp).getTime(),
+    fulfillmentStatus: r.fulfillment_status ?? undefined,
+    fulfilledAt: r.fulfilled_at ?? undefined,
+    fulfilledBy: r.fulfilled_by ?? undefined,
+    completedAt: r.completed_at ?? undefined,
   };
 }
 
@@ -662,26 +705,23 @@ export async function deleteWorker(id: string): Promise<void> {
  */
 export async function readAllHarvestRecords(): Promise<SupplyRecord[]> {
   if (!supabaseConfigured) return supplyHistory;
+  const rows = await selectHarvestRows((query) => query.order("weighed_at", { ascending: false }));
+  return rows.map(toSupplyRecord);
+}
+
+/** Non-destructive correction: preserves the original delivery and its audit trail. */
+export async function voidHarvestRecord(recordId: string, actorId: string, reason: string): Promise<void> {
+  const { error } = await getSupabase()!.from("harvest_records").update({ record_status: "void", voided_at: new Date().toISOString(), voided_by: actorId, void_reason: reason }).eq("id", recordId);
+  if (error) throw new Error(`Could not void delivery: ${error.message}`);
+}
+
+export async function uploadDeliveryEvidence(file: File, collectorId: string): Promise<string> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${collectorId}/${new Date().toISOString().slice(0,10)}/${crypto.randomUUID()}.${ext}`;
   const sb = getSupabase()!;
-  const { data, error } = await sb
-    .from("harvest_records")
-    .select("id, supplier_id, estate_id, weighed_at, gross_kg, net_kg, grade, leaf_type, deduction_percentage, factory_id, route_id, amount, status")
-    .order("weighed_at", { ascending: false });
-  if (error) throw new Error(`Could not load harvest: ${error.message}`);
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    supplierId: r.supplier_id ?? "",
-    estateId: r.estate_id ?? "",
-    date: r.weighed_at,
-    kg: Number(r.net_kg),
-    grossKg: Number(r.gross_kg ?? r.net_kg),
-    grade: r.leaf_type ?? r.grade ?? "Standard",
-    deductionPercentage: Number(r.deduction_percentage ?? 0),
-    factoryId: r.factory_id ?? undefined,
-    routeId: r.route_id ?? undefined,
-    amount: Number(r.amount ?? 0),
-    status: (r.status as SupplyRecord["status"]) ?? "Pending",
-  }));
+  const { error } = await sb.storage.from("delivery-evidence").upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw new Error(`Photo upload failed: ${error.message}`);
+  return sb.storage.from("delivery-evidence").getPublicUrl(path).data.publicUrl;
 }
 
 /**
@@ -693,29 +733,12 @@ export async function readMyHarvestRecords(supplierId: string, estateId?: string
   if (!supabaseConfigured) {
     return supplyHistory.filter((r) => r.supplierId === supplierId && (!estateId || estateId === supplierId || r.estateId === estateId));
   }
-  const sb = getSupabase()!;
-  let query = sb
-    .from("harvest_records")
-    .select("id, supplier_id, estate_id, weighed_at, gross_kg, net_kg, grade, leaf_type, deduction_percentage, factory_id, route_id, amount, status")
-    .eq("supplier_id", supplierId)
-    .order("weighed_at", { ascending: false });
-  if (estateId && estateId !== supplierId && isValidUuid(estateId)) query = query.eq("estate_id", estateId);
-  const { data, error } = await query;
-  if (error) throw new Error(`Could not load deliveries: ${error.message}`);
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    supplierId: r.supplier_id ?? "",
-    estateId: r.estate_id ?? "",
-    date: r.weighed_at,
-    kg: Number(r.net_kg),
-    grossKg: Number(r.gross_kg ?? r.net_kg),
-    grade: r.leaf_type ?? r.grade ?? "Standard",
-    deductionPercentage: Number(r.deduction_percentage ?? 0),
-    factoryId: r.factory_id ?? undefined,
-    routeId: r.route_id ?? undefined,
-    amount: Number(r.amount ?? 0),
-    status: (r.status as SupplyRecord["status"]) ?? "Pending",
-  }));
+  const rows = await selectHarvestRows((base) => {
+    let query = base.eq("supplier_id", supplierId).order("weighed_at", { ascending: false });
+    if (estateId && estateId !== supplierId && isValidUuid(estateId)) query = query.eq("estate_id", estateId);
+    return query;
+  });
+  return rows.map(toSupplyRecord);
 }
 
 /* ======================= 6 · ESTATE MAPS + SUPPLIER LOCATIONS ======================= */

@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { recordHealthEvent } from "@/lib/connectedOperations";
 
 interface State { hasError: boolean; error?: Error; }
 
@@ -17,6 +18,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   componentDidCatch(error: Error, info: unknown) {
     // eslint-disable-next-line no-console
     console.error("[ErrorBoundary]", error, info);
+    void recordHealthEvent({ category: "client_error", severity: "error", module: window.location.pathname, message: error.message, details: { stack: error.stack, componentStack: String((info as { componentStack?: string })?.componentStack ?? ""), userAgent: navigator.userAgent } });
   }
 
   render() {

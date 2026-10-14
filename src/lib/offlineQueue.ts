@@ -87,7 +87,8 @@ export function enqueueMutation(input: {
  * Attempt to flush ALL pending mutations to Supabase.
  * - Successfully synced records are removed from the queue.
  * - Failed records stay queued with incremented `attempts`.
- * - Records that exceed MAX_ATTEMPTS are dead-lettered (removed + logged).
+ * - Records that exceed MAX_ATTEMPTS are retained as failed/dead-letter rows
+ *   for operator recovery; offline data is never silently deleted.
  *
  * Returns a summary of what happened.
  */
@@ -115,6 +116,7 @@ export async function flushQueue(): Promise<{
     if (mut.attempts >= MAX_ATTEMPTS) {
       deadLettered++;
       console.error(`[offlineQueue] Dead-lettered mutation ${mut.id} after ${MAX_ATTEMPTS} attempts: ${mut.lastError}`);
+      stillPending.push(mut);
       continue;
     }
 

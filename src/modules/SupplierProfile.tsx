@@ -7,6 +7,8 @@ import { readUserOperationalProfile } from "@/lib/supplierOperations";
 import { useTranslation } from "react-i18next";
 import { readSupplierFinancialSummary } from "@/lib/financialSummary";
 import { readUserRouteAssignments, type UserRouteAssignment } from "@/lib/userRoutes";
+import { createWorkflowRequest, readSupplierProfile, saveSupplierProfile } from "@/lib/connectedOperations";
+import { markAlertRead, markAlertsRead, readAlerts } from "@/lib/notifications";
 
 /**
  * SupplierProfile — "My Profile" module (supplier side)
@@ -22,7 +24,6 @@ import { readUserRouteAssignments, type UserRouteAssignment } from "@/lib/userRo
  * earnings/payment figures no longer appear in the supplier portal.
  */
 const PROFILE_KEY = (uid: string) => `kdu.supplier_profile.${uid}`;
-const NOTIFS_KEY = (uid: string) => `kdu.supplier_notifications.${uid}`;
 
 interface StoredNotification {
   id: string;
@@ -81,21 +82,22 @@ export function SupplierProfile() {
   const [assignedRoutes, setAssignedRoutes] = useState<UserRouteAssignment[]>([]);
 
   useEffect(() => {
-    // Load profile
-    try {
-      const raw = localStorage.getItem(PROFILE_KEY(userUid));
-      if (raw) {
-        setProfile({ ...DEFAULT_PROFILE, ...JSON.parse(raw) });
-      } else if (user?.name) {
-        setProfile({ ...DEFAULT_PROFILE, name: user.name });
-      }
-    } catch { /* ignore */ }
+    // Supabase is authoritative. A one-time local cache import preserves data
+    // entered before Round 15 and then makes it available on every device.
+    void readSupplierProfile(userUid).then(async (remote) => {
+      if (remote) { setProfile({ ...DEFAULT_PROFILE, ...remote, notificationPrefs: { ...DEFAULT_PROFILE.notificationPrefs, ...remote.notificationPrefs } }); return; }
+      let initial = { ...DEFAULT_PROFILE, name: user?.name ?? "" };
+      try { const raw = localStorage.getItem(PROFILE_KEY(userUid)); if (raw) initial = { ...initial, ...JSON.parse(raw) }; } catch { /* ignore legacy cache */ }
+      setProfile(initial);
+      await saveSupplierProfile(userUid, initial).catch(() => {});
+    }).catch(() => setProfile({ ...DEFAULT_PROFILE, name: user?.name ?? "" }));
 
-    // Load notifications (from toast history — we also listen for new toasts)
-    try {
-      const raw = localStorage.getItem(NOTIFS_KEY(userUid));
-      if (raw) setNotifications(JSON.parse(raw));
-    } catch { /* ignore */ }
+    // The alerts table is authoritative across devices. Toasts remain a
+    // transient convenience and are not treated as financial/operational data.
+    void readAlerts(userUid, 50).then((rows) => setNotifications(rows.map((row) => ({
+      id: row.id, title: row.title, body: row.body, tone: "sky", channel: row.alert_type,
+      timestamp: new Date(row.created_at).getTime(), read: row.read,
+    })))).catch(() => setNotifications([]));
 
     void readSupplierFinancialSummary(userUid, new Date().toISOString().slice(0, 7)).then((summary) => {
       setTotalEarned(summary?.grossEarnings ?? 0);
@@ -119,39 +121,29 @@ export function SupplierProfile() {
         timestamp: Date.now(),
         read: false,
       };
-      setNotifications(prev => {
-        const next = [newNotif, ...prev].slice(0, 50);
-        try { localStorage.setItem(NOTIFS_KEY(userUid), JSON.stringify(next)); } catch { /* ignore */ }
-        return next;
-      });
+      setNotifications(prev => [newNotif, ...prev].slice(0, 50));
     };
     window.addEventListener("verda:toast", handleToast);
 
     return () => window.removeEventListener("verda:toast", handleToast);
   }, [userUid, user?.name]);
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     try {
-      localStorage.setItem(PROFILE_KEY(userUid), JSON.stringify(profile));
+      await createWorkflowRequest({ requestType: "profile_change", requestedBy: userUid, relatedEntityType: "supplier_profile", relatedEntityId: userUid, subject: "Supplier profile change", details: { profile } });
       setEditing(false);
-      notify({ title: "Profile saved ✅", body: "Your profile details have been updated.", tone: "emerald", channel: "system" });
-    } catch { /* ignore */ }
+      notify({ title: t("supplierProfile.changeSubmitted", { defaultValue: "Profile change submitted" }), body: t("supplierProfile.changePending", { defaultValue: "An administrator will review the change before it becomes active." }), tone: "sky", channel: "system" });
+    } catch (error) { notify({ title: t("common.error", { defaultValue: "Error" }), body: error instanceof Error ? error.message : "Profile change could not be submitted.", tone: "rose", channel: "system" }); }
   };
 
   const markNotifRead = (id: string) => {
-    setNotifications(prev => {
-      const next = prev.map(n => n.id === id ? { ...n, read: true } : n);
-      try { localStorage.setItem(NOTIFS_KEY(userUid), JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    if (!id.startsWith("n-")) void markAlertRead(id);
   };
 
   const markAllRead = () => {
-    setNotifications(prev => {
-      const next = prev.map(n => ({ ...n, read: true }));
-      try { localStorage.setItem(NOTIFS_KEY(userUid), JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    void markAlertsRead(userUid);
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -216,7 +208,7 @@ export function SupplierProfile() {
               <label className="text-[11px] text-slate-400">📷 {t("supplierProfile.photo")}</label>
               <input value={profile.photoUrl} onChange={e => setProfile({ ...profile, photoUrl: e.target.value })} placeholder="URL to your photo" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm" />
             </div>
-            <button onClick={saveProfile} className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 inline-flex items-center justify-center gap-1.5">
+            <button onClick={() => void saveProfile()} className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-semibold text-white hover:brightness-110 inline-flex items-center justify-center gap-1.5">
               <Save className="h-3.5 w-3.5" /> {t("supplierProfile.save")}
             </button>
           </div>
@@ -255,7 +247,7 @@ export function SupplierProfile() {
                 onChange={e => {
                   const next = { ...profile, notificationPrefs: { ...profile.notificationPrefs, [pref.key]: e.target.checked } };
                   setProfile(next);
-                  try { localStorage.setItem(PROFILE_KEY(userUid), JSON.stringify(next)); } catch { /* ignore */ }
+                  void saveSupplierProfile(userUid, next).catch(() => {});
                 }}
                 className="h-4 w-4 accent-emerald-600"
               />

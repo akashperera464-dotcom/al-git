@@ -637,6 +637,14 @@ export interface SupplyRecord {
   deductionPercentage?: number;
   factoryId?: string;
   routeId?: string;
+  collectorId?: string;
+  collectorName?: string;
+  lorryPlate?: string;
+  receiptNo?: string;
+  evidenceUrl?: string;
+  signatureData?: string;
+  recordStatus?: "valid" | "void" | "reweighed";
+  voidReason?: string;
   amount: number;
   status: "Paid" | "Pending";
 }
@@ -788,6 +796,10 @@ export interface ResourceRequest {
   status: RequestStatus;
   adminNotes: string;
   timestamp: number;
+  fulfillmentStatus?: "pending" | "fulfilled" | "completed";
+  fulfilledAt?: string;
+  fulfilledBy?: string;
+  completedAt?: string;
 }
 
 /** Equipment available for requisition (cross-referenced from inventory_items). */

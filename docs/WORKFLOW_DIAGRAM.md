@@ -3389,7 +3389,70 @@ general company identity         supplier-specific identity
 
 The orange **Database schema update required — contact admin** banner originally queried the RLS-protected `schema_migrations` table directly. A correctly migrated public session could receive zero visible rows and therefore show a false warning even though `round_14` was installed. The checker now calls Round 14's read-only `multi_route_schema_ready()` RPC first, then falls back to the numerically highest visible migration version instead of trusting `applied_at` order. Re-running an older idempotent migration can no longer make the schema appear to move backwards. The supplier-branding extension itself requires no additional SQL because branding is already stored as JSON.
 
-*End of Workflow Diagram. Last updated: October 2026 (Round 15 — supplier portal branding).*
+## 46. Connected Operations and Free-plan Stabilization (Round 15)
+
+### 46.1 Current architecture — authoritative
+
+Sections 42.1, 42.5, 43.2 and any checklist text that instructs Firebase Third-Party Auth/private JWT Realtime are historical and **superseded** for this production project.
+
+```text
+Firebase Email/Password ──► signed-in application identity
+                                  │
+                                  ▼
+                         client RouteGuard / RBAC
+                                  │
+                                  ▼
+Supabase Free anon client ──► PostgreSQL + Storage + public Broadcast
+        (no Firebase JWT, no Third-Party Auth, no auth.uid policies)
+```
+
+- `src/lib/supabase.ts` must remain anon-key-only. Adding a Firebase `accessToken` callback previously caused HTTP 401 on every production request.
+- Realtime GPS remains zero-write Broadcast on a route UUID topic. It does not use `private:true` or a Firebase JWT.
+- The current client-only authorization model restores availability but is not strong tenant isolation. A future security upgrade must use a separately approved Firebase-token-verifying server gateway that never exposes a service-role key to the browser; it must not silently reintroduce a Pro-only dependency.
+
+### 46.2 Connected operational flow
+
+```text
+Admin daily assignment
+   └─► ordered collection_route_stops
+          └─► collector selects supplier + exact approved estate
+                 ├─ GPS collection-point verification
+                 ├─ optional weight-slip photo + supplier confirmation
+                 ├─ idempotent offline weigh-in
+                 └─ digital receipt number
+                         ├─► supplier monthly PDF + delivery details
+                         ├─► weight dispute ─► Operations pending inbox
+                         └─► daily/monthly reconciliation and reports
+
+Supplier profile/support/resource requests
+   ├─ fertilizer / agrochemical / equipment request ─► admin resource queue
+   ├─ sensitive profile change ─► admin approval ─► supplier_profiles/users
+   └─ support ticket / dispute ─► operational_requests ─► approve/reject/resolve
+```
+
+- `operational_requests` unifies weight disputes, support tickets, supplier profile approvals and emergency route changes.
+- `collection_route_stops` supplies the collector's ordered list, arrived/completed/missed states and shift summary.
+- `harvest_records` gains immutable receipt/evidence/correction metadata. Wrong weights are voided or reweighed; originals are not deleted.
+- `supplier_profiles` makes editable profile fields and notification preferences available across devices. Alerts are read from Supabase rather than treated as a localStorage source of truth.
+- `user_device_sessions` supports app-level forced logout. It does not claim to revoke a Firebase refresh token; server-side Firebase Admin revocation would require a separately deployed trusted backend.
+- `system_health_events` records client, sync, notification, backup/restore and deployment status. Browser UI truthfully records an externally completed backup—it cannot run `pg_dump` itself.
+- Admin Operations Center combines pending actions, duplicate identity checks, daily reconciliation, locked/reopened month-end, health failures, device sessions and monthly CSV/PDF factory summaries.
+- A definitive Firebase-versus-Supabase account mismatch report cannot be produced securely in browser code because Firebase Auth does not expose an account directory to clients. The UI reports this limitation instead of fabricating a result.
+- Bluetooth pairing uses Web Bluetooth when supported. Automatic scale readings require the specific scale manufacturer's GATT service/characteristic documentation; manual entry remains the safe fallback, especially on iPhone browsers.
+
+### 46.3 Supplier experience and iPhone PWA fix
+
+- Supplier Resource Requests always includes Fertilizer and Agrochemical even when inventory has no current stock row; stock affects approval, not the ability to request.
+- Supplier Deliveries shows receipt number, collector, lorry plate, estate, grade, weight and amount, and supports PDF statements and disputes.
+- Supplier Help & Sync shows support request responses plus queued/offline/failed synchronization state.
+- Sensitive profile edits enter approval while notification preferences save directly to the cross-device profile row.
+- Mobile form controls use a minimum 16px font and `-webkit-text-size-adjust: 100%`. This prevents iOS standalone Safari from focus-zooming the authenticated interface after login while preserving user pinch-zoom accessibility.
+
+### 46.4 Database deployment
+
+Apply `docs/migration_phase3_round15_connected_operations.sql` from the Supabase SQL Editor before relying on Round 15 workflows. The frontend contains compatibility fallbacks for old harvest/resource columns so an in-progress Vercel deployment does not take the existing application down. When the migration records `round_15`, the schema banner disappears. Exact verification queries and rollback guidance are in `docs/MIGRATION_CHECKLIST.md`.
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 15 — connected operations, Free-plan architecture).*
 
 
 

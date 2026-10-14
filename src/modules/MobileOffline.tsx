@@ -40,6 +40,7 @@ export default function MobileOffline() {
   const { t } = useTranslation();
   const { online, toggleOnline, syncQueue, flushSync } = useApp();
   const queued = syncQueue.filter((q) => q.status === "queued").length;
+  const failed = syncQueue.filter((q) => q.status === "failed").length;
 
   return (
     <div>
@@ -61,7 +62,7 @@ export default function MobileOffline() {
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard icon={online ? Wifi : WifiOff} label={t("mobile.network")} value={online ? t("mobile.online") : t("mobile.offline")} sub={online ? t("mobile.liveSyncActive") : t("mobile.indexeddbBuffering")} tone={online ? "emerald" : "rose"} />
-        <StatCard icon={Database} label={t("mobile.pendingQueue")} value={String(queued)} sub={t("mobile.unsyncedMutations")} tone="amber" />
+        <StatCard icon={Database} label={t("mobile.pendingQueue")} value={String(queued)} sub={failed ? `${failed} failed · preserved` : t("mobile.unsyncedMutations")} tone={failed ? "rose" : "amber"} />
         <StatCard icon={RefreshCw} label={t("mobile.conflictPolicy")} value={t("mobile.lastWrite")} sub={t("mobile.fieldWinsMerge")} tone="sky" />
         <StatCard icon={BellRing} label={t("mobile.fcmToken")} value={t("mobile.registered")} sub={t("mobile.freePushChannel")} tone="violet" />
       </div>
@@ -72,14 +73,14 @@ export default function MobileOffline() {
             {syncQueue.length === 0 && <p className="py-6 text-center text-sm text-slate-400">{t("mobile.queueEmpty")}</p>}
             {syncQueue.map((q) => (
               <div key={q.id} className="flex items-center gap-3 rounded-lg border border-slate-100 p-2.5">
-                <span className={`flex h-7 w-7 items-center justify-center rounded-md ${q.status === "queued" ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"}`}>
-                  {q.status === "queued" ? <WifiOff className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                <span className={`flex h-7 w-7 items-center justify-center rounded-md ${q.status === "failed" ? "bg-rose-100 text-rose-600" : q.status === "queued" ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"}`}>
+                  {q.status === "queued" || q.status === "failed" ? <WifiOff className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-semibold text-slate-700">{q.label}</p>
-                  <p className="text-[10px] text-slate-400">{q.time}</p>
+                  <p className="text-[10px] text-slate-400">{q.time}{q.lastError ? ` · ${q.lastError}` : ""}</p>
                 </div>
-                <Badge tone={q.status === "queued" ? "amber" : "emerald"}>{q.status}</Badge>
+                <Badge tone={q.status === "failed" ? "rose" : q.status === "queued" ? "amber" : "emerald"}>{q.status}</Badge>
               </div>
             ))}
           </div>

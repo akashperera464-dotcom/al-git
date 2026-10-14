@@ -4,6 +4,8 @@ import { Sprout, Lightbulb, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader, Card, IconChip, Badge } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { predictYieldFromFertilizer } from "@/lib/predictive";
+import { readMyEstates } from "@/lib/estateRepo";
+import { readFarmActivities } from "@/lib/repo";
 
 /**
  * SupplierTips — "Tips & Guidance" module (supplier side)
@@ -16,8 +18,6 @@ import { predictYieldFromFertilizer } from "@/lib/predictive";
  * B25 FIX: Added "Expected Yield from Your Fertilizer" card that uses the
  * predictYieldFromFertilizer() function from predictive.ts.
  */
-
-const STORAGE_KEY = (uid: string) => `kdu.supplier_plot.${uid}`;
 
 const MOTIVATIONAL_TIPS = [
   {
@@ -97,49 +97,30 @@ export function SupplierTips() {
   const { t } = useTranslation();
   const { userUid } = useApp();
 
-  // Load supplier's plot (for personalized yield estimate)
-  // B15 FIX: Check both localStorage (approved plot) AND registration requests (pending/approved)
+  // Supabase estates are authoritative across devices.
   const [plot, setPlot] = useState<{ acreage: number; region?: string; fromPending?: boolean } | null>(null);
   useEffect(() => {
-    // 1. Check approved plot data in localStorage
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY(userUid));
-      if (raw) {
-        const data = JSON.parse(raw);
-        if (data.acreage > 0) { setPlot(data); return; }
-      }
-    } catch { /* ignore */ }
-
-    // 2. Check registration requests (APPROVED or PENDING — B15 FIX)
-    try {
-      const regRaw = localStorage.getItem("kdu.estate_registration_requests");
-      if (regRaw) {
-        const allReqs = JSON.parse(regRaw);
-        // Prefer APPROVED first, fall back to PENDING
-        const myReq = allReqs.find((r: any) =>
-          r.supplierId === userUid && (r.status === "APPROVED" || r.status === "PENDING")
-        );
-        if (myReq && myReq.acreage > 0) {
-          setPlot({ acreage: myReq.acreage, region: myReq.region, fromPending: myReq.status === "PENDING" });
-          return;
-        }
-      }
-    } catch { /* ignore */ }
+    let active = true;
+    void readMyEstates(userUid).then((rows) => {
+      if (!active) return;
+      const estate = rows.find((row) => row.status === "approved") ?? rows.find((row) => row.status === "pending");
+      setPlot(estate ? { acreage: estate.acreage, region: estate.region, fromPending: estate.status === "pending" } : null);
+    }).catch(() => active && setPlot(null));
+    return () => { active = false; };
   }, [userUid]);
 
-  // B25 FIX: Read fertilizer usage from farm_activities cache to compute
-  // yield projection via predictYieldFromFertilizer().
+  // Farm activities are authoritative in Supabase; localStorage is only the
+  // offline transport used by the queue, never the calculation source.
   const [fertUsage, setFertUsage] = useState<{ ureaKg: number; tspKg: number; mopKg: number; dolomiteKg: number; compostKg: number }>({ ureaKg: 0, tspKg: 0, mopKg: 0, dolomiteKg: 0, compostKg: 0 });
   useEffect(() => {
+    let active = true;
     const refresh = () => {
-      try {
-        const raw = localStorage.getItem("kdu.farm_activities.cache");
-        if (!raw) return;
-        const logs: { activityType: string; details: { type?: string; quantityKg?: number } }[] = JSON.parse(raw);
+      void readFarmActivities(userUid, 200).then((logs) => {
+        if (!active) return;
         const usage = { ureaKg: 0, tspKg: 0, mopKg: 0, dolomiteKg: 0, compostKg: 0 };
         for (const log of logs) {
           if (log.activityType !== "fertilizer") continue;
-          const type = log.details?.type ?? "";
+          const type = String(log.details?.type ?? "");
           const qty = Number(log.details?.quantityKg ?? 0);
           if (/urea/i.test(type)) usage.ureaKg += qty;
           else if (/tsp|phosphate/i.test(type)) usage.tspKg += qty;
@@ -148,11 +129,11 @@ export function SupplierTips() {
           else if (/compost|organic/i.test(type)) usage.compostKg += qty;
         }
         setFertUsage(usage);
-      } catch { /* ignore */ }
+      }).catch(() => active && setFertUsage({ ureaKg: 0, tspKg: 0, mopKg: 0, dolomiteKg: 0, compostKg: 0 }));
     };
     refresh();
     window.addEventListener("verda:farm-cache-updated", refresh);
-    return () => window.removeEventListener("verda:farm-cache-updated", refresh);
+    return () => { active = false; window.removeEventListener("verda:farm-cache-updated", refresh); };
   }, [userUid]);
 
   const fertProjection = (plot && plot.acreage > 0 && (fertUsage.ureaKg + fertUsage.tspKg + fertUsage.mopKg > 0))

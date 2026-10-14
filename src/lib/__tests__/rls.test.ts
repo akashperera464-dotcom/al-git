@@ -2,18 +2,34 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync(resolve(process.cwd(), "docs/migration_phase3_round12_production_hardening.sql"), "utf8");
-describe("Round 12 RLS contract", () => {
-  it("allows a supplier to read only owned estates", () => expect(sql).toMatch(/owner_supplier_id=public\.app_uid\(\)/));
-  it("scopes collectors to today's assigned route", () => expect(sql).toMatch(/a\.collector_id=public\.app_uid\(\).*a\.route_id=harvest_records\.route_id.*a\.assignment_date=current_date/s));
-  it("allows administrators through database role lookup", () => expect(sql).toMatch(/public\.app_role\(\) in \('admin','super_admin'\)/));
-  it("does not expose operational data to an anonymous subject", () => expect(sql).toContain("public.app_uid() is not null"));
-  it("uses the actual supplier_plots owner column", () => {
-    expect(sql).toMatch(/supplier_plots_own[^;]+user_id=public\.app_uid\(\)/);
-    expect(sql).not.toMatch(/supplier_plots_own[^;]+supplier_id=public\.app_uid\(\)/);
+const sql = readFileSync(resolve(process.cwd(), "docs/migration_phase3_round15_connected_operations.sql"), "utf8");
+const client = readFileSync(resolve(process.cwd(), "src/lib/supabase.ts"), "utf8");
+const css = readFileSync(resolve(process.cwd(), "src/index.css"), "utf8");
+
+describe("Free-plan production architecture contract", () => {
+  it("never injects a Firebase JWT into the Supabase client", () => {
+    expect(client).not.toMatch(/accessToken\s*:/);
   });
-  it("contains no permissive operational using(true) policy", () => {
-    const operational = sql.match(/create policy (?!factories_registration_read|routes_registration_read)[^;]+;/gi) ?? [];
-    expect(operational.join("\n")).not.toMatch(/using\s*\(true\)/i);
+  it("keeps Round 15 independent from JWT identity helpers", () => {
+    const executableSql = sql.replace(/^\s*--.*$/gm, "");
+    expect(executableSql).not.toMatch(/auth\.uid\(|app_uid\(|app_role\(/);
+  });
+  it("uses anon-compatible access for every new operational table", () => {
+    for (const table of ["operational_requests", "collection_route_stops", "month_end_closures", "supplier_profiles", "user_device_sessions", "system_health_events"]) {
+      expect(sql).toContain(`alter table public.${table} disable row level security`);
+      expect(sql).toMatch(new RegExp(`grant select,insert,update,delete on public\\.${table} to anon,authenticated`));
+    }
+  });
+  it("adds supplier fertilizer and agrochemical request values", () => {
+    expect(sql).toContain("add value if not exists 'Fertilizer'");
+    expect(sql).toContain("add value if not exists 'Agrochemical'");
+  });
+  it("preserves audit history for delivery corrections", () => {
+    expect(sql).toContain("record_status text not null default 'valid'");
+    expect(sql).toContain("void_reason text");
+  });
+  it("prevents automatic iPhone focus zoom without disabling pinch zoom", () => {
+    expect(css).toMatch(/font-size:\s*16px/);
+    expect(css).not.toMatch(/user-scalable=no/);
   });
 });

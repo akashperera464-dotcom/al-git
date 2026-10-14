@@ -47,6 +47,8 @@ import {
   Lightbulb,
   Home,
   CalendarDays,
+  ClipboardCheck,
+  CircleHelp,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./data";
@@ -200,6 +202,7 @@ export const MODULES: NavItem[] = [
   { key: "mobile", label: "Mobile & Offline", short: "Offline", icon: Smartphone, category: "more", roles: ["admin"], capability: "offline.manage" },
   { key: "architecture", label: "Architecture & Docs", short: "Blueprint", icon: Workflow, category: "more", roles: ["admin"], capability: "platform.view" },
   { key: "user-management", label: "User Management", short: "Users", icon: UserCog, category: "administration", roles: ["admin"], capability: "users.manage" },
+  { key: "operations-center", label: "Operations & Pending", short: "Pending", icon: ClipboardCheck, category: "administration", roles: ["admin"], capability: "requests.manage" },
   { key: "announcements", label: "Announcements", short: "Posts", icon: Newspaper, category: "administration", roles: ["admin"], capability: "announcements.manage" },
   // EMS REMOVED (was ERP): Supplier Loans — hidden from sidebar, code retained in repo
   // EMS REMOVED (was ERP): Auction Sales — hidden from sidebar, code retained in repo
@@ -230,6 +233,7 @@ export const MODULES: NavItem[] = [
   // B32 (Round #14) — Supplier Labor: track daily labor cost (own workers from village)
   { key: "supplier-labor", label: "My Labor", short: "Labor", icon: Users, category: "supplier", roles: ["supplier"], capability: "labor.own" },
   { key: "supplier-profile", label: "My Profile", short: "Profile", icon: UserCog, category: "supplier", roles: ["supplier"], capability: "profile.own" },
+  { key: "supplier-support", label: "Help & Support", short: "Support", icon: CircleHelp, category: "supplier", roles: ["supplier"], capability: "requests.create" },
 ];
 
 /* ----------------------------- Selectors / guards ----------------------------- */

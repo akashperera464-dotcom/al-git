@@ -11,8 +11,8 @@ describe("schema version detection", () => {
     expect(highestSchemaVersion([undefined, "legacy"])).toBeNull();
   });
 
-  it("accepts Round 14 as the current minimum", () => {
-    expect(schemaMeetsMinimum("round_14")).toBe(true);
-    expect(schemaMeetsMinimum("round_13")).toBe(false);
+  it("requires Round 15 for connected operations", () => {
+    expect(schemaMeetsMinimum("round_15")).toBe(true);
+    expect(schemaMeetsMinimum("round_14")).toBe(false);
   });
 });

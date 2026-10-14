@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { Role, Estate, Division, Field } from "@/lib/data";
-import { estates as seedEstates, seedResourceRequests, CURRENT_SUPPLIER, SUPPLIER_ENTITY_MAP, type ResourceRequest, type RequestStatus } from "@/lib/data";
-import { readEstateHierarchy } from "@/lib/repo";
+import { estates as seedEstates, seedResourceRequests, SUPPLIER_ENTITY_MAP, type ResourceRequest, type RequestStatus } from "@/lib/data";
+import { createResourceRequest, decideResourceRequest, readEstateHierarchy, readResourceRequests } from "@/lib/repo";
 import { canAccess as rbacCanAccess, homeModuleFor, usesAdminShell } from "@/lib/rbac";
 import { sendFcmToSupplier } from "@/lib/fcm";
 import { createAlert, readAlerts } from "@/lib/notifications";
@@ -10,13 +10,14 @@ import { createEstate as repoCreateEstate, createDivision as repoCreateDivision,
 import { signOutFirebase, watchHybridSession, type AuthState } from "@/lib/auth.hybrid";
 import { flushQueue, getQueueLength, getQueuedItems, clearQueue, type QueuedMutation } from "@/lib/offlineQueue";
 import { isUserDeactivated } from "@/lib/estateRepo";
-import { refreshSupabaseFirebaseAuth } from "@/lib/supabase";
+import { refreshSupabaseFirebaseAuth, supabaseConfigured } from "@/lib/supabase";
+import { isCurrentDeviceSessionRevoked, recordHealthEvent, registerDeviceSession } from "@/lib/connectedOperations";
 
 export interface SyncItem {
   id: string;
   label: string;
   time: string;
-  status: "queued" | "synced";
+  status: "queued" | "synced" | "failed";
   table?: string;
   attempts?: number;
   lastError?: string;
@@ -115,8 +116,8 @@ interface AppState {
 
   /* ---- Resource Requisitions (real-time, Firestore-mirrored) ---- */
   resourceRequests: ResourceRequest[];
-  submitRequest: (input: Omit<ResourceRequest, "id" | "supplierId" | "supplierName" | "status" | "adminNotes" | "timestamp">) => ResourceRequest;
-  decideRequest: (id: string, status: RequestStatus, adminNotes: string) => void;
+  submitRequest: (input: Omit<ResourceRequest, "id" | "supplierId" | "supplierName" | "status" | "adminNotes" | "timestamp">) => Promise<ResourceRequest>;
+  decideRequest: (id: string, status: RequestStatus, adminNotes: string) => Promise<void>;
 
   /* ---- FCM-style toasts ---- */
   toasts: Toast[];
@@ -132,7 +133,7 @@ function queuedToSyncItems(items: QueuedMutation[]): SyncItem[] {
     id: m.id,
     label: m.label,
     time: new Date(m.queuedAt).toLocaleTimeString("en-LK", { hour: "2-digit", minute: "2-digit" }),
-    status: "queued" as const,
+    status: (m.attempts >= 5 ? "failed" : "queued") as SyncItem["status"],
     table: m.table,
     attempts: m.attempts,
     lastError: m.lastError,
@@ -147,10 +148,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [syncQueue, setSyncQueue] = useState<SyncItem[]>(queuedToSyncItems(getQueuedItems()));
   const [authReady, setAuthReady] = useState<boolean>(false);
 
-  const [resourceRequests, setResourceRequests] = useState<ResourceRequest[]>(seedResourceRequests);
+  const [resourceRequests, setResourceRequests] = useState<ResourceRequest[]>(() => supabaseConfigured ? [] : seedResourceRequests);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const [estates, setEstates] = useState<Estate[]>(seedEstates);
+  const [estates, setEstates] = useState<Estate[]>(() => supabaseConfigured ? [] : seedEstates);
 
   // On mount: load the REAL estates from Supabase (replaces the mock seed).
   useEffect(() => {
@@ -158,9 +159,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         const live = await readEstateHierarchy("admin");
-        if (active && live.length) setEstates(live);
+        if (active) setEstates(live);
       } catch {
-        // DB not reachable — keep the mock seed data.
+        // Production never substitutes demo estates for a database failure.
+        if (active && supabaseConfigured) setEstates([]);
       }
     })();
     return () => { active = false; };
@@ -176,6 +178,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     : previewRole === "supplier"
       ? SUPPLIER_ENTITY_MAP[USER_UIDS[previewRole]] ?? USER_UIDS[previewRole]
       : USER_UIDS[previewRole];
+
+  // Resource requests are shared database records. Suppliers see only their
+  // own rows; administrators see the full inbox. No browser-only seed state is
+  // used when Supabase is configured.
+  useEffect(() => {
+    if (!supabaseConfigured || !isAuthenticated) return;
+    let active = true;
+    void readResourceRequests(role).then((rows) => {
+      if (!active) return;
+      setResourceRequests(role === "supplier" ? rows.filter((row) => row.supplierId === userUid) : rows);
+    }).catch(() => active && setResourceRequests([]));
+    return () => { active = false; };
+  }, [isAuthenticated, role, userUid]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !userUid || !supabaseConfigured) return;
+    let active = true;
+    void registerDeviceSession(userUid);
+    const check = async () => {
+      if (!active || !(await isCurrentDeviceSessionRevoked(userUid))) return;
+      sessionStorage.setItem("verda.auth.blocked", "This device session was revoked by an administrator.");
+      await signOutFirebase().catch(() => {});
+      setSessionState(null);
+    };
+    const timer = window.setInterval(() => void check(), 60_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [isAuthenticated, userUid]);
 
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
 
@@ -220,13 +249,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const id = `t-${Date.now()}-dl`;
       setToasts((ts) => [...ts, {
         id,
-        title: "Sync Failed — Records Lost",
-        body: `${result.deadLettered} record(s) exceeded max retry attempts and were removed from queue.`,
+        title: "Sync Failed — Records Preserved",
+        body: `${result.deadLettered} record(s) exceeded max retry attempts and remain available for administrator recovery.`,
         tone: "rose",
         channel: "system",
       }]);
+      void recordHealthEvent({ category: "sync_failure", severity: "error", userId: userUid, module: "offline_queue", message: `${result.deadLettered} offline record(s) require manual recovery.`, details: { remaining: result.remaining } });
     }
-  }, []);
+  }, [userUid]);
 
   const notify = useCallback((t: Omit<Toast, "id">) => {
     const id = `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -312,12 +342,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const submitRequest = useCallback(
-    (input: Omit<ResourceRequest, "id" | "supplierId" | "supplierName" | "status" | "adminNotes" | "timestamp">) => {
+    async (input: Omit<ResourceRequest, "id" | "supplierId" | "supplierName" | "status" | "adminNotes" | "timestamp">) => {
+      const supplierId = userUid;
+      const supplierName = session?.name ?? USERS[role].name ?? "Supplier";
+      const id = await createResourceRequest(role, { ...input, supplierId, supplierName, adminNotes: "" });
       const full: ResourceRequest = {
         ...input,
-        id: `rr-${Date.now()}`,
-        supplierId: CURRENT_SUPPLIER.id,
-        supplierName: CURRENT_SUPPLIER.name,
+        id,
+        supplierId,
+        supplierName,
         status: "PENDING",
         adminNotes: "",
         timestamp: Date.now(),
@@ -325,11 +358,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setResourceRequests((rs) => [full, ...rs]);
       return full;
     },
-    []
+    [role, session?.name, userUid]
   );
 
   const decideRequest = useCallback(
-    (id: string, status: RequestStatus, adminNotes: string) => {
+    async (id: string, status: RequestStatus, adminNotes: string) => {
+      await decideResourceRequest(role, id, status, adminNotes);
       setResourceRequests((rs) => rs.map((r) => (r.id === id ? { ...r, status, adminNotes } : r)));
       const req = resourceRequests.find((r) => r.id === id);
       if (!req) return;
@@ -356,7 +390,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         channel: "FCM",
       });
     },
-    [resourceRequests, notify]
+    [resourceRequests, notify, role]
   );
 
   const addEstate = useCallback(

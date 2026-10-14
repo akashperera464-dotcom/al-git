@@ -45,10 +45,11 @@ export function ResourceRequests() {
   const rejected = all.filter((r) => r.status === "REJECTED");
   const view = (filter === "ALL" ? all : all.filter((r) => r.status === filter)).sort((a, b) => b.timestamp - a.timestamp);
 
-  const confirmReject = (id: string) => {
-    decideRequest(id, "REJECTED", reason.trim() || "No allocation available at this time.");
-    setRejectingId(null);
-    setReason("");
+  const confirmReject = async (id: string) => {
+    setBusy(true); setError(null);
+    try { await decideRequest(id, "REJECTED", reason.trim() || "No allocation available at this time."); setRejectingId(null); setReason(""); }
+    catch (e) { setError(e instanceof Error ? e.message : "Request could not be rejected."); }
+    finally { setBusy(false); }
   };
 
   // Fulfill a request — issue stock or assign workers
@@ -58,7 +59,7 @@ export function ResourceRequests() {
     setSuccess(null);
     try {
       // First approve the request
-      decideRequest(r.id, "APPROVED", "Allocation confirmed — fulfilling now.");
+      await decideRequest(r.id, "APPROVED", "Allocation confirmed — fulfilling now.");
 
       // Find the stock item or worker availability
       const avail = availabilities.find(a => a.type === r.type && a.itemName === r.itemDetails);
@@ -210,6 +211,7 @@ export function ResourceRequests() {
 
                   <div className="col-span-2">
                     <Badge tone={STATUS_TONE[r.status]} dot>{r.status}</Badge>
+                    {r.fulfillmentStatus && r.fulfillmentStatus !== "pending" && <Badge tone={r.fulfillmentStatus === "completed" ? "sky" : "emerald"}>{r.fulfillmentStatus}</Badge>}
                     {r.adminNotes && <p className="mt-1 text-[11px] text-slate-500">{r.adminNotes}</p>}
                   </div>
 
@@ -232,7 +234,7 @@ export function ResourceRequests() {
                         </button>
                       </>
                     )}
-                    {r.status === "APPROVED" && (
+                    {r.status === "APPROVED" && r.fulfillmentStatus !== "completed" && (
                       <button
                         onClick={() => complete(r)}
                         disabled={busy}
@@ -255,7 +257,7 @@ export function ResourceRequests() {
                       className="w-full flex-1 rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm"
                     />
                     <div className="flex gap-2">
-                      <button onClick={() => confirmReject(r.id)} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white">Confirm reject</button>
+                      <button onClick={() => void confirmReject(r.id)} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white">Confirm reject</button>
                       <button onClick={() => setRejectingId(null)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">Cancel</button>
                     </div>
                   </div>

@@ -6,7 +6,7 @@ import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { Icon } from "@/components/Icon";
 import { evaluateFertilizerWindow, recommendPlucking, type AdviceLevel } from "@/lib/predictive";
 import { supplier, pluckFields, fmtLKR, fmtLKRShort, fmtNum, TODAY_ISO, type WeatherDay } from "@/lib/data";
-import { readMyHarvestRecords } from "@/lib/repo";
+import { readFarmActivities, readMyHarvestRecords } from "@/lib/repo";
 import { useLiveData } from "@/lib/useLiveData";
 import { fetchForecast, getMockForecast } from "@/lib/weather";
 import { useApp } from "@/context/AppContext";
@@ -17,6 +17,7 @@ import type { SupplyRecord } from "@/lib/data";
 import { readDailyTeaPrices, readUserOperationalProfile } from "@/lib/supplierOperations";
 import { gradeKey, statusKey } from "@/i18n/databaseValues";
 import { readSupplierFinancialSummary, type SupplierFinancialSummary } from "@/lib/financialSummary";
+import { createAlert, readAlerts } from "@/lib/notifications";
 
 /** Daily Tea Prices card — shows today's price per kg per grade. */
 function DailyPriceCard() {
@@ -504,9 +505,8 @@ export function SupplierPayments() {
  * B10 FIX: alerts are now also dispatched via FCM push (via the
  * `sendSmartAlert` Cloud Function) AND persisted to the Supabase
  * `alerts` table (via `createAlert`), so they reach the supplier's
- * phone even when the app is closed. A localStorage deduplication
- * key prevents the same alert from being pushed more than once
- * per day per supplier.
+ * phone even when the app is closed. Existing Supabase alerts provide the
+ * per-day deduplication record across every device.
  * --------------------------------------------------------------------------- */
 function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast: WeatherDay[] }) {
   const { t, i18n } = useTranslation();
@@ -517,9 +517,7 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
       const computed: { type: string; title: string; body: string; tone: "amber" | "sky" | "emerald" | "rose" }[] = [];
 
       try {
-        // Read farm activities from localStorage cache (Phase 1) or Supabase
-        const farmRaw = localStorage.getItem("kdu.farm_activities.cache");
-        const farmLogs: { activityType: string; loggedDate: string; details: Record<string, unknown> }[] = farmRaw ? JSON.parse(farmRaw) : [];
+        const farmLogs = await readFarmActivities(userUid, 250);
 
         const now = Date.now();
         const DAY_MS = 86400_000;
@@ -618,25 +616,17 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
       setAlerts(computed);
 
       // B10 FIX: Dispatch each computed alert via FCM push + persist to alerts
-      // table. Dedupe per-day per-supplier using localStorage so the supplier
-      // doesn't get the same alert pushed twice in one day.
+      // table. Existing alert rows provide cross-device daily deduplication.
       if (computed.length > 0) {
         try {
           const today = new Date().toISOString().slice(0, 10);
-          const dedupKey = `kdu.smart_alerts_dispatched.${userUid}`;
-          let dispatched: string[] = [];
-          try {
-            const raw = localStorage.getItem(dedupKey);
-            const parsed = raw ? JSON.parse(raw) : {};
-            // Only keep today's entries
-            dispatched = parsed[today] ?? [];
-          } catch { /* ignore */ }
+          const existing = await readAlerts(userUid, 100);
+          const dispatched = new Set(existing.filter((row) => row.created_at.startsWith(today)).map((row) => row.title));
 
           const { sendSmartAlert } = await import("@/lib/fcm");
-          const { createAlert } = await import("@/lib/notifications");
 
           for (const a of computed) {
-            if (dispatched.includes(a.type)) continue; // already pushed today
+            if (dispatched.has(a.title)) continue;
             // Persist to alerts table (so it appears in the notification bell + Notification Center)
             void createAlert({
               targetUserId: userUid,
@@ -658,13 +648,8 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
                 : a.type === "weather-guard" ? "weather"
                 : "general",
             });
-            dispatched.push(a.type);
+            dispatched.add(a.title);
           }
-
-          // Save dedupe state (only today's entries)
-          try {
-            localStorage.setItem(dedupKey, JSON.stringify({ [today]: dispatched }));
-          } catch { /* ignore */ }
         } catch { /* ignore — push failure should not break UI */ }
       }
     })();

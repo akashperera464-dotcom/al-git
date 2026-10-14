@@ -4,8 +4,6 @@ import { PackageOpen, Send, Users, Wrench, Clock, CalendarDays, FileText, CheckC
 import { PageHeader, StatCard, Card, Badge, IconChip, Segmented } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import {
-  workerRoleOptions,
-  CURRENT_SUPPLIER,
   fmtNum,
   addDays,
   TODAY_ISO,
@@ -32,13 +30,15 @@ function timeAgo(ts: number, t: (k: string, opts?: Record<string, unknown>) => s
 /** Supplier Portal · "Request Resources" tab (mobile-first). */
 export function SupplierRequestForm() {
   const { t } = useTranslation();
-  const { resourceRequests, submitRequest, notify } = useApp();
+  const { resourceRequests, submitRequest, notify, userUid } = useApp();
   const [type, setType] = useState<RequestType>("Equipment");
-  const [item, setItem] = useState(workerRoleOptions[0]);
+  const [item, setItem] = useState("General equipment request");
   const [quantity, setQuantity] = useState(4);
   const [dateNeeded, setDateNeeded] = useState(`${addDays(TODAY_ISO, 1)}T06:00`);
   const [duration, setDuration] = useState(1);
   const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   // Real availability from DB
   const [availabilities, setAvailabilities] = useState<RealAvailability[]>([]);
@@ -58,6 +58,13 @@ export function SupplierRequestForm() {
     })();
   }, []);
 
+  useEffect(() => {
+    const options = availabilities.filter((entry) => entry.type === type);
+    if (!options.length || options.some((entry) => entry.itemName === item)) return;
+    setItem(options[0].itemName);
+    setSelectedStockItemId(options[0].stockItemId);
+  }, [availabilities, item, type]);
+
   const onTypeChange = (newType: RequestType) => {
     setType(newType);
     const items = availabilities.filter(a => a.type === newType);
@@ -65,7 +72,7 @@ export function SupplierRequestForm() {
       setItem(items[0].itemName);
       setSelectedStockItemId(items[0].stockItemId);
     } else {
-      setItem(workerRoleOptions[0]);
+      setItem(newType === "Equipment" ? "General equipment request" : newType);
       setSelectedStockItemId(undefined);
     }
   };
@@ -73,35 +80,33 @@ export function SupplierRequestForm() {
   const currentAvail = availabilities.find(a => a.type === type && a.itemName === item);
   const available = currentAvail?.available ?? 0;
 
-  const submit = () => {
+  const submit = async () => {
     if (quantity <= 0) return;
-    submitRequest({ type, itemDetails: item, quantity, dateNeeded, durationDays: duration, note: note.trim() });
-    notify({
-      title: t("request.submitted"),
-      body: t("request.submittedBody", { qty: String(quantity), item }),
-      tone: "sky",
-      channel: "system",
-    });
-    setNote("");
-    setQuantity(4);
+    setSubmitting(true); setSubmitError("");
+    try {
+      await submitRequest({ type, itemDetails: item, quantity, dateNeeded, durationDays: duration, note: note.trim() });
+      notify({ title: t("request.submitted"), body: t("request.submittedBody", { qty: String(quantity), item }), tone: "sky", channel: "system" });
+      setNote(""); setQuantity(4);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : t("request.submitFailed", { defaultValue: "Request could not be submitted." }));
+    } finally { setSubmitting(false); }
   };
 
-  const mine = resourceRequests.filter((r) => r.supplierId === CURRENT_SUPPLIER.id);
+  const mine = resourceRequests.filter((r) => r.supplierId === userUid);
   const pending = mine.filter((r) => r.status === "PENDING").length;
   const approved = mine.filter((r) => r.status === "APPROVED").length;
   const rejected = mine.filter((r) => r.status === "REJECTED").length;
 
   // Phase 1: Labor Request removed per Sir's spec — Labor is now managed via Labor Management
   // module (admin side). Suppliers can request: Equipment / Fertilizer / Agrochemical only.
-  const typeOptions: { value: RequestType; label: string; icon: ReactNode }[] = availabilities.length > 0
-    ? [
-        { value: "Equipment", label: t("request.equipment"), icon: <Wrench className="h-3.5 w-3.5" /> },
-        { value: "Fertilizer", label: "Fertilizer", icon: <Sprout className="h-3.5 w-3.5" /> },
-        { value: "Agrochemical", label: "Agrochemical", icon: <FlaskConical className="h-3.5 w-3.5" /> },
-      ]
-    : [
-        { value: "Equipment", label: t("request.equipment"), icon: <Wrench className="h-3.5 w-3.5" /> },
-      ];
+  // These request types must remain available even when inventory is empty or
+  // temporarily unavailable. Availability affects approval, not whether a
+  // supplier is allowed to ask.
+  const typeOptions: { value: RequestType; label: string; icon: ReactNode }[] = [
+    { value: "Equipment", label: t("request.equipment"), icon: <Wrench className="h-3.5 w-3.5" /> },
+    { value: "Fertilizer", label: t("request.fertilizer", { defaultValue: "Fertilizer" }), icon: <Sprout className="h-3.5 w-3.5" /> },
+    { value: "Agrochemical", label: t("request.agrochemical", { defaultValue: "Agrochemical" }), icon: <FlaskConical className="h-3.5 w-3.5" /> },
+  ];
 
   const itemsForType = availabilities.filter(a => a.type === type);
   const iconForType = type === "Equipment" ? <Wrench className="h-5 w-5" />
@@ -148,8 +153,8 @@ export function SupplierRequestForm() {
           <div>
             <label className="text-[11px] font-medium text-slate-400">
               {type === "Equipment" ? t("request.equipmentLabel")
-                : type === "Fertilizer" ? "Fertilizer Type"
-                : type === "Agrochemical" ? "Chemical Type"
+                : type === "Fertilizer" ? t("request.fertilizerType", { defaultValue: "Fertilizer type" })
+                : type === "Agrochemical" ? t("request.chemicalType", { defaultValue: "Chemical type" })
                 : t("request.workerRole")}
             </label>
             <select value={item} onChange={(e) => {
@@ -163,9 +168,7 @@ export function SupplierRequestForm() {
                       {a.itemName} ({fmtNum(a.available)} {a.unit} {t("request.avail")})
                     </option>
                   ))
-                : type === "Workers"
-                  ? workerRoleOptions.map((w) => <option key={w} value={w}>{w}</option>)
-                  : <option value="">— loading —</option>
+                : <option value={item || type}>{item || t("request.notInStock", { defaultValue: "Not currently in stock — request review" })}</option>
               }
             </select>
           </div>
@@ -200,12 +203,13 @@ export function SupplierRequestForm() {
           </div>
         )}
 
+        {submitError && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{submitError}</p>}
         <button
-          onClick={submit}
-          disabled={quantity <= 0}
+          onClick={() => void submit()}
+          disabled={quantity <= 0 || submitting || !item}
           className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/25 transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Send className="h-4 w-4" /> {t("request.submit")}
+          <Send className="h-4 w-4" /> {submitting ? t("common.saving", { defaultValue: "Saving…" }) : t("request.submit")}
         </button>
       </Card>
 

@@ -214,17 +214,18 @@ function SyncPill({ dark }: { dark?: boolean }) {
   const { t } = useTranslation();
   const { online, toggleOnline, syncQueue } = useApp();
   const queued = syncQueue.filter((q) => q.status === "queued").length;
+  const failed = syncQueue.filter((q) => q.status === "failed").length;
   // B16 FIX: show a clearer sync-status badge ("✓ Synced" when online+empty,
   // "⏳ Pending sync (N)" when items are queued, "Offline" when no network).
-  const isSynced = online && queued === 0;
-  const label = !online ? t("common.offline") : queued > 0 ? `${t("common.pending")} (${queued})` : t("common.synced");
+  const isSynced = online && queued === 0 && failed === 0;
+  const label = !online ? t("common.offline") : failed > 0 ? `Sync failed (${failed})` : queued > 0 ? `${t("common.pending")} (${queued})` : t("common.synced");
   return (
     <button
       onClick={toggleOnline}
-      title={isSynced ? "All data synced to server" : queued > 0 ? `${queued} item(s) waiting to sync` : "You are offline"}
+      title={isSynced ? "All data synced to server" : failed > 0 ? `${failed} failed record(s) are preserved for recovery` : queued > 0 ? `${queued} item(s) waiting to sync` : "You are offline"}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition",
-        !online
+        !online || failed > 0
           ? (dark ? "bg-rose-500/20 text-rose-200" : "bg-rose-50 text-rose-700")
           : isSynced
             ? (dark ? "bg-emerald-500/20 text-emerald-200" : "bg-emerald-50 text-emerald-700")

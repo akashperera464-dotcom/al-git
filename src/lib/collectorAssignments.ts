@@ -1,4 +1,5 @@
 import { getSupabase, supabaseConfigured } from "./supabase";
+import { seedAssignmentStops } from "./connectedOperations";
 
 export type AssignmentStatus = "assigned" | "started" | "completed" | "cancelled";
 export interface CollectorAssignment {
@@ -42,12 +43,13 @@ export async function readTodayAssignment(collectorId: string, date = new Intl.D
 }
 
 export async function saveAssignment(input: Omit<CollectorAssignment, "id" | "status"> & { assignedBy: string }): Promise<void> {
-  const { error } = await getSupabase()!.from("collector_route_assignments").upsert({
+  const { data, error } = await getSupabase()!.from("collector_route_assignments").upsert({
     collector_id: input.collectorId, factory_id: input.factoryId, route_id: input.routeId,
     assignment_date: input.assignmentDate, lorry_plate: input.lorryPlate || null, assigned_by: input.assignedBy,
     status: "assigned", started_at: null, completed_at: null,
-  }, { onConflict: "collector_id,assignment_date" });
+  }, { onConflict: "collector_id,assignment_date" }).select("id").single();
   if (error) throw new Error(`Could not save assignment: ${error.message}`);
+  await seedAssignmentStops(data.id, input.routeId).catch(() => {});
 }
 
 export async function updateAssignmentStatus(id: string, status: AssignmentStatus): Promise<void> {

@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Scale, Loader2, CheckCircle2, Building2, Layers, Phone, WifiOff, MapPin, AlertTriangle } from "lucide-react";
+import { UserPlus, Scale, Loader2, CheckCircle2, Building2, Layers, Phone, WifiOff, MapPin, AlertTriangle, Camera, QrCode, Bluetooth, Navigation } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
-import { readEstateOptions, readDivisionOptions, saveLeafWeighing, type WeighInResult } from "@/lib/repo";
+import { readEstateOptions, readDivisionOptions, saveLeafWeighing, uploadDeliveryEvidence, voidHarvestRecord, type WeighInResult } from "@/lib/repo";
 import { provisionUser } from "@/lib/auth.hybrid";
 import { useLiveData } from "@/lib/useLiveData";
 import { createAlert } from "@/lib/notifications";
 import { publishLorryLocation, readFactories, readRoutes, readSupplierDirectory, stopLorryLocation, updateSupplierOperationalFields, type FactoryOption, type RouteOption, type SupplierDirectoryEntry } from "@/lib/supplierOperations";
 import { readTodayAssignment, updateAssignmentStatus, type CollectorAssignment } from "@/lib/collectorAssignments";
+import { readMyEstates, type Estate } from "@/lib/estateRepo";
+import { createWorkflowRequest, readRouteStops, seedAssignmentStops, updateRouteStop, type RouteStop } from "@/lib/connectedOperations";
 
 /* ====================== 1 · REGISTER NEW SUPPLIER ====================== */
 
@@ -156,7 +158,7 @@ export function EoRegisterSupplier() {
 
 export function EoWeighing() {
   const { t } = useTranslation();
-  const { estates, notify, syncQueue, enqueueSync, userUid } = useApp();
+  const { notify, syncQueue, enqueueSync, userUid } = useApp();
   const [gross, setGross] = useState(0);
   const [ded, setDed] = useState(4);
   const [grade, setGrade] = useState("Standard");
@@ -170,10 +172,17 @@ export function EoWeighing() {
   const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierDirectoryEntry[]>([]);
   const [assignment, setAssignment] = useState<CollectorAssignment | null>(null);
+  const [supplierEstates, setSupplierEstates] = useState<Estate[]>([]);
+  const [selectedEstateId, setSelectedEstateId] = useState("");
+  const [routeStops, setRouteStops] = useState<RouteStop[]>([]);
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+  const [signature, setSignature] = useState("");
+  const [scaleStatus, setScaleStatus] = useState("");
+  const [recentReceipts, setRecentReceipts] = useState<{ id: string; receiptNo?: string; gross: number; net: number; voided?: boolean }[]>([]);
+  const qrInputRef = useRef<HTMLInputElement | null>(null);
   const net = +(gross * (1 - ded / 100)).toFixed(1);
 
-  const estate = estates[0];
-  const estateId = estate?.id ?? "";
+  const estate = supplierEstates.find((row) => row.id === selectedEstateId);
 
   useEffect(() => {
     void readFactories().then(setFactories).catch(() => setFactories([]));
@@ -182,6 +191,14 @@ export function EoWeighing() {
       if (todayAssignment) { setFactoryId(todayAssignment.factoryId); setRouteId(todayAssignment.routeId); }
     }).catch(() => setAssignment(null));
   }, [userUid]);
+  useEffect(() => {
+    if (!assignment?.id) { setRouteStops([]); return; }
+    void readRouteStops(assignment.id).then(async (rows) => {
+      if (rows.length || !assignment.routeId) { setRouteStops(rows); return; }
+      await seedAssignmentStops(assignment.id, assignment.routeId);
+      setRouteStops(await readRouteStops(assignment.id));
+    }).catch(() => setRouteStops([]));
+  }, [assignment?.id, assignment?.routeId]);
   useEffect(() => {
     if (!assignment) setRouteId(""); setSupplierId(""); setSuppliers([]);
     if (!factoryId) { setRoutes([]); return; }
@@ -199,19 +216,33 @@ export function EoWeighing() {
       .catch(() => active && setSuppliers([]));
     return () => { active = false; };
   }, [factoryId, routeId]);
+  useEffect(() => {
+    setSelectedEstateId(""); setSupplierEstates([]);
+    if (!supplierId) return;
+    void readMyEstates(supplierId).then((rows) => {
+      const eligible = rows.filter((row) => row.status === "approved" && (!routeId || row.routeId === routeId));
+      setSupplierEstates(eligible); setSelectedEstateId(eligible[0]?.id ?? "");
+    }).catch(() => setSupplierEstates([]));
+  }, [supplierId, routeId]);
 
   // Count of pending offline mutations (for the badge)
   const pendingSyncCount = syncQueue.filter(q => q.status === "queued").length;
+  const requestRouteChange = async () => {
+    const reason = window.prompt("Explain the emergency and requested route change");
+    if (!reason?.trim() || !assignment) return;
+    try { await createWorkflowRequest({ requestType: "route_change", requestedBy: userUid, relatedEntityType: "collector_route_assignment", relatedEntityId: assignment.id, subject: `Emergency route change · ${assignment.routeCode ?? assignment.routeName}`, details: { reason: reason.trim(), currentRouteId: assignment.routeId, assignmentDate: assignment.assignmentDate } }); notify({ title: "Route change requested", body: "Admin approval is required before the assigned route changes.", tone: "sky", channel: "system" }); }
+    catch (error) { notify({ title: "Request failed", body: error instanceof Error ? error.message : "Could not request a route change.", tone: "rose", channel: "system" }); }
+  };
 
   const save = async () => {
-    if (gross <= 0 || !factoryId || !routeId || !supplierId) {
+    if (gross <= 0 || !factoryId || !routeId || !supplierId || !selectedEstateId) {
       notify({ title: t("officer.errInvalidWeight"), body: t("officer.errInvalidWeightBody"), tone: "rose", channel: "system" });
       return;
     }
     setBusy(true);
     try {
+      const evidenceUrl = evidenceFile ? await uploadDeliveryEvidence(evidenceFile, userUid) : undefined;
       const result: WeighInResult = await saveLeafWeighing("extension_officer", {
-        fieldId: estateId,
         grossKg: gross,
         netKg: net,
         grade,
@@ -219,12 +250,20 @@ export function EoWeighing() {
         factoryId,
         routeId,
         supplierId,
+        estateId: selectedEstateId,
+        collectorId: userUid,
+        lorryPlate: assignment?.lorryPlate,
+        evidenceUrl,
+        signatureData: signature.trim() ? `${signature.trim()} · ${new Date().toISOString()}` : undefined,
       });
 
       setSavedCount((c) => c + 1);
       setTripNumber(t => t + 1);
 
       if (result.status === "online") {
+        if (result.id) setRecentReceipts((rows) => [{ id: result.id!, receiptNo: result.receiptNo, gross, net }, ...rows].slice(0, 5));
+        const stop = routeStops.find((row) => row.supplierId === supplierId && (!row.estateId || row.estateId === selectedEstateId));
+        if (stop) void updateRouteStop(stop.id, "completed").then(() => setRouteStops((rows) => rows.map((row) => row.id === stop.id ? { ...row, status: "completed" } : row)));
         // Saved successfully to Supabase — green toast
         notify({
           title: t("officer.weighInSaved"),
@@ -253,11 +292,34 @@ export function EoWeighing() {
 
       setGross(0);
       setDed(4);
+      setEvidenceFile(null); setSignature("");
     } catch (e) {
       notify({ title: t("officer.saveFailedTitle"), body: e instanceof Error ? e.message : t("officer.dbErrorBody"), tone: "rose", channel: "system" });
     } finally {
       setBusy(false);
     }
+  };
+  const correctReceipt = async (receipt: typeof recentReceipts[number], reweigh: boolean) => {
+    const reason = window.prompt(reweigh ? "Reason for reweigh" : "Reason for voiding this weight");
+    if (!reason?.trim()) return;
+    try { await voidHarvestRecord(receipt.id, userUid, reason.trim()); setRecentReceipts((rows) => rows.map((row) => row.id === receipt.id ? { ...row, voided: true } : row)); if (reweigh) setGross(receipt.gross); notify({ title: reweigh ? "Original receipt voided — enter corrected weight" : "Receipt voided", body: "The original record remains in the audit history and is excluded from totals.", tone: "amber", channel: "system" }); }
+    catch (error) { notify({ title: "Correction failed", body: error instanceof Error ? error.message : "Could not update the receipt.", tone: "rose", channel: "system" }); }
+  };
+  const changeStopStatus = async (stop: RouteStop, status: RouteStop["status"]) => {
+    const reason = status === "missed" ? window.prompt("Reason this supplier was missed") : undefined;
+    if (status === "missed" && !reason?.trim()) return;
+    try {
+      await updateRouteStop(stop.id, status, reason?.trim());
+      setRouteStops((rows) => rows.map((row) => row.id === stop.id ? { ...row, status } : row));
+    } catch (error) {
+      notify({ title: "Stop update failed", body: error instanceof Error ? error.message : "Could not update the stop.", tone: "rose", channel: "system" });
+    }
+  };
+  const stopSummary = {
+    total: routeStops.length,
+    completed: routeStops.filter((stop) => stop.status === "completed").length,
+    missed: routeStops.filter((stop) => stop.status === "missed").length,
+    remaining: routeStops.filter((stop) => stop.status === "pending" || stop.status === "arrived").length,
   };
 
   return (
@@ -303,10 +365,12 @@ export function EoWeighing() {
       </div>
 
       <Card className={`mt-4 p-4 ${assignment ? "border-emerald-200" : "border-amber-200"}`}>
-        {assignment ? <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase text-slate-400">Today's Route</p><p className="font-bold text-slate-800"><span className="text-emerald-700">{assignment.routeCode}</span> — {assignment.routeName}</p><p className="text-xs text-slate-500">{assignment.factoryName} · {assignment.lorryPlate || "Lorry not specified"}</p></div><div className="flex gap-2">{assignment.status === "assigned" && <button onClick={() => void updateAssignmentStatus(assignment.id, "started").then(() => setAssignment({ ...assignment, status: "started" }))} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Start Collection</button>}{assignment.status === "started" && <button onClick={() => void updateAssignmentStatus(assignment.id, "completed").then(() => setAssignment({ ...assignment, status: "completed" }))} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white">Complete Collection</button>}<Badge tone={assignment.status === "completed" ? "sky" : "emerald"}>{assignment.status}</Badge></div></div> : <p className="text-sm font-bold text-amber-700">No route assigned for today — contact admin</p>}
+        {assignment ? <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase text-slate-400">Today's Route</p><p className="font-bold text-slate-800"><span className="text-emerald-700">{assignment.routeCode}</span> — {assignment.routeName}</p><p className="text-xs text-slate-500">{assignment.factoryName} · {assignment.lorryPlate || "Lorry not specified"}</p></div><div className="flex flex-wrap gap-2">{assignment.status === "assigned" && <button onClick={() => void updateAssignmentStatus(assignment.id, "started").then(() => setAssignment({ ...assignment, status: "started" }))} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Start Collection</button>}{assignment.status === "started" && <button onClick={() => void updateAssignmentStatus(assignment.id, "completed").then(() => setAssignment({ ...assignment, status: "completed" }))} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white">Complete Collection</button>}<button onClick={() => void requestRouteChange()} className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-700">Emergency route change</button><Badge tone={assignment.status === "completed" ? "sky" : "emerald"}>{assignment.status}</Badge></div></div> : <p className="text-sm font-bold text-amber-700">No route assigned for today — contact admin</p>}
       </Card>
 
       <LorryTrackingControls routeId={routeId} driverId={userUid} assignmentId={assignment?.id} enabled={assignment?.status === "started"} />
+
+      {routeStops.length > 0 && <Card className="mt-4 p-4"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 text-sm font-bold"><Navigation className="h-4 w-4 text-sky-600" />Today&apos;s ordered stop list</h3><span className="text-[11px] text-slate-500">{stopSummary.completed}/{stopSummary.total} complete · {stopSummary.missed} missed · {stopSummary.remaining} remaining</span></div><div className="space-y-2">{routeStops.map((stop) => <div key={stop.id} className="flex items-center gap-2 rounded-lg border p-2.5"><button onClick={() => { setSupplierId(stop.supplierId); if (stop.estateId) setSelectedEstateId(stop.estateId); if (stop.status === "pending") void changeStopStatus(stop, "arrived"); }} className="flex min-w-0 flex-1 items-center gap-3 text-left"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold">{stop.order}</span><span className="min-w-0 flex-1 text-xs"><b>#{stop.supplierNo ?? "—"} · {stop.supplierName ?? stop.supplierId}</b><small className="block text-slate-400">{stop.estateName ?? "Estate selected at collection"}</small></span><Badge tone={stop.status === "completed" ? "emerald" : stop.status === "missed" ? "rose" : "amber"}>{stop.status}</Badge></button>{stop.status !== "completed" && stop.status !== "missed" && <button onClick={() => void changeStopStatus(stop, "missed")} className="rounded-md px-2 py-1 text-[10px] font-bold text-rose-700">Miss</button>}</div>)}</div><div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]"><div className="rounded-lg bg-emerald-50 p-2"><b className="block text-base text-emerald-700">{stopSummary.completed}</b>Collected</div><div className="rounded-lg bg-rose-50 p-2"><b className="block text-base text-rose-700">{stopSummary.missed}</b>Missed</div><div className="rounded-lg bg-slate-50 p-2"><b className="block text-base text-slate-700">{savedCount}</b>Receipts</div></div></Card>}
 
       {/* EO Geo-Location Verification — Sir's spec #2: confirm EO is at the registered estate */}
       <EoLocationVerify estate={estate} />
@@ -316,7 +380,8 @@ export function EoWeighing() {
         <div className="grid grid-cols-2 gap-2.5 text-sm">
           <div><label className="text-[11px] font-medium text-slate-400">Factory</label><select value={factoryId} disabled className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-2.5"><option value="">— assigned by admin —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
           <div><label className="text-[11px] font-medium text-slate-400">Route</label><select value={routeId} disabled className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-2.5"><option value="">— assigned by admin —</option>{routes.map((route) => <option key={route.id} value={route.id}>{route.label}</option>)}</select></div>
-          <div className="col-span-2"><div className="flex items-center justify-between"><label className="text-[11px] font-medium text-slate-400">Supplier</label>{routeId && <span className="text-[10px] text-slate-400">{suppliers.length} on selected route</span>}</div><select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} disabled={!routeId} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select supplier from route —</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>#{supplier.supplierNo} · {supplier.name}</option>)}</select></div>
+          <div className="col-span-2"><div className="flex items-center justify-between"><label className="text-[11px] font-medium text-slate-400">Supplier</label>{routeId && <span className="text-[10px] text-slate-400">{suppliers.length} on selected route</span>}</div><div className="flex gap-2"><select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} disabled={!routeId} className="mt-1 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select supplier from route —</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>#{supplier.supplierNo} · {supplier.name}</option>)}</select><button type="button" onClick={() => qrInputRef.current?.click()} className="mt-1 rounded-lg border border-sky-200 bg-sky-50 px-3 text-sky-700" title="Scan supplier QR"><QrCode className="h-4 w-4" /></button><input ref={qrInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => void scanSupplierQr(event.currentTarget.files?.[0], suppliers, setSupplierId, notify)} /></div></div>
+          <div className="col-span-2"><label className="text-[11px] font-medium text-slate-400">Supplier estate / collection point *</label><select value={selectedEstateId} onChange={(e) => setSelectedEstateId(e.target.value)} disabled={!supplierId} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5"><option value="">— select exact estate —</option>{supplierEstates.map((row) => <option key={row.id} value={row.id}>{row.name}{row.address ? ` · ${row.address}` : ""}</option>)}</select></div>
           <div>
             <label className="text-[11px] font-medium text-slate-400">{t("officer.gradeLabel")}</label>
             <select value={grade} onChange={(e) => setGrade(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5">
@@ -339,6 +404,7 @@ export function EoWeighing() {
           <span className="text-xs font-medium text-slate-500">{t("officer.netWeight")}</span>
           <span className="font-display text-xl font-bold text-emerald-700 tnum">{net} {t("common.kg")}</span>
         </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3"><label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600"><Camera className="h-4 w-4" />{evidenceFile ? evidenceFile.name : "Weight slip photo"}<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => setEvidenceFile(e.target.files?.[0] ?? null)} /></label><input value={signature} onChange={(e) => setSignature(e.target.value)} placeholder="Supplier signature / confirmation name" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" /><button type="button" onClick={() => void connectBluetoothScale(setScaleStatus)} className="flex items-center justify-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"><Bluetooth className="h-4 w-4" />Connect scale</button></div>{scaleStatus && <p className="mt-1 text-[11px] text-slate-500">{scaleStatus}</p>}
         <div className="mt-3">
           {tripNumber > 1 && (
             <div className="mb-2 text-center text-xs font-semibold text-slate-500">
@@ -355,6 +421,7 @@ export function EoWeighing() {
           </button>
         </div>
       </Card>
+      {recentReceipts.length > 0 && <Card className="mt-4 p-4"><h3 className="mb-2 text-sm font-bold">Recent receipts · corrections never delete history</h3>{recentReceipts.map((receipt) => <div key={receipt.id} className="flex items-center gap-2 border-b py-2 text-xs"><b className="flex-1">{receipt.receiptNo ?? receipt.id.slice(0,8)} · {receipt.net} kg</b>{receipt.voided?<Badge tone="rose">Voided</Badge>:<><button onClick={()=>void correctReceipt(receipt,true)} className="font-bold text-amber-700">Reweigh</button><button onClick={()=>void correctReceipt(receipt,false)} className="font-bold text-rose-700">Void</button></>}</div>)}</Card>}
     </div>
   );
 }
@@ -368,6 +435,7 @@ function LorryTrackingControls({ routeId, driverId, assignmentId, enabled }: { r
   const activeRouteRef = useRef("");
   const lastPublishedAtRef = useRef(0);
   const mountedRef = useRef(true);
+  const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   // Five-second WebSocket cadence keeps the moving marker responsive without
   // writing any coordinates to PostgreSQL.
   const broadcastIntervalMs = 5_000;
@@ -454,6 +522,15 @@ function LorryTrackingControls({ routeId, driverId, assignmentId, enabled }: { r
     };
   }, [driverId]);
 
+  useEffect(() => {
+    const batteryApi = (navigator as Navigator & { getBattery?: () => Promise<{ level: number; addEventListener(type: string, listener: () => void): void; removeEventListener(type: string, listener: () => void): void }> }).getBattery;
+    if (!batteryApi) return;
+    let battery: Awaited<ReturnType<NonNullable<typeof batteryApi>>> | null = null;
+    const update = () => battery && setBatteryLevel(Math.round(battery.level * 100));
+    void batteryApi.call(navigator).then((value) => { battery = value; update(); value.addEventListener("levelchange", update); }).catch(() => undefined);
+    return () => battery?.removeEventListener("levelchange", update);
+  }, []);
+
   const start = () => {
     if (!enabled) { setMessage("Start today's collection before enabling live GPS."); return; }
     if (!routeId) { setMessage("Select a route before starting lorry tracking."); return; }
@@ -478,8 +555,43 @@ function LorryTrackingControls({ routeId, driverId, assignmentId, enabled }: { r
           ? <button onClick={start} disabled={!enabled} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">Start GPS</button>
           : <button onClick={() => stop()} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white">Stop GPS</button>}
       </div>
+      {batteryLevel !== null && batteryLevel < 20 && <p className="mt-2 flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-1.5 text-[11px] font-bold text-amber-800"><AlertTriangle className="h-3.5 w-3.5" />Battery is {batteryLevel}%. Connect a charger before live GPS tracking.</p>}
     </Card>
   );
+}
+
+async function scanSupplierQr(
+  file: File | undefined,
+  suppliers: SupplierDirectoryEntry[],
+  select: (id: string) => void,
+  notify: ReturnType<typeof useApp>["notify"],
+) {
+  if (!file) return;
+  try {
+    const Detector = (window as any).BarcodeDetector;
+    if (!Detector) throw new Error("QR scanning is not supported by this browser. Select the supplier manually.");
+    const bitmap = await createImageBitmap(file);
+    const results = await new Detector({ formats: ["qr_code"] }).detect(bitmap);
+    bitmap.close();
+    const value = String(results[0]?.rawValue ?? "").trim();
+    const supplier = suppliers.find((row) => row.id === value || row.supplierNo === value || value.endsWith(`:${row.supplierNo}`));
+    if (!supplier) throw new Error("This QR code does not match a supplier on today's route.");
+    select(supplier.id);
+    notify({ title: "Supplier identified", body: `#${supplier.supplierNo} · ${supplier.name}`, tone: "emerald", channel: "system" });
+  } catch (error) {
+    notify({ title: "QR scan unavailable", body: error instanceof Error ? error.message : "Select the supplier manually.", tone: "amber", channel: "system" });
+  }
+}
+
+async function connectBluetoothScale(setStatus: (message: string) => void) {
+  const bluetooth = (navigator as Navigator & { bluetooth?: { requestDevice(options: unknown): Promise<{ name?: string }> } }).bluetooth;
+  if (!bluetooth) { setStatus("Web Bluetooth is not supported on this iPhone/browser. Manual weight entry remains available."); return; }
+  try {
+    const device = await bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: ["weight_scale"] });
+    setStatus(`${device.name ?? "Bluetooth scale"} paired. Automatic readings require the scale manufacturer's GATT characteristic; manual entry remains enabled.`);
+  } catch (error) {
+    setStatus(error instanceof Error && error.name === "NotFoundError" ? "Scale pairing was cancelled." : "Could not pair the Bluetooth scale.");
+  }
 }
 
 /* ----------------------------------------------------------------------------

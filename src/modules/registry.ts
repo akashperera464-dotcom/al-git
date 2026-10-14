@@ -46,6 +46,8 @@ const SupplierProfile = lazy(() => import("./SupplierProfile").then((module) => 
 const SupplierHome = lazy(() => import("./SupplierHome").then((module) => ({ default: module.SupplierHome })));
 const SupplierCalendar = lazy(() => import("./SupplierCalendar"));
 const SupplierLabor = lazy(() => import("./SupplierLabor").then((module) => ({ default: module.SupplierLabor })));
+const OperationsCenter = lazy(() => import("./OperationsCenter"));
+const SupplierSupport = lazy(() => import("./SupplierSupport"));
 
 export const REGISTRY: Record<string, ComponentType> = {
   // Admin — executive dashboards, core ERP & administration
@@ -74,6 +76,7 @@ export const REGISTRY: Record<string, ComponentType> = {
   architecture: Architecture,
   "user-management": UserManagement,
   announcements: Announcements,
+  "operations-center": OperationsCenter,
 
   // Tea Industry — supplier loans + auction sales
   "supplier-loans": SupplierLoans,
@@ -100,6 +103,7 @@ export const REGISTRY: Record<string, ComponentType> = {
   "supplier-profile": SupplierProfile,
   "supplier-calendar": SupplierCalendar,
   "supplier-labor": SupplierLabor,
+  "supplier-support": SupplierSupport,
 
   // Admin — supplier resource requisition inbox (ticket management)
   "resource-requests": ResourceRequests,

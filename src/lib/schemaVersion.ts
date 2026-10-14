@@ -1,6 +1,6 @@
 import { getSupabase, supabaseConfigured } from "./supabase";
 
-export const MINIMUM_SCHEMA_VERSION = "round_14";
+export const MINIMUM_SCHEMA_VERSION = "round_15";
 
 export async function readLatestSchemaVersion(): Promise<string | null> {
   if (!supabaseConfigured) return null;
@@ -10,15 +10,15 @@ export async function readLatestSchemaVersion(): Promise<string | null> {
   // authenticated clients. Prefer it because schema_migrations itself is RLS
   // protected and therefore correctly returns zero rows to public sessions.
   const readiness = await sb.rpc("multi_route_schema_ready");
-  if (!readiness.error && readiness.data === true) return "round_14";
 
   // Compatibility fallback for databases that predate Round 14. Read every
   // visible version and compare the numeric round, rather than applied_at:
   // re-running an older idempotent migration must not make the schema appear
   // to move backwards.
   const { data, error } = await sb.from("schema_migrations").select("version");
-  if (error) return null;
-  return highestSchemaVersion((data ?? []).map((row) => row.version));
+  if (error) return !readiness.error && readiness.data === true ? "round_14" : null;
+  return highestSchemaVersion((data ?? []).map((row) => row.version))
+    ?? (!readiness.error && readiness.data === true ? "round_14" : null);
 }
 
 export function highestSchemaVersion(versions: Array<string | null | undefined>): string | null {

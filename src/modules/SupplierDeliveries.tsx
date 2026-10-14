@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Leaf, Package, TrendingUp } from "lucide-react";
+import { Download, Leaf, MessageSquareWarning, Package, TrendingUp } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Badge, Card, IconChip, PageHeader, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
@@ -9,6 +9,8 @@ import { readMyHarvestRecords } from "@/lib/repo";
 import { readDailyTeaPrices, readUserOperationalProfile } from "@/lib/supplierOperations";
 import { useLiveData } from "@/lib/useLiveData";
 import { readSupplierFinancialSummary, type SupplierFinancialSummary } from "@/lib/financialSummary";
+import { createWorkflowRequest, readUserNames } from "@/lib/connectedOperations";
+import { readMyEstates } from "@/lib/estateRepo";
 
 type LeafGroup = "normal" | "super";
 
@@ -36,6 +38,9 @@ export function SupplierDeliveries() {
   const { userUid } = useApp();
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [financial, setFinancial] = useState<SupplierFinancialSummary | null>(null);
+  const [collectorNames, setCollectorNames] = useState<Record<string, string>>({});
+  const [estateNames, setEstateNames] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState("");
   const { data: records, loading } = useLiveData<SupplyRecord>(
     "harvest_records",
     // Round 11 multi-estate: supplier ownership, not one legacy primary estate,
@@ -52,8 +57,13 @@ export function SupplierDeliveries() {
       .catch(() => setPrices({}));
   }, [userUid]);
 
+  useEffect(() => {
+    void readUserNames(records.map((record) => record.collectorId ?? "")).then(setCollectorNames);
+    void readMyEstates(userUid).then((rows) => setEstateNames(Object.fromEntries(rows.map((row) => [row.id, row.name])))).catch(() => setEstateNames({}));
+  }, [records, userUid]);
+
   const monthRecords = useMemo(
-    () => records.filter((record) => record.date.startsWith(sriLankaMonth())),
+    () => records.filter((record) => record.recordStatus !== "void" && record.date.startsWith(sriLankaMonth())),
     [records],
   );
 
@@ -91,6 +101,27 @@ export function SupplierDeliveries() {
   const totalAmount = financial?.grossEarnings ?? 0;
   const superPercentage = totalKg ? Math.round((breakdown.super.kg / totalKg) * 100) : 0;
 
+  const downloadStatement = async () => {
+    const { jsPDF } = await import("jspdf");
+    const pdf = new jsPDF();
+    pdf.setFontSize(16); pdf.text("Estate Pulse · Monthly Supplier Statement", 14, 18);
+    pdf.setFontSize(10); pdf.text(`Month: ${sriLankaMonth()}   Supplier: ${userUid}`, 14, 27);
+    pdf.text(`Total leaf: ${fmtNum(totalKg)} kg   Gross earnings: ${fmtLKR(totalAmount)}`, 14, 34);
+    let y = 45;
+    for (const record of monthRecords) {
+      pdf.text(`${record.receiptNo ?? record.id.slice(0,8)} | ${record.date.slice(0,10)} | ${record.grade} | ${fmtNum(record.kg)} kg | ${fmtLKR(amountFor(record))}`, 14, y);
+      y += 7; if (y > 280) { pdf.addPage(); y = 18; }
+    }
+    pdf.save(`estate-pulse-statement-${sriLankaMonth()}.pdf`);
+  };
+
+  const dispute = async (record: SupplyRecord) => {
+    const reason = window.prompt(t("supplierDelivery.disputeReason", { defaultValue: "Explain what is wrong with this delivery" }));
+    if (!reason?.trim()) return;
+    try { await createWorkflowRequest({ requestType: "weight_dispute", requestedBy: userUid, relatedEntityType: "harvest_record", relatedEntityId: record.id, subject: `Delivery dispute · ${record.receiptNo ?? record.id}`, details: { reason: reason.trim(), receiptNo: record.receiptNo, kg: record.kg, grade: record.grade } }); setMessage(t("supplierDelivery.disputeSubmitted", { defaultValue: "Dispute submitted for administrator review." })); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Dispute could not be submitted."); }
+  };
+
   return (
     <div>
       <PageHeader
@@ -98,7 +129,10 @@ export function SupplierDeliveries() {
         title={t("supplier.deliveries")}
         desc={t("supplier.deliveriesDesc")}
         icon={<IconChip icon={Package} tone="emerald" className="h-12 w-12" />}
+        actions={<button onClick={() => void downloadStatement()} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white"><Download className="h-4 w-4" />{t("supplierDelivery.downloadStatement", { defaultValue: "Download statement" })}</button>}
       />
+
+      {message && <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-700">{message}</p>}
 
       <Card className="mb-4 p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -164,8 +198,9 @@ export function SupplierDeliveries() {
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-slate-800">{record.date.slice(0, 10)} · {fmtNum(record.kg)} kg</p>
                 <p className="text-[11px] text-slate-400">{leafGroup(record.grade) === "super" ? t("supplierDelivery.superLeaf") : t("supplierDelivery.normalLeaf")} · {fmtLKR(amountFor(record))}</p>
+                <p className="text-[10px] text-slate-400">{record.receiptNo ?? t("supplierDelivery.receiptPending", { defaultValue: "Receipt pending" })} · {(estateNames[record.estateId] ?? record.estateId) || "—"} · {record.collectorId ? collectorNames[record.collectorId] ?? record.collectorId : "—"}{record.lorryPlate ? ` · ${record.lorryPlate}` : ""}</p>
               </div>
-              <Badge tone={record.status === "Paid" ? "emerald" : "amber"}>{t(statusKey(record.status), { defaultValue: record.status })}</Badge>
+              <div className="flex flex-col items-end gap-1"><Badge tone={record.status === "Paid" ? "emerald" : "amber"}>{t(statusKey(record.status), { defaultValue: record.status })}</Badge><button onClick={() => void dispute(record)} className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600"><MessageSquareWarning className="h-3 w-3" />{t("supplierDelivery.dispute", { defaultValue: "Dispute" })}</button></div>
             </Card>
           ))}
         </div>

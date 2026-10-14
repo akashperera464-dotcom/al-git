@@ -3648,6 +3648,29 @@ export async function fulfillResourceRequest(input: {
       }
       stockIssued = true;
 
+      // Keep the supplier's fertilizer history connected to the same stock
+      // issue. This is database-authoritative; no same-browser localStorage
+      // hand-off is required for the supplier to see it.
+      if ((input.requestType === "Fertilizer" || input.requestType === "Agrochemical") && input.supplierId && supabaseConfigured) {
+        const sb = getSupabase()!;
+        const stock = await sb.from("stock_items").select("code,name,unit").eq("id", input.stockItemId).maybeSingle();
+        const { error: ledgerError } = await sb.from("supplier_fertilizer_ledger").insert({
+          supplier_id: input.supplierId,
+          supplier_name: input.supplierName ?? input.supplierId,
+          stock_item_id: input.stockItemId,
+          stock_item_code: stock.data?.code ?? null,
+          stock_item_name: stock.data?.name ?? input.itemName,
+          qty_issued: input.quantity,
+          unit: stock.data?.unit ?? "units",
+          payment_mode: input.onCredit ? "credit" : "cash",
+          issue_date: new Date().toISOString(),
+          notes: `Fulfilled resource request ${input.requestId}`,
+        });
+        if (ledgerError) {
+          await sb.from("system_health_events").insert({ category: "sync_failure", severity: "error", user_id: input.fulfilledBy, module: "resource_fulfillment", message: `Supplier fertilizer ledger failed: ${ledgerError.message}`, details: { requestId: input.requestId, supplierId: input.supplierId } });
+        }
+      }
+
       // If on credit → create supplier fertilizer loan
       if (input.onCredit && input.supplierId) {
         await createSupplierLoan({

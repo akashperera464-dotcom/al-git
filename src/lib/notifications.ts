@@ -71,6 +71,11 @@ export async function markAlertsRead(userId: string): Promise<void> {
   await sb.from("alerts").update({ read: true }).eq("target_user_id", userId).eq("read", false);
 }
 
+export async function markAlertRead(alertId: string): Promise<void> {
+  if (!supabaseConfigured) return;
+  await getSupabase()!.from("alerts").update({ read: true }).eq("id", alertId);
+}
+
 export interface AlertRow {
   id: string;
   target_user_id: string;

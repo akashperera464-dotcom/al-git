@@ -4,6 +4,7 @@ import { PageHeader, Card, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { useTranslation } from "react-i18next";
 import { activityKey } from "@/i18n/databaseValues";
+import { readFarmActivities } from "@/lib/repo";
 
 const ACTIVITY_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
   fertilizer: { dot: "bg-emerald-500", bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
@@ -35,23 +36,18 @@ export default function SupplierCalendar() {
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [cacheBump, setCacheBump] = useState(0); // forces re-read when cache changes
+  const [farmLogs, setFarmLogs] = useState<FarmLog[]>([]);
 
-  // Listen for cache updates (B12 fix — recordFarmActivity now writes to cache)
+  // Supabase is authoritative; the event only tells us to refresh after an
+  // online/offline write has been attempted.
   useEffect(() => {
-    const handler = () => setCacheBump(b => b + 1);
+    let active = true;
+    const refresh = () => void readFarmActivities(userUid, 250).then((rows) => active && setFarmLogs(rows)).catch(() => active && setFarmLogs([]));
+    refresh();
+    const handler = () => refresh();
     window.addEventListener("verda:farm-cache-updated", handler);
-    return () => window.removeEventListener("verda:farm-cache-updated", handler);
-  }, []);
-
-  // Load farm activity logs from localStorage
-  const farmLogs = useMemo<FarmLog[]>(() => {
-    void cacheBump; // dependency on cacheBump
-    try {
-      const raw = localStorage.getItem("kdu.farm_activities.cache");
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  }, [userUid, cacheBump]);
+    return () => { active = false; window.removeEventListener("verda:farm-cache-updated", handler); };
+  }, [userUid]);
 
   // Build a map: date string → activity types
   const activityMap = useMemo(() => {

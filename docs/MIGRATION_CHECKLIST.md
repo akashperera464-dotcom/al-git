@@ -2,6 +2,8 @@
 
 The production database remains Supabase PostgreSQL. Apply migrations in order and take a backup before every production change.
 
+> **Current production architecture (Supabase Free plan):** Firebase Email/Password is authentication-only. The Supabase browser client uses the anon key and does not forward Firebase JWTs. Firebase Third-Party Auth must remain disabled. The production database currently uses disabled/permissive RLS with client-side `RouteGuard`/RBAC. The older Round 12/13 JWT/RLS instructions below are historical and are explicitly superseded; do not re-enable them on this project.
+
 ## Ordered baseline
 
 1. `supabase_schema.sql`
@@ -13,9 +15,10 @@ The production database remains Supabase PostgreSQL. Apply migrations in order a
 7. `migration_phase3_round10.sql`
 8. `migration_phase3_round11_unified_estates.sql`
 9. `migration_phase3_round12_lorry_tracking_hardening.sql` (safe prerequisite/compatibility patch)
-10. `migration_phase3_round12_production_hardening.sql`
-11. `migration_phase3_round13_realtime_lorry_broadcast.sql`
+10. `migration_phase3_round12_production_hardening.sql` — historical only; do **not** rerun its JWT-dependent RLS section on the Free-plan project
+11. `migration_phase3_round13_realtime_lorry_broadcast.sql` — historical policy file; current lorry Broadcast uses public anon channels and zero GPS database writes
 12. `migration_phase3_round14_multi_route_users.sql`
+13. `migration_phase3_round15_connected_operations.sql`
 
 ## Before deployment
 
@@ -43,41 +46,14 @@ select route_code,count(*) from public.routes group by route_code having count(*
 select tablename,policyname,roles,qual,with_check from pg_policies where schemaname='public' order by tablename,policyname;
 ```
 
-## Firebase Third-Party Auth dashboard setup
+## Authentication / access warning
 
-In Supabase Dashboard open **Authentication → Third-Party Auth → Add integration → Firebase**, enter the Firebase project ID, and save. The current official integration uses Firebase's public JWKS; a Firebase service-account private key is not pasted into Supabase. Firebase ID tokens must include `role: authenticated` for the normal Postgres `authenticated` role. Backfill that custom claim with a trusted Firebase Admin process and force-refresh user tokens after adding it.
-
-## Edge Functions
-
-```bash
-supabase functions deploy verify-recaptcha
-supabase functions deploy rate-limit
-supabase secrets set RECAPTCHA_SECRET_KEY=replace_with_real_secret
-firebase functions:secrets:set SUPABASE_URL
-firebase functions:secrets:set SUPABASE_SERVICE_ROLE_KEY
-firebase deploy --only functions
-```
-
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically inside Supabase Edge Functions. Do not put the reCAPTCHA secret or service-role key in `.env`.
-Firebase stores its copies through Secret Manager using the commands above; `dispatchLorryNearbyAlerts` runs once per minute and uses `admin_audit_log` to prevent duplicate FCM delivery.
-Run Firebase deployment with the correct project selected through `firebase use <project-id>` or `firebase deploy --project <project-id>`; no placeholder project ID is committed.
-
-Add `VITE_RECAPTCHA_SITE_KEY` to the Vercel project's Environment Variables (not the repository `.env`) and redeploy. Its matching secret is the `RECAPTCHA_SECRET_KEY` Supabase secret above. Register both the production Vercel domain and any custom production domain in the reCAPTCHA console.
-
-## RLS validation
-
-Use separate Firebase users for supplier A, supplier B, a collector assigned today, an unassigned collector, admin and a request with no Firebase token. Confirm:
-
-- Supplier A can read their estates and receives zero rows for Supplier B.
-- A collector can read suppliers/harvests on today's assignment and receives zero rows for other routes.
-- Admin reads all operational rows.
-- A request without a Firebase subject cannot read operational tables. Factories/routes are deliberate read-only exceptions required by pre-login supplier registration.
+Do not enable Supabase Firebase Third-Party Auth and do not add an `accessToken` callback to `src/lib/supabase.ts`. Those steps produced HTTP 401 for every REST request on this Free-plan deployment. Client-side RBAC is an application safety boundary, not database-grade tenant isolation; stronger isolation in future requires a separately approved server gateway that verifies Firebase tokens and holds the service-role key outside the browser.
 
 ## Apply and verify Round 13 — private lorry Broadcast
 
 1. Paste `docs/migration_phase3_round13_realtime_lorry_broadcast.sql` into Supabase SQL Editor and run it after Round 12.
-2. In **Supabase Dashboard → Realtime → Settings**, turn off **Allow public access**. The app deliberately connects with `config.private: true`; this prevents public channels from bypassing the route policies.
-3. Reconfirm **Authentication → Third-Party Auth → Firebase** is enabled and that refreshed Firebase tokens contain `role: authenticated`.
+2. Keep the current Free-plan Realtime configuration used by commit `1396546`: public Broadcast channel, no Firebase token, and no `private:true`. Route UUID topic separation is functional isolation, not a cryptographic authorization boundary.
 4. Deploy the AI advisory Edge Function and store a newly rotated OpenRouter key as a Supabase secret. Never add this secret to `.env`, Vercel variables, or source control:
 
 ```bash
@@ -132,6 +108,30 @@ Post-deployment live checks:
 - Give a collector two authorized routes. Admin may assign either route on different days, but only one daily assignment remains possible.
 - Start today's collector route and confirm suppliers on that route receive Broadcast GPS while suppliers on the collector's other authorized route do not.
 - Confirm that the first selected route remains in `users.route_id` as the primary compatibility value.
+
+## Apply and verify Round 15 — connected operations
+
+1. Take a Supabase Dashboard backup/export first.
+2. Paste `docs/migration_phase3_round15_connected_operations.sql` into the SQL Editor and run it once.
+3. This migration uses only features available on Supabase Free: ordinary PostgreSQL tables/columns/triggers, Storage, and the existing anon client. It does not use Third-Party Auth, JWT claims, Edge Functions, or Pro-only features.
+4. Refresh the installed PWA after the SQL succeeds.
+
+```sql
+select * from public.schema_migrations where version='round_15';
+select enumlabel from pg_enum e join pg_type t on t.oid=e.enumtypid where t.typname='request_type' order by enumsortorder;
+select delivery_receipt_no,collector_id,lorry_plate,record_status from public.harvest_records order by created_at desc limit 5;
+select request_type,status,count(*) from public.operational_requests group by 1,2 order by 1,2;
+select assignment_id,stop_order,supplier_id,estate_id,status from public.collection_route_stops order by assignment_id,stop_order limit 20;
+select period_month,factory_id,status from public.month_end_closures order by period_month desc;
+```
+
+Live checks:
+
+- Supplier Resource Requests always shows Equipment, Fertilizer, and Agrochemical, even when stock is zero.
+- Collector opens today's assignment, sees ordered stops, selects the exact supplier estate, records GPS verification/photo/signature, then receives a digital receipt number.
+- Supplier sees that receipt and may download the monthly PDF or submit a weight dispute.
+- Admin Operations Center sees disputes/support/profile/route requests, duplicates, reconciliation, health events, device sessions, and CSV/PDF reports.
+- On an iPhone installed PWA, focus a login input, sign in, and confirm the authenticated shell remains at normal scale.
 
 ## Rollback
 

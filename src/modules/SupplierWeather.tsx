@@ -6,6 +6,7 @@ import { Icon } from "@/components/Icon";
 import { useApp } from "@/context/AppContext";
 import { fetchForecast, getMockForecast, weatherConfigured } from "@/lib/weather";
 import type { WeatherDay } from "@/lib/data";
+import { readMyEstates } from "@/lib/estateRepo";
 
 /**
  * SupplierWeather — "My Weather" module (supplier side)
@@ -19,30 +20,26 @@ import type { WeatherDay } from "@/lib/data";
  */
 export function SupplierWeather() {
   const { t } = useTranslation();
-  const { estates, associatedEntityId, userUid } = useApp();
-  const estate = estates.find((e) => e.id === associatedEntityId);
+  const { userUid } = useApp();
 
   const [plotLat, setPlotLat] = useState<number | undefined>(undefined);
   const [plotLon, setPlotLon] = useState<number | undefined>(undefined);
   const [plotName, setPlotName] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(`kdu.supplier_plot.${userUid}`);
-      if (raw) {
-        const plot = JSON.parse(raw);
-        if (typeof plot.latitude === "number" && typeof plot.longitude === "number") {
-          setPlotLat(plot.latitude);
-          setPlotLon(plot.longitude);
-          setPlotName(plot.plotName ?? plot.cultivar);
-        }
-      }
-    } catch { /* ignore */ }
+    let active = true;
+    void readMyEstates(userUid).then((rows) => {
+      if (!active) return;
+      const estate = rows.find((row) => row.status === "approved" && row.latitude != null && row.longitude != null)
+        ?? rows.find((row) => row.latitude != null && row.longitude != null);
+      setPlotLat(estate?.latitude); setPlotLon(estate?.longitude); setPlotName(estate?.name);
+    }).catch(() => { if (active) { setPlotLat(undefined); setPlotLon(undefined); setPlotName(undefined); } });
+    return () => { active = false; };
   }, [userUid]);
 
-  const useLat = plotLat ?? estate?.latitude;
-  const useLon = plotLon ?? estate?.longitude;
-  const locationLabel = plotName ?? estate?.name ?? t("supplierWeather.title");
+  const useLat = plotLat;
+  const useLon = plotLon;
+  const locationLabel = plotName ?? t("supplierWeather.title");
 
   const [days, setDays] = useState<WeatherDay[]>(getMockForecast());
   const [source, setSource] = useState<"live" | "mock">("mock");
