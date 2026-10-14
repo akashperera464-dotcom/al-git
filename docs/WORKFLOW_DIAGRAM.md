@@ -3383,6 +3383,7 @@ general company identity         supplier-specific identity
 - Production service-worker updates now activate waiting releases and reload an already-controlled page once. This prevents a long-lived installed/PWA tab from continuing to display the previous branding UI after a successful Vercel deployment.
 - User Management now disambiguates the legacy primary-route foreign key (`users_route_id_fkey`) from the Round 14 many-to-many `user_route_assignments` relationship. Without the explicit PostgREST relationship hint, the directory request returned `PGRST201` and the UI incorrectly looked like an empty database. Query errors are now shown prominently instead of being rendered as “0 users”.
 - User Management also performs an authenticated reload after Firebase session restoration. The original mount-time request could run before Firebase restored its user, causing RLS to correctly return an anonymous empty result that remained cached as “0 users.” The reload waits for the verified Firebase token and preserves RLS; no policy is disabled or weakened.
+- Supabase REST/Auth responses are explicitly `NetworkOnly` in the production service worker. Earlier `NetworkFirst` caching ignored the Authorization header in its cache key, so an anonymous empty RLS response could be replayed after an administrator signed in (and could leak one user's cached response to another session). Activation deletes the legacy `verda-supabase-api` cache; authenticated business responses are never placed in a shared PWA cache.
 
 ### 45.2 Schema-version warning
 

@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------
  * Offline-first engine for the field supervisor & supplier apps.
  * - Precaches the app shell
- * - Serves read APIs NetworkFirst (fresh when online, cached when down)
+ * - Never caches authenticated Supabase responses (prevents cross-session data)
  * - Buffers all mutations in a BackgroundSync queue (IndexedDB) and
  *   flushes them automatically when connectivity returns
  *
@@ -12,7 +12,7 @@
  */
 import { precacheAndRoute } from "workbox-precaching";
 import { registerRoute, setCatchHandler } from "workbox-routing";
-import { NetworkFirst, StaleWhileRevalidate, CacheFirst } from "workbox-strategies";
+import { NetworkFirst, NetworkOnly, StaleWhileRevalidate, CacheFirst } from "workbox-strategies";
 import { Queue } from "workbox-background-sync";
 import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
@@ -59,8 +59,22 @@ registerRoute(({ request }) => ["style", "script", "image", "font"].includes(req
 // OpenStreetMap tiles: offline-friendly, bounded seven-day cache.
 registerRoute(({ url }) => /(^|\.)tile\.openstreetmap\.org$/.test(url.hostname), new CacheFirst({ cacheName: "verda-map-tiles", plugins: [new ExpirationPlugin({ maxAgeSeconds: 7 * 24 * 60 * 60, maxEntries: 600 })] }), "GET");
 
-// Supabase API reads: prefer fresh data and fall back to the last response.
-registerRoute(({ url, request }) => request.method === "GET" && url.hostname.endsWith(".supabase.co") && url.pathname.startsWith("/rest/v1/"), new NetworkFirst({ cacheName: "verda-supabase-api", networkTimeoutSeconds: 5 }), "GET");
+// Supabase responses are identity-scoped by their Authorization header. Workbox
+// cache keys do not include that header, so caching these requests can replay an
+// anonymous (or another user's) RLS response after login. Always go to the
+// network; offline business data is handled by the app's user-scoped stores.
+registerRoute(
+  ({ url, request }) => request.method === "GET" && url.hostname.endsWith(".supabase.co"),
+  new NetworkOnly(),
+  "GET"
+);
+
+// Remove the unsafe cache created by earlier service-worker versions as soon as
+// this release activates. clientsClaim() below makes the corrected worker take
+// control without requiring the user to uninstall the PWA.
+self.addEventListener("activate", (event) => {
+  event.waitUntil(caches.delete("verda-supabase-api"));
+});
 
 // 6. Catch-all fallback to the app shell for navigation
 setCatchHandler(async ({ event }) => {
