@@ -3382,6 +3382,7 @@ general company identity         supplier-specific identity
 - Empty supplier fields intentionally inherit the general company values, so all existing branding records remain backwards-compatible.
 - Production service-worker updates now activate waiting releases and reload an already-controlled page once. This prevents a long-lived installed/PWA tab from continuing to display the previous branding UI after a successful Vercel deployment.
 - User Management now disambiguates the legacy primary-route foreign key (`users_route_id_fkey`) from the Round 14 many-to-many `user_route_assignments` relationship. Without the explicit PostgREST relationship hint, the directory request returned `PGRST201` and the UI incorrectly looked like an empty database. Query errors are now shown prominently instead of being rendered as “0 users”.
+- User Management also performs an authenticated reload after Firebase session restoration. The original mount-time request could run before Firebase restored its user, causing RLS to correctly return an anonymous empty result that remained cached as “0 users.” The reload waits for the verified Firebase token and preserves RLS; no policy is disabled or weakened.
 
 ### 45.2 Schema-version warning
 

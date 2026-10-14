@@ -6,7 +6,7 @@ import { type Role, type ManagedUser } from "@/lib/data";
 import { provisionUser, updateUserProfile } from "@/lib/auth.hybrid";
 import { readUsersForAdmin, readEstateOptions, readDivisionOptions } from "@/lib/repo";
 import { useLiveData } from "@/lib/useLiveData";
-import { getSupabase, supabaseConfigured } from "@/lib/supabase";
+import { getSupabase, refreshSupabaseFirebaseAuth, supabaseConfigured } from "@/lib/supabase";
 import { SupplierLocationHistory } from "@/components/LocationCheckIn";
 import { readFactories, readRoutes, updateSupplierOperationalFields, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 import { readAuditLog, setUserDeactivated, type AuditLogEntry } from "@/lib/estateRepo";
@@ -62,7 +62,7 @@ interface EditForm {
  *  Deactivate → recoverable soft-delete; the user row and operational history remain.
  */
 export default function UserManagement() {
-  const { role: myRole, notify, userUid } = useApp();
+  const { role: myRole, notify, userUid, authReady, isAuthenticated } = useApp();
   const { data: users, loading, error: loadError, reload } = useLiveData<ManagedUser>("users", readUsersForAdmin);
   const [estateOptions, setEstateOptions] = useState<{ id: string; name: string }[]>([]);
   const [divisionOptions, setDivisionOptions] = useState<{ id: string; name: string; estateName: string }[]>([]);
@@ -84,6 +84,24 @@ export default function UserManagement() {
   const [factories, setFactories] = useState<FactoryOption[]>([]);
   const [formRoutes, setFormRoutes] = useState<RouteOption[]>([]);
   const [editRoutes, setEditRoutes] = useState<RouteOption[]>([]);
+
+  // Firebase restores asynchronously. If this module mounts before that restore
+  // completes, the first Supabase request is anonymous and RLS correctly returns
+  // an empty list. Refresh once the verified Firebase identity is ready so the
+  // directory never remains stuck on that pre-authentication result.
+  useEffect(() => {
+    if (!authReady || !isAuthenticated || (myRole !== "admin" && myRole !== "super_admin")) return;
+    let active = true;
+    void refreshSupabaseFirebaseAuth()
+      .then((token) => {
+        if (active && token) return reload();
+        return undefined;
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : "Could not refresh database authentication.");
+      });
+    return () => { active = false; };
+  }, [authReady, isAuthenticated, myRole, userUid, reload]);
 
   // Load estate + division dropdown options once (rarely change).
   useEffect(() => {
