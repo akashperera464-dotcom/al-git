@@ -9,6 +9,8 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useBranding, isMediaUrl, isVideoUrl } from "@/lib/branding";
 import { useTranslation } from "react-i18next";
 import { validateRegistration } from "@/lib/registrationHardening";
+import { RouteMultiSelect } from "@/components/RouteMultiSelect";
+import { assertMultiRouteSchemaReady, replaceUserRoutes } from "@/lib/userRoutes";
 
 /**
  * Unified Login Screen — Email + Password (Firebase Auth).
@@ -32,7 +34,7 @@ export function Login() {
   const [registrationDone, setRegistrationDone] = useState(false);
   const [factories, setFactories] = useState<FactoryOption[]>([]);
   const [routes, setRoutes] = useState<RouteOption[]>([]);
-  const [registration, setRegistration] = useState({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeId: "" });
+  const [registration, setRegistration] = useState({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeIds: [] as string[] });
 
   useEffect(() => {
     const blocked = sessionStorage.getItem("verda.auth.blocked");
@@ -41,7 +43,7 @@ export function Login() {
   useEffect(() => { void readFactories().then(setFactories).catch(() => setFactories([])); }, []);
   useEffect(() => {
     setRoutes([]);
-    setRegistration(current => ({ ...current, routeId: "" }));
+    setRegistration(current => ({ ...current, routeIds: [] }));
     if (registration.factoryId) void readRoutes(registration.factoryId).then(setRoutes).catch(() => setRoutes([]));
   }, [registration.factoryId]);
 
@@ -75,7 +77,7 @@ export function Login() {
   const submitRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!registration.supplierNo.trim() || !registration.name.trim() || !registration.email.trim() || !registration.password || !registration.factoryId || !registration.routeId) {
+    if (!registration.supplierNo.trim() || !registration.name.trim() || !registration.email.trim() || !registration.password || !registration.factoryId || !registration.routeIds.length) {
       setError(t("auth.registrationRequired"));
       return;
     }
@@ -85,10 +87,12 @@ export function Login() {
     }
     setBusy(true);
     try {
+      await assertMultiRouteSchemaReady();
       await validateRegistration({ email: registration.email, phone: registration.phone });
-      await registerSupplier(registration);
+      const userId = await registerSupplier({ ...registration, routeId: registration.routeIds[0] });
+      await replaceUserRoutes({ userId, factoryId: registration.factoryId, routeIds: registration.routeIds, primaryRouteId: registration.routeIds[0], registrationEmail: registration.email });
       setRegistrationDone(true);
-      setRegistration({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeId: "" });
+      setRegistration({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeIds: [] });
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.registrationFailed"));
     } finally {
@@ -202,8 +206,8 @@ export function Login() {
                   <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("common.name")}</label><input value={registration.name} onChange={e => setRegistration({ ...registration, name: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800" disabled={busy} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.factory")}</label><select value={registration.factoryId} onChange={e => setRegistration({ ...registration, factoryId: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800"><option value="">{t("auth.selectFactory")}</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
-                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.route")}</label><select value={registration.routeId} onChange={e => setRegistration({ ...registration, routeId: e.target.value })} disabled={!registration.factoryId} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800 disabled:opacity-50"><option value="">{t("auth.selectRoute")}</option>{routes.map(route => <option key={route.id} value={route.id}>{route.label}</option>)}</select></div>
+                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.factory")}</label><select value={registration.factoryId} onChange={e => setRegistration({ ...registration, factoryId: e.target.value, routeIds: [] })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800"><option value="">{t("auth.selectFactory")}</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.routes")}</label><RouteMultiSelect routes={routes} selected={registration.routeIds} onChange={(routeIds) => setRegistration({ ...registration, routeIds })} disabled={!registration.factoryId || busy} emptyText={t("auth.selectFactoryFirst")} /></div>
                 </div>
               </>
             )}

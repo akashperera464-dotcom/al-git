@@ -15,6 +15,7 @@ The production database remains Supabase PostgreSQL. Apply migrations in order a
 9. `migration_phase3_round12_lorry_tracking_hardening.sql` (safe prerequisite/compatibility patch)
 10. `migration_phase3_round12_production_hardening.sql`
 11. `migration_phase3_round13_realtime_lorry_broadcast.sql`
+12. `migration_phase3_round14_multi_route_users.sql`
 
 ## Before deployment
 
@@ -106,6 +107,32 @@ Then run the live isolation test with two different routes:
 
 Because Broadcast payloads are ephemeral, reloading the supplier page intentionally shows “waiting” until the collector's next GPS broadcast. Historical trip playback is not part of this zero-write mode.
 
+## Apply and verify Round 14 — multi-route users
+
+Paste `docs/migration_phase3_round14_multi_route_users.sql` into Supabase SQL Editor after Round 13. It creates one normalized junction table and keeps `users.route_id` as the backwards-compatible primary route. Existing primary routes and existing supplier-estate routes are backfilled automatically.
+
+```sql
+select * from public.schema_migrations where version='round_14';
+select u.name,u.role,ura.is_primary,r.route_code,r.route_name
+from public.user_route_assignments ura
+join public.users u on u.id=ura.user_id
+join public.routes r on r.id=ura.route_id
+order by u.name,ura.is_primary desc,r.route_name;
+
+select user_id,count(*) filter(where is_primary) as primary_count,count(*) as route_count
+from public.user_route_assignments
+group by user_id
+having count(*) filter(where is_primary)<>1;
+```
+
+Post-deployment live checks:
+
+- Register a supplier with two routes and approve the account; both routes must appear in User Management, My Estates and My Lorry Map.
+- Create one estate on each authorized route; attempting an unauthorized route must be rejected by PostgreSQL.
+- Give a collector two authorized routes. Admin may assign either route on different days, but only one daily assignment remains possible.
+- Start today's collector route and confirm suppliers on that route receive Broadcast GPS while suppliers on the collector's other authorized route do not.
+- Confirm that the first selected route remains in `users.route_id` as the primary compatibility value.
+
 ## Rollback
 
-Restore the pre-deployment dump for a full rollback. For an application-only rollback, deploy the previous Git commit while leaving additive columns/tables in place. To roll back only Round 13, remove the two named policies on `realtime.messages`, restore the previous frontend commit and re-enable public access only if an older public-channel feature explicitly requires it. Do not drop `client_record_id`, route codes, assignment history or audit rows after production writes begin. Price rollback must use the UI/RPC so the audit trail remains intact.
+Restore the pre-deployment dump for a full rollback. For an application-only rollback, deploy the previous Git commit while leaving additive columns/tables in place. To roll back only Round 13, remove the two named policies on `realtime.messages`, restore the previous frontend commit and re-enable public access only if an older public-channel feature explicitly requires it. Round 14 is additive; an application rollback may retain `user_route_assignments`, while `users.route_id` continues to identify the primary route. Do not drop the junction table after secondary routes are in production use. Do not drop `client_record_id`, route codes, assignment history or audit rows after production writes begin. Price rollback must use the UI/RPC so the audit trail remains intact.

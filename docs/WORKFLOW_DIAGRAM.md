@@ -3314,7 +3314,50 @@ Realtime authorization is evaluated when the client joins a channel. A role or a
 - The responsive ETA banner displays localized distance and estimated-arrival sentences in English, Sinhala and Tamil; under 1 km it retains two decimal places, while longer distances use one decimal place.
 - Unit tests cover a known one-degree Haversine result, identical points, invalid coordinates, speed-based ETA and the under-500-metre arrival state.
 
-*End of Workflow Diagram. Last updated: October 2026 (Round 13 — private zero-write lorry Broadcast, frontend Haversine ETA and AI advisory).*
+## 44. Multi-route suppliers and collectors (Round 14)
+
+### 44.1 Registration and administration
+
+```text
+Choose one factory
+       │
+       ▼
+Select one or more authorized routes
+       │ first selected route = primary compatibility route
+       ▼
+users.route_id ───────────────► existing modules remain compatible
+       │
+       └─ user_route_assignments (one row per authorized route)
+                    │
+                    ├─ supplier estate route choices
+                    ├─ supplier live-lorry route choices
+                    └─ collector daily assignment choices
+```
+
+- Public supplier registration, administrator User Management, and inline Estate Master supplier creation all use the same multi-select behavior.
+- `users.factory_id` remains the account's factory and all selected routes must belong to it. Cross-factory route combinations are rejected by `set_user_routes` and database triggers.
+- `users.route_id` is deliberately retained as the primary route so older reports and profile reads remain stable. The normalized `user_route_assignments` table is authoritative for complete route membership.
+- Existing supplier/collector primary routes and routes already used by supplier estates are backfilled by the Round 14 migration. The frontend performs a migration-readiness check before creating an account, preventing a partially created registration when the new schema has not been applied.
+
+### 44.2 Supplier workflow
+
+- A supplier may register and manage multiple estates across their authorized routes. My Estates lists only those routes and PostgreSQL rejects an estate linked to any other route.
+- My Lorry Map and the Supplier Home lorry card provide a route selector when more than one route is assigned. Changing it disconnects the previous private channel and subscribes only to `route-tracking:<selected route UUID>`.
+- AI proximity advice checks `user_route_assignments` server-side, so an authorized secondary route works without weakening estate ownership checks.
+
+### 44.3 Collector workflow and isolation
+
+- Collectors are created by an administrator and may be authorized for multiple routes in User Management. Public self-registration remains supplier-only.
+- Authorization does not mean simultaneous operation: `collector_route_assignments` still enforces one active route per collector per date. The administrator's daily assignment dropdown contains only that collector's authorized routes.
+- The collector sees only today's assigned route; supplier directory reads and Realtime Broadcast publishing remain scoped to that one daily route. The database trigger rejects an assignment outside the collector's authorized route set.
+- Realtime receive access for suppliers recognizes every authorized route, while collectors gain receive/publish access through today's assignment. Selecting multiple routes therefore does not merge or expose route channels.
+
+### 44.4 Deployment and verification
+
+Apply `docs/migration_phase3_round14_multi_route_users.sql` after Round 13. It creates one table, RLS policies, validation/synchronization triggers and the audited `set_user_routes` RPC. Exact SQL verification and live two-route scenarios are in `docs/MIGRATION_CHECKLIST.md`.
+The frontend minimum schema marker is `round_14`, so administrators receive the existing database-update warning until this migration is recorded.
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 14 — multi-route suppliers and collectors).*
 
 
 

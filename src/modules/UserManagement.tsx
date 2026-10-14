@@ -10,6 +10,8 @@ import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 import { SupplierLocationHistory } from "@/components/LocationCheckIn";
 import { readFactories, readRoutes, updateSupplierOperationalFields, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 import { readAuditLog, setUserDeactivated, type AuditLogEntry } from "@/lib/estateRepo";
+import { RouteMultiSelect } from "@/components/RouteMultiSelect";
+import { assertMultiRouteSchemaReady, readUserRouteAssignments, replaceUserRoutes } from "@/lib/userRoutes";
 
 /** Badge tone per role. */
 const ROLE_TONE: Record<Role, "emerald" | "amber" | "violet" | "sky"> = {
@@ -35,9 +37,9 @@ interface UserForm {
   divisionId: string;
   supplierNo: string;
   factoryId: string;
-  routeId: string;
+  routeIds: string[];
 }
-const EMPTY_FORM: UserForm = { name: "", email: "", password: "", role: "extension_officer", phone: "", estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeId: "" };
+const EMPTY_FORM: UserForm = { name: "", email: "", password: "", role: "extension_officer", phone: "", estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeIds: [] };
 
 interface EditForm {
   id: string;
@@ -48,7 +50,7 @@ interface EditForm {
   divisionId: string;
   supplierNo: string;
   factoryId: string;
-  routeId: string;
+  routeIds: string[];
   status: "active" | "suspended" | "pending_approval";
 }
 
@@ -117,6 +119,15 @@ export default function UserManagement() {
     void readRoutes(editing.factoryId).then(setEditRoutes).catch(() => setEditRoutes([]));
   }, [editing?.factoryId]);
 
+  useEffect(() => {
+    if (!editing?.id) return;
+    let active = true;
+    void readUserRouteAssignments(editing.id).then((rows) => {
+      if (active && rows.length) setEditing((current) => current?.id === editing.id ? { ...current, factoryId: rows[0].factoryId, routeIds: rows.map((route) => route.id) } : current);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [editing?.id]);
+
   const filtered = users.filter((u) => filter === "all" || u.role === filter);
   const active = users.filter((u) => u.status === "active" && !u.deactivatedAt).length;
   const estateName = (id?: string) => estateOptions.find((e) => e.id === id)?.name ?? "—";
@@ -183,14 +194,15 @@ export default function UserManagement() {
       setError("Supplier No is required for suppliers.");
       return;
     }
-    if (editing.role === "supplier" && (!editing.factoryId || !editing.routeId)) {
-      setError("Factory and route are required for suppliers.");
+    if ((editing.role === "supplier" || editing.role === "extension_officer") && (!editing.factoryId || !editing.routeIds.length)) {
+      setError("Factory and at least one route are required for suppliers and collectors.");
       return;
     }
     // Division is optional for Extension Officers.
     setBusy(true);
     setError(null);
     try {
+      if (editing.role === "supplier" || editing.role === "extension_officer") await assertMultiRouteSchemaReady();
       const division = editing.role === "extension_officer" ? allDivisions.find((d) => d.id === editing.divisionId)?.name ?? editing.divisionId : null;
       const association = editing.role === "supplier" ? editing.estateId : null;
       await updateUserProfile(editing.id, {
@@ -203,8 +215,11 @@ export default function UserManagement() {
       });
       if (editing.role === "supplier") {
         await updateSupplierOperationalFields(editing.id, {
-          supplierNo: editing.supplierNo.trim(), factoryId: editing.factoryId || null, routeId: editing.routeId || null,
+          supplierNo: editing.supplierNo.trim(),
         });
+      }
+      if (editing.role === "supplier" || editing.role === "extension_officer") {
+        await replaceUserRoutes({ userId: editing.id, factoryId: editing.factoryId, routeIds: editing.routeIds, primaryRouteId: editing.routeIds[0] });
       }
       void reload(); // refresh from DB
       notify({ title: "User updated", body: `${editing.name}'s profile saved.`, tone: "emerald", channel: "system" });
@@ -223,13 +238,14 @@ export default function UserManagement() {
       return;
     }
     if (form.role === "supplier" && !form.supplierNo.trim()) { setError("Supplier No is required for suppliers."); return; }
-    if (form.role === "supplier" && (!form.factoryId || !form.routeId)) { setError("Factory and route are required for suppliers."); return; }
+    if ((form.role === "supplier" || form.role === "extension_officer") && (!form.factoryId || !form.routeIds.length)) { setError("Factory and at least one route are required for suppliers and collectors."); return; }
     // Division is optional for Extension Officers.
     if ((form.role === "admin" || form.role === "super_admin") && !canManageAdmins) { setError("Only a Super Admin can create admin accounts."); return; }
     if (form.password.length < 6) { setError("Temporary password must be at least 6 characters."); return; }
 
     setBusy(true);
     try {
+      if (form.role === "supplier" || form.role === "extension_officer") await assertMultiRouteSchemaReady();
       const association = form.role === "supplier" ? form.estateId : null;
       const division = form.role === "extension_officer" ? allDivisions.find((d) => d.id === form.divisionId)?.name ?? form.divisionId : null;
       const newUserId = await provisionUser(form.email.trim(), form.password, {
@@ -241,8 +257,11 @@ export default function UserManagement() {
       });
       if (form.role === "supplier") {
         await updateSupplierOperationalFields(newUserId, {
-          supplierNo: form.supplierNo.trim(), factoryId: form.factoryId, routeId: form.routeId,
+          supplierNo: form.supplierNo.trim(),
         });
+      }
+      if (form.role === "supplier" || form.role === "extension_officer") {
+        await replaceUserRoutes({ userId: newUserId, factoryId: form.factoryId, routeIds: form.routeIds, primaryRouteId: form.routeIds[0] });
       }
       void reload(); // refresh from DB — new user appears instantly across all screens
       notify({ title: "Account created ✅", body: `${form.name.trim()} (${ROLE_LABEL[form.role]}) can now log in.`, tone: "emerald", channel: "system" });
@@ -327,7 +346,7 @@ export default function UserManagement() {
             <div><label className={labelCls}>Full name</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Nimal Perera" className={inputCls} /></div>
             <div>
               <label className={labelCls}>Role</label>
-              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role, estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeId: "" })} className={inputCls}>
+              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role, estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeIds: [] })} className={inputCls}>
                 <option value="extension_officer">Extension Officer</option>
                 <option value="supplier">Supplier</option>
                 {canManageAdmins && <option value="admin">Admin</option>}
@@ -340,8 +359,6 @@ export default function UserManagement() {
             {form.role === "supplier" && (
               <>
               <div><label className={labelCls}>Supplier No (factory number) *</label><input value={form.supplierNo} onChange={e => setForm({ ...form, supplierNo: e.target.value })} placeholder="e.g., 237" className={inputCls} /></div>
-              <div><label className={labelCls}>Factory *</label><select value={form.factoryId} onChange={e => setForm({ ...form, factoryId: e.target.value, routeId: "" })} className={inputCls}><option value="">— select factory —</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
-              <div><label className={labelCls}>Route *</label><select value={form.routeId} onChange={e => setForm({ ...form, routeId: e.target.value })} disabled={!form.factoryId} className={inputCls}><option value="">— select route —</option>{formRoutes.map(route => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div>
               <div><label className={labelCls}><Building2 className="mr-1 inline h-3 w-3" />Link to Estate (optional)</label>
                 <select value={form.estateId} onChange={(e) => setForm({ ...form, estateId: e.target.value })} className={inputCls}>
                   <option value="">— no linked estate —</option>
@@ -351,6 +368,10 @@ export default function UserManagement() {
               </div>
               </>
             )}
+            {(form.role === "supplier" || form.role === "extension_officer") && <>
+              <div><label className={labelCls}>Factory *</label><select value={form.factoryId} onChange={e => setForm({ ...form, factoryId: e.target.value, routeIds: [] })} className={inputCls}><option value="">— select factory —</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+              <div className="sm:col-span-2"><label className={labelCls}>Authorized routes *</label><RouteMultiSelect routes={formRoutes} selected={form.routeIds} onChange={(routeIds) => setForm({ ...form, routeIds })} disabled={!form.factoryId || busy} /></div>
+            </>}
             {form.role === "extension_officer" && (
               <div><label className={labelCls}><Layers className="mr-1 inline h-3 w-3" />Assigned Division (optional)</label>
                 <select value={form.divisionId} onChange={(e) => setForm({ ...form, divisionId: e.target.value })} className={inputCls}>
@@ -384,7 +405,7 @@ export default function UserManagement() {
             <div><label className={labelCls}>Full name</label><input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className={inputCls} /></div>
             <div>
               <label className={labelCls}>Role {canManageAdmins ? "" : "(admins only super_admin can change)"}</label>
-              <select value={editing.role} onChange={(e) => setEditing({ ...editing, role: e.target.value as Role, estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeId: "" })} className={inputCls}>
+              <select value={editing.role} onChange={(e) => setEditing({ ...editing, role: e.target.value as Role, estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeIds: [] })} className={inputCls}>
                 <option value="extension_officer">Extension Officer</option>
                 <option value="supplier">Supplier</option>
                 {canManageAdmins && <option value="admin">Admin</option>}
@@ -403,8 +424,6 @@ export default function UserManagement() {
             {editing.role === "supplier" && (
               <>
               <div><label className={labelCls}>Supplier No *</label><input value={editing.supplierNo} onChange={(e) => setEditing({ ...editing, supplierNo: e.target.value })} className={inputCls} /></div>
-              <div><label className={labelCls}>Factory *</label><select value={editing.factoryId} onChange={(e) => setEditing({ ...editing, factoryId: e.target.value, routeId: "" })} className={inputCls}><option value="">— select factory —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
-              <div><label className={labelCls}>Route *</label><select value={editing.routeId} onChange={(e) => setEditing({ ...editing, routeId: e.target.value })} disabled={!editing.factoryId} className={inputCls}><option value="">— select route —</option>{editRoutes.map((route) => <option key={route.id} value={route.id}>{route.name}</option>)}</select></div>
               <div><label className={labelCls}><Building2 className="mr-1 inline h-3 w-3" />Link to Estate (optional)</label>
                 <select value={editing.estateId} onChange={(e) => setEditing({ ...editing, estateId: e.target.value })} className={inputCls}>
                   <option value="">— no linked estate —</option>
@@ -413,6 +432,10 @@ export default function UserManagement() {
               </div>
               </>
             )}
+            {(editing.role === "supplier" || editing.role === "extension_officer") && <>
+              <div><label className={labelCls}>Factory *</label><select value={editing.factoryId} onChange={(e) => setEditing({ ...editing, factoryId: e.target.value, routeIds: [] })} className={inputCls}><option value="">— select factory —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+              <div className="sm:col-span-2"><label className={labelCls}>Authorized routes *</label><RouteMultiSelect routes={editRoutes} selected={editing.routeIds} onChange={(routeIds) => setEditing({ ...editing, routeIds })} disabled={!editing.factoryId || busy} /></div>
+            </>}
             {editing.role === "extension_officer" && (
               <div><label className={labelCls}><Layers className="mr-1 inline h-3 w-3" />Assigned Division (optional)</label>
                 <select value={editing.divisionId} onChange={(e) => setEditing({ ...editing, divisionId: e.target.value })} className={inputCls}>
@@ -522,7 +545,7 @@ export default function UserManagement() {
                 <div className="flex items-center justify-end gap-1.5">
                   {/* Edit — all admins can edit (their own scope) */}
                   <button
-                    onClick={() => { setEditing({ id: u.id, name: u.name, role: u.role, phone: u.phone ?? "", estateId: u.associatedEntityId ?? "", divisionId: u.division ?? "", supplierNo: u.supplierNo ?? "", factoryId: u.factoryId ?? "", routeId: u.routeId ?? "", status: u.status }); setAdding(false); setConfirmDelete(null); setError(null); }}
+                    onClick={() => { setEditing({ id: u.id, name: u.name, role: u.role, phone: u.phone ?? "", estateId: u.associatedEntityId ?? "", divisionId: u.division ?? "", supplierNo: u.supplierNo ?? "", factoryId: u.factoryId ?? "", routeIds: u.routeId ? [u.routeId] : [], status: u.status }); setAdding(false); setConfirmDelete(null); setError(null); }}
                     title="Edit"
                     className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
                   >

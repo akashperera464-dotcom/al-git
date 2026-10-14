@@ -6,6 +6,7 @@ import { fmtLKR } from "@/lib/data";
 import { readUserOperationalProfile } from "@/lib/supplierOperations";
 import { useTranslation } from "react-i18next";
 import { readSupplierFinancialSummary } from "@/lib/financialSummary";
+import { readUserRouteAssignments, type UserRouteAssignment } from "@/lib/userRoutes";
 
 /**
  * SupplierProfile — "My Profile" module (supplier side)
@@ -77,6 +78,7 @@ export function SupplierProfile() {
   const [totalFertCost, setTotalFertCost] = useState(0);
   const [advanceBalance, setAdvanceBalance] = useState(0);
   const [assignment, setAssignment] = useState<{ supplierNo?: string; factoryName?: string; routeName?: string } | null>(null);
+  const [assignedRoutes, setAssignedRoutes] = useState<UserRouteAssignment[]>([]);
 
   useEffect(() => {
     // Load profile
@@ -100,7 +102,9 @@ export function SupplierProfile() {
       setTotalFertCost(summary?.fertilizerDeduction ?? 0);
       setAdvanceBalance(summary?.cashAdvanceInstallment ?? 0);
     }).catch(() => { setTotalEarned(0); setTotalFertCost(0); setAdvanceBalance(0); });
-    void readUserOperationalProfile(userUid).then(setAssignment).catch(() => setAssignment(null));
+    void Promise.all([readUserOperationalProfile(userUid), readUserRouteAssignments(userUid)])
+      .then(([operationalProfile, routes]) => { setAssignment(operationalProfile); setAssignedRoutes(routes); })
+      .catch(() => { setAssignment(null); setAssignedRoutes([]); });
 
     // Listen for new toasts and persist them
     const handleToast = (e: Event) => {
@@ -165,7 +169,7 @@ export function SupplierProfile() {
       <Card className="mt-4 grid grid-cols-3 gap-3 p-4 text-sm">
         <div><p className="text-[10px] uppercase text-slate-400">Supplier No</p><p className="font-bold text-slate-800">{assignment?.supplierNo ?? "—"}</p></div>
         <div><p className="text-[10px] uppercase text-slate-400">Factory</p><p className="font-bold text-slate-800">{assignment?.factoryName ?? "—"}</p></div>
-        <div><p className="text-[10px] uppercase text-slate-400">Route</p><p className="font-bold text-slate-800">{assignment?.routeName ?? "—"}</p></div>
+        <div><p className="text-[10px] uppercase text-slate-400">Routes</p><p className="font-bold text-slate-800">{assignedRoutes.length ? assignedRoutes.map((route) => route.label).join(", ") : assignment?.routeName ?? "—"}</p></div>
       </Card>
 
       {/* B30 (Round #12) — RESTORED: Cost vs Earnings Summary (with estimate disclaimer) */}

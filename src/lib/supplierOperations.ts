@@ -60,11 +60,22 @@ export async function readRoutes(factoryId?: string): Promise<RouteOption[]> {
 
 export async function readSupplierDirectory(factoryId?: string, routeId?: string): Promise<SupplierDirectoryEntry[]> {
   if (!supabaseConfigured) return [];
-  let query = getSupabase()!.from("users")
+  const sb = getSupabase()!;
+  let routeUserIds: string[] | null = null;
+  if (routeId) {
+    const assignmentResult = await sb.from("user_route_assignments").select("user_id").eq("route_id", routeId);
+    if (!assignmentResult.error) routeUserIds = (assignmentResult.data ?? []).map((row) => row.user_id);
+    else if (!/user_route_assignments|relation .* does not exist|schema cache/i.test(assignmentResult.error.message)) {
+      throw new Error(`Could not load route suppliers: ${assignmentResult.error.message}`);
+    }
+    if (routeUserIds && !routeUserIds.length) return [];
+  }
+  let query = sb.from("users")
     .select("id,name,phone,supplier_no,factory_id,route_id,factories(name),routes(route_name)")
     .eq("role", "supplier").eq("status", "active").order("name");
   if (factoryId) query = query.eq("factory_id", factoryId);
-  if (routeId) query = query.eq("route_id", routeId);
+  if (routeUserIds) query = query.in("id", routeUserIds);
+  else if (routeId) query = query.eq("route_id", routeId);
   const { data, error } = await query;
   if (error) throw new Error(`Could not load suppliers: ${error.message}`);
   return (data ?? []).map(row => ({

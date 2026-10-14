@@ -1,6 +1,6 @@
 import { getSupabase, supabaseConfigured } from "./supabase";
 
-export const MINIMUM_SCHEMA_VERSION = "round_12";
+export const MINIMUM_SCHEMA_VERSION = "round_14";
 
 export async function readLatestSchemaVersion(): Promise<string | null> {
   if (!supabaseConfigured) return null;

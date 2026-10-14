@@ -53,11 +53,15 @@ Deno.serve(async (request) => {
     // proves that the caller owns both the requested route and estate.
     const db = createClient(url, serviceKey);
     const { data: user, error: userError } = await db.from("users")
-      .select("route_id,status,deactivated_at")
+      .select("status,deactivated_at")
       .eq("id", userId).eq("role", "supplier").maybeSingle();
-    if (userError || !user || user.status !== "active" || user.deactivated_at || user.route_id !== routeId) {
+    if (userError || !user || user.status !== "active" || user.deactivated_at) {
       return json({ error: "route_access_denied" }, 403);
     }
+    const { data: routeAccess, error: routeAccessError } = await db.from("user_route_assignments")
+      .select("route_id")
+      .eq("user_id", userId).eq("route_id", routeId).maybeSingle();
+    if (routeAccessError || !routeAccess) return json({ error: "route_access_denied" }, 403);
     const { data: estate, error: estateError } = await db.from("estates")
       .select("id")
       .eq("id", estateId).eq("owner_supplier_id", userId).eq("route_id", routeId).maybeSingle();

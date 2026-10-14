@@ -8,10 +8,11 @@ import { Badge, Card } from "@/components/ui";
 import { AiEstateInsights } from "@/components/AiEstateInsights";
 import { EtaBanner } from "@/components/EtaBanner";
 import { calculateEta, DEFAULT_RURAL_SPEED_KMH, isValidGeoPoint } from "@/lib/etaCalculation";
-import { readMyEstates } from "@/lib/estateRepo";
+import { readMyEstates, type Estate } from "@/lib/estateRepo";
 import { AI_ADVISORY_DISTANCE_KM, requestProximityAdvisory, type ProximityAdvisory } from "@/lib/openRouterAdvisory";
 import { readUserOperationalProfile } from "@/lib/supplierOperations";
 import { subscribeToLorryLocation, type LorryChannelStatus, type LorryLocation } from "@/lib/lorryBroadcast";
+import { readUserRouteAssignments, type UserRouteAssignment } from "@/lib/userRoutes";
 
 interface EstatePoint { id: string; name: string; latitude: number; longitude: number }
 
@@ -32,9 +33,8 @@ export function LorryTracking({ userId }: { userId: string }) {
   const { t, i18n } = useTranslation();
   const [location, setLocation] = useState<LorryLocation | null>(null);
   const [routeId, setRouteId] = useState("");
-  const [routeName, setRouteName] = useState("");
-  const [routeCode, setRouteCode] = useState("");
-  const [estatePoint, setEstatePoint] = useState<EstatePoint | null>(null);
+  const [routeOptions, setRouteOptions] = useState<UserRouteAssignment[]>([]);
+  const [estates, setEstates] = useState<Estate[]>([]);
   const [channelStatus, setChannelStatus] = useState<LorryChannelStatus>("connecting");
   const [error, setError] = useState("");
   const [clock, setClock] = useState(() => Date.now());
@@ -49,31 +49,43 @@ export function LorryTracking({ userId }: { userId: string }) {
 
   useEffect(() => {
     let active = true;
-    let unsubscribe = () => {};
     setError(""); setLocation(null); setChannelStatus("connecting");
-    void Promise.all([readUserOperationalProfile(userId), readMyEstates(userId)]).then(([profile, estates]) => {
+    void Promise.all([readUserOperationalProfile(userId), readMyEstates(userId), readUserRouteAssignments(userId)]).then(([profile, estateRows, assignments]) => {
       if (!active) return;
-      const estate = estates.find((item) => item.latitude != null && item.longitude != null
-        && isValidGeoPoint({ latitude: item.latitude, longitude: item.longitude }));
-      setEstatePoint(estate?.latitude != null && estate.longitude != null
-        ? { id: estate.id, name: estate.name, latitude: estate.latitude, longitude: estate.longitude }
-        : null);
-      if (!profile?.routeId) {
-        setRouteId(""); setRouteName(""); setChannelStatus("stopped");
+      setEstates(estateRows);
+      setRouteOptions(assignments);
+      const preferred = assignments.find((route) => route.isPrimary) ?? assignments[0];
+      const nextRouteId = preferred?.id ?? profile?.routeId ?? "";
+      if (!nextRouteId) {
+        setRouteId(""); setChannelStatus("stopped");
         return;
       }
-      setRouteId(profile.routeId);
-      setRouteName(profile.routeName ?? t("lorry.assignedRoute"));
-      setRouteCode(profile.routeCode ?? "");
-      unsubscribe = subscribeToLorryLocation(profile.routeId, (next) => active && setLocation(next), (status, message) => {
+      setRouteId((current) => assignments.some((route) => route.id === current) ? current : nextRouteId);
+    }).catch((reason) => active && setError(reason instanceof Error ? reason.message : t("lorry.trackingUnavailable")));
+    return () => { active = false; };
+  }, [t, userId]);
+
+  useEffect(() => {
+    if (!routeId) return;
+    let active = true;
+    setLocation(null); setError(""); setChannelStatus("connecting");
+    const unsubscribe = subscribeToLorryLocation(routeId, (next) => active && setLocation(next), (status, message) => {
         if (!active) return;
         setChannelStatus(status);
         if (status === "error") setError(message ?? t("lorry.trackingUnavailable"));
         else setError("");
       });
-    }).catch((reason) => active && setError(reason instanceof Error ? reason.message : t("lorry.trackingUnavailable")));
     return () => { active = false; unsubscribe(); };
-  }, [t, userId]);
+  }, [routeId, t]);
+
+  const selectedRoute = routeOptions.find((route) => route.id === routeId);
+  const estatePoint = useMemo<EstatePoint | null>(() => {
+    const estate = estates.find((item) => item.routeId === routeId && item.latitude != null && item.longitude != null
+      && isValidGeoPoint({ latitude: item.latitude, longitude: item.longitude }));
+    return estate?.latitude != null && estate.longitude != null
+      ? { id: estate.id, name: estate.name, latitude: estate.latitude, longitude: estate.longitude }
+      : null;
+  }, [estates, routeId]);
 
   const minutesOld = useMemo(() => location ? Math.max(0, Math.floor((clock - new Date(location.updatedAt).getTime()) / 60_000)) : null, [clock, location]);
   const live = channelStatus === "live" && Boolean(location?.active) && minutesOld !== null && minutesOld <= 2;
@@ -108,7 +120,7 @@ export function LorryTracking({ userId }: { userId: string }) {
 
   return <Card className="mb-4 overflow-hidden border-sky-200">
     <div className="flex items-center justify-between gap-3 p-3.5">
-      <div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-50 text-sky-600"><Truck className="h-4 w-4" /></span><div><p className="text-sm font-bold text-slate-800">{t("lorry.liveCollectionLorry")}</p><p className="text-[11px] text-slate-500">{routeCode && <b>{routeCode} · </b>}{routeName || t("lorry.noRoute")}</p></div></div>
+      <div className="flex min-w-0 items-center gap-2"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600"><Truck className="h-4 w-4" /></span><div className="min-w-0"><p className="text-sm font-bold text-slate-800">{t("lorry.liveCollectionLorry")}</p>{routeOptions.length > 1 ? <select aria-label={t("lorry.selectTrackedRoute")} value={routeId} onChange={(event) => setRouteId(event.target.value)} className="mt-1 max-w-full rounded-lg border border-sky-200 bg-white px-2 py-1 text-[11px] font-semibold text-sky-800">{routeOptions.map((route) => <option key={route.id} value={route.id}>{route.label}</option>)}</select> : <p className="truncate text-[11px] text-slate-500">{selectedRoute?.code && <b>{selectedRoute.code} · </b>}{selectedRoute?.name || t("lorry.noRoute")}</p>}</div></div>
       <Badge tone={live ? "emerald" : channelStatus === "error" ? "rose" : "amber"} dot>{live ? t("lorry.live") : location && !location.active ? t("lorry.stopped") : statusLabel}</Badge>
     </div>
     {eta && <EtaBanner eta={eta} />}

@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Badge, Card, IconChip, PageHeader } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { createEstate, deleteEstate, readMyEstates, replaceEstateBlocks, sizeFromAcreage, updateEstate, type CreateEstateInput, type Estate, type EstateBlock } from "@/lib/estateRepo";
-import { readFactories, readRoutes, readUserOperationalProfile, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
+import { readFactories, readUserOperationalProfile, type FactoryOption } from "@/lib/supplierOperations";
+import { readUserRouteAssignments, type UserRouteAssignment } from "@/lib/userRoutes";
 
 type FormBlock = Omit<EstateBlock, "id" | "estateId">;
 interface EstateForm {
@@ -37,7 +38,7 @@ export default function SupplierEstates() {
   const [editingEstateId, setEditingEstateId] = useState<string | null>(null);
   const [form, setForm] = useState<EstateForm>(EMPTY_FORM);
   const [factories, setFactories] = useState<FactoryOption[]>([]);
-  const [routes, setRoutes] = useState<RouteOption[]>([]);
+  const [routes, setRoutes] = useState<UserRouteAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,19 +55,20 @@ export default function SupplierEstates() {
 
   useEffect(() => { void load(); }, [userUid]);
   useEffect(() => {
-    void Promise.all([readFactories(), readUserOperationalProfile(userUid)]).then(([factoryRows, profile]) => {
+    void Promise.all([readFactories(), readUserOperationalProfile(userUid), readUserRouteAssignments(userUid)]).then(([factoryRows, profile, assignedRoutes]) => {
       setFactories(factoryRows);
+      setRoutes(assignedRoutes);
       if (profile) setForm((value) => ({ ...value, factoryId: value.factoryId || profile.factoryId || "", routeId: value.routeId || profile.routeId || "" }));
     }).catch(() => {});
   }, [userUid]);
-  useEffect(() => { if (!form.factoryId) { setRoutes([]); return; } void readRoutes(form.factoryId).then(setRoutes).catch(() => setRoutes([])); }, [form.factoryId]);
 
   const selected = estates.find((estate) => estate.id === selectedEstateId) ?? null;
   const approvedCount = estates.filter((estate) => estate.status === "approved").length;
 
   const startNew = () => {
+    const primaryRoute = routes.find((route) => route.isPrimary) ?? routes[0];
     setEditingEstateId(null);
-    setForm({ ...EMPTY_FORM, factoryId: form.factoryId, routeId: form.routeId });
+    setForm({ ...EMPTY_FORM, factoryId: primaryRoute?.factoryId ?? form.factoryId, routeId: primaryRoute?.id ?? form.routeId });
     setShowRegisterForm(true); setError(null);
   };
   const startEdit = (estate: Estate) => { setEditingEstateId(estate.id); setForm(toForm(estate)); setShowRegisterForm(true); setError(null); };
@@ -79,6 +81,7 @@ export default function SupplierEstates() {
 
   const submit = async () => {
     if (!form.name.trim() || form.acreage <= 0) { setError("Estate name and acreage are required."); return; }
+    if (!form.factoryId || !form.routeId || !routes.some((route) => route.id === form.routeId && route.factoryId === form.factoryId)) { setError("Select one of your authorized routes for this estate."); return; }
     if (form.blocks.some((block) => !block.name.trim() || block.areaHa < 0 || block.bushCount < 0)) { setError("Complete every block using valid positive values."); return; }
     setSaving(true); setError(null);
     try {
@@ -97,7 +100,8 @@ export default function SupplierEstates() {
         if (!result.success) throw new Error(result.error ?? "Estate registration failed.");
         notify({ title: "Registration submitted!", body: approvedCount ? `Your existing ${approvedCount} estate(s) are still active.` : "Your estate is awaiting administrator approval.", tone: "emerald", channel: "system" });
       }
-      setShowRegisterForm(false); setEditingEstateId(null); setForm(EMPTY_FORM); await load();
+      const primaryRoute = routes.find((route) => route.isPrimary) ?? routes[0];
+      setShowRegisterForm(false); setEditingEstateId(null); setForm({ ...EMPTY_FORM, factoryId: primaryRoute?.factoryId ?? form.factoryId, routeId: primaryRoute?.id ?? form.routeId }); await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Estate could not be saved."); }
     finally { setSaving(false); }
   };
@@ -121,7 +125,7 @@ export default function SupplierEstates() {
       <Field label="Region"><select className={inputCls} value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}><option value="low-country">Low country</option><option value="mid-country">Mid country</option><option value="up-country">Up country</option></select></Field>
       <Field label="Soil type"><input className={inputCls} value={form.soilType} onChange={(e) => setForm({ ...form, soilType: e.target.value })} /></Field>
       <Field label="Contact phone"><input className={inputCls} value={form.contactPhone} onChange={(e) => setForm({ ...form, contactPhone: e.target.value })} /></Field>
-      <Field label="Factory"><select className={inputCls} value={form.factoryId} onChange={(e) => setForm({ ...form, factoryId: e.target.value, routeId: "" })}><option value="">— select —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></Field>
+      <Field label="Factory"><select className={`${inputCls} bg-slate-100`} disabled value={form.factoryId}><option value="">— assigned factory —</option>{factories.map((factory) => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></Field>
       <Field label="Route"><select className={inputCls} disabled={!form.factoryId} value={form.routeId} onChange={(e) => setForm({ ...form, routeId: e.target.value })}><option value="">— select —</option>{routes.map((route) => <option key={route.id} value={route.id}>{route.label}</option>)}</select></Field>
       <Field label="Latitude"><input className={inputCls} value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} /></Field><Field label="Longitude"><input className={inputCls} value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} /></Field>
       <div className="flex items-end"><button onClick={useCurrentLocation} type="button" className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm font-bold text-sky-700"><MapPin className="h-4 w-4" />Use current GPS</button></div>
