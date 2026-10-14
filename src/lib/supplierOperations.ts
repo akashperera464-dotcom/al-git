@@ -71,7 +71,7 @@ export async function readSupplierDirectory(factoryId?: string, routeId?: string
     if (routeUserIds && !routeUserIds.length) return [];
   }
   let query = sb.from("users")
-    .select("id,name,phone,supplier_no,factory_id,route_id,factories(name),routes(route_name)")
+    .select("id,name,phone,supplier_no,factory_id,route_id,factories!users_factory_id_fkey(name),routes!users_route_id_fkey(route_name)")
     .eq("role", "supplier").eq("status", "active").order("name");
   if (factoryId) query = query.eq("factory_id", factoryId);
   if (routeUserIds) query = query.in("id", routeUserIds);
@@ -117,12 +117,12 @@ export async function readUserOperationalProfile(userId: string): Promise<{
 } | null> {
   if (!supabaseConfigured) return { status: "active" };
   let { data, error } = await getSupabase()!.from("users")
-    .select("supplier_no,factory_id,route_id,status,deactivated_at,factories(name),routes(route_name,route_code)")
+    .select("supplier_no,factory_id,route_id,status,deactivated_at,factories!users_factory_id_fkey(name),routes!users_route_id_fkey(route_name,route_code)")
     .eq("id", userId).maybeSingle();
   // Deployment-safe fallback while Round 11 SQL is waiting to be pasted.
   if (error?.message?.includes("deactivated_at")) {
     const fallback = await getSupabase()!.from("users")
-      .select("supplier_no,factory_id,route_id,status,factories(name),routes(route_name,route_code)")
+      .select("supplier_no,factory_id,route_id,status,factories!users_factory_id_fkey(name),routes!users_route_id_fkey(route_name,route_code)")
       .eq("id", userId).maybeSingle();
     data = fallback.data as typeof data;
     error = fallback.error;

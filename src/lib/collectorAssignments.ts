@@ -23,7 +23,7 @@ const map = (row: Record<string, any>): CollectorAssignment => ({
   routeName: row.route?.route_name, routeCode: row.route?.route_code,
 });
 
-const SELECT = "id,collector_id,factory_id,route_id,assignment_date,lorry_plate,status,started_at,completed_at,collector:users!collector_route_assignments_collector_id_fkey(name),factory:factories(name),route:routes(route_name,route_code)";
+const SELECT = "id,collector_id,factory_id,route_id,assignment_date,lorry_plate,status,started_at,completed_at,collector:users!collector_route_assignments_collector_id_fkey(name),factory:factories!collector_route_assignments_factory_id_fkey(name),route:routes!collector_route_assignments_route_id_fkey(route_name,route_code)";
 
 export async function readAssignments(date?: string): Promise<CollectorAssignment[]> {
   if (!supabaseConfigured) return [];

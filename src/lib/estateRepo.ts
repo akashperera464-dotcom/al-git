@@ -206,7 +206,7 @@ const ESTATE_SELECT = `
   submitted_at, approved_at, approved_by, rejection_reason, edit_count,
   last_edited_at, created_by_admin, notes, created_at,
   owner:users!estates_owner_supplier_fk(id, supplier_no, name, phone, email, status),
-  factory:factories(name), route:routes(route_name),
+  factory:factories!estates_factory_fk(name), route:routes!estates_route_fk(route_name),
   estate_blocks(id, estate_id, name, area_ha, bush_count, cultivar, soil_type, status, planting_year)
 `;
 
@@ -460,7 +460,7 @@ export async function searchSupplierByNo(query: string): Promise<SupplierSearchR
   if (!term) return [];
   const { data, error } = await getSupabase()!
     .from("users")
-    .select("id,supplier_no,name,phone,email,factory_id,route_id,status,factories(name),routes(route_name)")
+    .select("id,supplier_no,name,phone,email,factory_id,route_id,status,factories!users_factory_id_fkey(name),routes!users_route_id_fkey(route_name)")
     .eq("role", "supplier")
     .is("deactivated_at", null)
     .or(`supplier_no.ilike.%${term}%,name.ilike.%${term}%,phone.ilike.%${term}%`)
