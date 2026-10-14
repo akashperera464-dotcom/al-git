@@ -38,13 +38,14 @@ export function initSupabase(): SupabaseClient | null {
   if (client) return client;
   if (!supabaseConfigured) return null;
   client = createClient(SUPABASE_PROJECT_URL!, SUPABASE_ANON_KEY!, {
-    // Official Supabase Third-Party Auth integration. Every REST, Storage and
-    // Realtime request asks Firebase for the current (auto-refreshed) ID token.
-    // No Supabase password/session is created and Firebase remains auth-only.
-    accessToken: async () => {
-      const { auth } = initFirebase();
-      return auth?.currentUser ? auth.currentUser.getIdToken(false) : null;
-    },
+    // NOTE: Firebase JWT bridge (accessToken callback) was removed because
+    // Supabase Third-Party Auth requires a Pro plan. On the Free plan,
+    // sending a Firebase JWT in the Authorization header causes Supabase to
+    // return 401 on EVERY request (it cannot verify the JWT without the
+    // paid third-party auth integration). With the callback removed, the
+    // Supabase client falls back to the anon key, which works fine because
+    // RLS is disabled on all tables (pre-Round-12 behavior) and the app's
+    // RBAC is enforced client-side via RouteGuard.
     auth: {
       persistSession: false,
       autoRefreshToken: false,
