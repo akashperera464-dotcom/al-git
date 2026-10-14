@@ -14,9 +14,9 @@
   "lang": "en",
   "dir": "ltr",
   "icons": [
-    { "src": "/kdu-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/kdu-icon-1024.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/kdu-icon-1024.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/dalu-plus-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/dalu-plus-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/dalu-plus-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     { "name": "Estate Dashboard", "url": "/?m=dashboard" },

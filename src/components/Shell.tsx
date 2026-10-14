@@ -327,10 +327,10 @@ function AdminShell({ children }: { children: ReactNode }) {
 
       {/* Mobile drawer */}
       {drawer && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 overflow-hidden lg:hidden">
           <div className="absolute inset-0 bg-slate-900/60" onClick={() => setDrawer(false)} />
-          <aside className="absolute left-0 top-0 h-full w-72 animate-fade-in bg-gradient-to-b from-pine-950 to-pine-900">
-            <button onClick={() => setDrawer(false)} className="absolute right-3 top-4 text-emerald-200">
+          <aside className="safe-screen absolute left-0 top-0 h-full w-72 max-w-[88vw] animate-fade-in overflow-hidden bg-gradient-to-b from-pine-950 to-pine-900">
+            <button onClick={() => setDrawer(false)} aria-label="Close navigation" className="safe-top-absolute absolute right-3 top-4 z-10 rounded-lg p-1 text-emerald-200 hover:bg-white/10">
               <X className="h-5 w-5" />
             </button>
             <SidebarContent />

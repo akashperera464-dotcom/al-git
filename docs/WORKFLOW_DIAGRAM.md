@@ -3454,7 +3454,14 @@ Apply `docs/migration_phase3_round15_connected_operations.sql` from the Supabase
 
 The Round 15 migration installs audit-difference triggers only on its new workflow tables and never drops/recreates triggers on live collector, harvest, user, estate, or price tables. This avoids cross-table `AccessExclusiveLock` deadlocks while preserving the existing application audit writes on legacy modules.
 
-*End of Workflow Diagram. Last updated: October 2026 (Round 15 — connected operations, Free-plan architecture).*
+## 47. iPhone PWA Safe Areas and Dalu Plus Install Icon
+
+- The Admin mobile drawer now applies all four iOS `safe-area-inset-*` values. Its logo/search content stays below the notch or Dynamic Island, the close button uses a safe top position, and the profile/sync footer stays above the Home Indicator.
+- The provided Dalu Plus Cloudinary artwork is stored as local, valid PNG install assets at 180, 192, 512, and 1024 pixels. The local assets avoid a network dependency while iOS is installing the PWA.
+- `index.html` declares the 180×180 Dalu Plus Apple touch icon and 192×192 favicon. `public/manifest.json` uses the Dalu Plus 192×192 and 512×512 icons for standard and maskable PWA installation.
+- iOS caches Home Screen artwork at installation time. After this deployment, remove the existing Home Screen shortcut once and use Safari → Share → Add to Home Screen again to receive the new icon.
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 15 — iPhone safe-area and Dalu Plus PWA icon).*
 
 
 
