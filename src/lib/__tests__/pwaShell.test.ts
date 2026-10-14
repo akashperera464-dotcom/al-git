@@ -14,11 +14,25 @@ describe("iPhone PWA shell", () => {
   it("uses the local Dalu Plus artwork for Apple and manifest icons", () => {
     const html = read("index.html");
     const manifest = JSON.parse(read("public/manifest.json"));
-    expect(html).toContain('href="/dalu-plus-icon-180.png"');
+    expect(html).toContain('href="/apple-touch-icon-v2.png"');
+    expect(html).toContain('href="/apple-touch-icon-precomposed.png"');
     expect(manifest.icons.map((icon: { src: string }) => icon.src)).toEqual([
-      "/dalu-plus-icon-192.png",
-      "/dalu-plus-icon-512.png",
-      "/dalu-plus-icon-512.png",
+      "/dalu-plus-pwa-192-v2.png",
+      "/dalu-plus-pwa-512-v2.png",
+      "/dalu-plus-pwa-512-v2.png",
     ]);
+    for (const [path, size] of [
+      ["public/apple-touch-icon-v2.png", 180],
+      ["public/apple-touch-icon.png", 180],
+      ["public/apple-touch-icon-precomposed.png", 180],
+      ["public/dalu-plus-pwa-192-v2.png", 192],
+      ["public/dalu-plus-pwa-512-v2.png", 512],
+    ] as const) {
+      const png = readFileSync(resolve(process.cwd(), path));
+      expect(png.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+      expect(png.readUInt32BE(16)).toBe(size);
+      expect(png.readUInt32BE(20)).toBe(size);
+      expect(png[25]).toBe(2); // true-colour RGB: no alpha channel for iOS artwork
+    }
   });
 });

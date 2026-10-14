@@ -14,9 +14,9 @@
   "lang": "en",
   "dir": "ltr",
   "icons": [
-    { "src": "/dalu-plus-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/dalu-plus-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/dalu-plus-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/dalu-plus-pwa-192-v2.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/dalu-plus-pwa-512-v2.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/dalu-plus-pwa-512-v2.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     { "name": "Estate Dashboard", "url": "/?m=dashboard" },
