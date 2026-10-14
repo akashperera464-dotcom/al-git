@@ -11,5 +11,31 @@ createRoot(document.getElementById("root")!).render(
 );
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => { void navigator.serviceWorker.register("/sw.js"); });
+  window.addEventListener("load", () => {
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController || refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+
+    void navigator.serviceWorker.register("/sw.js").then((registration) => {
+      const activateWhenInstalled = (worker: ServiceWorker | null) => {
+        worker?.addEventListener("statechange", () => {
+          if (worker.state === "installed" && navigator.serviceWorker.controller) {
+            worker.postMessage("SKIP_WAITING");
+          }
+        });
+      };
+
+      // A previously downloaded release may already be waiting for old tabs
+      // to close. Activate it immediately and reload once on controllerchange.
+      registration.waiting?.postMessage("SKIP_WAITING");
+      activateWhenInstalled(registration.installing);
+      registration.addEventListener("updatefound", () => {
+        activateWhenInstalled(registration.installing);
+      });
+    }).catch(() => {});
+  });
 }

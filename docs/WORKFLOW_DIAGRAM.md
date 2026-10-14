@@ -3380,6 +3380,7 @@ general company identity         supplier-specific identity
 - After supplier sign-in, the mobile shell resolves and displays the supplier-specific logo, company name, and tagline. Admin and collector shells continue using the general company identity, while the pre-login page continues using the separate login branding fields.
 - Supplier announcement publisher labels use the same resolved supplier identity, avoiding mismatched company names within the supplier portal.
 - Empty supplier fields intentionally inherit the general company values, so all existing branding records remain backwards-compatible.
+- Production service-worker updates now activate waiting releases and reload an already-controlled page once. This prevents a long-lived installed/PWA tab from continuing to display the previous branding UI after a successful Vercel deployment.
 
 ### 45.2 Schema-version warning
 
