@@ -3383,7 +3383,7 @@ general company identity         supplier-specific identity
 
 ### 45.2 Schema-version warning
 
-The orange **Database schema update required — contact admin** banner is expected when the frontend minimum (`round_14`) is newer than the latest row in `schema_migrations`. Apply `docs/migration_phase3_round14_multi_route_users.sql`; its final statement records `round_14`, after which refreshing the app removes the warning. The supplier-branding extension itself requires no additional SQL because branding is already stored as JSON.
+The orange **Database schema update required — contact admin** banner originally queried the RLS-protected `schema_migrations` table directly. A correctly migrated public session could receive zero visible rows and therefore show a false warning even though `round_14` was installed. The checker now calls Round 14's read-only `multi_route_schema_ready()` RPC first, then falls back to the numerically highest visible migration version instead of trusting `applied_at` order. Re-running an older idempotent migration can no longer make the schema appear to move backwards. The supplier-branding extension itself requires no additional SQL because branding is already stored as JSON.
 
 *End of Workflow Diagram. Last updated: October 2026 (Round 15 — supplier portal branding).*
 
