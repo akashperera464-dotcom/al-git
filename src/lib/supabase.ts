@@ -59,19 +59,36 @@ export function initSupabase(): SupabaseClient | null {
 }
 
 /**
- * Refresh the Firebase token used by Supabase and immediately update Realtime.
- * REST requests already invoke the accessToken callback above on every call;
- * this helper is used at login/logout boundaries so existing channels switch
- * identity without waiting for their next heartbeat.
+ * Realtime auth helper.
+ *
+ * NOTE: The original implementation sent the Firebase ID token to
+ * `sb.realtime.setAuth(token)`. This requires Supabase Third-Party Auth
+ * (Pro plan) to verify the JWT. On the Free plan, sending the Firebase
+ * JWT causes the WebSocket to be rejected with 401, and any private
+ * Realtime channel (e.g. lorry tracking) never leaves the "connecting"
+ * state.
+ *
+ * With Third-Party Auth disabled, we explicitly CLEAR any token on the
+ * Realtime client so it falls back to the anon key. RLS is disabled on
+ * all tables, so the anon key works for both REST and Realtime reads
+ * (private channels require the user to be "authenticated" via Supabase
+ * Auth, but we use broadcast channels without private:true in the new
+ * lorryBroadcast implementation — see lorryBroadcast.ts).
+ *
+ * This function is kept for backwards compat with callers in
+ * AppContext.tsx and UserManagement.tsx, but it is now a no-op that
+ * simply clears Realtime auth.
  */
-export async function refreshSupabaseFirebaseAuth(forceRefresh = false): Promise<string | null> {
+export async function refreshSupabaseFirebaseAuth(_forceRefresh = false): Promise<null> {
   const sb = initSupabase();
   if (!sb) return null;
-  const { auth } = initFirebase();
-  const token = auth?.currentUser ? await auth.currentUser.getIdToken(forceRefresh) : null;
-  if (token) await sb.realtime.setAuth(token);
-  else await sb.realtime.setAuth();
-  return token;
+  try {
+    // Clear any JWT on the Realtime client — forces anon key fallback.
+    await sb.realtime.setAuth();
+  } catch {
+    /* ignore — Realtime not yet initialised */
+  }
+  return null;
 }
 
 /** Convenience accessor used by repo.ts / services. */

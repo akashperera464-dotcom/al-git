@@ -97,7 +97,14 @@ function getPublisher(routeId: string): PublisherState {
   if (existing) return existing;
   if (!supabaseConfigured) throw new Error("Supabase Realtime is not configured.");
   const channel = getSupabase()!.channel(routeTrackingTopic(routeId), {
-    config: { private: true, broadcast: { ack: true, self: false } },
+    // NOTE: `private: true` was removed because it requires Supabase Auth
+    // authentication (Third-Party Auth / Pro plan). On the Free plan with
+    // Firebase-only auth, private channels are rejected with 401. Broadcast
+    // channels work without authentication — anyone with the channel name
+    // can publish/subscribe. The channel name includes the route_id, which
+    // is not easily guessable. For true security, upgrade to Pro plan and
+    // re-enable private:true.
+    config: { broadcast: { ack: true, self: false } },
   });
   const state: PublisherState = { channel, ready: waitForSubscription(channel) };
   publisherChannels.set(routeId, state);
@@ -176,7 +183,8 @@ export function subscribeToLorryLocation(
     if (active && location) onLocation(location);
   };
   const channel = sb.channel(routeTrackingTopic(routeId), {
-    config: { private: true, broadcast: { ack: true, self: false } },
+    // NOTE: private:true removed — see comment in getPublisher() above.
+    config: { broadcast: { ack: true, self: false } },
   })
     .on("broadcast", { event: "lorry_location" }, handle)
     .on("broadcast", { event: "lorry_stopped" }, handle)
