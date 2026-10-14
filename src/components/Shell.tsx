@@ -21,6 +21,7 @@ import { useApp } from "@/context/AppContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Onboarding } from "@/components/Onboarding";
 import { useBranding, isMediaUrl } from "@/lib/branding";
+import { resolveShellBrandIdentity } from "@/lib/brandIdentity";
 import { useLiveData } from "@/lib/useLiveData";
 import { readAlerts, markAlertsRead, type AlertRow } from "@/lib/notifications";
 import { moduleLabel, moduleShort, roleTitle } from "@/i18n/modules";
@@ -30,12 +31,14 @@ import type { Role } from "@/lib/data";
 /* ----------------------------- Brand ----------------------------- */
 function Brand({ compact }: { compact?: boolean }) {
   const { branding } = useBranding();
-  const logo = branding.companyLogoUrl && isMediaUrl(branding.companyLogoUrl);
+  const { role } = useApp();
+  const identity = resolveShellBrandIdentity(branding, role);
+  const logo = identity.logoUrl && isMediaUrl(identity.logoUrl);
   return (
     <div className="flex items-center gap-2.5">
       <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-600/30">
         {logo ? (
-          <img src={branding.companyLogoUrl} alt="" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <img src={identity.logoUrl} alt={`${identity.name} logo`} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
           <Leaf className="h-5 w-5 text-white" />
         )}
@@ -43,8 +46,8 @@ function Brand({ compact }: { compact?: boolean }) {
       </span>
       {!compact && (
         <div className="leading-tight">
-          <p className="font-display text-[15px] font-extrabold tracking-tight text-white">{branding.companyName || "Estate Pulse"}</p>
-          <p className="text-[10px] font-medium text-emerald-300/80">{branding.companyTagline}</p>
+          <p className="font-display text-[15px] font-extrabold tracking-tight text-white">{identity.name}</p>
+          <p className="text-[10px] font-medium text-emerald-300/80">{identity.tagline}</p>
         </div>
       )}
     </div>

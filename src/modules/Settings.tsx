@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Palette, Save, RotateCcw, Building2, LogIn, ImageIcon, Type, Check, Eye, Cloud, ShieldAlert, Loader2 } from "lucide-react";
+import { Palette, Save, RotateCcw, Building2, LogIn, ImageIcon, Type, Check, Eye, Cloud, ShieldAlert, Loader2, Users } from "lucide-react";
 import { PageHeader, Card, Badge, IconChip } from "@/components/ui";
 import { useBranding, DEFAULT_BRANDING, isMediaUrl, isVideoUrl } from "@/lib/branding";
 import { useApp } from "@/context/AppContext";
+import { resolveShellBrandIdentity } from "@/lib/brandIdentity";
 
 /**
  * Branding & Settings — Super Admin ONLY (capability: settings.manage).
@@ -44,13 +45,14 @@ export default function Settings() {
 
   const inputCls = "mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm";
   const labelCls = "text-[11px] font-medium text-slate-400";
+  const supplierPreview = resolveShellBrandIdentity(draft, "supplier");
 
   return (
     <div>
       <PageHeader
         eyebrow="Super Admin · Administration"
         title="Branding & Settings"
-        desc="White-label the platform: company logo, name texts, login page, background media. Paste Cloudinary URLs for images/video."
+        desc="Manage the general app identity, a dedicated supplier-portal identity, and login-page media from one database-backed screen."
         icon={<IconChip icon={Palette} tone="emerald" className="h-12 w-12" />}
         actions={
           <div className="flex flex-col items-end gap-1.5">
@@ -81,6 +83,28 @@ export default function Settings() {
               <div className="sm:col-span-1">
                 <label className={labelCls}>Tagline</label>
                 <input value={draft.companyTagline} onChange={(e) => update("companyTagline", e.target.value)} className={inputCls} placeholder="Tea Estate ERP" />
+              </div>
+            </div>
+          </Card>
+
+          {/* Supplier-only shell branding */}
+          <Card className="p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4 text-violet-600" />
+              <div>
+                <h3 className="font-display text-sm font-bold text-slate-800">Supplier Portal Branding</h3>
+                <p className="text-[11px] text-slate-400">Shown only after a supplier signs in. Blank fields inherit the Company / App Shell values above.</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <MediaField label="Supplier Portal Logo URL" icon={ImageIcon} hint="Logo shown in the supplier mobile header. Leave blank to inherit the company logo." value={draft.supplierCompanyLogoUrl} onChange={(v) => update("supplierCompanyLogoUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="logo" />
+              <div>
+                <label className={labelCls}>Supplier Portal Company Name</label>
+                <input value={draft.supplierCompanyName} onChange={(e) => update("supplierCompanyName", e.target.value)} className={inputCls} placeholder={draft.companyName || "Estate Pulse"} />
+              </div>
+              <div>
+                <label className={labelCls}>Supplier Portal Tagline</label>
+                <input value={draft.supplierCompanyTagline} onChange={(e) => update("supplierCompanyTagline", e.target.value)} className={inputCls} placeholder={draft.companyTagline || "Supplier Management System"} />
               </div>
             </div>
           </Card>
@@ -199,6 +223,21 @@ export default function Settings() {
               </div>
             </div>
             <p className="mt-1.5 text-center text-[11px] text-slate-400">App header preview</p>
+
+            <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-violet-950 to-emerald-950 px-3 py-2.5">
+              <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-violet-500 to-emerald-600">
+                {supplierPreview.logoUrl && isMediaUrl(supplierPreview.logoUrl) ? (
+                  <img src={supplierPreview.logoUrl} alt={`${supplierPreview.name} logo`} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                ) : (
+                  <Leaf className="h-4 w-4 text-white" />
+                )}
+              </span>
+              <div className="min-w-0 leading-tight">
+                <p className="truncate font-display text-sm font-bold text-white">{supplierPreview.name}</p>
+                <p className="truncate text-[9px] text-emerald-300/80">{supplierPreview.tagline}</p>
+              </div>
+            </div>
+            <p className="mt-1.5 text-center text-[11px] text-slate-400">Supplier portal header preview</p>
           </Card>
 
           {/* Cloudinary hint */}
@@ -217,7 +256,7 @@ export default function Settings() {
       <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
         <p className="text-xs text-amber-700">
-          This screen is restricted to <strong>Super Admin</strong> only. Branding is stored locally (and would sync to a Supabase <code className="rounded bg-white px-1 font-mono">settings</code> table in production). All changes apply instantly across the login screen and app shell.
+          This screen is restricted to <strong>Super Admin</strong> only. Branding is persisted in the Supabase <code className="rounded bg-white px-1 font-mono">settings</code> record and cached locally for fast loading. Supplier-specific values affect only supplier sessions; blank values safely inherit the general app identity.
         </p>
       </div>
     </div>

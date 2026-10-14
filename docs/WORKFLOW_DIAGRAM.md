@@ -3357,7 +3357,35 @@ users.route_id ───────────────► existing modules
 Apply `docs/migration_phase3_round14_multi_route_users.sql` after Round 13. It creates one table, RLS policies, validation/synchronization triggers and the audited `set_user_routes` RPC. Exact SQL verification and live two-route scenarios are in `docs/MIGRATION_CHECKLIST.md`.
 The frontend minimum schema marker is `round_14`, so administrators receive the existing database-update warning until this migration is recorded.
 
-*End of Workflow Diagram. Last updated: October 2026 (Round 14 — multi-route suppliers and collectors).*
+## 45. Supplier Portal Branding (Round 15)
+
+### 45.1 Role-aware brand resolution
+
+```text
+Super Admin → Branding & Settings → Save branding
+                         │
+                         ▼
+Supabase settings row (key = branding, JSON data)
+                         │
+          ┌──────────────┴──────────────┐
+          ▼                             ▼
+Admin / collector shell          Supplier shell
+general company identity         supplier-specific identity
+                                      │
+                                      └─ blank field → inherit general value
+```
+
+- The existing JSON branding record now also carries `supplierCompanyName`, `supplierCompanyTagline`, and `supplierCompanyLogoUrl`; PostgreSQL does not require a new column or migration.
+- Super Admin edits these values in the new **Supplier Portal Branding** card and sees a dedicated header preview before saving.
+- After supplier sign-in, the mobile shell resolves and displays the supplier-specific logo, company name, and tagline. Admin and collector shells continue using the general company identity, while the pre-login page continues using the separate login branding fields.
+- Supplier announcement publisher labels use the same resolved supplier identity, avoiding mismatched company names within the supplier portal.
+- Empty supplier fields intentionally inherit the general company values, so all existing branding records remain backwards-compatible.
+
+### 45.2 Schema-version warning
+
+The orange **Database schema update required — contact admin** banner is expected when the frontend minimum (`round_14`) is newer than the latest row in `schema_migrations`. Apply `docs/migration_phase3_round14_multi_route_users.sql`; its final statement records `round_14`, after which refreshing the app removes the warning. The supplier-branding extension itself requires no additional SQL because branding is already stored as JSON.
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 15 — supplier portal branding).*
 
 
 

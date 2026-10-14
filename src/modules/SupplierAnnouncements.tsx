@@ -6,6 +6,7 @@ import { useLiveData } from "@/lib/useLiveData";
 import { crudRead } from "@/lib/repo";
 import { isMediaUrl } from "@/lib/branding";
 import { useBranding } from "@/lib/branding";
+import { resolveShellBrandIdentity } from "@/lib/brandIdentity";
 import { useApp } from "@/context/AppContext";
 
 interface Announcement {
@@ -26,6 +27,7 @@ const READ_KEY = (userUid: string) => `kdu.announcements.read.${userUid}`;
 export function SupplierAnnouncements() {
   const { t } = useTranslation();
   const { branding } = useBranding();
+  const supplierBrand = resolveShellBrandIdentity(branding, "supplier");
   const { userUid } = useApp();
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
@@ -146,7 +148,7 @@ export function SupplierAnnouncements() {
                     <div className="mt-3 flex items-center justify-between">
                       <div className="flex items-center gap-2 text-[11px] text-slate-400">
                         <CalendarDays className="h-3.5 w-3.5" />
-                        <span>{t("announcements.publishedBy", { name: branding.companyName || t("announcements.defaultAdmin") })}</span>
+                        <span>{t("announcements.publishedBy", { name: supplierBrand.name || t("announcements.defaultAdmin") })}</span>
                       </div>
                       {!isRead ? (
                         <button

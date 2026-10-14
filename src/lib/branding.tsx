@@ -18,6 +18,9 @@ export interface Branding {
   companyName: string;
   companyTagline: string;
   companyLogoUrl: string;
+  supplierCompanyName: string;
+  supplierCompanyTagline: string;
+  supplierCompanyLogoUrl: string;
   loginTitle: string;
   loginSubtitle: string;
   loginLogoUrl: string;
@@ -30,6 +33,9 @@ export const DEFAULT_BRANDING: Branding = {
   companyName: "Estate Pulse",
   companyTagline: "Supplier Management System",
   companyLogoUrl: "",
+  supplierCompanyName: "",
+  supplierCompanyTagline: "",
+  supplierCompanyLogoUrl: "",
   loginTitle: "Estate Pulse",
   loginSubtitle: "Tea Estate Supplier Management Platform",
   loginLogoUrl: "",
