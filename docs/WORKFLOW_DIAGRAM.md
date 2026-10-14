@@ -3452,6 +3452,8 @@ Supplier profile/support/resource requests
 
 Apply `docs/migration_phase3_round15_connected_operations.sql` from the Supabase SQL Editor before relying on Round 15 workflows. The frontend contains compatibility fallbacks for old harvest/resource columns so an in-progress Vercel deployment does not take the existing application down. When the migration records `round_15`, the schema banner disappears. Exact verification queries and rollback guidance are in `docs/MIGRATION_CHECKLIST.md`.
 
+The Round 15 migration installs audit-difference triggers only on its new workflow tables and never drops/recreates triggers on live collector, harvest, user, estate, or price tables. This avoids cross-table `AccessExclusiveLock` deadlocks while preserving the existing application audit writes on legacy modules.
+
 *End of Workflow Diagram. Last updated: October 2026 (Round 15 — connected operations, Free-plan architecture).*
 
 

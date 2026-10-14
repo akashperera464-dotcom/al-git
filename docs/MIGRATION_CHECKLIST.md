@@ -111,6 +111,14 @@ Post-deployment live checks:
 
 ## Apply and verify Round 15 — connected operations
 
+> **Live database safety:** use the current version of the Round 15 file. The
+> October 14 initial revision recreated audit triggers across several live
+> tables and could deadlock with an in-flight collector/harvest request. The
+> corrected migration never drops production audit triggers and only installs
+> missing old/new snapshot triggers on the new Round 15 workflow tables. If
+> PostgreSQL reports `40P01`, wait for the failed transaction to roll back,
+> refresh this file from `main`, and rerun the complete corrected migration.
+
 1. Take a Supabase Dashboard backup/export first.
 2. Paste `docs/migration_phase3_round15_connected_operations.sql` into the SQL Editor and run it once.
 3. This migration uses only features available on Supabase Free: ordinary PostgreSQL tables/columns/triggers, Storage, and the existing anon client. It does not use Third-Party Auth, JWT claims, Edge Functions, or Pro-only features.

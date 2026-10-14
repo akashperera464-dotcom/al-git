@@ -28,6 +28,10 @@ describe("Free-plan production architecture contract", () => {
     expect(sql).toContain("record_status text not null default 'valid'");
     expect(sql).toContain("void_reason text");
   });
+  it("does not drop and recreate audit triggers on live production tables", () => {
+    expect(sql).not.toContain("drop trigger if exists trg_audit_difference");
+    expect(sql).toContain("array['operational_requests','collection_route_stops','month_end_closures','supplier_profiles','user_device_sessions']");
+  });
   it("prevents automatic iPhone focus zoom without disabling pinch zoom", () => {
     expect(css).toMatch(/font-size:\s*16px/);
     expect(css).not.toMatch(/user-scalable=no/);

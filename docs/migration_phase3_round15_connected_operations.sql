@@ -203,9 +203,13 @@ create table if not exists public.system_health_events (
 create index if not exists health_events_open_idx on public.system_health_events(category,resolved_at,created_at desc);
 
 -- ---------------------------------------------------------------------------
--- 8. Exact database audit differences. Trigger-side capture cannot be skipped
--- by a UI screen, although the current anon architecture is not a security
--- boundary. Do not attach this trigger to admin_audit_log itself.
+-- 8. Exact database audit differences for the Round 15 workflow tables.
+--
+-- IMPORTANT: do not DROP/recreate triggers on the older, high-traffic tables
+-- here. Doing that while the live app is reading collector assignments and
+-- harvest records can create a cross-table AccessExclusiveLock deadlock. The
+-- older modules retain their existing application audit writes; these new
+-- workflow tables receive old/new row snapshots below.
 -- ---------------------------------------------------------------------------
 create or replace function public.audit_row_difference()
 returns trigger language plpgsql security definer set search_path=public as $$
@@ -224,9 +228,14 @@ end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['resource_requests','operational_requests','month_end_closures','collector_route_assignments','daily_tea_prices','estates','users','harvest_records','supplier_profiles','user_device_sessions'] loop
-    if to_regclass('public.'||t) is not null then
-      execute format('drop trigger if exists trg_audit_difference on public.%I',t);
+  foreach t in array array['operational_requests','collection_route_stops','month_end_closures','supplier_profiles','user_device_sessions'] loop
+    if to_regclass('public.'||t) is not null
+       and not exists (
+         select 1 from pg_trigger g
+         where g.tgrelid=to_regclass('public.'||t)
+           and g.tgname='trg_audit_difference'
+           and not g.tgisinternal
+       ) then
       execute format('create trigger trg_audit_difference after insert or update or delete on public.%I for each row execute function public.audit_row_difference()',t);
     end if;
   end loop;
