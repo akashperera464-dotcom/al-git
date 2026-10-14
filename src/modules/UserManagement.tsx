@@ -63,7 +63,7 @@ interface EditForm {
  */
 export default function UserManagement() {
   const { role: myRole, notify, userUid } = useApp();
-  const { data: users, loading, reload } = useLiveData<ManagedUser>("users", readUsersForAdmin);
+  const { data: users, loading, error: loadError, reload } = useLiveData<ManagedUser>("users", readUsersForAdmin);
   const [estateOptions, setEstateOptions] = useState<{ id: string; name: string }[]>([]);
   const [divisionOptions, setDivisionOptions] = useState<{ id: string; name: string; estateName: string }[]>([]);
   const [filter, setFilter] = useState<"all" | Role>("all");
@@ -325,6 +325,12 @@ export default function UserManagement() {
         }
       />
 
+      {loadError && (
+        <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          User directory could not be loaded: {loadError}
+        </p>
+      )}
+
       <div className="mb-4 inline-flex rounded-xl bg-slate-100 p-1 text-sm font-bold">
         <button className="rounded-lg bg-white px-4 py-2 text-emerald-700 shadow-sm">Directory</button>
         <button onClick={() => setView("audit")} className="rounded-lg px-4 py-2 text-slate-500">Audit Log</button>
@@ -503,7 +509,7 @@ export default function UserManagement() {
           <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-400">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading users from Supabase…
           </div>
-        ) : filtered.length === 0 ? (
+        ) : !loadError && filtered.length === 0 ? (
           <p className="py-10 text-center text-sm text-slate-400">No users found. Create one with the “Add user” button.</p>
         ) : (
         <DataTable<ManagedUser>

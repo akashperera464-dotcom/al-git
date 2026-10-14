@@ -3381,6 +3381,7 @@ general company identity         supplier-specific identity
 - Supplier announcement publisher labels use the same resolved supplier identity, avoiding mismatched company names within the supplier portal.
 - Empty supplier fields intentionally inherit the general company values, so all existing branding records remain backwards-compatible.
 - Production service-worker updates now activate waiting releases and reload an already-controlled page once. This prevents a long-lived installed/PWA tab from continuing to display the previous branding UI after a successful Vercel deployment.
+- User Management now disambiguates the legacy primary-route foreign key (`users_route_id_fkey`) from the Round 14 many-to-many `user_route_assignments` relationship. Without the explicit PostgREST relationship hint, the directory request returned `PGRST201` and the UI incorrectly looked like an empty database. Query errors are now shown prominently instead of being rendered as “0 users”.
 
 ### 45.2 Schema-version warning
 

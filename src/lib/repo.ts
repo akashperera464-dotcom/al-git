@@ -199,12 +199,12 @@ export async function readUsersForAdmin(): Promise<ManagedUser[]> {
   const sb = getSupabase()!;
   let { data, error } = await sb
     .from("users")
-    .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, status, deactivated_at, created_at, factories(name), routes(route_name)")
+    .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, status, deactivated_at, created_at, factories!users_factory_id_fkey(name), routes!users_route_id_fkey(route_name)")
     .order("created_at", { ascending: false });
   // Keep User Management available between frontend deployment and SQL migration.
   if (error?.message?.includes("deactivated_at")) {
     const fallback = await sb.from("users")
-      .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, status, created_at, factories(name), routes(route_name)")
+      .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, status, created_at, factories!users_factory_id_fkey(name), routes!users_route_id_fkey(route_name)")
       .order("created_at", { ascending: false });
     data = fallback.data as typeof data;
     error = fallback.error;
