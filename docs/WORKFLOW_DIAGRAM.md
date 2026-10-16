@@ -1,5 +1,10 @@
 # KDU TEA FACTORY — Complete System Workflow (For Everyone)
 
+## Supplier labour UI cleanup (2026-10-16)
+
+- Removed the supplier-facing “Future plan (Phase 2)” information card from My Labour.
+- The current labour cost calculator, history and persistence workflow are unchanged.
+
 ## Estate block legacy-schema compatibility fix (2026-10-16)
 
 - Supplier and admin estate reads first use the complete Round 11 block shape (`status`, `planting_year`).

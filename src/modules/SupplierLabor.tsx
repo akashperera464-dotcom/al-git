@@ -294,11 +294,6 @@ export function SupplierLabor() {
         )}
       </Card>
 
-      {/* Phase 2 note */}
-      <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs text-sky-700">
-        <p className="font-semibold">📌 {t("supplierLabor.futureTitle")}</p>
-        <p className="mt-1 leading-relaxed">{t("supplierLabor.futureBody")}</p>
-      </div>
     </div>
   );
 }
