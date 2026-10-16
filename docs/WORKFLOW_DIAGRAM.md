@@ -1,5 +1,12 @@
 # KDU TEA FACTORY — Complete System Workflow (For Everyone)
 
+## Estate block legacy-schema compatibility fix (2026-10-16)
+
+- Supplier and admin estate reads first use the complete Round 11 block shape (`status`, `planting_year`).
+- Databases where `estate_blocks` was originally created by Round 4 do not necessarily contain those two optional columns because Round 11 used `CREATE TABLE IF NOT EXISTS`. When PostgREST reports that exact compatibility error, the repository transparently retries with the valid Round 4 block shape.
+- Estate creation and block replacement use the same targeted fallback, so estates remain usable without forcing a destructive table rebuild or an immediate SQL deployment.
+- The fallback is limited to missing `estate_blocks.status`/`planting_year` errors; unrelated database errors remain visible. Authentication, Supabase client configuration and RLS are unchanged.
+
 > **පරිශීලක මාර්ගෝපදේශය · Reader's Guide**
 >
 > This document explains how the KDU TEA FACTORY system works from start to finish — in plain English + Sinhala. If you give this document to a new person (admin, manager, or developer), they should be able to understand the system within 30 minutes.

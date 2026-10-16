@@ -199,16 +199,36 @@ function writeDemoEstates(rows: Estate[]): void {
   try { localStorage.setItem(DEMO_KEY, JSON.stringify(rows)); } catch { /* demo only */ }
 }
 
-const ESTATE_SELECT = `
+const ESTATE_SELECT_BASE = `
   id, owner_supplier_id, supplier_id, name, size_category, total_area_ha,
   total_area_acres, total_bush_count, cultivar, region, soil_type, latitude,
   longitude, address, contact_phone, photo_urls, factory_id, route_id, status,
   submitted_at, approved_at, approved_by, rejection_reason, edit_count,
   last_edited_at, created_by_admin, notes, created_at,
   owner:users!estates_owner_supplier_fk(id, supplier_no, name, phone, email, status),
-  factory:factories!estates_factory_fk(name), route:routes!estates_route_fk(route_name),
+  factory:factories!estates_factory_fk(name), route:routes!estates_route_fk(route_name)
+`;
+
+const ESTATE_SELECT = `${ESTATE_SELECT_BASE},
   estate_blocks(id, estate_id, name, area_ha, bush_count, cultivar, soil_type, status, planting_year)
 `;
+
+// Round 4 created estate_blocks before the optional Round 11 status and
+// planting_year fields existed. Some live databases therefore have the valid
+// legacy shape even though the canonical estates table is already available.
+const LEGACY_ESTATE_SELECT = `${ESTATE_SELECT_BASE},
+  estate_blocks(id, estate_id, name, area_ha, bush_count, cultivar, soil_type)
+`;
+
+export function isMissingEstateBlockCompatibilityColumn(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  const message = String(candidate.message ?? "").toLowerCase();
+  return candidate.code === "42703" &&
+    message.includes("estate_blocks") &&
+    (message.includes("status") || message.includes("planting_year")) &&
+    message.includes("does not exist");
+}
 
 export function sizeFromAcreage(acreage: number): EstateSizeCategory {
   if (acreage < 5) return "small";
@@ -233,14 +253,20 @@ export async function readEstates(filters: {
       (!filters.ownerSupplierId || e.ownerSupplierId === filters.ownerSupplierId)
     );
   }
-  let query = getSupabase()!.from("estates").select(ESTATE_SELECT).order("submitted_at", { ascending: false });
-  if (filters.status) query = query.eq("status", filters.status);
-  if (filters.sizeCategory) query = query.eq("size_category", filters.sizeCategory);
-  if (filters.factoryId) query = query.eq("factory_id", filters.factoryId);
-  if (filters.routeId) query = query.eq("route_id", filters.routeId);
-  if (filters.ownerSupplierId) query = query.eq("owner_supplier_id", filters.ownerSupplierId);
-  const { data, error } = await query;
-  if (error) throw new Error(`Could not load estates: ${error.message}. Run the Round 11 SQL migration first.`);
+  const execute = async (select: string) => {
+    let query = getSupabase()!.from("estates").select(select).order("submitted_at", { ascending: false });
+    if (filters.status) query = query.eq("status", filters.status);
+    if (filters.sizeCategory) query = query.eq("size_category", filters.sizeCategory);
+    if (filters.factoryId) query = query.eq("factory_id", filters.factoryId);
+    if (filters.routeId) query = query.eq("route_id", filters.routeId);
+    if (filters.ownerSupplierId) query = query.eq("owner_supplier_id", filters.ownerSupplierId);
+    return query;
+  };
+  let { data, error } = await execute(ESTATE_SELECT);
+  if (isMissingEstateBlockCompatibilityColumn(error)) {
+    ({ data, error } = await execute(LEGACY_ESTATE_SELECT));
+  }
+  if (error) throw new Error(`Could not load estates: ${error.message}`);
   return (data ?? []).map((row) => mapEstate(row as Record<string, any>));
 }
 
@@ -251,7 +277,10 @@ export async function readMyEstates(supplierId: string): Promise<Estate[]> {
 
 export async function readEstate(estateId: string): Promise<Estate | null> {
   if (!supabaseConfigured) return readDemoEstates().find((e) => e.id === estateId) ?? null;
-  const { data, error } = await getSupabase()!.from("estates").select(ESTATE_SELECT).eq("id", estateId).maybeSingle();
+  let { data, error } = await getSupabase()!.from("estates").select(ESTATE_SELECT).eq("id", estateId).maybeSingle();
+  if (isMissingEstateBlockCompatibilityColumn(error)) {
+    ({ data, error } = await getSupabase()!.from("estates").select(LEGACY_ESTATE_SELECT).eq("id", estateId).maybeSingle());
+  }
   if (error) throw new Error(`Could not load estate: ${error.message}`);
   return data ? mapEstate(data as Record<string, any>) : null;
 }
@@ -326,7 +355,7 @@ export async function createEstate(input: CreateEstateInput): Promise<{ success:
   const estateId = String(data.id);
 
   if (input.blocks?.length) {
-    const { error: blockError } = await sb.from("estate_blocks").insert(input.blocks.map((b) => ({
+    const blockRows = input.blocks.map((b) => ({
       estate_id: estateId,
       name: b.name.trim(),
       area_ha: b.areaHa,
@@ -335,7 +364,12 @@ export async function createEstate(input: CreateEstateInput): Promise<{ success:
       soil_type: b.soilType || input.soilType || null,
       status: b.status ?? "plucking",
       planting_year: b.plantingYear ?? null,
-    })));
+    }));
+    let { error: blockError } = await sb.from("estate_blocks").insert(blockRows);
+    if (isMissingEstateBlockCompatibilityColumn(blockError)) {
+      const legacyBlockRows = blockRows.map(({ status: _status, planting_year: _plantingYear, ...block }) => block);
+      ({ error: blockError } = await sb.from("estate_blocks").insert(legacyBlockRows));
+    }
     if (blockError) {
       await sb.from("estates").delete().eq("id", estateId);
       return { success: false, error: `Estate blocks could not be saved: ${blockError.message}` };
@@ -415,7 +449,7 @@ export async function replaceEstateBlocks(
   const { error: deleteError } = await sb.from("estate_blocks").delete().eq("estate_id", estateId);
   if (deleteError) throw new Error(`Could not update blocks: ${deleteError.message}`);
   if (!blocks?.length) return;
-  const { error } = await sb.from("estate_blocks").insert(blocks.map((block) => ({
+  const blockRows = blocks.map((block) => ({
     estate_id: estateId,
     name: block.name.trim(),
     area_ha: block.areaHa,
@@ -424,7 +458,12 @@ export async function replaceEstateBlocks(
     soil_type: block.soilType || null,
     status: block.status ?? "plucking",
     planting_year: block.plantingYear ?? null,
-  })));
+  }));
+  let { error } = await sb.from("estate_blocks").insert(blockRows);
+  if (isMissingEstateBlockCompatibilityColumn(error)) {
+    const legacyBlockRows = blockRows.map(({ status: _status, planting_year: _plantingYear, ...block }) => block);
+    ({ error } = await sb.from("estate_blocks").insert(legacyBlockRows));
+  }
   if (error) throw new Error(`Could not save blocks: ${error.message}`);
 }
 
