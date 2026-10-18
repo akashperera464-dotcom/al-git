@@ -10,7 +10,7 @@
  *
  * Register from main.tsx (dev only) — production uses vite-plugin-pwa.
  */
-import { precacheAndRoute } from "workbox-precaching";
+import { cleanupOutdatedCaches, precacheAndRoute } from "workbox-precaching";
 import { registerRoute, setCatchHandler } from "workbox-routing";
 import { NetworkFirst, NetworkOnly, StaleWhileRevalidate, CacheFirst } from "workbox-strategies";
 import { Queue } from "workbox-background-sync";
@@ -18,6 +18,19 @@ import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
 
 declare const self: ServiceWorkerGlobalScope;
+
+// Activate a newly downloaded release immediately. Without this, a browser can
+// keep serving an old precached app shell until every existing tab is closed.
+self.skipWaiting();
+cleanupOutdatedCaches();
+
+// Always prefer the latest HTML while online. The precached shell remains the
+// offline fallback, but it must not hide a newly deployed JavaScript bundle.
+registerRoute(
+  ({ request, url }) => request.mode === "navigate" && url.origin === self.location.origin,
+  new NetworkFirst({ cacheName: "verda-navigation", networkTimeoutSeconds: 4 }),
+  "GET",
+);
 
 // 1. App shell (populated by the build via __WB_MANIFEST)
 precacheAndRoute(self.__WB_MANIFEST || []);
@@ -79,7 +92,7 @@ self.addEventListener("activate", (event) => {
 // 6. Catch-all fallback to the app shell for navigation
 setCatchHandler(async ({ event }) => {
   if (event.request.destination === "document") {
-    return (await caches.match("/")) || Response.error();
+    return (await caches.match("/")) || (await caches.match("/index.html")) || Response.error();
   }
   return Response.error();
 });

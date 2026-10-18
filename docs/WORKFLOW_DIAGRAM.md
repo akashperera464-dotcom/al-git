@@ -5,6 +5,7 @@
 - Removed the full-screen “Estate Pulse · Restoring your session” startup splash.
 - `AppProvider` remains the single owner of Firebase session restoration and account-status validation; the duplicate observer formerly mounted by `App.tsx` was removed.
 - The login surface now renders immediately while a persisted session is resolved, then authenticated users continue directly to their role home. Authentication rules and protected routes are unchanged.
+- Browser/PWA navigations now use a network-first shell, new service workers activate immediately, and registration bypasses the HTTP cache and checks for updates on every start. The precached shell remains available only as the offline fallback, preventing a previous release from repeatedly showing a removed startup screen.
 
 ## Supplier labour UI cleanup (2026-10-16)
 

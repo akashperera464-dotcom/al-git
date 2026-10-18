@@ -20,7 +20,7 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
       window.location.reload();
     });
 
-    void navigator.serviceWorker.register("/sw.js").then((registration) => {
+    void navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then((registration) => {
       const activateWhenInstalled = (worker: ServiceWorker | null) => {
         worker?.addEventListener("statechange", () => {
           if (worker.state === "installed" && navigator.serviceWorker.controller) {
@@ -36,6 +36,9 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
       registration.addEventListener("updatefound", () => {
         activateWhenInstalled(registration.installing);
       });
+      // Check on every application start instead of waiting for the browser's
+      // periodic service-worker update window.
+      void registration.update().catch(() => {});
     }).catch(() => {});
   });
 }

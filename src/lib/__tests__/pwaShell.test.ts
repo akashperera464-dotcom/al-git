@@ -35,4 +35,14 @@ describe("iPhone PWA shell", () => {
       expect(png[25]).toBe(2); // true-colour RGB: no alpha channel for iOS artwork
     }
   });
+
+  it("does not let an old service worker hide a newly deployed app shell", () => {
+    const main = read("src/main.tsx");
+    const worker = read("public/sw.ts");
+    expect(main).toContain('{ updateViaCache: "none" }');
+    expect(main).toContain("registration.update()");
+    expect(worker).toContain("self.skipWaiting()");
+    expect(worker).toContain('cacheName: "verda-navigation"');
+    expect(worker).toContain('request.mode === "navigate"');
+  });
 });
