@@ -22,6 +22,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Onboarding } from "@/components/Onboarding";
 import { useBranding, isMediaUrl } from "@/lib/branding";
 import { resolveShellBrandIdentity } from "@/lib/brandIdentity";
+import { isAndroidEmbeddedWebView } from "@/lib/platform";
 import { useLiveData } from "@/lib/useLiveData";
 import { readAlerts, markAlertsRead, type AlertRow } from "@/lib/notifications";
 import { moduleLabel, moduleShort, roleTitle } from "@/i18n/modules";
@@ -317,6 +318,7 @@ function AdminShell({ children }: { children: ReactNode }) {
   const { activeModule, isAuthenticated, signOut } = useApp();
   const [drawer, setDrawer] = useState(false);
   const current = MODULES.find((m) => m.key === activeModule);
+  const embeddedAndroidApp = isAndroidEmbeddedWebView();
 
   return (
     <div className="app-aurora min-h-screen lg:flex">
@@ -350,7 +352,7 @@ function AdminShell({ children }: { children: ReactNode }) {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <SyncPill />
-            <LanguageSwitcher />
+            {!embeddedAndroidApp && <LanguageSwitcher />}
             <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 sm:flex">
               <CloudSun className="h-4 w-4 text-amber-500" />
               <span className="text-xs font-bold text-slate-700">21°C</span>
@@ -457,6 +459,7 @@ function MobileShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { isAuthenticated, signOut, setActiveModule } = useApp();
   const [more, setMore] = useState(false);
+  const embeddedAndroidApp = isAndroidEmbeddedWebView();
   return (
     <div className="app-aurora min-h-screen">
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-slate-900 md:shadow-2xl">
@@ -465,7 +468,7 @@ function MobileShell({ children }: { children: ReactNode }) {
         <header className="safe-top md:!pt-3 flex items-center justify-between gap-2 bg-gradient-to-r from-pine-900 to-pine-800 px-4 py-3 text-white">
           <Brand />
           <div className="flex items-center gap-1.5">
-            <LanguageSwitcher dark prominent />
+            {!embeddedAndroidApp && <LanguageSwitcher dark prominent />}
             {/* Always-visible sign-out button — now also duplicated at the bottom */}
             {isAuthenticated ? (
               <button

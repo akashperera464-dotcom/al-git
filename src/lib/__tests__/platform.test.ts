@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { isAndroidEmbeddedWebView } from "../platform";
 
 describe("Android application shell detection", () => {
@@ -25,5 +27,13 @@ describe("Android application shell detection", () => {
       "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
       true,
     )).toBe(false);
+  });
+
+  it("suppresses the duplicate selector in both authenticated shell headers", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/components/Shell.tsx"), "utf8");
+    const guardedSelectors = source.match(/!embeddedAndroidApp\s*&&\s*<LanguageSwitcher/g) ?? [];
+
+    expect(source).toContain('from "@/lib/platform"');
+    expect(guardedSelectors).toHaveLength(2);
   });
 });
