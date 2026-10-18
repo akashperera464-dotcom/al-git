@@ -1,5 +1,12 @@
 # KDU TEA FACTORY — Complete System Workflow (For Everyone)
 
+## Android APK shell compatibility (2026-10-18)
+
+- Normal browsers and installed PWAs continue to use the EMS language selector.
+- A separately packaged Android WebView may inject its own native language control. The login page now detects Android WebView/native-bridge signatures and suppresses the duplicate web control so the two buttons cannot overlap; iPhone and normal Android browser layouts are unchanged.
+- Language controls also use non-shrinking icons and no-wrap/truncated labels to remain stable under Android font scaling.
+- The APK launcher icon and label are native Android resources, not web branding. They require the Android source/build project, matching signing key and an APK/AAB update; Super Admin web branding intentionally does not claim to modify an already-installed native launcher icon.
+
 ## Direct app startup (2026-10-18)
 
 - Removed the full-screen “Estate Pulse · Restoring your session” startup splash.

@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { validateRegistration } from "@/lib/registrationHardening";
 import { RouteMultiSelect } from "@/components/RouteMultiSelect";
 import { assertMultiRouteSchemaReady, replaceUserRoutes } from "@/lib/userRoutes";
+import { isAndroidEmbeddedWebView } from "@/lib/platform";
 
 /**
  * Unified Login Screen — Email + Password (Firebase Auth).
@@ -102,6 +103,7 @@ export function Login() {
 
   const hasBg = Boolean(branding.loginBackgroundUrl && isMediaUrl(branding.loginBackgroundUrl));
   const accent = branding.accentColor || "#10b981";
+  const embeddedAndroidApp = isAndroidEmbeddedWebView();
 
   // When a background image is set, text + card switch to a light-on-dark scheme
   // for guaranteed readability over the scrimmed background.
@@ -151,9 +153,11 @@ export function Login() {
 
       {/* Keep the selector in the viewport's top-right corner on every screen size.
           safe-top-absolute moves it below a mobile display notch when necessary. */}
-      <div className="safe-top-absolute absolute right-4 top-4 z-20">
-        <LanguageSwitcher dark />
-      </div>
+      {!embeddedAndroidApp && (
+        <div className="safe-top-absolute absolute right-4 top-4 z-20">
+          <LanguageSwitcher dark />
+        </div>
+      )}
 
       <div className="relative z-10 w-full max-w-md animate-fade-up">
         {/* brand */}
