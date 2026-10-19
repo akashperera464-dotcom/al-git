@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { readEstate, readMyEstates, type Estate } from "./estateRepo";
+import { readUserEstateAssociation } from "./supplierOperations";
 import { fetchForecast, getMockForecast, hasWeatherCoordinates, weatherConfigured, type ForecastResult, type WeatherStatus } from "./weather";
 
 const weatherEstateKey = (userId: string) => `kdu.weather.selectedEstate.${userId}`;
@@ -44,8 +45,13 @@ export function useSupplierWeatherEstate(userId: string, preferredId?: string) {
     setLoading(true);
     void Promise.all([
       readMyEstates(userId).catch(() => [] as Estate[]),
-      preferredId && preferredId !== userId ? readEstate(preferredId).catch(() => null) : Promise.resolve(null),
-    ]).then(([ownedRows, linkedEstate]) => {
+      readUserEstateAssociation(userId).then((id) => ({ id, loaded: true })).catch(() => ({ id: null, loaded: false })),
+    ]).then(async ([ownedRows, profileLink]) => {
+      if (!active) return;
+      const persistedPreferredId = profileLink.loaded ? profileLink.id ?? undefined : preferredId;
+      const linkedEstate = persistedPreferredId && persistedPreferredId !== userId
+        ? await readEstate(persistedPreferredId).catch(() => null)
+        : null;
       if (!active) return;
       const rows = mergeSupplierWeatherEstates(ownedRows, linkedEstate);
       const approvedRows = rows.filter((estate) => estate.status === "approved");
@@ -55,11 +61,11 @@ export function useSupplierWeatherEstate(userId: string, preferredId?: string) {
         savedId = localStorage.getItem(weatherEstateKey(userId)) ?? undefined;
         previousPreferredId = localStorage.getItem(weatherPreferredEstateKey(userId)) ?? undefined;
       } catch { /* storage can be unavailable */ }
-      const selected = chooseSupplierWeatherEstate(approvedRows, savedId, previousPreferredId, preferredId);
+      const selected = chooseSupplierWeatherEstate(approvedRows, savedId, previousPreferredId, persistedPreferredId);
       setEstates(approvedRows);
       setSelectedEstateIdState(selected?.id ?? "");
       try {
-        if (preferredId) localStorage.setItem(weatherPreferredEstateKey(userId), preferredId);
+        if (persistedPreferredId) localStorage.setItem(weatherPreferredEstateKey(userId), persistedPreferredId);
         if (selected) localStorage.setItem(weatherEstateKey(userId), selected.id);
       } catch { /* storage can be unavailable */ }
       setLoading(false);

@@ -105,6 +105,39 @@ export async function updateSupplierOperationalFields(
   if (error) throw new Error(`Could not update supplier assignment: ${error.message}`);
 }
 
+/** Persist and verify the supplier's primary estate link from User Management. */
+export async function saveUserEstateAssociation(userId: string, estateId: string | null): Promise<void> {
+  if (!supabaseConfigured) return;
+  const sb = getSupabase()!;
+  if (estateId) {
+    const { data: estate, error: estateError } = await sb.from("estates").select("id").eq("id", estateId).maybeSingle();
+    if (estateError) throw new Error(`Could not verify the selected estate: ${estateError.message}`);
+    if (!estate) throw new Error("The selected estate was not found. Refresh the estate list and try again.");
+  }
+
+  const { data, error } = await sb.from("users")
+    .update({ associated_entity_id: estateId })
+    .eq("id", userId)
+    .select("id,associated_entity_id")
+    .maybeSingle();
+  if (error) throw new Error(`Could not save the supplier's linked estate: ${error.message}`);
+  if (!data) throw new Error("The supplier profile was not updated. Refresh User Management and try again.");
+  if ((data.associated_entity_id ?? null) !== estateId) {
+    throw new Error("The supplier's linked estate could not be confirmed as saved. Refresh and try again.");
+  }
+}
+
+/** Read the persisted link so weather screens do not depend on a stale login snapshot. */
+export async function readUserEstateAssociation(userId: string): Promise<string | null | undefined> {
+  if (!supabaseConfigured || !userId) return undefined;
+  const { data, error } = await getSupabase()!.from("users")
+    .select("associated_entity_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error(`Could not refresh the supplier's linked estate: ${error.message}`);
+  return data?.associated_entity_id ?? null;
+}
+
 export async function readUserOperationalProfile(userId: string): Promise<{
   supplierNo?: string;
   factoryId?: string;

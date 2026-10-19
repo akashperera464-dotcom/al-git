@@ -8,7 +8,7 @@ import { readUsersForAdmin, readEstateOptions, readDivisionOptions } from "@/lib
 import { useLiveData } from "@/lib/useLiveData";
 import { getSupabase, refreshSupabaseFirebaseAuth, supabaseConfigured } from "@/lib/supabase";
 import { SupplierLocationHistory } from "@/components/LocationCheckIn";
-import { readFactories, readRoutes, updateSupplierOperationalFields, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
+import { readFactories, readRoutes, saveUserEstateAssociation, updateSupplierOperationalFields, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 import { readAuditLog, setUserDeactivated, type AuditLogEntry } from "@/lib/estateRepo";
 import { RouteMultiSelect } from "@/components/RouteMultiSelect";
 import { assertMultiRouteSchemaReady, readUserRouteAssignments, replaceUserRoutes } from "@/lib/userRoutes";
@@ -226,11 +226,13 @@ export default function UserManagement() {
       await updateUserProfile(editing.id, {
         name: editing.name.trim(),
         role: editing.role,
-        associatedEntityId: association,
         division,
         phone: editing.phone.trim() || null,
         ...(editing.status === "pending_approval" ? {} : { status: editing.status }),
       });
+      // Save the estate link separately and verify the returned database value;
+      // a successful-looking update with zero affected rows must not close the form.
+      await saveUserEstateAssociation(editing.id, association);
       if (editing.role === "supplier") {
         await updateSupplierOperationalFields(editing.id, {
           supplierNo: editing.supplierNo.trim(),
