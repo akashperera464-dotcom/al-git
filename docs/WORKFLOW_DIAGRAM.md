@@ -3563,6 +3563,24 @@ that produced the correct Admin weather result.
 
 *End of Workflow Diagram. Last updated: October 2026 (Round 15 — supplier estate-weather identity fix).*
 
+### 48.2 User Management estate-link save reliability
+
+Estate, division and factory dropdown data now load independently. A failure in
+one dropdown query cannot silently hide the estates list, and an estate query
+failure is displayed beside the Link to Estate control instead of presenting a
+misleading empty selection. The edit control remains disabled until its estate
+options finish loading.
+
+When editing a supplier, the save flow now applies the profile and route
+updates first, refreshes the estate list, then writes the selected
+`users.associated_entity_id` as the final association update. It verifies the
+returned and re-read value before closing the form; unavailable estate IDs or
+database write failures keep the form open and report the cause. This remains
+compatible with the Free-plan anon-key Supabase architecture and does not alter
+authentication, RLS, or database schema.
+
+*User Management link reliability updated: October 2026.*
+
 
 
 

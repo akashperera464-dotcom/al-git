@@ -65,6 +65,8 @@ export default function UserManagement() {
   const { role: myRole, notify, userUid, authReady, isAuthenticated } = useApp();
   const { data: users, loading, error: loadError, reload } = useLiveData<ManagedUser>("users", readUsersForAdmin);
   const [estateOptions, setEstateOptions] = useState<{ id: string; name: string }[]>([]);
+  const [estateOptionsLoading, setEstateOptionsLoading] = useState(true);
+  const [estateOptionsError, setEstateOptionsError] = useState<string | null>(null);
   const [divisionOptions, setDivisionOptions] = useState<{ id: string; name: string; estateName: string }[]>([]);
   const [filter, setFilter] = useState<"all" | Role>("all");
   const [adding, setAdding] = useState(false);
@@ -103,16 +105,18 @@ export default function UserManagement() {
     return () => { active = false; };
   }, [authReady, isAuthenticated, myRole, userUid, reload]);
 
-  // Load estate + division dropdown options once (rarely change).
+  // Load dropdown sources independently: one missing/failed optional query must
+  // not silently prevent the estate list from being available to User Management.
   useEffect(() => {
-    void (async () => {
-      try {
-        const [e, d, f] = await Promise.all([readEstateOptions(), readDivisionOptions(), readFactories()]);
-        setEstateOptions(e);
-        setDivisionOptions(d);
-        setFactories(f);
-      } catch { /* ignore */ }
-    })();
+    let active = true;
+    setEstateOptionsLoading(true);
+    void readEstateOptions()
+      .then((rows) => { if (active) { setEstateOptions(rows); setEstateOptionsError(null); } })
+      .catch((err) => { if (active) setEstateOptionsError(err instanceof Error ? err.message : "Could not load estates."); })
+      .finally(() => { if (active) setEstateOptionsLoading(false); });
+    void readDivisionOptions().then((rows) => { if (active) setDivisionOptions(rows); }).catch(() => {});
+    void readFactories().then((rows) => { if (active) setFactories(rows); }).catch(() => {});
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -146,12 +150,17 @@ export default function UserManagement() {
     return () => { active = false; };
   }, [editing?.id]);
 
-  // Estate options may have been loaded before a new estate was registered.
-  // Refresh on opening an editor so a saved linked estate always has an option.
+  // Refresh options on opening an editor; expose failures instead of leaving a
+  // misleading empty select. This also picks up estates registered recently.
   useEffect(() => {
     if (!editing?.id) return;
     let active = true;
-    void readEstateOptions().then((rows) => { if (active) setEstateOptions(rows); }).catch(() => {});
+    setEstateOptionsLoading(true);
+    setEstateOptionsError(null);
+    void readEstateOptions()
+      .then((rows) => { if (active) { setEstateOptions(rows); setEstateOptionsError(null); } })
+      .catch((err) => { if (active) setEstateOptionsError(err instanceof Error ? err.message : "Could not load estates."); })
+      .finally(() => { if (active) setEstateOptionsLoading(false); });
     return () => { active = false; };
   }, [editing?.id]);
 
@@ -239,9 +248,6 @@ export default function UserManagement() {
         phone: editing.phone.trim() || null,
         ...(editing.status === "pending_approval" ? {} : { status: editing.status }),
       });
-      // Save the estate link separately and verify the returned database value;
-      // a successful-looking update with zero affected rows must not close the form.
-      await saveUserEstateAssociation(editing.id, association);
       if (editing.role === "supplier") {
         await updateSupplierOperationalFields(editing.id, {
           supplierNo: editing.supplierNo.trim(),
@@ -250,6 +256,15 @@ export default function UserManagement() {
       if (editing.role === "supplier" || editing.role === "extension_officer") {
         await replaceUserRoutes({ userId: editing.id, factoryId: editing.factoryId, routeIds: editing.routeIds, primaryRouteId: editing.routeIds[0] });
       }
+      // Persist the estate link after the route/profile updates, then verify the
+      // stored value. This makes the requested association the final write in
+      // the save flow and prevents the form closing on a silently missed update.
+      const latestEstates = await readEstateOptions();
+      setEstateOptions(latestEstates);
+      if (association && !latestEstates.some((estate) => estate.id === association)) {
+        throw new Error("The selected estate is no longer available. Refresh the estate list and try again.");
+      }
+      await saveUserEstateAssociation(editing.id, association);
       const savedEstateId = await readUserEstateAssociation(editing.id);
       if ((savedEstateId ?? null) !== association) {
         throw new Error("The selected estate link did not remain on the supplier profile. Please retry and check the database update permissions.");
@@ -465,10 +480,13 @@ export default function UserManagement() {
               <>
               <div><label className={labelCls}>Supplier No *</label><input value={editing.supplierNo} onChange={(e) => setEditing({ ...editing, supplierNo: e.target.value })} className={inputCls} /></div>
               <div><label className={labelCls}><Building2 className="mr-1 inline h-3 w-3" />Link to Estate (optional)</label>
-                <select value={editing.estateId} onChange={(e) => setEditing({ ...editing, estateId: e.target.value })} className={inputCls}>
-                  <option value="">— no linked estate —</option>
+                <select value={editing.estateId} onChange={(e) => { setEditing({ ...editing, estateId: e.target.value }); setError(null); }} disabled={estateOptionsLoading || busy || !!estateOptionsError} className={inputCls}>
+                  <option value="">{estateOptionsLoading ? "Loading estates…" : "— no linked estate —"}</option>
                   {estateOptions.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
+                {estateOptionsError && <p className="mt-1 text-[11px] text-rose-600">{estateOptionsError}</p>}
+                {!estateOptionsLoading && !estateOptionsError && estateOptions.length === 0 && <p className="mt-1 text-[11px] text-amber-700">No estates are available to link. Register an estate first.</p>}
+                {!estateOptionsLoading && editing.estateId && !estateOptions.some((estate) => estate.id === editing.estateId) && <p className="mt-1 text-[11px] text-amber-700">This supplier has an estate ID that is not in the current estate list. Refresh the list before saving.</p>}
               </div>
               </>
             )}
