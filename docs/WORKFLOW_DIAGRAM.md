@@ -3549,6 +3549,12 @@ the same `associated_entity_id` before declaring success. Weather screens also
 refresh this link from the persisted `users` row on load, so a stale Firebase
 login snapshot cannot keep showing the previous estate's weather.
 
+On save, User Management reads the linked estate back after all supplier and
+route updates, waits for the directory refresh to finish, and reloads estate
+options when opening an editor. `useLiveData` now ignores an older overlapping
+request if a later refresh has already completed, preventing stale realtime
+responses from replacing the just-saved profile state.
+
 The device remembers a supplier's manual selection when the admin link is
 unchanged. If an administrator links a different estate, the stored selection
 is invalidated once and the newly linked estate becomes active immediately.

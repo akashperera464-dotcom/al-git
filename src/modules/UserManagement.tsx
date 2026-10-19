@@ -8,7 +8,7 @@ import { readUsersForAdmin, readEstateOptions, readDivisionOptions } from "@/lib
 import { useLiveData } from "@/lib/useLiveData";
 import { getSupabase, refreshSupabaseFirebaseAuth, supabaseConfigured } from "@/lib/supabase";
 import { SupplierLocationHistory } from "@/components/LocationCheckIn";
-import { readFactories, readRoutes, saveUserEstateAssociation, updateSupplierOperationalFields, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
+import { readFactories, readRoutes, readUserEstateAssociation, saveUserEstateAssociation, updateSupplierOperationalFields, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 import { readAuditLog, setUserDeactivated, type AuditLogEntry } from "@/lib/estateRepo";
 import { RouteMultiSelect } from "@/components/RouteMultiSelect";
 import { assertMultiRouteSchemaReady, readUserRouteAssignments, replaceUserRoutes } from "@/lib/userRoutes";
@@ -146,6 +146,15 @@ export default function UserManagement() {
     return () => { active = false; };
   }, [editing?.id]);
 
+  // Estate options may have been loaded before a new estate was registered.
+  // Refresh on opening an editor so a saved linked estate always has an option.
+  useEffect(() => {
+    if (!editing?.id) return;
+    let active = true;
+    void readEstateOptions().then((rows) => { if (active) setEstateOptions(rows); }).catch(() => {});
+    return () => { active = false; };
+  }, [editing?.id]);
+
   const filtered = users.filter((u) => filter === "all" || u.role === filter);
   const active = users.filter((u) => u.status === "active" && !u.deactivatedAt).length;
   const estateName = (id?: string) => estateOptions.find((e) => e.id === id)?.name ?? "—";
@@ -241,7 +250,12 @@ export default function UserManagement() {
       if (editing.role === "supplier" || editing.role === "extension_officer") {
         await replaceUserRoutes({ userId: editing.id, factoryId: editing.factoryId, routeIds: editing.routeIds, primaryRouteId: editing.routeIds[0] });
       }
-      void reload(); // refresh from DB
+      const savedEstateId = await readUserEstateAssociation(editing.id);
+      if ((savedEstateId ?? null) !== association) {
+        throw new Error("The selected estate link did not remain on the supplier profile. Please retry and check the database update permissions.");
+      }
+      await reload();
+      setEstateOptions(await readEstateOptions());
       notify({ title: "User updated", body: `${editing.name}'s profile saved.`, tone: "emerald", channel: "system" });
       setEditing(null);
     } catch (err) {

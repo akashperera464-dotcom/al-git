@@ -29,17 +29,19 @@ export function useLiveData<T>(
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alive = useRef(true);
+  const requestSequence = useRef(0);
 
   const reload = useCallback(async () => {
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setError(null);
     try {
       const rows = await fetcher();
-      if (alive.current) setData(rows);
+      if (alive.current && requestId === requestSequence.current) setData(rows);
     } catch (e) {
-      if (alive.current) setError(e instanceof Error ? e.message : "Load failed");
+      if (alive.current && requestId === requestSequence.current) setError(e instanceof Error ? e.message : "Load failed");
     } finally {
-      if (alive.current) setLoading(false);
+      if (alive.current && requestId === requestSequence.current) setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table]);
