@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { readMyEstates, type Estate } from "./estateRepo";
+import { readEstate, readMyEstates, type Estate } from "./estateRepo";
 import { fetchForecast, getMockForecast, hasWeatherCoordinates, weatherConfigured, type ForecastResult, type WeatherStatus } from "./weather";
 
 const weatherEstateKey = (userId: string) => `kdu.weather.selectedEstate.${userId}`;
+const weatherPreferredEstateKey = (userId: string) => `kdu.weather.preferredEstate.${userId}`;
+
+/** Include the admin-linked primary estate even when its legacy owner field has not yet been backfilled. */
+export function mergeSupplierWeatherEstates(ownedEstates: Estate[], linkedEstate?: Estate | null): Estate[] {
+  if (!linkedEstate || ownedEstates.some((estate) => estate.id === linkedEstate.id)) return ownedEstates;
+  return [linkedEstate, ...ownedEstates];
+}
 
 export function chooseWeatherEstate(estates: Estate[], savedId?: string, preferredId?: string): Estate | undefined {
   return estates.find((estate) => estate.id === savedId)
@@ -10,6 +17,21 @@ export function chooseWeatherEstate(estates: Estate[], savedId?: string, preferr
     ?? estates.find((estate) => estate.status === "approved" && hasWeatherCoordinates(estate.latitude, estate.longitude))
     ?? estates.find((estate) => estate.status === "approved")
     ?? estates[0];
+}
+
+/**
+ * A supplier may select another owned estate and keep that choice. When an
+ * administrator changes the account's linked estate, however, an old device
+ * selection must not override the new assignment on the next login.
+ */
+export function chooseSupplierWeatherEstate(
+  estates: Estate[],
+  savedId?: string,
+  previousPreferredId?: string,
+  preferredId?: string,
+): Estate | undefined {
+  const assignmentChanged = Boolean(preferredId && previousPreferredId !== preferredId);
+  return chooseWeatherEstate(estates, assignmentChanged ? undefined : savedId, preferredId);
 }
 
 export function useSupplierWeatherEstate(userId: string, preferredId?: string) {
@@ -20,14 +42,26 @@ export function useSupplierWeatherEstate(userId: string, preferredId?: string) {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    void readMyEstates(userId).then((rows) => {
+    void Promise.all([
+      readMyEstates(userId).catch(() => [] as Estate[]),
+      preferredId && preferredId !== userId ? readEstate(preferredId).catch(() => null) : Promise.resolve(null),
+    ]).then(([ownedRows, linkedEstate]) => {
       if (!active) return;
+      const rows = mergeSupplierWeatherEstates(ownedRows, linkedEstate);
       const approvedRows = rows.filter((estate) => estate.status === "approved");
       let savedId: string | undefined;
-      try { savedId = localStorage.getItem(weatherEstateKey(userId)) ?? undefined; } catch { /* storage can be unavailable */ }
-      const selected = chooseWeatherEstate(approvedRows, savedId, preferredId);
+      let previousPreferredId: string | undefined;
+      try {
+        savedId = localStorage.getItem(weatherEstateKey(userId)) ?? undefined;
+        previousPreferredId = localStorage.getItem(weatherPreferredEstateKey(userId)) ?? undefined;
+      } catch { /* storage can be unavailable */ }
+      const selected = chooseSupplierWeatherEstate(approvedRows, savedId, previousPreferredId, preferredId);
       setEstates(approvedRows);
       setSelectedEstateIdState(selected?.id ?? "");
+      try {
+        if (preferredId) localStorage.setItem(weatherPreferredEstateKey(userId), preferredId);
+        if (selected) localStorage.setItem(weatherEstateKey(userId), selected.id);
+      } catch { /* storage can be unavailable */ }
       setLoading(false);
     }).catch(() => {
       if (!active) return;

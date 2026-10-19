@@ -3534,7 +3534,22 @@ Firebase Super Admin session
 - Supplier Weather now suppresses rain alerts for demo fallback data and uses a
   guaranteed high-contrast gradient for the current-weather card.
 
-*End of Workflow Diagram. Last updated: October 2026 (Round 15 — Free-plan route assignment hotfix).*
+### 48.1 Supplier estate-weather identity
+
+Admin **Link to Estate** writes the supplier account's authoritative
+`associated_entity_id`. Supplier Home, My Weather, the portal weather card,
+farm weather safeguards and the background weather monitor now explicitly load
+that linked estate in addition to estates returned by `owner_supplier_id`.
+This keeps older/unbackfilled estate rows working without substituting a shared
+default location.
+
+The device remembers a supplier's manual selection when the admin link is
+unchanged. If an administrator links a different estate, the stored selection
+is invalidated once and the newly linked estate becomes active immediately.
+All consuming screens therefore use the same estate ID, latitude and longitude
+that produced the correct Admin weather result.
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 15 — supplier estate-weather identity fix).*
 
 
 

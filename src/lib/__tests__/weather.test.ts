@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { collectorWeatherAdvisory, fetchForecast, totalRainfallMm, weatherStatusText } from "../weather";
-import { chooseWeatherEstate } from "../useEstateWeather";
+import { chooseSupplierWeatherEstate, chooseWeatherEstate, mergeSupplierWeatherEstates } from "../useEstateWeather";
 import type { Estate } from "../estateRepo";
 import type { WeatherDay } from "../data";
 
@@ -28,6 +28,19 @@ describe("estate weather integration", () => {
     const rows = [estate("pending", "pending", 6.1), estate("approved-no-gps", "approved"), estate("approved-gps", "approved", 6.9)];
     expect(chooseWeatherEstate(rows.filter((row) => row.status === "approved"), "pending")?.id).toBe("approved-gps");
     expect(chooseWeatherEstate(rows)?.id).toBe("approved-gps");
+  });
+
+  it("uses a newly admin-linked estate instead of a stale device selection", () => {
+    const rows = [estate("old-selection", "approved", 6.1), estate("new-admin-link", "approved", 6.9)];
+    expect(chooseSupplierWeatherEstate(rows, "old-selection", "previous-link", "new-admin-link")?.id).toBe("new-admin-link");
+    expect(chooseSupplierWeatherEstate(rows, "old-selection", "new-admin-link", "new-admin-link")?.id).toBe("old-selection");
+  });
+
+  it("includes the explicit profile-linked estate when the ownership query omits it", () => {
+    const owned = [estate("owned", "approved", 6.1)];
+    const linked = estate("profile-link", "approved", 6.9);
+    expect(mergeSupplierWeatherEstates(owned, linked).map((row) => row.id)).toEqual(["profile-link", "owned"]);
+    expect(mergeSupplierWeatherEstates(owned, owned[0])).toHaveLength(1);
   });
 
   it("turns risky route weather into a collector warning", () => {
