@@ -19,15 +19,25 @@ describe("multi-route user assignments", () => {
     expect(() => normalizeRouteSelection(["", "  "])).toThrow("Select at least one route");
   });
 
-  it("ships the junction table, safe backfills, route-scoped RLS and integrity triggers", () => {
+  it("ships the junction table, safe backfills and integrity triggers for the Free-plan architecture", () => {
     const sql = readFileSync(resolve(process.cwd(), "docs/migration_phase3_round14_multi_route_users.sql"), "utf8").toLowerCase();
     expect(sql).toContain("create table if not exists public.user_route_assignments");
     expect(sql).toContain("round_14_estate_backfill");
     expect(sql).toContain("create or replace function public.set_user_routes");
     expect(sql).toContain("validate_collector_authorized_route");
     expect(sql).toContain("validate_supplier_estate_route");
-    expect(sql).toContain("user_routes_own_read");
+    expect(sql).toContain("disable row level security");
     expect(sql).toContain("u.role::text='supplier'");
-    expect(sql).not.toMatch(/user_route_assignments[^;]*using\s*\(\s*true\s*\)/s);
+    expect(sql).not.toContain("caller_role text:=public.app_role()");
+    expect(sql).not.toContain("values(public.app_uid()");
+  });
+
+  it("includes an idempotent production hotfix for the obsolete JWT route guard", () => {
+    const sql = readFileSync(resolve(process.cwd(), "docs/migration_phase3_round15_route_assignment_hotfix.sql"), "utf8").toLowerCase();
+    expect(sql).toContain("create or replace function public.set_user_routes");
+    expect(sql).toContain("alter table if exists public.user_route_assignments disable row level security");
+    expect(sql).toContain("pg_advisory_xact_lock");
+    expect(sql).not.toContain("public.app_role()");
+    expect(sql).not.toContain("public.app_uid()");
   });
 });

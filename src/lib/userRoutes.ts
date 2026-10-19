@@ -63,5 +63,10 @@ export async function replaceUserRoutes(input: {
     p_primary_route_id: selection.primaryRouteId,
     p_registration_email: input.registrationEmail?.trim().toLowerCase() || null,
   });
-  if (error) throw new Error(`Could not save route assignments: ${error.message}`);
+  if (error) {
+    const hint = /route assignment access denied/i.test(error.message)
+      ? " Apply docs/migration_phase3_round15_route_assignment_hotfix.sql in Supabase SQL Editor."
+      : "";
+    throw new Error(`Could not save route assignments: ${error.message}.${hint}`);
+  }
 }

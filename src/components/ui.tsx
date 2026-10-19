@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/utils/cn";
 import { TrendingUp, TrendingDown, Search, ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react";
 
@@ -8,15 +8,18 @@ export function Card({
   className,
   hover,
   onClick,
+  style,
 }: {
   children: ReactNode;
   className?: string;
   hover?: boolean;
   onClick?: () => void;
+  style?: CSSProperties;
 }) {
   return (
     <div
       onClick={onClick}
+      style={style}
       className={cn("card", hover && "card-hover cursor-pointer", className)}
     >
       {children}

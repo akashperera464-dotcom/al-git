@@ -19,6 +19,7 @@ The production database remains Supabase PostgreSQL. Apply migrations in order a
 11. `migration_phase3_round13_realtime_lorry_broadcast.sql` — historical policy file; current lorry Broadcast uses public anon channels and zero GPS database writes
 12. `migration_phase3_round14_multi_route_users.sql`
 13. `migration_phase3_round15_connected_operations.sql`
+14. `migration_phase3_round15_route_assignment_hotfix.sql` (required only when Round 14 was applied before the Free-plan correction)
 
 ## Before deployment
 
@@ -108,6 +109,28 @@ Post-deployment live checks:
 - Give a collector two authorized routes. Admin may assign either route on different days, but only one daily assignment remains possible.
 - Start today's collector route and confirm suppliers on that route receive Broadcast GPS while suppliers on the collector's other authorized route do not.
 - Confirm that the first selected route remains in `users.route_id` as the primary compatibility value.
+
+### Round 14 Free-plan route-save hotfix
+
+If User Management displays **Route assignment access denied** while saving an
+existing supplier or collector, the database still contains the original
+Round 14 JWT-dependent function. This project intentionally has no Supabase
+JWT bridge. Paste and run
+`docs/migration_phase3_round15_route_assignment_hotfix.sql` once in the
+Supabase SQL Editor, then retry **Save changes**. It is idempotent, does not
+delete business data, and does not touch Firebase or `.env`.
+
+Verify the final two queries in the hotfix return `false` for `rls_enabled`
+and `true` for `jwt_role_check_removed`. Then run:
+
+```sql
+select u.name,u.factory_id,u.route_id,count(ura.route_id) as authorized_routes
+from public.users u
+left join public.user_route_assignments ura on ura.user_id=u.id
+where u.role::text in ('supplier','extension_officer')
+group by u.id,u.name,u.factory_id,u.route_id
+order by u.name;
+```
 
 ## Apply and verify Round 15 — connected operations
 

@@ -3500,7 +3500,41 @@ The Round 15 migration installs audit-difference triggers only on its new workfl
 - iOS icon discovery also has `/apple-touch-icon.png`, a precomposed fallback, and a new versioned Apple icon URL. The versioned filename bypasses iOS's persistent Home Screen artwork cache; the root filename covers older Safari discovery behavior.
 - iOS caches Home Screen artwork at installation time. After this deployment, remove the existing Home Screen shortcut once and use Safari → Share → Add to Home Screen again to receive the new icon.
 
-*End of Workflow Diagram. Last updated: October 2026 (Round 15 — iPhone safe-area and Dalu Plus PWA icon).*
+## 48. Free-plan Route Assignment Save Fix
+
+The original Round 14 `set_user_routes` RPC called `app_role()` and denied the
+request unless Supabase had verified a Firebase JWT. This production project
+uses Firebase authentication with an anon-key-only Supabase client on the Free
+plan, so that database identity is intentionally unavailable. The result was a
+false **Route assignment access denied** error when a real Super Admin edited
+an existing supplier or collector.
+
+The corrected workflow is:
+
+```text
+Firebase Super Admin session
+  -> client RouteGuard/RBAC permits User Management
+  -> set_user_routes RPC (anon client)
+  -> serialize edits for that user
+  -> validate target role + 1..25 routes + same factory + primary route
+  -> update users primary route + replace normalized route assignments
+```
+
+- No Firebase-to-Supabase JWT bridge, paid provider, `auth.uid()`, `app_uid()`
+  or `app_role()` was added.
+- `user_route_assignments` now follows the project's current Free-plan model:
+  RLS disabled and client-side RBAC, while database triggers still enforce
+  route/factory integrity.
+- Fresh deployments receive the correction in the Round 14 migration. Existing
+  databases must run
+  `docs/migration_phase3_round15_route_assignment_hotfix.sql` once.
+- The route write remains atomic inside PostgreSQL and uses a per-user advisory
+  transaction lock, preventing two simultaneous saves from producing multiple
+  primary routes.
+- Supplier Weather now suppresses rain alerts for demo fallback data and uses a
+  guaranteed high-contrast gradient for the current-weather card.
+
+*End of Workflow Diagram. Last updated: October 2026 (Round 15 — Free-plan route assignment hotfix).*
 
 
 

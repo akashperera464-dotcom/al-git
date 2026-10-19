@@ -27,7 +27,9 @@ export function SupplierWeather() {
   const locationLabel = selection.estate?.name ?? t("supplierWeather.title");
 
   const today = days[0];
-  const rainExpectedSoon = days.slice(0, 3).some(d => d.rainProb >= 60);
+  // Demo fallback data helps preview the layout, but must never produce a
+  // real operational warning when an estate has no GPS/live API response.
+  const rainExpectedSoon = weather.status === "live" && days.slice(0, 3).some(d => d.rainProb >= 60);
 
   return (
     <div>
@@ -72,7 +74,10 @@ export function SupplierWeather() {
 
       {/* Today's hero */}
       {today && (
-        <Card className="mt-4 p-5 bg-gradient-to-br from-sky-500 to-blue-700 text-white border-0">
+        <Card
+          className="mt-4 border-0 p-5 text-white"
+          style={{ background: "linear-gradient(135deg, #0ea5e9 0%, #1d4ed8 100%)" }}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-sky-100">{locationLabel} · {t("supplierWeather.todayLabel")}</p>

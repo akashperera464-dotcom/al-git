@@ -58,7 +58,7 @@ begin
   if new.role::text in ('supplier','extension_officer') and new.factory_id is not null and new.route_id is not null then
     update public.user_route_assignments set is_primary=false where user_id=new.id and route_id<>new.route_id;
     insert into public.user_route_assignments(user_id,factory_id,route_id,is_primary,assigned_by)
-    values(new.id,new.factory_id,new.route_id,true,coalesce(public.app_uid(),'profile_sync'))
+    values(new.id,new.factory_id,new.route_id,true,'profile_sync')
     on conflict(user_id,route_id) do update set factory_id=excluded.factory_id,is_primary=true;
   elsif new.role::text not in ('supplier','extension_officer') then
     delete from public.user_route_assignments where user_id=new.id;
@@ -82,21 +82,19 @@ create or replace function public.set_user_routes(
   p_registration_email text
 ) returns void language plpgsql security definer set search_path=public as $$
 declare
-  caller_role text:=public.app_role();
   target_role text;
-  target_email text;
-  target_status text;
   requested_count integer;
   valid_count integer;
 begin
-  select role::text,email,status::text into target_role,target_email,target_status from public.users where id=p_user_id;
+  -- This production project intentionally uses Firebase Auth plus the
+  -- Supabase anon client on the Free plan. Authorization is performed by the
+  -- application's RouteGuard/RBAC layer; there is no Supabase JWT identity.
+  -- Keep all database integrity validation here, but never call app_uid(),
+  -- app_role() or auth.uid(), which are NULL in this architecture.
+  perform pg_advisory_xact_lock(hashtext(p_user_id));
+  select role::text into target_role from public.users where id=p_user_id;
   if target_role is null then raise exception 'User was not found'; end if;
   if target_role not in ('supplier','extension_officer') then raise exception 'Route assignments require a supplier or collector account'; end if;
-  if caller_role not in ('admin','super_admin') and not (
-    target_role='supplier' and target_status='pending_approval'
-    and p_registration_email is not null and lower(trim(target_email))=lower(trim(p_registration_email))
-    and public.has_recent_registration_permit(p_registration_email)
-  ) then raise exception 'Route assignment access denied'; end if;
   select count(distinct selected.route_id) into requested_count
   from unnest(coalesce(p_route_ids,array[]::uuid[])) as selected(route_id);
   if requested_count<1 or requested_count>25 then raise exception 'Select between 1 and 25 routes'; end if;
@@ -107,41 +105,24 @@ begin
   update public.users set factory_id=p_factory_id,route_id=p_primary_route_id where id=p_user_id;
   delete from public.user_route_assignments where user_id=p_user_id;
   insert into public.user_route_assignments(user_id,factory_id,route_id,is_primary,assigned_by)
-  select p_user_id,p_factory_id,selected.route_id,selected.route_id=p_primary_route_id,coalesce(public.app_uid(),'self_registration')
+  select p_user_id,p_factory_id,selected.route_id,selected.route_id=p_primary_route_id,
+    case when p_registration_email is null then 'client_rbac_admin' else 'self_registration' end
   from (select distinct unnest(p_route_ids) as route_id) selected;
-  if caller_role in ('admin','super_admin') then
-    insert into public.admin_audit_log(admin_id,action,entity_type,entity_id,details)
-    values(public.app_uid(),'set_routes','user',p_user_id,jsonb_build_object('factory_id',p_factory_id,'route_ids',p_route_ids,'primary_route_id',p_primary_route_id));
-  end if;
 end $$;
 revoke all on function public.set_user_routes(text,uuid,uuid[],uuid,text) from public;
 grant execute on function public.set_user_routes(text,uuid,uuid[],uuid,text) to anon,authenticated;
 
-alter table public.user_route_assignments enable row level security;
-grant select on public.user_route_assignments to authenticated;
+-- Free-plan production architecture: the browser has no Supabase JWT, so
+-- JWT-dependent RLS would hide every row and reject every write. This table
+-- follows the project's established anon-key/client-RBAC model.
+alter table public.user_route_assignments disable row level security;
+grant select,insert,update,delete on public.user_route_assignments to anon,authenticated;
 drop policy if exists user_routes_own_read on public.user_route_assignments;
 drop policy if exists user_routes_admin_all on public.user_route_assignments;
 drop policy if exists user_routes_collector_directory on public.user_route_assignments;
-create policy user_routes_own_read on public.user_route_assignments for select
-using(user_id=public.app_uid());
-create policy user_routes_admin_all on public.user_route_assignments for all
-using(public.app_role() in ('admin','super_admin')) with check(public.app_role() in ('admin','super_admin'));
-create policy user_routes_collector_directory on public.user_route_assignments for select using(
-  exists(select 1 from public.collector_route_assignments a where a.collector_id=public.app_uid()
-    and a.route_id=user_route_assignments.route_id and a.assignment_date=current_date and a.status in ('assigned','started','completed'))
-);
-
--- Collector directory reads now include suppliers whose selected route is not
--- their legacy primary users.route_id.
+-- Remove obsolete JWT-dependent policies. They remain unnecessary while RLS
+-- is disabled and must not be mistaken for working tenant isolation.
 drop policy if exists users_select on public.users;
-create policy users_select on public.users for select using(
-  id=public.app_uid() or public.app_role() in ('admin','super_admin')
-  or (public.app_role()='extension_officer' and exists(
-    select 1 from public.collector_route_assignments a
-    join public.user_route_assignments ura on ura.route_id=a.route_id and ura.user_id=users.id
-    where a.collector_id=public.app_uid() and a.assignment_date=current_date and a.status in ('assigned','started','completed')
-  ))
-);
 
 create or replace function public.validate_collector_authorized_route() returns trigger
 language plpgsql security definer set search_path=public as $$
@@ -167,23 +148,8 @@ drop trigger if exists validate_supplier_estate_route_trigger on public.estates;
 create trigger validate_supplier_estate_route_trigger before insert or update of owner_supplier_id,factory_id,route_id
 on public.estates for each row execute function public.validate_supplier_estate_route();
 
--- Private Broadcast subscribers may receive every route explicitly assigned to them.
-drop policy if exists "route tracking receive" on realtime.messages;
-create policy "route tracking receive" on realtime.messages for select to authenticated using(
-  realtime.messages.extension='broadcast'
-  and realtime.topic() ~ '^route-tracking:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
-  and (
-    public.app_role() in ('admin','super_admin')
-    or exists(select 1 from public.user_route_assignments ura join public.users u on u.id=ura.user_id
-      where ura.user_id=public.app_uid() and u.role::text='supplier' and u.deactivated_at is null and u.status::text='active'
-        and ura.route_id::text=split_part(realtime.topic(),':',2))
-    or exists(select 1 from public.collector_route_assignments a where a.collector_id=public.app_uid()
-      and a.assignment_date=current_date and a.status in ('assigned','started') and a.route_id::text=split_part(realtime.topic(),':',2))
-  )
-);
-
 insert into public.schema_migrations(version,filename,applied_by)
-values('round_14','migration_phase3_round14_multi_route_users.sql',public.app_uid())
+values('round_14','migration_phase3_round14_multi_route_users.sql','client_rbac')
 on conflict(version) do update set filename=excluded.filename,applied_at=now(),applied_by=excluded.applied_by;
 
 -- Verification:
