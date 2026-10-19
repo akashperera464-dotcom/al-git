@@ -23,6 +23,8 @@ import { Onboarding } from "@/components/Onboarding";
 import { useBranding, isMediaUrl } from "@/lib/branding";
 import { resolveShellBrandIdentity } from "@/lib/brandIdentity";
 import { isAndroidEmbeddedWebView } from "@/lib/platform";
+import { useEstateWeather } from "@/lib/useEstateWeather";
+import { SupplierWeatherMonitor } from "@/components/SupplierWeatherMonitor";
 import { useLiveData } from "@/lib/useLiveData";
 import { readAlerts, markAlertsRead, type AlertRow } from "@/lib/notifications";
 import { moduleLabel, moduleShort, roleTitle } from "@/i18n/modules";
@@ -315,10 +317,12 @@ function SidebarContent() {
 /* ----------------------------- Admin Shell ----------------------------- */
 function AdminShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { activeModule, isAuthenticated, signOut } = useApp();
+  const { activeModule, isAuthenticated, signOut, estates } = useApp();
   const [drawer, setDrawer] = useState(false);
   const current = MODULES.find((m) => m.key === activeModule);
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
+  const weatherEstate = estates.find((estate) => estate.latitude !== undefined && estate.longitude !== undefined) ?? estates[0];
+  const weather = useEstateWeather(weatherEstate?.latitude, weatherEstate?.longitude);
 
   return (
     <div className="app-aurora min-h-screen lg:flex">
@@ -353,9 +357,9 @@ function AdminShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <SyncPill />
             {!embeddedAndroidApp && <LanguageSwitcher />}
-            <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 sm:flex">
+            <div title={weather.status === "live" ? `${weatherEstate?.name ?? "Estate"} · live weather` : "Live estate weather unavailable"} className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 sm:flex">
               <CloudSun className="h-4 w-4 text-amber-500" />
-              <span className="text-xs font-bold text-slate-700">21°C</span>
+              <span className="text-xs font-bold text-slate-700">{weather.status === "live" ? `${weather.today?.tempMax ?? "—"}°C` : "—°C"}</span>
             </div>
             <NotificationBell />
             <div className="hidden w-48 sm:block">
@@ -457,11 +461,12 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
 /* ----------------------------- Mobile Shell ----------------------------- */
 function MobileShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { isAuthenticated, signOut, setActiveModule } = useApp();
+  const { isAuthenticated, signOut, setActiveModule, role } = useApp();
   const [more, setMore] = useState(false);
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
   return (
     <div className="app-aurora min-h-screen">
+      {isAuthenticated && role === "supplier" && <SupplierWeatherMonitor />}
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-slate-900 md:shadow-2xl">
         {/* Header — safe-top pushes brand/buttons below iPhone notch on mobile.
             On desktop the md:py-3 resets to normal padding inside the phone frame. */}

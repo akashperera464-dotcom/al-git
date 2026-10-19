@@ -1,5 +1,17 @@
 # KDU TEA FACTORY — Complete System Workflow (For Everyone)
 
+## Estate weather interconnection hardening (2026-10-19)
+
+- One shared `useEstateWeather` path now supplies Admin Dashboard/header/Weather, Supplier Home/My Weather/Smart Alerts/Farm Activities and the collector's assigned-route warning. The 10-minute coordinate cache prevents duplicate OpenWeatherMap requests.
+- Weather is scoped to real estate GPS. Missing coordinates, missing configuration and upstream request failures are separately labelled; demo data remains available for layout continuity but is never used to issue automatic agronomic or route decisions.
+- Suppliers with multiple estates can select the active weather estate. The selection is remembered on that device and reused by Home, Smart Alerts and Farm Activities.
+- Fertilizer rain checks now use the selected estate rather than a Nuwara Eliya default. The activity record includes the selected estate identity in its details, and a failed live check is reported without blocking the activity save.
+- Admin weather cards and the shell temperature no longer use the hardcoded `21°C`. Forecast headings display the number of days actually returned by the provider.
+- Collectors receive a live weather advisory for today's assigned route using an approved, GPS-enabled estate on that route. Heavy rain/wind produces road-safety and leaf-protection guidance without adding database tables or GPS writes.
+- On supplier app startup, verified live severe weather is deduplicated to one alert per estate per Colombo day and sent through the existing alerts/FCM path. A closed PWA still requires an external scheduler to wake independently; the free-tier implementation does not make that unsupported claim.
+- Fixed the daily rainfall aggregation defect that previously added a phantom `1 mm`. Automated tests cover rainfall totals, missing-GPS safety, multi-estate selection and collector risk classification.
+- Database impact: no migration, new table or paid Supabase feature. `.env`, authentication, Supabase client configuration and RLS remain unchanged.
+
 ## Android APK shell compatibility (2026-10-18)
 
 - Normal browsers and installed PWAs continue to use the EMS language selector.

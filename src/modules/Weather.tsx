@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CloudSun, Droplets, Wind, Thermometer, AlertTriangle } from "lucide-react";
 import { PageHeader, Panel, Badge, IconChip } from "@/components/ui";
 import { Icon } from "@/components/Icon";
 import { AreaTrend } from "@/components/charts";
 import { weatherToAlerts } from "@/lib/predictive";
 import { rainfallHistory, type WeatherDay } from "@/lib/data";
-import { fetchForecast, getMockForecast, weatherConfigured } from "@/lib/weather";
+import { getMockForecast, weatherStatusText } from "@/lib/weather";
 import { useApp } from "@/context/AppContext";
+import { useEstateWeather } from "@/lib/useEstateWeather";
 
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const SEV_TONE: Record<string, "rose" | "amber" | "sky" | "emerald"> = {
@@ -19,28 +20,12 @@ const SEV_TONE: Record<string, "rose" | "amber" | "sky" | "emerald"> = {
 export default function Weather() {
   const { estates } = useApp();
   const [selectedEstateId, setSelectedEstateId] = useState<string>("");
-  const [days, setDays] = useState<WeatherDay[]>(getMockForecast());
-  const [source, setSource] = useState<"live" | "mock">("mock");
-
   // Default to the first estate (or "all").
   const selectedEstate = estates.find((e) => e.id === selectedEstateId) ?? estates[0];
+  const weather = useEstateWeather(selectedEstate?.latitude, selectedEstate?.longitude);
+  const days: WeatherDay[] = weather.days;
 
-  // Load live OpenWeatherMap forecast for the SELECTED estate's coordinates.
-  useEffect(() => {
-    if (!selectedEstate) return;
-    let active = true;
-    setSource("mock");
-    void fetchForecast(selectedEstate.latitude, selectedEstate.longitude).then((res) => {
-      if (!active) return;
-      setDays(res.days);
-      setSource(res.source);
-    });
-    return () => {
-      active = false;
-    };
-  }, [selectedEstate?.id, selectedEstate?.latitude, selectedEstate?.longitude]);
-
-  const alerts = weatherToAlerts(days);
+  const alerts = weather.status === "live" ? weatherToAlerts(days) : [];
   const today = days[0] ?? getMockForecast()[0];
   const rainfall = months.map((m, i) => ({ day: m, kg: rainfallHistory[i] }));
 
@@ -63,8 +48,8 @@ export default function Weather() {
                 {estates.map((est) => <option key={est.id} value={est.id}>{est.name}</option>)}
               </select>
             )}
-            <Badge tone={source === "live" ? "emerald" : "amber"} dot>
-              {weatherConfigured ? (source === "live" ? "Live · OpenWeatherMap" : "Loading live…") : "Demo data"}
+            <Badge tone={weather.status === "live" ? "emerald" : "amber"} dot>
+              {weather.loading ? "Loading live weather…" : weatherStatusText(weather.status, days.length)}
             </Badge>
             {selectedEstate?.latitude !== undefined && selectedEstate?.longitude !== undefined && (
               <span className="text-[10px] text-slate-500">
@@ -95,7 +80,7 @@ export default function Weather() {
         </Panel>
 
         {/* 7 day */}
-        <Panel className="lg:col-span-2" title="7-Day Forecast" subtitle="Temperature · rainfall · wind" icon={<IconChip icon={CloudSun} tone="sky" className="h-9 w-9" />}>
+        <Panel className="lg:col-span-2" title={`${days.length}-Day Forecast`} subtitle="Temperature · rainfall · wind" icon={<IconChip icon={CloudSun} tone="sky" className="h-9 w-9" />}>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
             {days.map((d, i) => (
               <div key={d.date} className={`rounded-xl border p-3 text-center ${i === 0 ? "border-emerald-300 bg-emerald-50/40" : "border-slate-100"}`}>
@@ -116,6 +101,7 @@ export default function Weather() {
 
         <Panel title="Actionable Alerts" subtitle="Deterministic rules engine" icon={<IconChip icon={AlertTriangle} tone="amber" className="h-9 w-9" />}>
           <div className="space-y-2.5">
+            {weather.status !== "live" && <p className="rounded-lg bg-amber-50 p-3 text-xs font-semibold text-amber-700">Actionable alerts are paused until live estate weather is available.</p>}
             {alerts.map((a) => (
               <div key={a.id} className="flex items-start gap-3 rounded-xl border border-slate-100 p-3">
                 <Icon name={a.icon} className="mt-0.5 h-4 w-4 text-amber-600" />

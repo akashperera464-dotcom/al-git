@@ -4,25 +4,24 @@ import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum, fmtLKRShort } from "@/lib/data";
 import { readFarmActivities, readMyHarvestRecords } from "@/lib/repo";
-import { fetchForecast, getMockForecast } from "@/lib/weather";
-import type { WeatherDay } from "@/lib/data";
 import { useTranslation } from "react-i18next";
 import { readDailyTeaPrices, readUserOperationalProfile, type DailyTeaPrice } from "@/lib/supplierOperations";
 import { gradeKey } from "@/i18n/databaseValues";
 import { readSupplierFinancialSummary } from "@/lib/financialSummary";
-import { readMyEstates, type Estate as SupplierEstate } from "@/lib/estateRepo";
+import { useEstateWeather, useSupplierWeatherEstate } from "@/lib/useEstateWeather";
 
 const LorryTracking = lazy(() => import("@/modules/LorryTracking"));
 
 export function SupplierHome() {
   const { t, i18n } = useTranslation();
   const { user, session, setActiveModule, userUid, associatedEntityId, syncQueue, online } = useApp();
-  const [estate, setEstate] = useState<SupplierEstate | undefined>();
+  const weatherEstate = useSupplierWeatherEstate(userUid, associatedEntityId);
+  const estate = weatherEstate.estate;
+  const weather = useEstateWeather(estate?.latitude, estate?.longitude);
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const greeting = getGreeting(currentTime);
   const firstName = (session?.name ?? user?.name ?? "Supplier").split(" ")[0];
 
-  const [forecast, setForecast] = useState<WeatherDay[]>(getMockForecast());
   const [totalKg, setTotalKg] = useState(0);
   const [totalEarned, setTotalEarned] = useState(0);
   const [monthExpenses, setMonthExpenses] = useState(0);
@@ -38,11 +37,6 @@ export function SupplierHome() {
   }, []);
 
   useEffect(() => {
-    void readMyEstates(userUid).then((rows) => {
-      const selected = rows.find((row) => row.id === associatedEntityId) ?? rows.find((row) => row.status === "approved") ?? rows[0];
-      setEstate(selected);
-      return fetchForecast(selected?.latitude, selected?.longitude);
-    }).then((res) => setForecast(res.days)).catch(() => setForecast(getMockForecast()));
     void readFarmActivities(userUid, 100).then(setFarmLogs).catch(() => setFarmLogs([]));
 
     // B30 (Round #12) — Load deliveries: kg + grade + amount (restored)
@@ -74,7 +68,7 @@ export function SupplierHome() {
   const fertDue = lastFert ? Math.floor((now - new Date(lastFert.loggedDate).getTime()) / DAY) >= 75 : false;
   const pruneDue = lastPrune ? Math.floor((now - new Date(lastPrune.loggedDate).getTime()) / DAY) >= 40 : false;
 
-  const weatherToday = forecast[0];
+  const weatherToday = weather.today;
 
   return (
     <div>
@@ -123,6 +117,7 @@ export function SupplierHome() {
             <p className="text-xs text-sky-600">
               {t("supplierHome.weatherDetail", { temperature: weatherToday.tempMax, rain: weatherToday.rainProb, wind: weatherToday.windKph })}
             </p>
+            {weather.status !== "live" && <p className="mt-0.5 text-[10px] font-semibold text-amber-600">Demo · live estate weather unavailable</p>}
           </div>
           <button onClick={() => setActiveModule("supplier-weather")} className="text-sky-600">
             <ChevronRight className="h-4 w-4" />

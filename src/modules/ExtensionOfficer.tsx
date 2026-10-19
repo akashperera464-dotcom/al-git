@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { UserPlus, Scale, Loader2, CheckCircle2, Building2, Layers, Phone, WifiOff, MapPin, AlertTriangle, Camera, QrCode, Bluetooth, Navigation } from "lucide-react";
+import { UserPlus, Scale, Loader2, CheckCircle2, Building2, Layers, Phone, WifiOff, MapPin, AlertTriangle, Camera, QrCode, Bluetooth, Navigation, CloudSun } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { readEstateOptions, readDivisionOptions, saveLeafWeighing, uploadDeliveryEvidence, voidHarvestRecord, type WeighInResult } from "@/lib/repo";
@@ -9,8 +9,10 @@ import { useLiveData } from "@/lib/useLiveData";
 import { createAlert } from "@/lib/notifications";
 import { publishLorryLocation, readFactories, readRoutes, readSupplierDirectory, stopLorryLocation, updateSupplierOperationalFields, type FactoryOption, type RouteOption, type SupplierDirectoryEntry } from "@/lib/supplierOperations";
 import { readTodayAssignment, updateAssignmentStatus, type CollectorAssignment } from "@/lib/collectorAssignments";
-import { readMyEstates, type Estate } from "@/lib/estateRepo";
+import { readEstates, readMyEstates, type Estate } from "@/lib/estateRepo";
 import { createWorkflowRequest, readRouteStops, seedAssignmentStops, updateRouteStop, type RouteStop } from "@/lib/connectedOperations";
+import { useEstateWeather } from "@/lib/useEstateWeather";
+import { collectorWeatherAdvisory, weatherStatusText } from "@/lib/weather";
 
 /* ====================== 1 · REGISTER NEW SUPPLIER ====================== */
 
@@ -179,10 +181,13 @@ export function EoWeighing() {
   const [signature, setSignature] = useState("");
   const [scaleStatus, setScaleStatus] = useState("");
   const [recentReceipts, setRecentReceipts] = useState<{ id: string; receiptNo?: string; gross: number; net: number; voided?: boolean }[]>([]);
+  const [routeWeatherEstate, setRouteWeatherEstate] = useState<Estate | undefined>();
   const qrInputRef = useRef<HTMLInputElement | null>(null);
   const net = +(gross * (1 - ded / 100)).toFixed(1);
 
   const estate = supplierEstates.find((row) => row.id === selectedEstateId);
+  const routeWeather = useEstateWeather(routeWeatherEstate?.latitude, routeWeatherEstate?.longitude);
+  const routeAdvisory = collectorWeatherAdvisory(routeWeather.status === "live" ? routeWeather.today : undefined);
 
   useEffect(() => {
     void readFactories().then(setFactories).catch(() => setFactories([]));
@@ -224,6 +229,16 @@ export function EoWeighing() {
       setSupplierEstates(eligible); setSelectedEstateId(eligible[0]?.id ?? "");
     }).catch(() => setSupplierEstates([]));
   }, [supplierId, routeId]);
+  useEffect(() => {
+    let active = true;
+    setRouteWeatherEstate(undefined);
+    if (!routeId) return () => { active = false; };
+    void readEstates({ routeId, factoryId: factoryId || undefined, status: "approved" }).then((rows) => {
+      if (!active) return;
+      setRouteWeatherEstate(rows.find((row) => row.latitude !== undefined && row.longitude !== undefined));
+    }).catch(() => { if (active) setRouteWeatherEstate(undefined); });
+    return () => { active = false; };
+  }, [routeId, factoryId]);
 
   // Count of pending offline mutations (for the badge)
   const pendingSyncCount = syncQueue.filter(q => q.status === "queued").length;
@@ -367,6 +382,8 @@ export function EoWeighing() {
       <Card className={`mt-4 p-4 ${assignment ? "border-emerald-200" : "border-amber-200"}`}>
         {assignment ? <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase text-slate-400">Today's Route</p><p className="font-bold text-slate-800"><span className="text-emerald-700">{assignment.routeCode}</span> — {assignment.routeName}</p><p className="text-xs text-slate-500">{assignment.factoryName} · {assignment.lorryPlate || "Lorry not specified"}</p></div><div className="flex flex-wrap gap-2">{assignment.status === "assigned" && <button onClick={() => void updateAssignmentStatus(assignment.id, "started").then(() => setAssignment({ ...assignment, status: "started" }))} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Start Collection</button>}{assignment.status === "started" && <button onClick={() => void updateAssignmentStatus(assignment.id, "completed").then(() => setAssignment({ ...assignment, status: "completed" }))} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white">Complete Collection</button>}<button onClick={() => void requestRouteChange()} className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-700">Emergency route change</button><Badge tone={assignment.status === "completed" ? "sky" : "emerald"}>{assignment.status}</Badge></div></div> : <p className="text-sm font-bold text-amber-700">No route assigned for today — contact admin</p>}
       </Card>
+
+      {assignment && <Card className={`mt-4 p-4 ${routeAdvisory.tone === "rose" ? "border-rose-200 bg-rose-50" : routeAdvisory.tone === "amber" ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}><div className="flex items-start gap-3"><CloudSun className={`mt-0.5 h-5 w-5 shrink-0 ${routeAdvisory.tone === "rose" ? "text-rose-600" : routeAdvisory.tone === "amber" ? "text-amber-600" : "text-emerald-600"}`} /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold text-slate-800">{routeAdvisory.title}</p><Badge tone={routeWeather.status === "live" ? routeAdvisory.tone : "amber"}>{routeWeather.loading ? "Loading…" : routeWeather.status === "live" ? "Live route weather" : "No live route weather"}</Badge></div><p className="mt-1 text-xs text-slate-600">{routeWeather.status === "live" ? routeAdvisory.detail : weatherStatusText(routeWeather.status, routeWeather.days.length)}</p>{routeWeatherEstate && <p className="mt-1 text-[10px] text-slate-400">Route reference: {routeWeatherEstate.name} · {routeWeatherEstate.latitude?.toFixed(4)}, {routeWeatherEstate.longitude?.toFixed(4)}</p>}</div></div></Card>}
 
       <LorryTrackingControls routeId={routeId} driverId={userUid} assignmentId={assignment?.id} enabled={assignment?.status === "started"} />
 

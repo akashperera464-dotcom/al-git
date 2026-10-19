@@ -9,12 +9,14 @@ import { AreaTrend, BarSeries, Donut, Legend } from "@/components/charts";
 import { Icon } from "@/components/Icon";
 import { recommendPlucking, weatherToAlerts } from "@/lib/predictive";
 import {
-  activities, weather7, currentWeather, complianceItems, pluckFields,
+  activities, complianceItems, pluckFields,
   fmtLKRShort, TODAY_ISO,
 } from "@/lib/data";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 import { useApp } from "@/context/AppContext";
 import { countPendingEstates } from "@/lib/estateRepo";
+import { useEstateWeather } from "@/lib/useEstateWeather";
+import { weatherStatusText } from "@/lib/weather";
 
 /** Real KPI data fetched from Supabase — replaces ALL mock arrays. */
 interface DashboardData {
@@ -191,10 +193,12 @@ function Skeleton({ className = "" }: { className?: string }) {
 }
 
 export default function Dashboard() {
-  const { setActiveModule } = useApp();
+  const { setActiveModule, estates } = useApp();
   const d = useDashboardData();
-  const pluck = recommendPlucking(pluckFields, weather7).filter((p) => p.priority === "today").slice(0, 2);
-  const alerts = weatherToAlerts(weather7).slice(0, 2);
+  const weatherEstate = estates.find((estate) => estate.latitude !== undefined && estate.longitude !== undefined) ?? estates[0];
+  const weather = useEstateWeather(weatherEstate?.latitude, weatherEstate?.longitude);
+  const pluck = weather.status === "live" ? recommendPlucking(pluckFields, weather.days).filter((p) => p.priority === "today").slice(0, 2) : [];
+  const alerts = weather.status === "live" ? weatherToAlerts(weather.days).slice(0, 2) : [];
   const revSplit = d.teaSalesRevenue > 0 || d.greenLeafCost > 0
     ? [
         { name: "Tea Sales", value: d.teaSalesRevenue, color: "#059669" },
@@ -214,8 +218,8 @@ export default function Dashboard() {
             <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:flex">
               <CloudSun className="h-5 w-5 text-amber-500" />
               <div className="leading-tight">
-                <p className="text-sm font-bold text-slate-800 tnum">{currentWeather.temp}°C</p>
-                <p className="text-[10px] text-slate-400">{currentWeather.condition}</p>
+                <p className="text-sm font-bold text-slate-800 tnum">{weather.status === "live" ? `${weather.today?.tempMax ?? "—"}°C` : "—°C"}</p>
+                <p className="max-w-44 truncate text-[10px] text-slate-400">{weather.loading ? "Loading live weather…" : weather.status === "live" ? `${weatherEstate?.name ?? "Estate"} · ${weather.today?.condition ?? "Weather"}` : weatherStatusText(weather.status, weather.days.length)}</p>
               </div>
             </div>
             <button
@@ -314,6 +318,7 @@ export default function Dashboard() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Panel title="Smart Plucking — Today" subtitle="Deterministic field priority" icon={<IconChip icon={Sprout} tone="emerald" className="h-9 w-9" />}>
           <div className="space-y-2.5">
+            {weather.status !== "live" && <p className="rounded-lg bg-amber-50 p-3 text-xs font-semibold text-amber-700">Live estate weather is required before weather-based plucking recommendations are issued.</p>}
             {pluck.map((p) => (
               <div key={p.field.id} className="flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
                 <div>
@@ -331,6 +336,7 @@ export default function Dashboard() {
 
         <Panel title="Environmental Alerts" subtitle="Rule-based (no AI)" icon={<IconChip icon={CloudSun} tone="amber" className="h-9 w-9" />}>
           <div className="space-y-2.5">
+            {weather.status !== "live" && <p className="rounded-lg bg-amber-50 p-3 text-xs font-semibold text-amber-700">{weatherStatusText(weather.status, weather.days.length)}</p>}
             {alerts.map((al) => (
               <div key={al.id} className="flex items-start gap-3 rounded-xl border border-slate-100 p-3">
                 <Icon name={al.icon} className="mt-0.5 h-4 w-4 text-amber-600" />

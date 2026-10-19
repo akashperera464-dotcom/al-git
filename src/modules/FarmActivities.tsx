@@ -6,6 +6,8 @@ import { useApp } from "@/context/AppContext";
 import { useLiveData } from "@/lib/useLiveData";
 import { recordFarmActivity, readFarmActivities } from "@/lib/repo";
 import { TODAY_ISO, type FarmActivity, type FarmActivityType } from "@/lib/data";
+import { weatherStatusText } from "@/lib/weather";
+import { useEstateWeather, useSupplierWeatherEstate } from "@/lib/useEstateWeather";
 
 const TAB_KEYS = [
   { id: "plucking", labelKey: "farm.plucking", icon: Package, tone: "sky" },
@@ -27,7 +29,9 @@ const GRADE_KEYS = ["farm.gradeSuper", "farm.gradeStandard", "farm.gradeCoarse"]
  */
 export function FarmActivities() {
   const { t } = useTranslation();
-  const { userUid, notify } = useApp();
+  const { userUid, associatedEntityId, notify } = useApp();
+  const weatherEstate = useSupplierWeatherEstate(userUid, associatedEntityId);
+  const estateWeather = useEstateWeather(weatherEstate.estate?.latitude, weatherEstate.estate?.longitude);
   // Dynamic blocks from supplier's plot sub-fields (B13 fix)
   const plotBlocks: { id: string; name: string }[] = (() => {
     try {
@@ -102,6 +106,10 @@ export function FarmActivities() {
       else if (tab === "plucking") details = { field: field.trim() || "—", estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]), block: fertBlock || "All blocks" };
       else details = { field: field.trim() || "—", estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]) };
 
+      if (weatherEstate.estate) {
+        details = { ...details, estateId: weatherEstate.estate.id, estateName: weatherEstate.estate.name };
+      }
+
       await recordFarmActivity(userUid, tab, date, details);
 
       // ---- NEW (Sir's spec Phase 2): Bush count auto-increment on replanting ----
@@ -121,20 +129,20 @@ export function FarmActivities() {
       // ---- NEW (Sir's spec Phase 2): Weather guard alert on fertilizer log ----
       // Check if rain is expected in the next 1-2 days → show warning toast
       if (tab === "fertilizer") {
-        try {
-          const { fetchForecast } = await import("@/lib/weather");
-          const res = await fetchForecast(undefined, undefined); // uses default estate coords
-          const rainTomorrow = res.days[1]?.rainProb ?? 0;
-          const rainDayAfter = res.days[2]?.rainProb ?? 0;
+        if (estateWeather.status === "live") {
+          const rainTomorrow = estateWeather.days[1]?.rainProb ?? 0;
+          const rainDayAfter = estateWeather.days[2]?.rainProb ?? 0;
           if (rainTomorrow >= 60 || rainDayAfter >= 60) {
             notify({
               title: "⚠️ තද වැසි අනතුරු ඇඟවීම · Weather Guard Alert",
-              body: `පොහොර සෝදා යාමේ අවදානමක් ඇත! හෙට වැසි ${rainTomorrow}%, අනිද්ද ${rainDayAfter}%. Rain may wash away fertilizer.`,
+              body: `${weatherEstate.estate?.name ?? "Estate"}: පොහොර සෝදා යාමේ අවදානමක් ඇත! හෙට වැසි ${rainTomorrow}%, අනිද්ද ${rainDayAfter}%. Rain may wash away fertilizer.`,
               tone: "rose",
               channel: "system",
             });
           }
-        } catch { /* weather check is best-effort */ }
+        } else {
+          notify({ title: "Weather check unavailable", body: `${weatherEstate.estate?.name ?? "Estate"}: ${weatherStatusText(estateWeather.status, estateWeather.days.length)}. Fertilizer activity was saved, but no automatic rain decision was made.`, tone: "amber", channel: "system" });
+        }
       }
 
       // ---- NEW (Sir's spec Phase 2): Bush count auto-increment confirmation ----
@@ -167,6 +175,14 @@ export function FarmActivities() {
         desc={t("farm.desc")}
         icon={<IconChip icon={Sprout} tone="emerald" className="h-12 w-12" />}
       />
+
+      <Card className="mb-4 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div><p className="text-[10px] font-bold uppercase text-slate-400">Activity estate</p><p className="text-xs font-semibold text-slate-700">Weather checks use this estate&apos;s GPS.</p></div>
+          {weatherEstate.estates.length > 0 ? <select value={weatherEstate.selectedEstateId} onChange={(event) => weatherEstate.setSelectedEstateId(event.target.value)} className="max-w-56 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700">{weatherEstate.estates.map((estate) => <option key={estate.id} value={estate.id}>{estate.name}</option>)}</select> : <Badge tone="amber">No estate registered</Badge>}
+        </div>
+        <p className={`mt-2 text-[10px] font-semibold ${estateWeather.status === "live" ? "text-emerald-600" : "text-amber-600"}`}>{estateWeather.loading ? "Loading live weather…" : weatherStatusText(estateWeather.status, estateWeather.days.length)}</p>
+      </Card>
 
       <div className="grid grid-cols-3 gap-2.5">
         <StatCard icon={Sprout} label={t("farm.fertilizerLogs")} value={String(history.filter((h) => h.activityType === "fertilizer").length)} tone="emerald" />

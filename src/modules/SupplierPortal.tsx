@@ -8,7 +8,8 @@ import { evaluateFertilizerWindow, recommendPlucking, type AdviceLevel } from "@
 import { supplier, pluckFields, fmtLKR, fmtLKRShort, fmtNum, TODAY_ISO, type WeatherDay } from "@/lib/data";
 import { readFarmActivities, readMyHarvestRecords } from "@/lib/repo";
 import { useLiveData } from "@/lib/useLiveData";
-import { fetchForecast, getMockForecast } from "@/lib/weather";
+import { weatherStatusText } from "@/lib/weather";
+import { useEstateWeather, useSupplierWeatherEstate } from "@/lib/useEstateWeather";
 import { useApp } from "@/context/AppContext";
 import { LocationCheckIn } from "@/components/LocationCheckIn";
 import { PruningAdvisory } from "@/components/PruningAdvisory";
@@ -263,17 +264,10 @@ export function SupplierDeliveries() {
 /** 2 · Smart Alerts Panel — FCM fertilizer & plucking schedules (deterministic). */
 export function SupplierAlerts() {
   const { t } = useTranslation();
-  const { estates, associatedEntityId, userUid } = useApp();
-  const estate = estates.find((e) => e.id === associatedEntityId);
-  const [forecast, setForecast] = useState<WeatherDay[]>(getMockForecast());
-  useEffect(() => {
-    let active = true;
-    // Fetch weather for the SUPPLIER'S specific estate coordinates.
-    void fetchForecast(estate?.latitude, estate?.longitude).then((res) => active && setForecast(res.days));
-    return () => {
-      active = false;
-    };
-  }, [estate?.latitude, estate?.longitude]);
+  const { associatedEntityId, userUid } = useApp();
+  const selection = useSupplierWeatherEstate(userUid, associatedEntityId);
+  const weather = useEstateWeather(selection.estate?.latitude, selection.estate?.longitude);
+  const forecast = weather.days;
 
   const advice = evaluateFertilizerWindow(
     { lastApplicationDate: supplier.lastFertilizerDate, cropStage: supplier.cropStage, cultivar: supplier.cultivar, soilMoisturePct: supplier.soilMoisturePct, temperatureC: 21, forecast, region: supplier.village },
@@ -288,9 +282,11 @@ export function SupplierAlerts() {
         title={t("supplier.alerts")}
         desc={t("supplier.alertsDesc")}
         icon={<IconChip icon={BellRing} tone="violet" className="h-12 w-12" />}
+        actions={<div className="flex flex-col items-end gap-1.5">{selection.estates.length > 1 && <select value={selection.selectedEstateId} onChange={(event) => selection.setSelectedEstateId(event.target.value)} className="max-w-48 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-600">{selection.estates.map((estate) => <option key={estate.id} value={estate.id}>{estate.name}</option>)}</select>}<Badge tone={weather.status === "live" ? "emerald" : "amber"} dot>{weather.loading ? "Loading live weather…" : weatherStatusText(weather.status, forecast.length)}</Badge></div>}
       />
       <div className="space-y-3">
-        <div className="overflow-hidden rounded-2xl p-4 text-white" style={{ background: `linear-gradient(135deg, ${LEVEL_COLOR[advice.level]}, #1e293b)` }}>
+        {weather.status !== "live" && <Card className="border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-700">Weather-based automatic warnings are paused until live weather and estate GPS are available. Demo weather is display-only.</Card>}
+        {weather.status === "live" && <div className="overflow-hidden rounded-2xl p-4 text-white" style={{ background: `linear-gradient(135deg, ${LEVEL_COLOR[advice.level]}, #1e293b)` }}>
           <div className="flex items-center gap-2">
             <Droplets className="h-4 w-4" />
             <p className="text-xs font-semibold uppercase tracking-wider opacity-90">{t("supplier.fertilizerSchedule")}</p>
@@ -301,9 +297,9 @@ export function SupplierAlerts() {
             <CalendarCheck className="h-4 w-4" />
             <span className="font-bold">{t("supplier.applyBy")} {advice.recommendedDate}</span>
           </div>
-        </div>
+        </div>}
 
-        <Card className="p-4">
+        {weather.status === "live" && <Card className="p-4">
           <div className="mb-2 flex items-center gap-2">
             <Leaf className="h-4 w-4 text-emerald-600" />
             <h3 className="font-display text-sm font-bold text-slate-800">{t("supplier.pluckingSchedule")}</h3>
@@ -319,13 +315,13 @@ export function SupplierAlerts() {
               </div>
             ))}
           </div>
-        </Card>
+        </Card>}
 
         {/* Smart Agronomic Advisory & Pruning Schedule (plant-age based) */}
-        <PruningAdvisory forecast={forecast} />
+        {weather.status === "live" && <PruningAdvisory forecast={forecast} />}
 
         {/* NEW (Sir's spec Phase 2): Smart Automated Alerts */}
-        <SmartAutomatedAlerts userUid={userUid} forecast={forecast} />
+        <SmartAutomatedAlerts userUid={userUid} forecast={forecast} weatherReliable={weather.status === "live"} estateName={selection.estate?.name} />
 
         <Card className="p-4">
           <div className="mb-2 flex items-center gap-2">
@@ -336,7 +332,7 @@ export function SupplierAlerts() {
           <div className="space-y-2">
             {[
               { t: t("supplier.pushPaymentTitle"), d: t("supplier.pushPaymentBody"), i: "Wallet" },
-              { t: t("supplier.pushRainTitle"), d: t("supplier.pushRainBody", { date: advice.recommendedDate }), i: "Droplets" },
+              ...(weather.status === "live" ? [{ t: t("supplier.pushRainTitle"), d: t("supplier.pushRainBody", { date: advice.recommendedDate }), i: "Droplets" }] : []),
             ].map((n, idx) => (
               <div key={idx} className="flex items-start gap-3 rounded-xl border border-slate-100 p-2.5">
                 <Icon name={n.i} className="mt-0.5 h-4 w-4 text-slate-500" />
@@ -502,13 +498,12 @@ export function SupplierPayments() {
  *   3. Replanting water/shade reminder: within 90 days of replanting → weekly reminder
  *   4. Weather guard: if rain >= 60% in next 1-2 days AND fertilizer logged recently → alert
  *
- * B10 FIX: alerts are now also dispatched via FCM push (via the
- * `sendSmartAlert` Cloud Function) AND persisted to the Supabase
- * `alerts` table (via `createAlert`), so they reach the supplier's
- * phone even when the app is closed. Existing Supabase alerts provide the
- * per-day deduplication record across every device.
+ * Alerts are dispatched via the existing FCM function and persisted to the
+ * Supabase `alerts` table after a verified live-weather check runs. Daily
+ * app-start monitoring lives in SupplierWeatherMonitor; waking a fully closed
+ * PWA still requires an independently configured server scheduler.
  * --------------------------------------------------------------------------- */
-function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast: WeatherDay[] }) {
+function SmartAutomatedAlerts({ userUid, forecast, weatherReliable, estateName }: { userUid: string; forecast: WeatherDay[]; weatherReliable: boolean; estateName?: string }) {
   const { t, i18n } = useTranslation();
   const [alerts, setAlerts] = useState<{ type: string; title: string; body: string; tone: "amber" | "sky" | "emerald" | "rose" }[]>([]);
 
@@ -591,7 +586,7 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
         }
 
         // 4. Weather Guard Alert (if rain expected in next 1-2 days AND fertilizer logged in last 7 days)
-        if (forecast.length >= 3) {
+        if (weatherReliable && forecast.length >= 3) {
           const rainTomorrow = forecast[1]?.rainProb ?? 0;
           const rainDayAfter = forecast[2]?.rainProb ?? 0;
           if (rainTomorrow >= 60 || rainDayAfter >= 60) {
@@ -605,7 +600,7 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
               computed.push({
                 type: "weather-guard",
                 title: `⚠️ ${t("smartAlerts.washoutTitle")}`,
-                body: t("smartAlerts.washoutBody", { tomorrow: rainTomorrow, dayAfter: rainDayAfter }),
+                body: `${estateName ? `${estateName}: ` : ""}${t("smartAlerts.washoutBody", { tomorrow: rainTomorrow, dayAfter: rainDayAfter })}`,
                 tone: "rose",
               });
             }
@@ -653,7 +648,7 @@ function SmartAutomatedAlerts({ userUid, forecast }: { userUid: string; forecast
         } catch { /* ignore — push failure should not break UI */ }
       }
     })();
-  }, [userUid, forecast, t, i18n.language]);
+  }, [userUid, forecast, weatherReliable, estateName, t, i18n.language]);
 
   if (alerts.length === 0) return null;
 

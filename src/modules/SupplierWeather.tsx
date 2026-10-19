@@ -1,12 +1,10 @@
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CloudSun, Droplets, Wind, Thermometer, AlertTriangle } from "lucide-react";
 import { PageHeader, Card, Badge, IconChip } from "@/components/ui";
 import { Icon } from "@/components/Icon";
 import { useApp } from "@/context/AppContext";
-import { fetchForecast, getMockForecast, weatherConfigured } from "@/lib/weather";
-import type { WeatherDay } from "@/lib/data";
-import { readMyEstates } from "@/lib/estateRepo";
+import { weatherStatusText } from "@/lib/weather";
+import { useEstateWeather, useSupplierWeatherEstate } from "@/lib/useEstateWeather";
 
 /**
  * SupplierWeather — "My Weather" module (supplier side)
@@ -20,40 +18,13 @@ import { readMyEstates } from "@/lib/estateRepo";
  */
 export function SupplierWeather() {
   const { t } = useTranslation();
-  const { userUid } = useApp();
-
-  const [plotLat, setPlotLat] = useState<number | undefined>(undefined);
-  const [plotLon, setPlotLon] = useState<number | undefined>(undefined);
-  const [plotName, setPlotName] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    let active = true;
-    void readMyEstates(userUid).then((rows) => {
-      if (!active) return;
-      const estate = rows.find((row) => row.status === "approved" && row.latitude != null && row.longitude != null)
-        ?? rows.find((row) => row.latitude != null && row.longitude != null);
-      setPlotLat(estate?.latitude); setPlotLon(estate?.longitude); setPlotName(estate?.name);
-    }).catch(() => { if (active) { setPlotLat(undefined); setPlotLon(undefined); setPlotName(undefined); } });
-    return () => { active = false; };
-  }, [userUid]);
-
-  const useLat = plotLat;
-  const useLon = plotLon;
-  const locationLabel = plotName ?? t("supplierWeather.title");
-
-  const [days, setDays] = useState<WeatherDay[]>(getMockForecast());
-  const [source, setSource] = useState<"live" | "mock">("mock");
-
-  useEffect(() => {
-    let active = true;
-    setSource("mock");
-    void fetchForecast(useLat, useLon).then((res) => {
-      if (!active) return;
-      setDays(res.days);
-      setSource(res.source);
-    });
-    return () => { active = false; };
-  }, [useLat, useLon]);
+  const { userUid, associatedEntityId } = useApp();
+  const selection = useSupplierWeatherEstate(userUid, associatedEntityId);
+  const weather = useEstateWeather(selection.estate?.latitude, selection.estate?.longitude);
+  const days = weather.days;
+  const useLat = selection.estate?.latitude;
+  const useLon = selection.estate?.longitude;
+  const locationLabel = selection.estate?.name ?? t("supplierWeather.title");
 
   const today = days[0];
   const rainExpectedSoon = days.slice(0, 3).some(d => d.rainProb >= 60);
@@ -67,8 +38,13 @@ export function SupplierWeather() {
         icon={<IconChip icon={CloudSun} tone="sky" className="h-12 w-12" />}
         actions={
           <div className="flex flex-col items-end gap-1.5">
-            <Badge tone={source === "live" ? "emerald" : "amber"} dot>
-              {weatherConfigured ? (source === "live" ? "Live · OpenWeatherMap" : "Loading live…") : "Demo data"}
+            {selection.estates.length > 1 && (
+              <select value={selection.selectedEstateId} onChange={(event) => selection.setSelectedEstateId(event.target.value)} className="max-w-48 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-600">
+                {selection.estates.map((estate) => <option key={estate.id} value={estate.id}>{estate.name}</option>)}
+              </select>
+            )}
+            <Badge tone={weather.status === "live" ? "emerald" : "amber"} dot>
+              {weather.loading ? "Loading live weather…" : weatherStatusText(weather.status, days.length)}
             </Badge>
             {useLat !== undefined && useLon !== undefined && (
               <span className="text-[10px] text-slate-500">
@@ -76,7 +52,7 @@ export function SupplierWeather() {
               </span>
             )}
             {(useLat === undefined || useLon === undefined) && (
-              <span className="text-[10px] text-amber-500">⚠ No coordinates — using default (Nuwara Eliya)</span>
+              <span className="text-[10px] text-amber-500">⚠ Estate GPS missing — demo data only</span>
             )}
           </div>
         }
@@ -115,7 +91,7 @@ export function SupplierWeather() {
 
       {/* 5-day forecast */}
       <Card className="mt-4 p-4">
-        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">{t("supplierWeather.forecastTitle")}</h3>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-800">{days.length}-Day Forecast</h3>
         <div className="space-y-2">
           {days.slice(0, 5).map((d, i) => (
             <div key={i} className="flex items-center justify-between rounded-lg border border-slate-100 p-2.5">
@@ -138,7 +114,7 @@ export function SupplierWeather() {
       </Card>
 
       <p className="mt-3 text-[10px] text-slate-400 px-1">
-        * Weather data from OpenWeatherMap API (cached 10 minutes). Falls back to demo data if API key not configured or estate has no coordinates.
+        * Weather data from OpenWeatherMap API (cached 10 minutes). Demo data is clearly labelled and is never used for automatic weather warnings.
       </p>
     </div>
   );
