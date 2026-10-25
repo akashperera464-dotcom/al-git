@@ -97,7 +97,7 @@ export function SupplierRequestForm() {
   const approved = mine.filter((r) => r.status === "APPROVED").length;
   const rejected = mine.filter((r) => r.status === "REJECTED").length;
 
-  // Phase 1: Labor Request removed per Sir's spec — Labor is now managed via Labor Management
+  // Phase 1: Labor Request removed per approved requirement — Labor is now managed via Labor Management
   // module (admin side). Suppliers can request: Equipment / Fertilizer / Agrochemical only.
   // These request types must remain available even when inventory is empty or
   // temporarily unavailable. Availability affects approval, not whether a
@@ -258,7 +258,7 @@ export function SupplierRequestForm() {
                         <span className="font-semibold">{t("request.adminLabel")}</span> {r.adminNotes}
                       </div>
                     )}
-                    {/* NEW (Sir's spec A.4): When APPROVED, show "fulfilled" confirmation in-app
+                    {/* NEW (approved requirement A.4): When APPROVED, show "fulfilled" confirmation in-app
                         so supplier sees stock was deducted + they can collect. */}
                     {r.status === "APPROVED" && (
                       <div className="mt-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-700">

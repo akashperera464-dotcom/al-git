@@ -1,5 +1,5 @@
 -- ============================================================================
--- KDU TEA FACTORY · Phase 1 Schema Migration (Sir's spec — September 2026)
+-- KDU TEA FACTORY · Phase 1 Schema Migration (approved requirement — September 2026)
 -- ----------------------------------------------------------------------------
 -- This migration adds all columns + tables required by the Phase 1 features:
 --

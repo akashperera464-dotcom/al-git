@@ -1,5 +1,14 @@
 # KDU TEA FACTORY — Complete System Workflow (For Everyone)
 
+## Current documentation baseline (2026-10-25)
+
+- `docs/HOW_THINGS_WORK.md` is the current plain-language Sinhala user guide. It explains what every active role and visible module does, the expected result of each action, and the end-to-end links between accounts, estates, routes, collections, receipts, weather, requests and administration.
+- This `WORKFLOW_DIAGRAM.md` remains the detailed technical workflow and implementation history. Older round notes record what was attempted at that time; they do not override the current-production baseline stated here or in `HOW_THINGS_WORK.md`.
+- The current production architecture is Firebase Email/Password authentication plus Supabase PostgreSQL business data on the Free plan. The Supabase browser client is anon-key-only, Firebase Third-Party Auth/JWT bridging is disabled, and the accepted production model uses centralized client-side RBAC with operational-table RLS disabled.
+- The active user-facing module list is defined by `src/lib/rbac.ts` and `src/modules/registry.ts`. Code retained but hidden from navigation is not described as an active feature in the user guide.
+- Documentation and source comments were normalized to professional requirement language. Internal conversation references, personal attributions and prompt-style wording must not be added to office-facing material.
+- From this point onward, every feature change must update this technical history. If the change affects what a user sees or does, `docs/HOW_THINGS_WORK.md` must be updated in the same commit.
+
 ## Estate weather interconnection hardening (2026-10-19)
 
 - One shared `useEstateWeather` path now supplies Admin Dashboard/header/Weather, Supplier Home/My Weather/Smart Alerts/Farm Activities and the collector's assigned-route warning. The 10-minute coordinate cache prevents duplicate OpenWeatherMap requests.
@@ -928,7 +937,7 @@ AGROCHEMICAL module (read-only)
 ```
 1. Supplier opens APK → "Request Resources" tab
        ↓
-2. Phase 1: Choose type (NO "Workers" — disabled per Sir's spec)
+2. Phase 1: Choose type (NO "Workers" — disabled per approved requirement)
    • Equipment
    • Fertilizer
    • Agrochemical
@@ -984,7 +993,7 @@ AGROCHEMICAL module (read-only)
        ↓
 3. Click "New Equipment Request"
        ↓
-4. Select category (Sir's 7 categories):
+4. Select category (the 7 supported categories):
    • Plucking Machine (දලු කඩන මැෂින්)
    • Spray Machine (තෙල්/පොහොර විදින මැෂින්)
    • Bag / Goni (ගෝනි)
@@ -1587,7 +1596,7 @@ For 95% of changes (new modules, bug fixes, UI changes), no rebuild is needed �
 
 ### Q3: Why can't suppliers request workers anymore?
 
-**A:** Per Sir's Phase 1 spec, the "Workers" option was removed from the supplier's Request Resources module. Labor management is now admin-only via the Labor module's "Daily Labor Cost" tab. Phase 2 will re-enable Labor Requests with a proper approval workflow.
+**A:** Per Phase 1 approved requirement, the "Workers" option was removed from the supplier's Request Resources module. Labor management is now admin-only via the Labor module's "Daily Labor Cost" tab. Phase 2 will re-enable Labor Requests with a proper approval workflow.
 
 ### Q4: How does the system know which estate a supplier belongs to?
 
@@ -1663,13 +1672,13 @@ These features are documented for Phase 2 (after Phase 1 stabilization):
 
 ## 20. Phase 1 Update #2 — September 2026 (Latest)
 
-> **Purpose / අරමුණ:** Sir's spec round #2 — 3 items added.
+> **Purpose / අරමුණ:** approved requirement round #2 — 3 items added.
 
 ### 20.1 Supplier-Side Estate Creation (NEW)
 
 **Where:** Supplier Portal → My Plot module → "Plot Sub-Fields / Sections" section (below the Plot Details card).
 
-**Why:** Sir asked for estate creation on supplier side too. Suppliers have small plots (කුඩා වත්ත), but they often have multiple sub-sections (e.g., Upper Plot + Lower Plot). Now they can divide their plot like admin's Estate Master.
+**Why:** Supplier-side estate creation is an approved operational requirement. Suppliers may manage small plots (කුඩා වත්ත) with multiple sub-sections (e.g., Upper Plot + Lower Plot), so the same hierarchy concept used by Estate Master is available for their own land.
 
 **What Was Added:**
 
@@ -1834,7 +1843,7 @@ The following gaps were identified during a review of supplier-admin interconnec
 
 ## 22. Phase 1 Update #4 — September 2026 (Interconnections + Data Filling)
 
-> **Purpose / අරමුණ:** Implementation of Sir's spec round #3 — A.1 to A.5 + B.6 to B.11 + C.13 (11 items total).
+> **Purpose / අරමුණ:** Implementation of approved requirement round #3 — A.1 to A.5 + B.6 to B.11 + C.13 (11 items total).
 
 ### 22.1 Implemented Features
 
@@ -1906,17 +1915,17 @@ The following gaps were identified during a review of supplier-admin interconnec
 
 | # | Change | Why |
 |---|--------|-----|
-| 1 | `estates.contact_phone` (text) | Sir's spec B.7 — estate manager contact |
-| 2 | `divisions.area_acres` (numeric) | Sir's spec B.7 — Sri Lankan farmers think in acres |
-| 3 | `fields.soil_type` (text) | Sir's spec B.7 — affects fertilizer recommendation |
-| 4 | `workers.daily_wage`, `photo_url`, `qr_code` | Sir's spec B.8 |
-| 5 | `stock_items.batch_number`, `expiry_date`, `supplier_source` | Sir's spec B.9 — product recall + stock rotation + vendor tracking |
-| 6 | `harvest_records.weather_condition`, `leaf_moisture_pct`, `photo_url` | Sir's spec B.10 |
-| 7 | `sales_invoices.payment_method`, `receipt_pdf_url` | Sir's spec B.11 — cash/bank/cheque tracking |
-| 8 | `users.nic`, `address`, `emergency_contact`, `photo_url`, `notification_prefs` | Sir's spec B.6 + C.13 |
-| 9 | NEW TABLE `announcement_reads` | Sir's spec A.3 — mark as read tracking |
-| 10 | NEW TABLE `notification_queue` | For in-app notification view (Sir's spec A.4 — supplier sees fulfillment status) |
-| 11 | NEW TABLE `farm_activity_photos` | Sir's spec B.22 — photo upload for audit |
+| 1 | `estates.contact_phone` (text) | approved requirement B.7 — estate manager contact |
+| 2 | `divisions.area_acres` (numeric) | approved requirement B.7 — Sri Lankan farmers think in acres |
+| 3 | `fields.soil_type` (text) | approved requirement B.7 — affects fertilizer recommendation |
+| 4 | `workers.daily_wage`, `photo_url`, `qr_code` | approved requirement B.8 |
+| 5 | `stock_items.batch_number`, `expiry_date`, `supplier_source` | approved requirement B.9 — product recall + stock rotation + vendor tracking |
+| 6 | `harvest_records.weather_condition`, `leaf_moisture_pct`, `photo_url` | approved requirement B.10 |
+| 7 | `sales_invoices.payment_method`, `receipt_pdf_url` | approved requirement B.11 — cash/bank/cheque tracking |
+| 8 | `users.nic`, `address`, `emergency_contact`, `photo_url`, `notification_prefs` | approved requirement B.6 + C.13 |
+| 9 | NEW TABLE `announcement_reads` | approved requirement A.3 — mark as read tracking |
+| 10 | NEW TABLE `notification_queue` | For in-app notification view (approved requirement A.4 — supplier sees fulfillment status) |
+| 11 | NEW TABLE `farm_activity_photos` | approved requirement B.22 — photo upload for audit |
 
 All idempotent, all with RLS policies.
 
@@ -2086,7 +2095,7 @@ All code files are intact — only the sidebar entries were removed.
 
 ## 24. Estate Registration Workflow — September 2026 (Round #6)
 
-> **Purpose / අරමුණ:** Sir's spec — suppliers register their estate with all details, admin approves/rejects, auto-location GPS button.
+> **Purpose / අරමුණ:** approved requirement — suppliers register their estate with all details, admin approves/rejects, auto-location GPS button.
 
 ### 24.1 How It Works
 
@@ -2517,7 +2526,7 @@ The `supplier_fertilizer_ledger` table is unchanged — it always tracked kg + C
 
 ## 28. Inventory Schema Hardening + Stock Movement Report (Round #10)
 
-> **Purpose / අරමුණ:** Sir shared 3 Excel files (Issue Note Report, GRN Report, Fertilizer Stock Balance) that the factory uses for inventory tracking. This round aligns the EMS schema to capture every field those Excel files track, and adds a new admin "Stock Movement Report" panel that mirrors the factory's Fertilizer Stock Balance report — replacing the manual Excel workflow with a live, real-time version.
+> **Purpose / අරමුණ:** The factory's three operational Excel reports (Issue Note Report, GRN Report and Fertilizer Stock Balance) were used as the reference for inventory tracking. This round aligns the EMS schema with every required report field and adds an admin Stock Movement Report panel that replaces the manual balance workflow with a live view.
 
 ### 28.1 Why This Round
 
@@ -2655,7 +2664,7 @@ src/modules/Fertilizer.tsx                    | +165 lines (new StockMovementRep
 
 ## 29. Excel-Alignment Migration — 3 Remaining Gaps Closed (Round #11)
 
-> **Purpose / අරමුණ:** Sir shared the exact column structures of the 3 Excel files. After comparing column-by-column against the EMS schema, 3 remaining gaps were identified. This round closes them so every Excel column has a home in the DB.
+> **Purpose / අරමුණ:** The exact columns in the three factory Excel reports were compared with the EMS schema. Three remaining gaps were identified and closed so every operational report field has a defined database destination.
 
 ### 29.1 Column-by-Column Audit
 
@@ -2971,7 +2980,7 @@ src/modules/SupplierPlot.tsx                  | +3 lines (saveRegistrationReques
 
 > **Purpose / අරමුණ:** Supplier tracks their own daily labor costs — workers they bring from their village (Kankanam, Casual Plucking, Temporary). Cost auto-calculates and appears as a deduction in Earnings & Deductions.
 
-### 32.1 Sir's Spec
+### 32.1 Approved Requirement
 
 - Phase 1: Supplier brings their own workers (from their village)
 - Supplier enters headcount + daily wage per category

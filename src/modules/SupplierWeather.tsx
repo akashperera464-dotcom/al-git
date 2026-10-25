@@ -9,7 +9,7 @@ import { useEstateWeather, useSupplierWeatherEstate } from "@/lib/useEstateWeath
 /**
  * SupplierWeather — "My Weather" module (supplier side)
  * ------------------------------------------------------------------
- * Per Sir's Phase 1 spec #5:
+ * Per Phase 1 approved requirement #5:
  *   Location-based Weather: Supplier ගේ වත්තේ Location එකට අදාළ Weather Updates පෙන්වීම.
  *
  * B11 FIX: uses supplier's own plot GPS first (from registration/localStorage),

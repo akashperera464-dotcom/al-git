@@ -19,7 +19,7 @@ import {
  *   1. Total supplier acreage + bush count + average yield/acre (across all suppliers)
  *   2. List of suppliers with pending 6-month bush count re-verification
  *   3. List of suppliers with outstanding fertilizer credit balance
- *   4. Estate Registration approval/reject workflow (NEW — Sir's spec round #5)
+ *   4. Estate Registration approval/reject workflow (NEW — approved requirement round #5)
  *
  * Phase 1: reads from localStorage (mirrors supplier-side cache).
  * Phase 2: reads from Supabase `supplier_plots` + `supplier_fertilizer_ledger` tables.
@@ -157,11 +157,11 @@ export function SupplierInsights() {
       // loading complete
     }
 
-    // Load registration requests (NEW — Sir's spec)
+    // Load registration requests (NEW — approved requirement)
     setRegRequests(readAllRegistrationRequests());
   };
 
-  // ---- NEW (Sir's spec): Approve / Reject estate registration ----
+  // ---- NEW (approved requirement): Approve / Reject estate registration ----
   const approveReg = (reqId: string) => {
     const updated = updateRegistrationStatus(reqId, "APPROVED", "Approved by admin", adminUid);
     if (updated) {

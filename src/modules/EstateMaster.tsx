@@ -271,7 +271,7 @@ export function LegacyEstateMaster() {
                   <MapPin className="h-9 w-9 text-emerald-200" />
                 </div>
 
-                {/* Bush count re-verify reminder — Sir's spec #5 */}
+                {/* Bush count re-verify reminder — approved requirement #5 */}
                 <BushCountReminder estate={selected} />
               </div>
 
@@ -425,7 +425,7 @@ function CoordEditor({ estate, onSaved }: { estate: Estate; onSaved: () => void 
 }
 
 /* ----------------------------------------------------------------------------
- * BushCountReminder — Sir's spec #5:
+ * BushCountReminder — approved requirement #5:
  *   Show a 6-month re-verify reminder for bush count. If the last verified
  *   date is older than 6 months, show an alert banner with "Verify now" button
  *   that updates the verifiedAt timestamp (Phase 1: localStorage only).

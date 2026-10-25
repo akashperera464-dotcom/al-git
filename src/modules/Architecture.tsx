@@ -15,21 +15,21 @@ const TREE = `verda-tea-erp/
 │  ├─ index.css             # Tailwind v4 theme + design tokens
 │  ├─ context/AppContext.tsx# role / online / sync-queue state
 │  ├─ lib/
-│  │  ├─ data.ts            # domain models + Firestore mirrors
+│  │  ├─ data.ts            # domain models and shared types
 │  │  ├─ predictive.ts      # deterministic decision engines
-│  │  ├─ nav.ts             # adaptive nav registry
-│  │  ├─ firebase.ts        # Firebase Auth (Phone OTP) + FCM only
-│  │  ├─ supabase.ts        # Supabase (PostgreSQL) client — ERP data
+│  │  ├─ rbac.ts / nav.ts   # permissions and adaptive navigation
+│  │  ├─ firebase.ts        # Firebase Email/Password Auth + FCM only
+│  │  ├─ supabase.ts        # anon-key Supabase client — business data
 │  │  ├─ auth.hybrid.ts     # Firebase uid ⇄ Supabase users mapping
-│  │  ├─ repo.ts            # RBAC-enforced data access (Supabase)
-│  │  └─ i18n/              # i18next · EN / SI / TA locales
+│  │  └─ repo.ts            # Supabase data access
+│  ├─ i18n/                 # i18next · EN / SI / TA locales
 │  ├─ components/           # ui, charts, Shell, QR, Icon, LanguageSwitcher
-│  └─ modules/              # 20 ERP modules + role consoles (tri-lingual)
+│  └─ modules/              # role-scoped EMS modules
 ├─ app/                     # Expo (React Native) wrapper
 │  ├─ app.config.js · eas.json
 │  └─ App.tsx               # loads PWA bundle in WebView + FCM bridge
-├─ docs/                    # supabase_schema.sql, HYBRID_MIGRATION.md
-├─ .env.example             # Firebase + Supabase + Gemini keys
+├─ docs/                    # user guide, workflows and SQL migrations
+├─ .env.example             # documented client configuration names
 └─ vite.config.ts           # Vite + PWA + single-file`;
 
 const SCHEMA = [
@@ -40,7 +40,7 @@ const SCHEMA = [
   { col: "harvest_records", fields: "supplier_id FK, estate_id FK, gross_kg, net_kg, grade, amount" },
   { col: "resource_requests", fields: "supplier_id FK, type, item_details, quantity, status" },
   { col: "fcm_tokens", fields: "user_id FK, token, platform (FCM device tokens)" },
-  { col: "RLS", fields: "Supabase Row-Level Security mirrors src/lib/rbac.ts" },
+  { col: "access model", fields: "Free-plan anon client + centralized RouteGuard/RBAC; operational RLS disabled" },
 ];
 
 const SETUP = `# 1. Install dependencies
@@ -48,7 +48,7 @@ npm install
 
 # 2. Copy env template and fill keys
 cp .env.example .env
-#   VITE_FIREBASE_*    = Auth (Phone OTP) + FCM  (free)
+#   VITE_FIREBASE_*    = Email/Password Auth + FCM
 #   VITE_SUPABASE_URL / _ANON_KEY = PostgreSQL ERP data
 #   VITE_OW_API_KEY=...        # OpenWeatherMap
 #   VITE_GEMINI_API_KEY=...    # optional (AI module only)
@@ -89,14 +89,14 @@ eas build -p android --profile preview
 eas build:list --status finished`;
 
 export default function Architecture() {
-  const [tab, setTab] = useState<"structure" | "backend" | "firestore" | "setup" | "deploy" | "eas">("structure");
+  const [tab, setTab] = useState<"structure" | "backend" | "schema" | "setup" | "deploy" | "eas">("structure");
 
   return (
     <div>
       <PageHeader
         eyebrow="Platform Blueprint"
         title="Architecture & Manuals"
-        desc="Project layout, Firestore schema and the local / deploy / EAS build runbooks — all in one place."
+        desc="Current project layout, Supabase data model and local / deploy / EAS build references."
         icon={<IconChip icon={Workflow} tone="emerald" className="h-12 w-12" />}
       />
 
@@ -107,7 +107,7 @@ export default function Architecture() {
           options={[
             { value: "structure", label: "Folder", icon: <GitBranch className="h-3.5 w-3.5" /> },
             { value: "backend", label: "Backend", icon: <ServerCog className="h-3.5 w-3.5" /> },
-            { value: "firestore", label: "Schema", icon: <Database className="h-3.5 w-3.5" /> },
+            { value: "schema", label: "Schema", icon: <Database className="h-3.5 w-3.5" /> },
             { value: "setup", label: "Local", icon: <Terminal className="h-3.5 w-3.5" /> },
             { value: "deploy", label: "Deploy", icon: <Rocket className="h-3.5 w-3.5" /> },
             { value: "eas", label: "EAS Mobile", icon: <Rocket className="h-3.5 w-3.5" /> },
@@ -123,8 +123,8 @@ export default function Architecture() {
 
       {tab === "backend" && <BackendPanel />}
 
-      {tab === "firestore" && (
-        <Panel title="Firestore Database Architecture" subtitle="Collections · fields · sub-collection refs" icon={<IconChip icon={Database} tone="sky" className="h-9 w-9" />}>
+      {tab === "schema" && (
+        <Panel title="Supabase PostgreSQL Data Architecture" subtitle="Core tables and operational relationships" icon={<IconChip icon={Database} tone="sky" className="h-9 w-9" />}>
           <div className="grid gap-2.5 sm:grid-cols-2">
             {SCHEMA.map((s) => (
               <div key={s.col} className="rounded-xl border border-slate-100 p-3">
@@ -136,7 +136,7 @@ export default function Architecture() {
               </div>
             ))}
           </div>
-          <p className="mt-3 text-xs text-slate-400">Sub-collections use the <code className="rounded bg-slate-100 px-1 font-mono">parent/{`{id}`}/child</code> pattern. Security rules enforce role-scoped access (admin / supervisor / supplier).</p>
+          <p className="mt-3 text-xs text-slate-400">Firebase stores authentication identities only. Operational records remain in Supabase PostgreSQL and are linked through IDs and foreign keys.</p>
         </Panel>
       )}
 
@@ -203,7 +203,7 @@ function BackendPanel() {
   return (
     <Panel
       title="Backend Connection · Supabase"
-      subtitle="KDU ERP — PostgreSQL business data + RLS"
+      subtitle="PostgreSQL business data · Free-plan anon client"
       icon={<IconChip icon={ServerCog} tone="emerald" className="h-9 w-9" />}
       action={
         <button
@@ -239,8 +239,8 @@ function BackendPanel() {
       <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 text-xs text-emerald-700">
         <Database className="mt-0.5 h-4 w-4 shrink-0" />
         <span>
-          Run <code className="rounded bg-white px-1 font-mono">docs/supabase_schema.sql</code> in the Supabase SQL editor to create the ERP tables + RLS. The app
-          {supabaseConfigured ? " is now reading/writing KDU ERP live." : " falls back to demo data until keys are present."}
+          Apply database changes in the documented order from <code className="rounded bg-white px-1 font-mono">docs/MIGRATION_CHECKLIST.md</code>. The app
+          {supabaseConfigured ? " is configured to read and write Supabase business data." : " uses demo fallbacks until the public client configuration is present."}
         </span>
       </div>
     </Panel>

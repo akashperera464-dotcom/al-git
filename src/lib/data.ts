@@ -49,7 +49,7 @@ export interface Field {
   bushCount?: number;
   /** Last verified bush count date (ISO) — set when admin re-counts. */
   bushCountVerifiedAt?: string;
-  /** NEW (Sir's spec B.7): Soil type — affects fertilizer recommendation. */
+  /** NEW (approved requirement B.7): Soil type — affects fertilizer recommendation. */
   soilType?: "sandy" | "loam" | "clay" | "sandy-loam" | "clay-loam" | "unknown";
 }
 export interface Division {
@@ -58,7 +58,7 @@ export interface Division {
   manager: string;
   areaHa: number;
   fields: Field[];
-  /** NEW (Sir's spec B.7): Area in acres (= ha × 2.471) — Sri Lankan farmers think in acres. */
+  /** NEW (approved requirement B.7): Area in acres (= ha × 2.471) — Sri Lankan farmers think in acres. */
   areaAcres?: number;
 }
 export interface Estate {
@@ -79,7 +79,7 @@ export interface Estate {
   totalBushCount?: number;
   /** Acreage converted from hectares (acres = ha × 2.471) for local record-keeping. */
   totalAreaAcres?: number;
-  /** NEW (Sir's spec B.7): Contact phone for the estate manager. */
+  /** NEW (approved requirement B.7): Contact phone for the estate manager. */
   contactPhone?: string;
 }
 
@@ -359,11 +359,11 @@ export interface HarvestRecord {
   deductionKg: number;
   netKg: number;
   grade: "Super" | "Standard" | "Coarse";
-  /** NEW (Sir's spec B.10): Weather condition at weigh-in — affects leaf quality. */
+  /** NEW (approved requirement B.10): Weather condition at weigh-in — affects leaf quality. */
   weatherCondition?: "sunny" | "cloudy" | "rainy" | "foggy" | "unknown";
-  /** NEW (Sir's spec B.10): Leaf moisture % — measured by EO, affects deduction %. */
+  /** NEW (approved requirement B.10): Leaf moisture % — measured by EO, affects deduction %. */
   leafMoisturePct?: number;
-  /** NEW (Sir's spec B.10): Photo URL of the leaf batch — for quality disputes. */
+  /** NEW (approved requirement B.10): Photo URL of the leaf batch — for quality disputes. */
   photoUrl?: string;
 }
 export const harvestRecords: HarvestRecord[] = [
@@ -592,15 +592,15 @@ export interface SupplierProfile {
   tier: "VVIP Gold" | "VVIP Platinum";
   pricePerKg: number;
   outstandingPayable: number;
-  /** NEW (Sir's spec B.6): National ID (NIC) — Sri Lankan ID number. */
+  /** NEW (approved requirement B.6): National ID (NIC) — Sri Lankan ID number. */
   nic?: string;
-  /** NEW (Sir's spec B.6): Full postal address. */
+  /** NEW (approved requirement B.6): Full postal address. */
   address?: string;
-  /** NEW (Sir's spec B.6): Emergency contact name + phone. */
+  /** NEW (approved requirement B.6): Emergency contact name + phone. */
   emergencyContact?: string;
-  /** NEW (Sir's spec B.6): Profile photo URL — for identification at collection center. */
+  /** NEW (approved requirement B.6): Profile photo URL — for identification at collection center. */
   photoUrl?: string;
-  /** NEW (Sir's spec C.13): Notification preferences (which alerts to receive). */
+  /** NEW (approved requirement C.13): Notification preferences (which alerts to receive). */
   notificationPrefs?: {
     paymentAlerts?: boolean;
     requestAlerts?: boolean;
@@ -1049,11 +1049,11 @@ export interface StockItem {
   unitCost: number;
   estateId?: string;
   version: number;
-  /** NEW (Sir's spec B.9): Batch / lot number — for product recall tracking. */
+  /** NEW (approved requirement B.9): Batch / lot number — for product recall tracking. */
   batchNumber?: string;
-  /** NEW (Sir's spec B.9): Expiry date — important for stock rotation (fertilizers expire 2-3 yrs). */
+  /** NEW (approved requirement B.9): Expiry date — important for stock rotation (fertilizers expire 2-3 yrs). */
   expiryDate?: string;
-  /** NEW (Sir's spec B.9): Supplier source — who sold us this stock item. */
+  /** NEW (approved requirement B.9): Supplier source — who sold us this stock item. */
   supplierSource?: string;
 }
 
@@ -1339,12 +1339,12 @@ export interface WorkerFull {
   status: WorkerStatus;
   version: number;
   createdAt: string;
-  /** NEW (Sir's spec B.8): Daily wage — used by Daily Labor Cost calculator
+  /** NEW (approved requirement B.8): Daily wage — used by Daily Labor Cost calculator
    * (when set, overrides the per-category default). */
   dailyWage?: number;
-  /** NEW (Sir's spec B.8): Worker photo URL — for identification at collection center. */
+  /** NEW (approved requirement B.8): Worker photo URL — for identification at collection center. */
   photoUrl?: string;
-  /** NEW (Sir's spec B.8): QR code value — auto-generated from worker ID
+  /** NEW (approved requirement B.8): QR code value — auto-generated from worker ID
    * for printable ID cards. */
   qrCode?: string;
 }

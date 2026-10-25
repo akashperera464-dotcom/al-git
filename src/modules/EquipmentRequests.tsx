@@ -8,7 +8,7 @@ import { fmtNum, addDays, TODAY_ISO, type EquipmentCategory } from "@/lib/data";
 /**
  * Equipment Requests Module
  * ------------------------------------------------------------------
- * Phase 1 standalone module per Sir's spec:
+ * Phase 1 standalone module per approved requirement:
  *   - Separate icon/module from Resource Requisitions
  *   - Suppliers (or admin on their behalf) raise equipment requests
  *   - Categories: Plucking Machine, Spray Machine, Bag (Goni),
@@ -106,7 +106,7 @@ export default function EquipmentRequests() {
     persist(requests.map(r => r.id === id ? { ...r, status: "APPROVED" } : r));
     notify({ title: t("equipment.approve"), body: "Equipment request approved.", tone: "emerald", channel: "system" });
 
-    // NEW (Sir's spec A.5): Auto-issue from Inventory on approval.
+    // NEW (approved requirement A.5): Auto-issue from Inventory on approval.
     void (async () => {
       try {
         const { listStockItems, issueStock } = await import("@/lib/repo.phase2");

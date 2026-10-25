@@ -10,7 +10,7 @@ import { readFarmActivities } from "@/lib/repo";
 /**
  * SupplierTips — "Tips & Guidance" module (supplier side)
  * ------------------------------------------------------------------
- * Per Sir's Phase 1 spec #3:
+ * Per Phase 1 approved requirement #3:
  *   Motivational Tips & Dynamic Alerts: අක්කර ප්‍රමාණය අනුව ලබාගත හැකි උපරිම අස්වැන්න සහ පොහොර භාවිතය
  *   පිඅබඳ මගපෙන්වන Automated Tips පෙන්වීම.
  *
@@ -50,7 +50,7 @@ const YIELD_BY_REGION: Record<string, number> = {
 };
 
 /**
- * computeFertilizerGuidance — per-acre fertilizer quantities per Sir's spec.
+ * computeFertilizerGuidance — per-acre fertilizer quantities per approved requirement.
  * Sri Lankan TRI recommendation:
  *   • Urea (46% N):  50 kg/acre/year — split into 4 applications (every 3 months)
  *   • TSP (P):       25 kg/acre/year — split into 2 applications (every 6 months)
@@ -217,7 +217,7 @@ export function SupplierTips() {
         </Card>
       )}
 
-      {/* NEW (Sir's spec): Per-acre fertilizer-specific guidance — computed from plot */}
+      {/* NEW (approved requirement): Per-acre fertilizer-specific guidance — computed from plot */}
       {plot && plot.acreage > 0 && (
         <Card className="mt-4 p-4 border-amber-200 bg-amber-50">
           <p className="text-sm font-bold text-amber-700 mb-2 flex items-center gap-1.5">

@@ -1,26 +1,30 @@
-# 🍃 Verda — Integrated Tea Estate Enterprise ERP Platform
+# 🍃 KDU Tea Estate Management System
 
-A production-grade, **offline-first PWA** (with a ready-to-compile **React Native / Expo (EAS)** hybrid shell) that unifies **Factory Owners/Admins**, **Field Supervisors**, and **VVIP External Suppliers** inside a single, context-aware codebase with adaptive layouts.
+An offline-capable React/Vite PWA that connects estate administrators, collectors/extension officers and tea suppliers through one role-aware system.
 
-> Built with **React 19 + Vite + TypeScript + Tailwind CSS v4**, **Firebase** (Auth + Firestore + **FCM** free push), and **IndexedDB / Service-Worker** offline sync. Weather & plucking logic is **100% deterministic**; the only optional external AI call lives in the premium Analytics module.
+> **Current user guide:** [How Things Work](docs/HOW_THINGS_WORK.md)
+> **Technical workflow and change history:** [Workflow Diagram](docs/WORKFLOW_DIAGRAM.md)
+
+Current production uses **Firebase Email/Password Authentication + FCM** and **Supabase PostgreSQL** for business data. The Supabase Free-plan browser client remains anon-key-only; Firebase Third-Party Auth/JWT bridging is not used. Role access is controlled by the application's centralized RBAC and RouteGuard.
 
 ---
 
-## 🧭 The three roles (one adaptive shell)
+## 🧭 Current roles
 
 | Role | Layout | Key surface |
 |------|--------|-------------|
-| **Admin / Estate Director** | Desktop-optimised: dark sidebar + executive grids | All 20 modules, full ledger, compliance |
-| **Field Supervisor** | Mobile-first phone shell (offline capture) | Labor, Weigh-in, Fertilizer, Weather, offline sync |
-| **VVIP Supplier** | Mobile-first alert portal | Predictive Fertilizer Advisor, plucking plan, supply ledger |
+| **Super Admin** | Desktop administration shell | All admin operations plus branding and platform settings |
+| **Admin** | Desktop administration shell | Estates, users, routes, collection, inputs, workers, approvals and reports |
+| **Extension Officer / Collector** | Mobile-first field shell | Supplier registration, assigned-route collection and offline weighing |
+| **Supplier** | Mobile-first supplier portal | Own estates, deliveries, weather, requests, farm work, earnings and support |
 
-Switch roles live from the avatar menu (top-right on desktop, header on mobile).
+The signed-in Firebase UID is resolved to a Supabase user profile. That profile's role determines the navigation and permitted modules.
 
 ---
 
-## 📦 The 20 core modules
+## 📦 Active module source of truth
 
-Dashboard · Estate Master · Labor · Payroll · Loans & Advances · Fertilizer · Agrochemical · Crop Management · Harvest · Factory Integration · Inventory · Finance & Accounting · Loyalty · Welfare · GPS/GIS · Weather · Vehicle & Fuel · Mobile & Offline · **AI & Analytics (Premium)** · Audit & Compliance — plus an in-app **Architecture & Docs** blueprint.
+The current visible module list and permissions are defined in `src/lib/rbac.ts`; module components are registered in `src/modules/registry.ts`. Some legacy module files remain in the repository but are intentionally hidden from current navigation. See [How Things Work](docs/HOW_THINGS_WORK.md) for the complete current role-by-role explanation.
 
 ---
 

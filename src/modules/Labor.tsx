@@ -21,7 +21,7 @@ const ROLES = ["Plucker", "Factory Hand", "Field Worker", "Kangany", "Sprayer", 
 const DIVISIONS = ["Sutton", "Craighead", "Tennant", "Factory", "Nursery"];
 
 /**
- * Phase 1 labor categories per Sir's spec:
+ * Phase 1 labor categories per approved requirement:
  *   Kankanam (කන්කානම්ලා), Casual Plucking, Temporary (තාලික),
  *   plus trade roles (Mason, Goaly, Sprayer, Factory Hand, Field Worker, Supervisor, Manager).
  * Used by the Daily Cost tab to group workers + auto-calc the day's labor cost.
@@ -601,7 +601,7 @@ export default function Labor() {
 }
 
 /* ----------------------------------------------------------------------------
- * DailyLaborCostTab — Phase 1 labor-costing feature per Sir's spec:
+ * DailyLaborCostTab — Phase 1 labor-costing feature per approved requirement:
  *   - Select labor category (Kankanam, Casual Plucking, Temporary, Mason, Goaly…)
  *   - Enter headcount + per-person daily wage (auto-filled from defaults)
  *   - Add multiple lines (e.g., 3 Masons + 3 Goalies)

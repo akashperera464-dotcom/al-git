@@ -389,7 +389,7 @@ export function EoWeighing() {
 
       {routeStops.length > 0 && <Card className="mt-4 p-4"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 text-sm font-bold"><Navigation className="h-4 w-4 text-sky-600" />Today&apos;s ordered stop list</h3><span className="text-[11px] text-slate-500">{stopSummary.completed}/{stopSummary.total} complete · {stopSummary.missed} missed · {stopSummary.remaining} remaining</span></div><div className="space-y-2">{routeStops.map((stop) => <div key={stop.id} className="flex items-center gap-2 rounded-lg border p-2.5"><button onClick={() => { setSupplierId(stop.supplierId); if (stop.estateId) setSelectedEstateId(stop.estateId); if (stop.status === "pending") void changeStopStatus(stop, "arrived"); }} className="flex min-w-0 flex-1 items-center gap-3 text-left"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold">{stop.order}</span><span className="min-w-0 flex-1 text-xs"><b>#{stop.supplierNo ?? "—"} · {stop.supplierName ?? stop.supplierId}</b><small className="block text-slate-400">{stop.estateName ?? "Estate selected at collection"}</small></span><Badge tone={stop.status === "completed" ? "emerald" : stop.status === "missed" ? "rose" : "amber"}>{stop.status}</Badge></button>{stop.status !== "completed" && stop.status !== "missed" && <button onClick={() => void changeStopStatus(stop, "missed")} className="rounded-md px-2 py-1 text-[10px] font-bold text-rose-700">Miss</button>}</div>)}</div><div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]"><div className="rounded-lg bg-emerald-50 p-2"><b className="block text-base text-emerald-700">{stopSummary.completed}</b>Collected</div><div className="rounded-lg bg-rose-50 p-2"><b className="block text-base text-rose-700">{stopSummary.missed}</b>Missed</div><div className="rounded-lg bg-slate-50 p-2"><b className="block text-base text-slate-700">{savedCount}</b>Receipts</div></div></Card>}
 
-      {/* EO Geo-Location Verification — Sir's spec #2: confirm EO is at the registered estate */}
+      {/* EO Geo-Location Verification — approved requirement #2: confirm EO is at the registered estate */}
       <EoLocationVerify estate={estate} />
 
       <Card className="mt-4 p-4">
@@ -612,7 +612,7 @@ async function connectBluetoothScale(setStatus: (message: string) => void) {
 }
 
 /* ----------------------------------------------------------------------------
- * EoLocationVerify — Sir's spec #2 (Admin/EO interface):
+ * EoLocationVerify — approved requirement #2 (Admin/EO interface):
  *   "Location API Integration: Alerts සහ Verified Data ලබාගැනීමට Extension
  *   Officers/Admins හරහා වත්තේ Geo-location Verify කිරීම."
  *

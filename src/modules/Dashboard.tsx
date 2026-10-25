@@ -238,7 +238,7 @@ export default function Dashboard() {
         }
       />
 
-      {/* Motivational Tip — Sir's spec #6: per-acre yield guidance */}
+      {/* Motivational Tip — approved requirement #6: per-acre yield guidance */}
       <MotivationalTipBanner />
 
       {/* KPI grid — real data */}
@@ -376,7 +376,7 @@ const ACT_TONE: Record<string, string> = {
 };
 
 /* ----------------------------------------------------------------------------
- * MotivationalTipBanner — Sir's spec #6:
+ * MotivationalTipBanner — approved requirement #6:
  *   Show yield-per-acre guidance based on Sri Lankan low-country / mid-country /
  *   up-country tea agronomy. Rotates daily. Helps farmers understand the
  *   potential of their land + actionable tips.

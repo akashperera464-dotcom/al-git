@@ -23,7 +23,7 @@ interface Announcement {
 const READ_KEY = (userUid: string) => `kdu.announcements.read.${userUid}`;
 
 /** Supplier · Estate Updates — real-time feed of admin-published articles.
- * NEW (Sir's spec): "Mark as Read" tracking + sort latest first. */
+ * NEW (approved requirement): "Mark as Read" tracking + sort latest first. */
 export function SupplierAnnouncements() {
   const { t } = useTranslation();
   const { branding } = useBranding();

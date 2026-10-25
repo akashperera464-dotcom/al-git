@@ -1,5 +1,5 @@
 -- ============================================================================
--- KDU TEA FACTORY · Phase 1 Round #3 Schema Migration (Sir's spec — Sep 2026)
+-- KDU TEA FACTORY · Phase 1 Round #3 Schema Migration (approved requirement — Sep 2026)
 -- ----------------------------------------------------------------------------
 -- This migration adds columns + tables required by the latest round of Phase 1
 -- improvements (interconnections + data filling gaps + notification prefs).
@@ -158,23 +158,23 @@ create table if not exists sales_invoices (
 );
 
 -- ============================================================================
--- 1. estates — add contact_phone (Sir's spec B.7)
+-- 1. estates — add contact_phone (approved requirement B.7)
 -- ============================================================================
 alter table estates add column if not exists contact_phone text;
 
 -- ============================================================================
--- 2. divisions — add area_acres (Sir's spec B.7 — Sri Lankan farmers think in acres)
+-- 2. divisions — add area_acres (approved requirement B.7 — Sri Lankan farmers think in acres)
 -- ============================================================================
 alter table divisions add column if not exists area_acres numeric(10,2);
 
 -- ============================================================================
--- 3. fields — add soil_type (Sir's spec B.7)
+-- 3. fields — add soil_type (approved requirement B.7)
 -- ============================================================================
 alter table fields add column if not exists soil_type text;
 -- Values: 'sandy' | 'loam' | 'clay' | 'sandy-loam' | 'clay-loam' | 'unknown'
 
 -- ============================================================================
--- 4. workers — add daily_wage, photo_url, qr_code (Sir's spec B.8)
+-- 4. workers — add daily_wage, photo_url, qr_code (approved requirement B.8)
 -- ============================================================================
 alter table workers
   add column if not exists daily_wage numeric(10,2),
@@ -182,7 +182,7 @@ alter table workers
   add column if not exists qr_code     text;
 
 -- ============================================================================
--- 5. stock_items — add batch_number, expiry_date, supplier_source (Sir's spec B.9)
+-- 5. stock_items — add batch_number, expiry_date, supplier_source (approved requirement B.9)
 -- ============================================================================
 alter table stock_items
   add column if not exists batch_number    text,
@@ -194,7 +194,7 @@ create index if not exists idx_si_expiry  on stock_items(expiry_date) where expi
 create index if not exists idx_si_vendor  on stock_items(supplier_source) where supplier_source is not null;
 
 -- ============================================================================
--- 6. harvest_records — add weather_condition, leaf_moisture_pct, photo_url (Sir's spec B.10)
+-- 6. harvest_records — add weather_condition, leaf_moisture_pct, photo_url (approved requirement B.10)
 -- ============================================================================
 alter table harvest_records
   add column if not exists weather_condition  text,
@@ -203,7 +203,7 @@ alter table harvest_records
   add column if not exists photo_url           text;
 
 -- ============================================================================
--- 7. supplier_payments (or sales_invoices) — add payment_method (Sir's spec B.11)
+-- 7. supplier_payments (or sales_invoices) — add payment_method (approved requirement B.11)
 -- ============================================================================
 -- If using sales_invoices table for supplier payments, add payment_method column.
 -- Values: 'cash' | 'bank_transfer' | 'cheque' | 'deduction' (when deducted from leaf)
@@ -212,7 +212,7 @@ alter table sales_invoices
   add column if not exists receipt_pdf_url  text;
 
 -- ============================================================================
--- 8. users — add supplier-specific profile fields (Sir's spec B.6)
+-- 8. users — add supplier-specific profile fields (approved requirement B.6)
 --    The users table holds both admin + supplier + EO accounts. The new
 --    columns below apply to supplier accounts only.
 -- ============================================================================
@@ -221,7 +221,7 @@ alter table users
   add column if not exists address           text,
   add column if not exists emergency_contact text,
   add column if not exists photo_url         text,
-  -- Notification preferences (JSONB) — Sir's spec C.13
+  -- Notification preferences (JSONB) — approved requirement C.13
   -- Default: all alerts enabled
   add column if not exists notification_prefs jsonb default '{
     "paymentAlerts": true,
@@ -232,7 +232,7 @@ alter table users
   }'::jsonb;
 
 -- ============================================================================
--- 9. NEW TABLE: announcement_reads (Sir's spec A.3 — mark as read tracking)
+-- 9. NEW TABLE: announcement_reads (approved requirement A.3 — mark as read tracking)
 -- ----------------------------------------------------------------------------
 -- Tracks which suppliers have read which announcements, so they don't see
 -- the same announcement again as "NEW".
@@ -265,7 +265,7 @@ create policy "admins_all_reads"
   );
 
 -- ============================================================================
--- 10. NEW TABLE: notification_queue (Sir's spec — for in-app notification view)
+-- 10. NEW TABLE: notification_queue (approved requirement — for in-app notification view)
 -- ----------------------------------------------------------------------------
 -- When admin acts on a supplier (approve request, mark payment, publish
 -- announcement), we write a row here. Supplier's "Notifications" tab reads
@@ -315,7 +315,7 @@ create policy "admins_insert_notifications"
   );
 
 -- ============================================================================
--- 11. NEW TABLE: farm_activity_photos (Sir's spec B.22 — photo upload)
+-- 11. NEW TABLE: farm_activity_photos (approved requirement B.22 — photo upload)
 -- ----------------------------------------------------------------------------
 -- When suppliers log a farm activity (fertilizer/pruning/replanting), they can
 -- attach photos for audit + EO verification.

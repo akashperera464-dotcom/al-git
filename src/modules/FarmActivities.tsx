@@ -87,11 +87,11 @@ export function FarmActivities() {
   const [field, setField] = useState("");
   const [kg, setKg] = useState(100);
   const [gradeIdx, setGradeIdx] = useState(0);  // index into GRADE_KEYS
-  // replanting (NEW — Sir's spec)
+  // replanting (NEW — approved requirement)
   const [replantArea, setReplantArea] = useState(0.5);  // hectares
   const [replantCultivar, setReplantCultivar] = useState("TRI 2025 (VP)");
   const [replantBushCount, setReplantBushCount] = useState(1000);
-  // NEW (Sir's spec): Block selector for fertilizer logging + pruning
+  // NEW (approved requirement): Block selector for fertilizer logging + pruning
   const [fertBlock, setFertBlock] = useState("");
   const [pruneBlock, setPruneBlock] = useState("");
 
@@ -112,7 +112,7 @@ export function FarmActivities() {
 
       await recordFarmActivity(userUid, tab, date, details);
 
-      // ---- NEW (Sir's spec Phase 2): Bush count auto-increment on replanting ----
+      // ---- NEW (approved requirement Phase 2): Bush count auto-increment on replanting ----
       if (tab === "replanting" && replantBushCount > 0) {
         try {
           const plotKey = `kdu.supplier_plot.${userUid}`;
@@ -126,7 +126,7 @@ export function FarmActivities() {
         } catch { /* ignore — plot may not exist yet */ }
       }
 
-      // ---- NEW (Sir's spec Phase 2): Weather guard alert on fertilizer log ----
+      // ---- NEW (approved requirement Phase 2): Weather guard alert on fertilizer log ----
       // Check if rain is expected in the next 1-2 days → show warning toast
       if (tab === "fertilizer") {
         if (estateWeather.status === "live") {
@@ -145,7 +145,7 @@ export function FarmActivities() {
         }
       }
 
-      // ---- NEW (Sir's spec Phase 2): Bush count auto-increment confirmation ----
+      // ---- NEW (approved requirement Phase 2): Bush count auto-increment confirmation ----
       if (tab === "replanting" && replantBushCount > 0) {
         notify({
           title: "🌳 Bush count updated ✅",
@@ -218,7 +218,7 @@ export function FarmActivities() {
 
           {tab === "fertilizer" && (
             <>
-              {/* NEW (Sir's spec): Block/Division selector */}
+              {/* NEW (approved requirement): Block/Division selector */}
               <div className="col-span-2">
                 <label className={labelCls}>🏞️ කොටස/කොට්ඨාසය · Select Block/Division</label>
                 <select
@@ -258,7 +258,7 @@ export function FarmActivities() {
 
           {tab === "pruning" && (
             <>
-              {/* NEW (Sir's spec): Block selector for pruning */}
+              {/* NEW (approved requirement): Block selector for pruning */}
               <div className="col-span-2">
                 <label className={labelCls}>🏞️ කොටස · Select Block/Division</label>
                 <select value={pruneBlock || ""} onChange={(e) => setPruneBlock(e.target.value)} className={inputCls}>
@@ -288,7 +288,7 @@ export function FarmActivities() {
             </>
           )}
 
-          {/* Plucking tab (NEW — Sir's spec: Supplier Calendar එකෙන් දලු කැඩූ බව දමයි) */}
+          {/* Plucking tab (NEW — approved requirement: Supplier Calendar එකෙන් දලු කැඩූ බව දමයි) */}
           {tab === "plucking" && (
             <>
               <div>
@@ -315,7 +315,7 @@ export function FarmActivities() {
             </>
           )}
 
-          {/* Replanting tab (NEW — Sir's spec) */}
+          {/* Replanting tab (NEW — approved requirement) */}
           {tab === "replanting" && (
             <>
               <div>

@@ -320,7 +320,7 @@ export function SupplierAlerts() {
         {/* Smart Agronomic Advisory & Pruning Schedule (plant-age based) */}
         {weather.status === "live" && <PruningAdvisory forecast={forecast} />}
 
-        {/* NEW (Sir's spec Phase 2): Smart Automated Alerts */}
+        {/* NEW (approved requirement Phase 2): Smart Automated Alerts */}
         <SmartAutomatedAlerts userUid={userUid} forecast={forecast} weatherReliable={weather.status === "live"} estateName={selection.estate?.name} />
 
         <Card className="p-4">
@@ -490,7 +490,7 @@ export function SupplierPayments() {
 
 
 /* ----------------------------------------------------------------------------
- * SmartAutomatedAlerts — Sir's spec Phase 2
+ * SmartAutomatedAlerts — approved requirement Phase 2
  * ------------------------------------------------------------------
  * Computes automated alerts from the supplier's farm activity history:
  *   1. Next fertilizer cycle: 3+ months since last fertilizer → alert

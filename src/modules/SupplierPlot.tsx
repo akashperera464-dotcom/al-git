@@ -17,7 +17,7 @@ import { plotStateKey } from "@/i18n/databaseValues";
 /**
  * SupplierPlot — "My Plot" module (supplier side)
  * ------------------------------------------------------------------
- * Per Sir's spec round #5:
+ * Per approved requirement round #5:
  *   - Supplier registers estate with all necessary details
  *   - Request goes to admin for approval
  *   - Supplier can enter lat/lon manually OR auto-detect via GPS button
@@ -191,7 +191,7 @@ export function SupplierPlot() {
     });
   };
 
-  // ---- NEW (Sir's spec): Auto-detect GPS location ----
+  // ---- NEW (approved requirement): Auto-detect GPS location ----
   const autoDetectLocation = () => {
     setLocating(true);
     if (!("geolocation" in navigator)) {
@@ -219,7 +219,7 @@ export function SupplierPlot() {
     );
   };
 
-  // ---- NEW (Sir's spec): Submit registration request for admin approval ----
+  // ---- NEW (approved requirement): Submit registration request for admin approval ----
   const submitRegistration = () => {
     if (!formPlotName.trim()) { notify({ title: "Missing plot name", body: "Please enter a name for your plot.", tone: "rose", channel: "system" }); return; }
     if (formAcreage <= 0) { notify({ title: "Missing acreage", body: "Please enter your plot acreage.", tone: "rose", channel: "system" }); return; }
@@ -284,7 +284,7 @@ export function SupplierPlot() {
     : plot.acreage === 0 ? "register"
     : "view";
 
-  // NEW (Sir's spec): Sub-field management — like admin's Estate Master but for the supplier's own plot.
+  // NEW (approved requirement): Sub-field management — like admin's Estate Master but for the supplier's own plot.
   // Suppliers can divide their plot into sub-sections (e.g., "Upper Plot", "Lower Plot") and
   // track per-section bush count + area + cultivar. The plot's total acreage + bush count
   // are auto-aggregated from sub-fields when present (overriding manual entry).
@@ -873,7 +873,7 @@ export function SupplierPlot() {
         </Card>
       )}
 
-      {/* NEW (Sir's spec — supplier-side estate management):
+      {/* NEW (approved requirement — supplier-side estate management):
           Sub-fields management — suppliers can divide their plot into sub-sections
           (like admin's Estate Master but for the supplier's own plot). Each sub-field
           has its own area + bush count + cultivar. Plot totals auto-aggregate. */}

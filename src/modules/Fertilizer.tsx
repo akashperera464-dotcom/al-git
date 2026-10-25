@@ -130,7 +130,7 @@ export default function Fertilizer() {
         <p className="mt-1">To create Purchase Orders, receive Goods (GRN), or issue fertilizer to fields/suppliers, use the <strong>Inventory</strong> module. This page shows a read-only overview of current fertilizer stock levels.</p>
       </div>
 
-      {/* Division-level Fertilizer Issued Summary — Sir's spec #4 */}
+      {/* Division-level Fertilizer Issued Summary — approved requirement #4 */}
       <Card className="mt-4 p-4">
         <h3 className="mb-2 font-display text-sm font-bold text-slate-800">📊 Fertilizer Issued by Division (last 30 days)</h3>
         <p className="mb-3 text-[11px] text-slate-500">
@@ -271,7 +271,7 @@ function DivisionFertilizerSummary() {
   useEffect(() => {
     void (async () => {
       if (!supabaseConfigured) {
-        // Mock: show example divisions per Sir's spec
+        // Mock: show example divisions per approved requirement
         setRows([
           { division: "Kiriwallapatana Lower", totalQty: 220, totalValue: 220 * 95, lineCount: 3 },
           { division: "Kiriwallapatana Upper", totalQty: 480, totalValue: 480 * 95, lineCount: 5 },

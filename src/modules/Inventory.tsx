@@ -32,7 +32,7 @@ export default function Inventory() {
   const [newQty, setNewQty] = useState(0);
   const [newUnitCost, setNewUnitCost] = useState(0);
   const [newReorderLevel, setNewReorderLevel] = useState(0);
-  // NEW (Sir's spec B.9): batch/lot, expiry, supplier source
+  // NEW (approved requirement B.9): batch/lot, expiry, supplier source
   const [newBatchNumber, setNewBatchNumber] = useState("");
   const [newExpiryDate, setNewExpiryDate] = useState("");
   const [newSupplierSource, setNewSupplierSource] = useState("");
@@ -56,7 +56,7 @@ export default function Inventory() {
   const [issueQty, setIssueQty] = useState(1);
   const [issueNotes, setIssueNotes] = useState("");
   const [issueRequestId, setIssueRequestId] = useState<string>("");   // optional link to a supplier request
-  // NEW (Sir's spec): Division dropdown + Credit/Cash toggle + Supplier name
+  // NEW (approved requirement): Division dropdown + Credit/Cash toggle + Supplier name
   const [issueDivision, setIssueDivision] = useState<string>("");     // e.g., "Kiriwallapatana Lower"
   const [issuePaymentMode, setIssuePaymentMode] = useState<"cash" | "credit">("cash");
   const [issueSupplierName, setIssueSupplierName] = useState<string>("");  // for credit tracking
@@ -233,7 +233,7 @@ export default function Inventory() {
         supplierNo: issueSupplierNo || undefined,
       });
 
-      // NEW (Sir's spec): if Credit + fertilizer, write to supplier fertilizer ledger
+      // NEW (approved requirement): if Credit + fertilizer, write to supplier fertilizer ledger
       // (Phase 1: localStorage; Phase 2 will sync to Supabase `supplier_fertilizer_ledger`)
       if (issuePaymentMode === "credit" && issueSupplierName.trim()) {
         try {
@@ -372,7 +372,7 @@ export default function Inventory() {
                   Opening value: <strong>Rs {(newQty * newUnitCost).toLocaleString()}</strong> ({fmtNum(newQty)} × Rs {newUnitCost.toLocaleString()})
                 </div>
               )}
-              {/* NEW (Sir's spec B.9): Batch/Lot, Expiry, Supplier Source */}
+              {/* NEW (approved requirement B.9): Batch/Lot, Expiry, Supplier Source */}
               <div className="border-t border-slate-200 pt-2 mt-2">
                 <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide mb-1.5">Tracking (Optional)</p>
                 <div className="space-y-2">
@@ -601,7 +601,7 @@ export default function Inventory() {
                 <label className="text-[11px] text-slate-400">Quantity</label>
                 <input type="number" value={issueQty} onChange={e => setIssueQty(+e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm tnum" />
               </div>
-              {/* NEW (Sir's spec): Division dropdown — required for division-level summary */}
+              {/* NEW (approved requirement): Division dropdown — required for division-level summary */}
               <div>
                 <label className="text-[11px] text-slate-400">Issue to Division (required for division summary)</label>
                 <select
@@ -650,7 +650,7 @@ export default function Inventory() {
                 <select value={selectedSupplierId} onChange={(event) => selectIssueSupplier(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm"><option value="">— select supplier —</option>{supplierDirectory.map((supplier) => <option key={supplier.id} value={supplier.id}>#{supplier.supplierNo} · {supplier.name} · {supplier.routeName ?? "No route"}</option>)}</select>
                 <p className="mt-1 text-[10px] text-slate-400">Supplier No, name and route fill automatically from the approved supplier directory.</p>
               </div>
-              {/* NEW (Sir's spec): Payment mode — Cash or Credit (for supplier fertilizer issuing) */}
+              {/* NEW (approved requirement): Payment mode — Cash or Credit (for supplier fertilizer issuing) */}
               <div>
                 <label className="text-[11px] text-slate-400">Payment Mode</label>
                 <div className="mt-1 grid grid-cols-2 gap-2">

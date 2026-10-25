@@ -10,7 +10,7 @@ import { getSupabase, supabaseConfigured } from "@/lib/supabase";
 /**
  * SupplierFertilizer — "My Fertilizer" module (supplier side)
  * ------------------------------------------------------------------
- * Per Sir's spec: "Personal Fertilizer Stock / History — Factory එකෙන්
+ * Per approved requirement: "Personal Fertilizer Stock / History — Factory එකෙන්
  * ලබාගත් පොහොර ප්‍රමාණය සහ තමන් ලඟ දැනට ඉතිරි පොහොර ප්‍රමාණය බලාගැනීම."
  *
  * Shows:
