@@ -9,6 +9,13 @@
 - Documentation and source comments were normalized to professional requirement language. Internal conversation references, personal attributions and prompt-style wording must not be added to office-facing material.
 - From this point onward, every feature change must update this technical history. If the change affects what a user sees or does, `docs/HOW_THINGS_WORK.md` must be updated in the same commit.
 
+## Admin dashboard and supplier mobile-form cleanup (2026-10-25)
+
+- Removed the rotating agronomy-tip banner from the Admin Estate Dashboard. It was generic guidance rather than operational information or an admin action; supplier-specific guidance remains in **Supplier → Tips & Guidance**.
+- Rebuilt the **Supplier → My Labor** entry card as a mobile-first form: category is full width, count/wage use safe two-column fields, optional name/phone stack on narrow screens, and the total/save area no longer overflows.
+- Rebuilt the **Supplier → Request Resources** form so request fields stack on phones and return to two columns on larger screens. The Equipment/Fertilizer/Agrochemical selector now constrains every label inside its own segment instead of allowing text overlap.
+- Shared segmented-control labels now truncate safely when a translated label is wider than the available mobile viewport.
+
 ## Estate weather interconnection hardening (2026-10-19)
 
 - One shared `useEstateWeather` path now supplies Admin Dashboard/header/Weather, Supplier Home/My Weather/Smart Alerts/Farm Activities and the collector's assigned-route warning. The 10-minute coordinate cache prevents duplicate OpenWeatherMap requests.
@@ -1286,10 +1293,10 @@ LEVEL 2: SUPPLIER-LEVEL (Supplier, NEW Phase 1)
 | **Verified by** | Estate manager | The supplier themselves (they walk the plot) |
 | **Storage** | Supabase `estates.total_bush_count` | localStorage (Phase 1) → Supabase `supplier_plots` (Phase 2) |
 
-## 4.12 Motivational Tips / දිරිගැන්වීම් උපදෙස්
+## 4.12 Supplier Tips / සැපයුම්කරු උපදෙස්
 
 > **Trigger / ආරම්භය:** Daily rotation based on day-of-year.
-> **Output / ප්‍රතිඵල:** Bilingual (English + Sinhala) agronomy tips on Dashboard + supplier's Tips & Guidance.
+> **Output / ප්‍රතිඵල:** Bilingual (English + Sinhala) agronomy tips in the supplier's Tips & Guidance module.
 
 ### 4.12.1 The 5 Tips (Rotate Daily)
 
@@ -1305,7 +1312,6 @@ LEVEL 2: SUPPLIER-LEVEL (Supplier, NEW Phase 1)
 
 | Module | Who sees | Personalization |
 |--------|----------|-----------------|
-| **Admin Dashboard** | Admin only | None (general tip) |
 | **Supplier Tips & Guidance** | Supplier | Personalized banner: "For your 2.5 acres plot, you could harvest ~3,750 kg/year" |
 
 The supplier's banner uses the supplier's plot data from `localStorage` (entered via My Plot module). If supplier hasn't entered plot details, the banner doesn't show.

@@ -143,14 +143,14 @@ export function SupplierRequestForm() {
             <Segmented
               value={type}
               onChange={onTypeChange}
-              className="w-full"
+              className="w-full overflow-hidden [&>button]:flex-1 [&>button]:justify-center [&>button]:gap-1 [&>button]:px-1.5 [&>button]:text-[11px] sm:[&>button]:px-2 sm:[&>button]:text-xs"
               options={typeOptions}
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          <div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-2.5">
+          <div className="min-w-0">
             <label className="text-[11px] font-medium text-slate-400">
               {type === "Equipment" ? t("request.equipmentLabel")
                 : type === "Fertilizer" ? t("request.fertilizerType", { defaultValue: "Fertilizer type" })
@@ -161,7 +161,7 @@ export function SupplierRequestForm() {
               setItem(e.target.value);
               const found = availabilities.find(a => a.type === type && a.itemName === e.target.value);
               setSelectedStockItemId(found?.stockItemId);
-            }} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm">
+            }} className="mt-1 min-w-0 w-full max-w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm">
               {itemsForType.length > 0
                 ? itemsForType.map((a) => (
                     <option key={a.itemName} value={a.itemName}>
@@ -172,17 +172,17 @@ export function SupplierRequestForm() {
               }
             </select>
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="text-[11px] font-medium text-slate-400">{t("request.quantityNeeded")}</label>
-            <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Math.max(0, +e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm tnum" />
+            <input type="number" min={1} inputMode="numeric" value={quantity} onChange={(e) => setQuantity(Math.max(0, +e.target.value))} className="mt-1 min-w-0 w-full max-w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm tnum" />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="text-[11px] font-medium text-slate-400">{t("request.dateTimeNeeded")}</label>
-            <input type="datetime-local" value={dateNeeded} onChange={(e) => setDateNeeded(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm" />
+            <input type="datetime-local" value={dateNeeded} onChange={(e) => setDateNeeded(e.target.value)} className="mt-1 min-w-0 w-full max-w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm" />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="text-[11px] font-medium text-slate-400">{t("request.durationDays")}</label>
-            <input type="number" min={1} value={duration} onChange={(e) => setDuration(Math.max(1, +e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm tnum" />
+            <input type="number" min={1} inputMode="numeric" value={duration} onChange={(e) => setDuration(Math.max(1, +e.target.value))} className="mt-1 min-w-0 w-full max-w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm tnum" />
           </div>
         </div>
 

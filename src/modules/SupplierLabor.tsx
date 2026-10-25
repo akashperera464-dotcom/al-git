@@ -149,7 +149,7 @@ export function SupplierLabor() {
     } catch { /* ignore */ }
   }, [monthTotal, userUid]);
 
-  const inputCls = "mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm";
+  const inputCls = "mt-1 min-w-0 w-full max-w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm";
   const labelCls = "text-[11px] font-medium text-slate-400";
 
   return (
@@ -172,8 +172,8 @@ export function SupplierLabor() {
       {/* Daily Labor Cost Calculator */}
       <Card className="mt-4 p-4">
         <h3 className="mb-3 font-display text-sm font-bold text-slate-800">📋 {t("supplierLabor.calculator")}</h3>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div>
+        <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="min-w-0">
             <label className={labelCls}><Calendar className="mr-1 inline h-3 w-3" />{t("common.date")}</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inputCls} />
           </div>
@@ -182,53 +182,67 @@ export function SupplierLabor() {
         {/* Labor lines — with worker details (B34) */}
         <div className="space-y-3">
           {lines.map((l, idx) => (
-            <div key={idx} className="rounded-lg border border-slate-200 p-2.5">
-              {/* Row 1: Category + Headcount + Wage + Remove */}
-              <div className="grid grid-cols-12 gap-1 items-center">
-                <select
-                  value={l.category}
-                  onChange={e => updateLine(idx, { category: e.target.value, wage: DEFAULT_WAGE[e.target.value] ?? l.wage })}
-                  className="col-span-5 rounded border border-slate-200 px-2 py-2 text-xs"
-                >
-                  {LABOR_CATEGORIES.map(c => <option key={c} value={c}>{t(`supplierLabor.category.${c.replace(/\s+/g, "_").toLowerCase()}`)}</option>)}
-                </select>
-                <input
-                  type="number" min={0}
-                  value={l.headcount || ""}
-                  onChange={e => updateLine(idx, { headcount: +e.target.value })}
-                  placeholder={t("supplierLabor.headcount")}
-                  className="col-span-3 rounded border border-slate-200 px-2 py-2 text-xs tnum text-right"
-                />
-                <input
-                  type="number" min={0} step="any"
-                  value={l.wage || ""}
-                  onChange={e => updateLine(idx, { wage: +e.target.value })}
-                  placeholder={t("supplierLabor.wage")}
-                  className="col-span-3 rounded border border-slate-200 px-2 py-2 text-xs tnum text-right"
-                />
-                <button
-                  onClick={() => removeLine(idx)}
-                  disabled={lines.length === 1}
-                  className="col-span-1 text-rose-500 hover:text-rose-700 disabled:opacity-30 flex justify-center"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+            <div key={idx} className="relative rounded-xl border border-slate-200 p-3">
+              <button
+                type="button"
+                onClick={() => removeLine(idx)}
+                disabled={lines.length === 1}
+                aria-label="Remove worker"
+                className="absolute right-2.5 top-2.5 rounded-md p-1 text-rose-500 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-30"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+
+              {/* Mobile-first fields: never squeeze a select or number input into a narrow column. */}
+              <div className="grid min-w-0 grid-cols-2 gap-2 pr-8">
+                <label className="col-span-2 min-w-0">
+                  <span className={labelCls}>{t("supplierLabor.categories")}</span>
+                  <select
+                    value={l.category}
+                    onChange={e => updateLine(idx, { category: e.target.value, wage: DEFAULT_WAGE[e.target.value] ?? l.wage })}
+                    className={inputCls}
+                  >
+                    {LABOR_CATEGORIES.map(c => <option key={c} value={c}>{t(`supplierLabor.category.${c.replace(/\s+/g, "_").toLowerCase()}`)}</option>)}
+                  </select>
+                </label>
+                <label className="min-w-0">
+                  <span className={labelCls}>{t("supplierLabor.headcount")}</span>
+                  <input
+                    type="number" min={0}
+                    value={l.headcount || ""}
+                    onChange={e => updateLine(idx, { headcount: +e.target.value })}
+                    inputMode="numeric"
+                    className={`${inputCls} tnum text-right`}
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className={labelCls}>{t("supplierLabor.wage")}</span>
+                  <input
+                    type="number" min={0} step="any"
+                    value={l.wage || ""}
+                    onChange={e => updateLine(idx, { wage: +e.target.value })}
+                    inputMode="decimal"
+                    className={`${inputCls} tnum text-right`}
+                  />
+                </label>
               </div>
-              {/* Row 2: Worker details (B34 — optional) */}
-              <div className="grid grid-cols-12 gap-1 mt-1">
+
+              {/* Optional worker details use full-width fields on phones. */}
+              <div className="mt-2 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
                 <input
                   type="text"
                   value={l.workerName || ""}
                   onChange={e => updateLine(idx, { workerName: e.target.value })}
                   placeholder={t("supplierLabor.workerName")}
-                  className="col-span-7 rounded border border-slate-200 px-2 py-1.5 text-[11px]"
+                  className={inputCls}
                 />
                 <input
                   type="tel"
                   value={l.workerPhone || ""}
                   onChange={e => updateLine(idx, { workerPhone: e.target.value })}
                   placeholder={t("supplierLabor.workerPhone")}
-                  className="col-span-5 rounded border border-slate-200 px-2 py-1.5 text-[11px]"
+                  inputMode="tel"
+                  className={inputCls}
                 />
               </div>
               {l.headcount > 0 && l.wage > 0 && (
@@ -244,11 +258,11 @@ export function SupplierLabor() {
         </button>
 
         {/* Auto-calculated total */}
-        <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 p-3">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-[1fr_auto_auto]">
+            <div className="min-w-0">
               <p className="text-[11px] text-amber-700 font-semibold">{t("supplierLabor.totalDaily")}</p>
-              <p className="text-2xl font-extrabold text-amber-700 tnum">{fmtLKR(totalCost)}</p>
+              <p className="break-words text-2xl font-extrabold text-amber-700 tnum">{fmtLKR(totalCost)}</p>
             </div>
             <div className="text-right">
               <p className="text-[11px] text-amber-700 font-semibold">{t("supplierLabor.totalWorkers")}</p>
@@ -256,7 +270,7 @@ export function SupplierLabor() {
             </div>
             <button
               onClick={saveSnapshot}
-              className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:brightness-110"
+              className="col-span-2 w-full rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 sm:col-span-1 sm:w-auto"
             >
               {t("common.save")}
             </button>

@@ -211,6 +211,8 @@ Receipt/weight එක වැරදි යැයි supplier සිතන්න�
 
 `More` button එකෙන් primary bottom tabs වල නොපෙනෙන supplier features විවෘත කළ හැක.
 
+Mobile phone එකක **Request Resources** form fields එක යට එක ලෙස පෙන්වයි; විශාල screen එකක columns දෙකක් භාවිත වේ. **My Labor** form එකේ category full width වන අතර worker count/wage fields දෙක සහ optional name/phone fields mobile screen එකෙන් පිටතට නොයන ලෙස responsive වේ.
+
 ---
 
 ## 6. Collector / Extension Officer වැඩ පිළිවෙල
@@ -281,7 +283,7 @@ Collector Start Collection කර GPS tracking සක්‍රීය කළ ප�
 
 #### Estate Dashboard
 
-System overview එකයි. Estates, harvest, field performance, activity, environmental warnings සහ compliance snapshot එකක් පෙන්වයි. මෙය detailed data entry screen එකක් නොව management overview එකකි.
+System overview එකයි. Estates, harvest, field performance, activity, environmental warnings සහ compliance snapshot එකක් පෙන්වයි. මෙය detailed data entry screen එකක් නොව management overview එකකි. Generic farming-tip banners මෙහි නොපෙන්වයි; personalized agronomy guidance Supplierගේ Tips & Guidance module එකේ පෙන්වයි.
 
 ### 7.2 Estate & Land
 

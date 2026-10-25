@@ -421,12 +421,12 @@ export function Segmented<T extends string>({
           key={o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ring-focus",
+            "inline-flex min-w-0 items-center gap-1.5 overflow-hidden rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ring-focus",
             value === o.value ? "bg-white text-emerald-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
           )}
         >
-          {o.icon}
-          {o.label}
+          {o.icon && <span className="shrink-0">{o.icon}</span>}
+          <span className="min-w-0 truncate">{o.label}</span>
         </button>
       ))}
     </div>
