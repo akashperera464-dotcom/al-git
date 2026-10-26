@@ -18,6 +18,7 @@ import type {
   StockItem, PurchaseOrder, PurchaseOrderLine, GoodsReceipt, StockMovement, StockMoveType, PoStatus,
   OptimisticUpdateResult,
 } from "./data";
+import { calculateStockBalanceReport, type StockBalanceReportRow } from "./inventoryReportUtils";
 
 // ============================================================================
 // MOCK STORES (demo-mode fallback)
@@ -822,6 +823,9 @@ export async function listStockItems(estateId?: string): Promise<StockItem[]> {
     reorderLevel: Number(r.reorder_level ?? 0),
     unitCost: Number(r.unit_cost ?? 0),
     estateId: r.estate_id as string | undefined,
+    batchNumber: r.batch_number as string | undefined,
+    expiryDate: r.expiry_date as string | undefined,
+    supplierSource: r.supplier_source as string | undefined,
     version: Number(r.version ?? 1),
   }));
 }
@@ -829,6 +833,7 @@ export async function listStockItems(estateId?: string): Promise<StockItem[]> {
 export async function createStockItem(input: {
   code: string; name: string; category: string; unit: string;
   qtyOnHand?: number; reorderLevel?: number; unitCost?: number; estateId?: string;
+  batchNumber?: string; expiryDate?: string; supplierSource?: string;
 }): Promise<StockItem> {
   const openingQty = input.qtyOnHand ?? 0;
   if (!supabaseConfigured) {
@@ -837,8 +842,18 @@ export async function createStockItem(input: {
       unit: input.unit, qtyOnHand: openingQty,
       reorderLevel: input.reorderLevel ?? 0, unitCost: input.unitCost ?? 0,
       estateId: input.estateId, version: 1,
+      batchNumber: input.batchNumber, expiryDate: input.expiryDate,
+      supplierSource: input.supplierSource,
     };
     mockStock.push(s);
+    if (openingQty > 0) {
+      mockMoves.push({
+        id: uid(), stockItemId: s.id, moveType: "in", qty: openingQty,
+        unitCost: s.unitCost, unitPriceAtTxn: s.unitCost,
+        referenceType: "opening_balance", performedAt: now(),
+        notes: "Opening stock balance",
+      });
+    }
     return s;
   }
   const sb = getSupabase()!;
@@ -847,13 +862,30 @@ export async function createStockItem(input: {
     qty_on_hand: openingQty,                  // opening balance
     reorder_level: input.reorderLevel ?? 0, unit_cost: input.unitCost ?? 0,
     estate_id: input.estateId,
+    batch_number: input.batchNumber || null,
+    expiry_date: input.expiryDate || null,
+    supplier_source: input.supplierSource || null,
   }).select().single();
   if (error) throw new Error(`createStockItem: ${error.message}`);
+  if (openingQty > 0) {
+    const { error: movementError } = await sb.from("stock_movements").insert({
+      stock_item_id: data.id,
+      move_type: "in",
+      qty: openingQty,
+      unit_cost: input.unitCost ?? 0,
+      reference_type: "opening_balance",
+      performed_at: now(),
+      notes: "Opening stock balance",
+    });
+    if (movementError) throw new Error(`createStockItem opening balance: ${movementError.message}`);
+  }
   return {
     id: data.id, code: data.code, name: data.name, category: data.category,
     unit: data.unit, qtyOnHand: Number(data.qty_on_hand),
     reorderLevel: Number(data.reorder_level), unitCost: Number(data.unit_cost),
     estateId: data.estate_id, version: 1,
+    batchNumber: data.batch_number, expiryDate: data.expiry_date,
+    supplierSource: data.supplier_source,
   };
 }
 
@@ -972,12 +1004,12 @@ export async function receiveGoods(input: {
     for (const r of input.receipts) {
       const idx = mockStock.findIndex(s => s.id === r.stockItemId);
       if (idx !== -1) {
-        // moving-average cost (skip cost update for free issues — they don't change the average)
+        // A free receipt adds quantity at Rs 0, lowering the weighted-average
+        // unit cost while preserving total inventory value.
         const s = mockStock[idx];
         const newQty = s.qtyOnHand + r.qtyReceived;
-        if (!r.isFreeIssue) {
-          s.unitCost = +((s.unitCost * s.qtyOnHand + r.unitCost * r.qtyReceived) / Math.max(1, newQty)).toFixed(2);
-        }
+        const receivedValue = r.isFreeIssue ? 0 : r.unitCost * r.qtyReceived;
+        s.unitCost = +((s.unitCost * s.qtyOnHand + receivedValue) / Math.max(1, newQty)).toFixed(2);
         s.qtyOnHand = newQty;
         s.version += 1;
         updated.push(s);
@@ -1032,19 +1064,19 @@ export async function receiveGoods(input: {
   }));
   const { error: mErr } = await sb.from("stock_movements").insert(movesPayload);
   if (mErr) throw new Error(`receiveGoods movements: ${mErr.message}`);
-  // Update each stock item (moving average cost — skip for free issues)
+  // Update each stock item. Free stock has zero purchase value, so quantity
+  // rises while the weighted-average unit cost falls.
   const updated: StockItem[] = [];
   for (const r of input.receipts) {
     const { data: cur } = await sb.from("stock_items").select("*").eq("id", r.stockItemId).single();
     if (cur) {
       const newQty = Number(cur.qty_on_hand) + r.qtyReceived;
-      let newCost = Number(cur.unit_cost);
-      if (!r.isFreeIssue) {
-        newCost = +((Number(cur.unit_cost) * Number(cur.qty_on_hand) + r.unitCost * r.qtyReceived) / Math.max(1, newQty)).toFixed(2);
-      }
-      await sb.from("stock_items").update({
+      const receivedValue = r.isFreeIssue ? 0 : r.unitCost * r.qtyReceived;
+      const newCost = +((Number(cur.unit_cost) * Number(cur.qty_on_hand) + receivedValue) / Math.max(1, newQty)).toFixed(2);
+      const { error: updateError } = await sb.from("stock_items").update({
         qty_on_hand: newQty, unit_cost: newCost,
       }).eq("id", r.stockItemId);
+      if (updateError) throw new Error(`receiveGoods stock update: ${updateError.message}`);
       updated.push({
         id: cur.id, code: cur.code, name: cur.name,
         category: cur.category, unit: cur.unit,
@@ -1075,7 +1107,8 @@ export async function issueStock(input: {
     const idx = mockStock.findIndex(s => s.id === input.stockItemId);
     if (idx === -1) return null;
     const s = mockStock[idx];
-    s.qtyOnHand = Math.max(0, s.qtyOnHand - input.qty);
+    if (input.qty > s.qtyOnHand) throw new Error(`Insufficient stock. Available: ${s.qtyOnHand} ${s.unit}`);
+    s.qtyOnHand -= input.qty;
     s.version += 1;
     mockMoves.unshift({
       id: uid(), stockItemId: input.stockItemId, moveType: "out",
@@ -1093,12 +1126,25 @@ export async function issueStock(input: {
     return s;
   }
   const sb = getSupabase()!;
+  if (input.issueNoteCode) {
+    const { data: duplicate, error: duplicateError } = await sb.from("stock_movements")
+      .select("id")
+      .ilike("issue_note_code", input.issueNoteCode)
+      .or("reference_type.is.null,reference_type.neq.void")
+      .limit(1);
+    if (duplicateError) throw new Error(`issueStock reference check: ${duplicateError.message}`);
+    if ((duplicate ?? []).length > 0) throw new Error("This Issue Note Ref. already exists");
+  }
   const { data: cur } = await sb.from("stock_items").select("*").eq("id", input.stockItemId).single();
   if (!cur) return null;
-  const newQty = Math.max(0, Number(cur.qty_on_hand) - input.qty);
-  await sb.from("stock_items").update({ qty_on_hand: newQty })
+  if (input.qty > Number(cur.qty_on_hand)) {
+    throw new Error(`Insufficient stock. Available: ${Number(cur.qty_on_hand)} ${String(cur.unit ?? "units")}`);
+  }
+  const newQty = Number(cur.qty_on_hand) - input.qty;
+  const { error: stockError } = await sb.from("stock_items").update({ qty_on_hand: newQty })
     .eq("id", input.stockItemId);
-  await sb.from("stock_movements").insert({
+  if (stockError) throw new Error(`issueStock stock update: ${stockError.message}`);
+  const { error: movementError } = await sb.from("stock_movements").insert({
     stock_item_id: input.stockItemId, move_type: "out",
     qty: input.qty, unit_cost: Number(cur.unit_cost),
     reference_type: input.referenceType, reference_id: input.referenceId,
@@ -1111,6 +1157,10 @@ export async function issueStock(input: {
     issue_note_code: input.issueNoteCode,
     supplier_no: input.supplierNo,
   });
+  if (movementError) {
+    await sb.from("stock_items").update({ qty_on_hand: Number(cur.qty_on_hand) }).eq("id", input.stockItemId);
+    throw new Error(`issueStock movement: ${movementError.message}`);
+  }
   return {
     id: cur.id, code: cur.code, name: cur.name, category: cur.category,
     unit: cur.unit, qtyOnHand: newQty, reorderLevel: Number(cur.reorder_level),
@@ -1164,108 +1214,169 @@ export async function listStockMovements(stockItemId?: string): Promise<StockMov
  *
  * In demo mode (no Supabase), returns mock data for demo purposes.
  */
-export interface StockMovementReportRow {
-  stockItemId: string;
-  code: string;
-  name: string;
-  category: string;
-  unit: string;
-  openingQty: number;
-  openingValue: number;
-  receivedQty: number;
-  receivedValue: number;
-  issuedQty: number;
-  issuedValue: number;
-  closingQty: number;
-  closingValue: number;
-}
+export type StockMovementReportRow = StockBalanceReportRow;
 
 export async function getStockMovementReport(
   startDate: string,
   endDate: string
 ): Promise<StockMovementReportRow[]> {
-  if (!supabaseConfigured) {
-    // Demo mode — return mock data based on mockStock + mockMoves
-    const items = mockStock;
-    return items.map(s => {
-      const moves = mockMoves.filter(m => m.stockItemId === s.id);
-      const opening = moves
-        .filter(m => m.performedAt.slice(0, 10) < startDate)
-        .reduce((acc, m) => acc + (m.moveType === "in" ? m.qty : m.moveType === "out" ? -m.qty : 0), 0);
-      const received = moves
-        .filter(m => m.moveType === "in" && m.performedAt.slice(0, 10) >= startDate && m.performedAt.slice(0, 10) <= endDate)
-        .reduce((acc, m) => ({ qty: acc.qty + m.qty, val: acc.val + m.qty * m.unitCost }), { qty: 0, val: 0 });
-      const issued = moves
-        .filter(m => m.moveType === "out" && m.performedAt.slice(0, 10) >= startDate && m.performedAt.slice(0, 10) <= endDate)
-        .reduce((acc, m) => ({ qty: acc.qty + m.qty, val: acc.val + m.qty * m.unitCost }), { qty: 0, val: 0 });
-      const closing = opening + received.qty - issued.qty;
+  const [items, movements] = await Promise.all([listStockItems(), listStockMovements()]);
+  return calculateStockBalanceReport(items, movements, startDate, endDate);
+}
+
+export interface IssueNoteReportRow {
+  movementId: string;
+  date: string;
+  issueNoteRef: string;
+  supplierNo: string;
+  route: string;
+  item: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  status: "active" | "voided";
+}
+
+export interface GrnReportRow {
+  movementId: string;
+  date: string;
+  grnNo: string;
+  supplierName: string;
+  item: string;
+  freeIssued: boolean;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  status: "active" | "voided";
+}
+
+export async function getIssueNoteReport(startDate: string, endDate: string): Promise<IssueNoteReportRow[]> {
+  const [items, movements] = await Promise.all([listStockItems(), listStockMovements()]);
+  const itemById = new Map(items.map((item) => [item.id, item]));
+  const voided = new Set(movements.filter((movement) => movement.referenceType === "void" && movement.referenceId).map((movement) => movement.referenceId));
+  return movements
+    .filter((movement) => movement.moveType === "out" && movement.referenceType !== "void")
+    .filter((movement) => movement.performedAt.slice(0, 10) >= startDate && movement.performedAt.slice(0, 10) <= endDate)
+    .map((movement) => {
+      const item = itemById.get(movement.stockItemId);
+      const unitPrice = movement.unitPriceAtTxn ?? movement.unitCost;
       return {
-        stockItemId: s.id, code: s.code, name: s.name, category: s.category, unit: s.unit,
-        openingQty: opening, openingValue: opening * s.unitCost,
-        receivedQty: received.qty, receivedValue: received.val,
-        issuedQty: issued.qty, issuedValue: issued.val,
-        closingQty: closing, closingValue: closing * s.unitCost,
+        movementId: movement.id,
+        date: movement.performedAt.slice(0, 10),
+        issueNoteRef: movement.issueNoteCode || "UNREFERENCED",
+        supplierNo: movement.supplierNo || "—",
+        route: movement.route || "—",
+        item: item ? `${item.code} — ${item.name}` : movement.stockItemId,
+        quantity: movement.qty,
+        unitPrice,
+        amount: +(movement.qty * unitPrice).toFixed(2),
+        status: voided.has(movement.id) ? "voided" : "active",
       };
     });
+}
+
+export async function getGrnReport(startDate: string, endDate: string): Promise<GrnReportRow[]> {
+  const [items, movements] = await Promise.all([listStockItems(), listStockMovements()]);
+  const itemById = new Map(items.map((item) => [item.id, item]));
+  const grnMovements = movements.filter((movement) => movement.moveType === "in" && movement.referenceType === "grn");
+  const voided = new Set(movements.filter((movement) => movement.referenceType === "void" && movement.referenceId).map((movement) => movement.referenceId));
+
+  let receipts = mockGRNs;
+  if (supabaseConfigured) {
+    const { data, error } = await getSupabase()!.from("goods_receipts")
+      .select("id, grn_code, received_date, supplier_name")
+      .gte("received_date", startDate)
+      .lte("received_date", endDate);
+    if (error) throw new Error(`getGrnReport: ${error.message}`);
+    receipts = (data ?? []).map((row: Record<string, unknown>) => ({
+      id: String(row.id), grnCode: String(row.grn_code),
+      receivedDate: String(row.received_date), supplierName: row.supplier_name as string | undefined,
+      version: 1,
+    }));
   }
+  const receiptById = new Map(receipts.map((receipt) => [receipt.id, receipt]));
+
+  return grnMovements
+    .filter((movement) => movement.performedAt.slice(0, 10) >= startDate && movement.performedAt.slice(0, 10) <= endDate)
+    .map((movement) => {
+      const item = itemById.get(movement.stockItemId);
+      const receipt = movement.referenceId ? receiptById.get(movement.referenceId) : undefined;
+      const unitPrice = movement.unitPriceAtTxn ?? movement.unitCost;
+      return {
+        movementId: movement.id,
+        date: receipt?.receivedDate ?? movement.performedAt.slice(0, 10),
+        grnNo: receipt?.grnCode ?? "UNREFERENCED",
+        supplierName: receipt?.supplierName || "Unknown vendor",
+        item: item ? `${item.code} — ${item.name}` : movement.stockItemId,
+        freeIssued: Boolean(movement.isFreeIssue),
+        quantity: movement.qty,
+        unitPrice,
+        amount: movement.isFreeIssue ? 0 : +(movement.qty * unitPrice).toFixed(2),
+        status: voided.has(movement.id) ? "voided" : "active",
+      };
+    });
+}
+
+/** Post a compensating movement instead of deleting the original audit record. */
+export async function reverseStockMovement(movementId: string, performedBy: string, reason: string): Promise<void> {
+  if (!reason.trim()) throw new Error("A correction reason is required");
+  const movements = await listStockMovements();
+  const original = movements.find((movement) => movement.id === movementId);
+  if (!original) throw new Error("Movement not found");
+  if (original.referenceType === "void") throw new Error("A correction entry cannot be voided again");
+  if (original.moveType !== "in" && original.moveType !== "out") throw new Error("Only receipt and issue movements can be voided");
+  if (movements.some((movement) => movement.referenceType === "void" && movement.referenceId === movementId)) {
+    throw new Error("This movement has already been voided");
+  }
+  if (original.notes?.includes("credit→")) {
+    throw new Error("Credit fertilizer issues must be reversed together with the supplier ledger");
+  }
+
+  const items = await listStockItems();
+  const item = items.find((entry) => entry.id === original.stockItemId);
+  if (!item) throw new Error("Stock item not found");
+  const reverseType: StockMoveType = original.moveType === "in" ? "out" : "in";
+  if (reverseType === "out" && original.qty > item.qtyOnHand) {
+    throw new Error(`Cannot void receipt: only ${item.qtyOnHand} ${item.unit} remains`);
+  }
+  const originalValue = original.isFreeIssue && original.moveType === "in"
+    ? 0
+    : original.qty * (original.unitPriceAtTxn ?? original.unitCost);
+  const nextQty = reverseType === "in" ? item.qtyOnHand + original.qty : item.qtyOnHand - original.qty;
+  const currentValue = item.qtyOnHand * item.unitCost;
+  const nextValue = reverseType === "in" ? currentValue + originalValue : currentValue - originalValue;
+  const nextCost = nextQty > 0 ? Math.max(0, +(nextValue / nextQty).toFixed(2)) : 0;
+  const reversal: StockMovement = {
+    id: uid(), stockItemId: original.stockItemId, moveType: reverseType,
+    qty: original.qty, unitCost: original.qty > 0 ? originalValue / original.qty : 0,
+    unitPriceAtTxn: original.qty > 0 ? originalValue / original.qty : 0,
+    referenceType: "void", referenceId: original.id,
+    performedBy, performedAt: now(), notes: `VOID: ${reason.trim()}`,
+  };
+
+  if (!supabaseConfigured) {
+    const index = mockStock.findIndex((entry) => entry.id === item.id);
+    mockStock[index] = { ...mockStock[index], qtyOnHand: nextQty, unitCost: nextCost, version: mockStock[index].version + 1 };
+    mockMoves.unshift(reversal);
+    return;
+  }
+
   const sb = getSupabase()!;
-  // Load all stock items + all movements in one go (we'll filter client-side).
-  const [{ data: items }, { data: mvRows }] = await Promise.all([
-    sb.from("stock_items").select("id, code, name, category, unit, unit_cost").order("code"),
-    sb.from("stock_movements")
-      .select("id, stock_item_id, move_type, qty, unit_cost, performed_at, is_free_issue")
-      .gte("performed_at", `${startDate}T00:00:00.000Z`)
-      .or(`performed_at.lte.${endDate}T23:59:59.999Z`),
-  ]);
-  // For opening balance we need ALL movements before startDate — fetch separately.
-  const { data: beforeRows } = await sb.from("stock_movements")
-    .select("stock_item_id, move_type, qty, unit_cost")
-    .lt("performed_at", `${startDate}T00:00:00.000Z`);
-
-  const openingByItem: Record<string, { qty: number; val: number }> = {};
-  for (const r of (beforeRows ?? [])) {
-    const id = r.stock_item_id as string;
-    if (!openingByItem[id]) openingByItem[id] = { qty: 0, val: 0 };
-    const signed = r.move_type === "in" ? 1 : r.move_type === "out" ? -1 : 0;
-    openingByItem[id].qty += signed * Number(r.qty);
-    openingByItem[id].val += signed * Number(r.qty) * Number(r.unit_cost);
+  const { data: inserted, error: insertError } = await sb.from("stock_movements").insert({
+    stock_item_id: reversal.stockItemId, move_type: reversal.moveType,
+    qty: reversal.qty, unit_cost: reversal.unitCost,
+    unit_price_at_txn: reversal.unitPriceAtTxn,
+    reference_type: reversal.referenceType, reference_id: reversal.referenceId,
+    performed_by: performedBy, performed_at: reversal.performedAt, notes: reversal.notes,
+  }).select("id").single();
+  if (insertError) throw new Error(`Could not create correction: ${insertError.message}`);
+  const { error: updateError } = await sb.from("stock_items")
+    .update({ qty_on_hand: nextQty, unit_cost: nextCost })
+    .eq("id", item.id);
+  if (updateError) {
+    if (inserted?.id) await sb.from("stock_movements").delete().eq("id", inserted.id);
+    throw new Error(`Could not apply correction: ${updateError.message}`);
   }
-
-  const periodByItem: Record<string, { recv: { qty: number; val: number }; iss: { qty: number; val: number } }> = {};
-  for (const r of (mvRows ?? [])) {
-    const id = r.stock_item_id as string;
-    if (!periodByItem[id]) periodByItem[id] = { recv: { qty: 0, val: 0 }, iss: { qty: 0, val: 0 } };
-    if (r.move_type === "in" && !r.is_free_issue) {
-      periodByItem[id].recv.qty += Number(r.qty);
-      periodByItem[id].recv.val += Number(r.qty) * Number(r.unit_cost);
-    } else if (r.move_type === "out") {
-      periodByItem[id].iss.qty += Number(r.qty);
-      periodByItem[id].iss.val += Number(r.qty) * Number(r.unit_cost);
-    }
-  }
-
-  return (items ?? []).map((s: Record<string, unknown>) => {
-    const id = s.id as string;
-    const unitCost = Number(s.unit_cost ?? 0);
-    const opening = openingByItem[id] ?? { qty: 0, val: 0 };
-    const period = periodByItem[id] ?? { recv: { qty: 0, val: 0 }, iss: { qty: 0, val: 0 } };
-    const closingQty = opening.qty + period.recv.qty - period.iss.qty;
-    return {
-      stockItemId: id,
-      code: s.code as string,
-      name: s.name as string,
-      category: s.category as string,
-      unit: s.unit as string,
-      openingQty: opening.qty,
-      openingValue: opening.val,
-      receivedQty: period.recv.qty,
-      receivedValue: period.recv.val,
-      issuedQty: period.iss.qty,
-      issuedValue: period.iss.val,
-      closingQty,
-      closingValue: closingQty * unitCost,
-    };
-  });
 }
 
 // ============================================================================

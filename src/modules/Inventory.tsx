@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { Package, Truck, ArrowDownCircle, ArrowUpCircle, AlertTriangle, FileDown, Link2 } from "lucide-react";
+import { Package, Truck, ArrowDownCircle, ArrowUpCircle, AlertTriangle, FileDown, Link2, FileSpreadsheet, RotateCcw } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { fmtLKR, fmtNum, type StockItem, type PurchaseOrder, type StockMovement, type ResourceRequest } from "@/lib/data";
 import { exportObjectsToCSV } from "@/lib/csvExport";
 import {
   listStockItems, createStockItem, listPurchaseOrders, createPurchaseOrder,
-  receiveGoods, issueStock, listStockMovements,
+  receiveGoods, issueStock, listStockMovements, reverseStockMovement,
 } from "@/lib/repo.phase2";
 import { useApp } from "@/context/AppContext";
 import { readSupplierDirectory, type SupplierDirectoryEntry } from "@/lib/supplierOperations";
 import { getSupabase, supabaseConfigured } from "@/lib/supabase";
+import { createInventoryReference } from "@/lib/inventoryReportUtils";
+import InventoryReports from "./InventoryReports";
 
 /**
  * Inventory & Procurement — stock items with moving-average valuation,
@@ -17,7 +19,7 @@ import { getSupabase, supabaseConfigured } from "@/lib/supabase";
  */
 export default function Inventory() {
   const { userUid, resourceRequests, estates } = useApp();
-  const [tab, setTab] = useState<"stock" | "po" | "grn" | "movements">("stock");
+  const [tab, setTab] = useState<"stock" | "po" | "grn" | "movements" | "reports">("stock");
   const [stock, setStock] = useState<StockItem[]>([]);
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [moves, setMoves] = useState<StockMovement[]>([]);
@@ -116,6 +118,9 @@ export default function Inventory() {
         qtyOnHand: newQty,           // opening balance (stored directly in stock_items.qty_on_hand)
         unitCost: newUnitCost,       // initial cost (used for moving-average valuation)
         reorderLevel: newReorderLevel,
+        batchNumber: newBatchNumber.trim() || undefined,
+        expiryDate: newExpiryDate || undefined,
+        supplierSource: newSupplierSource.trim() || undefined,
       });
 
       setNewCode(""); setNewName(""); setNewQty(0); setNewUnitCost(0); setNewReorderLevel(0);
@@ -165,12 +170,21 @@ export default function Inventory() {
     }
   };
 
+  const addManualGrnLine = () => {
+    const firstUnused = stock.find((item) => !grnLines.some((line) => line.stockItemId === item.id));
+    setGrnLines([...grnLines, { stockItemId: firstUnused?.id ?? "", qtyReceived: 1, unitCost: firstUnused?.unitCost ?? 0 }]);
+  };
+
   const submitGrn = async () => {
     setError(null);
     if (grnLines.length === 0) { setError("No lines to receive"); return; }
+    if (!grnSupplierName.trim()) { setError("Supplier/Vendor Name is required for the GRN report"); return; }
+    if (grnLines.some((line) => !line.stockItemId || line.qtyReceived <= 0 || line.unitCost < 0)) {
+      setError("Every GRN line needs an item, a quantity above zero, and a non-negative unit price"); return;
+    }
     setBusy(true);
     try {
-      const grnCode = `GRN-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(Math.random() * 100)}`;
+      const grnCode = createInventoryReference("GRN");
       await receiveGoods({
         grnCode, poId: grnPoId || undefined,
         receivedBy: userUid,
@@ -202,8 +216,18 @@ export default function Inventory() {
       setError("Select a supplier for a credit issue");
       return;
     }
+    const selectedItem = stock.find((item) => item.id === issueItemId);
+    if (!selectedItem || issueQty > selectedItem.qtyOnHand) {
+      setError(`Insufficient stock. Available: ${selectedItem?.qtyOnHand ?? 0} ${selectedItem?.unit ?? "units"}`);
+      return;
+    }
+    if (issueNoteCode.trim() && moves.some((movement) => movement.issueNoteCode?.toLowerCase() === issueNoteCode.trim().toLowerCase() && movement.referenceType !== "void")) {
+      setError("This Issue Note Ref. already exists. Use a unique reference or leave it blank for an automatic number.");
+      return;
+    }
     setBusy(true);
     try {
+      const finalIssueNoteCode = issueNoteCode.trim() || createInventoryReference("IN");
       // Build notes — include division + payment mode + request ref + supplier name
       let notes = issueNotes.trim();
       const parts: string[] = [];
@@ -226,10 +250,11 @@ export default function Inventory() {
       await issueStock({
         stockItemId: issueItemId, qty: issueQty,
         performedBy: userUid, notes: finalNotes || undefined,
+        referenceType: "issue",
         // B28 (Round #8) — delivery route for the issue note
         route: issueRoute || undefined,
         // B28 (Round #9) — Issue Note Ref. + Supplier No (matches Excel Issue Note Report columns)
-        issueNoteCode: issueNoteCode || undefined,
+        issueNoteCode: finalIssueNoteCode,
         supplierNo: issueSupplierNo || undefined,
       });
 
@@ -248,7 +273,7 @@ export default function Inventory() {
               qtyIssued: issueQty,
               unit: item.unit,
               date: new Date().toISOString(),
-              notes: finalNotes,
+              notes: [`IssueNote:${finalIssueNoteCode}`, finalNotes].filter(Boolean).join(" | "),
               paymentMode: issuePaymentMode,
               division: issueDivision || undefined,
             });
@@ -265,6 +290,18 @@ export default function Inventory() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const voidMovement = async (movement: StockMovement) => {
+    const reason = window.prompt(`Correction reason for ${movement.issueNoteCode || movement.vendorInvoiceNo || movement.id.slice(0, 8)}:`);
+    if (!reason?.trim()) return;
+    setBusy(true); setError(null);
+    try {
+      await reverseStockMovement(movement.id, userUid, reason);
+      await reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not post correction");
+    } finally { setBusy(false); }
   };
 
   // Stock-item requests pending fulfilment — drives the "Link to Request" dropdown.
@@ -311,6 +348,7 @@ export default function Inventory() {
           { id: "po", label: "Purchase Orders", icon: Truck },
           { id: "grn", label: "Receive Goods (GRN)", icon: ArrowDownCircle },
           { id: "movements", label: "Issue / Movements", icon: ArrowUpCircle },
+          { id: "reports", label: "Official Reports", icon: FileSpreadsheet },
         ] as const).map(t2 => {
           const Icon = t2.icon;
           const active = tab === t2.id;
@@ -552,25 +590,28 @@ export default function Inventory() {
                 />
                 <div>
                   <p className="font-semibold text-slate-700">🎁 Free Issue</p>
-                  <p className="text-[10px] text-slate-400">Vendor promotional stock (no charge — won't affect moving-average cost)</p>
+                  <p className="text-[10px] text-slate-400">Vendor promotional stock: quantity increases at Rs 0 and the weighted-average unit cost adjusts.</p>
                 </div>
               </label>
             </div>
           </div>
 
           <div className="mt-3">
-            <p className="text-[11px] text-slate-400">Receipt Lines</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] text-slate-400">Receipt Lines</p>
+              <button type="button" onClick={addManualGrnLine} disabled={stock.length === 0} className="text-xs font-semibold text-emerald-600 disabled:opacity-40">+ Add manual line</button>
+            </div>
             {grnLines.length === 0 ? (
               <p className="mt-1 text-xs text-slate-400">Select a PO above to auto-fill lines (or add lines manually below).</p>
             ) : (
               <div className="mt-2 space-y-2">
                 {grnLines.map((l, idx) => {
-                  const s = stock.find(x => x.id === l.stockItemId);
                   return (
                     <div key={idx} className="grid grid-cols-12 gap-1">
-                      <span className="col-span-6 self-center text-xs">{s?.code ?? "—"} · {s?.name ?? l.stockItemId}</span>
+                      <select value={l.stockItemId} onChange={(event) => { const item = stock.find((entry) => entry.id === event.target.value); setGrnLines(grnLines.map((line, lineIndex) => lineIndex === idx ? { ...line, stockItemId: event.target.value, unitCost: item?.unitCost ?? line.unitCost } : line)); }} className="col-span-5 rounded border border-slate-200 px-1.5 py-1.5 text-xs"><option value="">— select item —</option>{stock.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select>
                       <input type="number" value={l.qtyReceived || ""} onChange={e => setGrnLines(grnLines.map((x, i) => i === idx ? { ...x, qtyReceived: +e.target.value } : x))} placeholder="Qty" className="col-span-2 rounded border border-slate-200 px-1.5 py-1.5 text-xs tnum" />
                       <input type="number" value={l.unitCost || ""} onChange={e => setGrnLines(grnLines.map((x, i) => i === idx ? { ...x, unitCost: +e.target.value } : x))} placeholder="Cost" className="col-span-3 rounded border border-slate-200 px-1.5 py-1.5 text-xs tnum" />
+                      <button type="button" onClick={() => setGrnLines(grnLines.filter((_, lineIndex) => lineIndex !== idx))} className="col-span-1 text-rose-500">×</button>
                     </div>
                   );
                 })}
@@ -771,8 +812,14 @@ export default function Inventory() {
                         {m.vendorInvoiceNo && (
                           <span className="text-[9px] text-slate-400">INV: {m.vendorInvoiceNo}</span>
                         )}
+                        {m.referenceType === "void" && <Badge tone="rose">CORRECTION</Badge>}
                       </div>
-                      <span className="text-[10px] text-slate-400">{new Date(m.performedAt).toLocaleString()}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400">{new Date(m.performedAt).toLocaleString()}</span>
+                        {(m.moveType === "in" || m.moveType === "out") && m.referenceType !== "void" && !moves.some((entry) => entry.referenceType === "void" && entry.referenceId === m.id) && (
+                          <button type="button" onClick={() => void voidMovement(m)} disabled={busy} title="Post a correction without deleting the original" className="inline-flex items-center gap-1 rounded border border-rose-200 px-1.5 py-1 text-[10px] font-semibold text-rose-600 disabled:opacity-40"><RotateCcw className="h-3 w-3" />Void</button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -781,6 +828,8 @@ export default function Inventory() {
           </Card>
         </div>
       )}
+
+      {tab === "reports" && <InventoryReports />}
     </div>
   );
 }

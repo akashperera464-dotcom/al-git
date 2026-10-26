@@ -483,11 +483,14 @@ function StockMovementReportPanel() {
               <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
                 <th className="pb-2">Code</th>
                 <th className="pb-2">Name</th>
-                <th className="pb-2 text-right">Opening (qty)</th>
-                <th className="pb-2 text-right">Received (qty)</th>
-                <th className="pb-2 text-right">Issued (qty)</th>
-                <th className="pb-2 text-right">Closing (qty)</th>
-                <th className="pb-2 text-right">Closing Value (Rs)</th>
+                <th className="pb-2 text-right">Opening QTY</th>
+                <th className="pb-2 text-right">Opening Rs</th>
+                <th className="pb-2 text-right">GRN QTY</th>
+                <th className="pb-2 text-right">GRN Rs</th>
+                <th className="pb-2 text-right">Issued QTY</th>
+                <th className="pb-2 text-right">Issued Rs</th>
+                <th className="pb-2 text-right">Closing QTY</th>
+                <th className="pb-2 text-right">Closing Rs</th>
               </tr>
             </thead>
             <tbody>
@@ -496,8 +499,11 @@ function StockMovementReportPanel() {
                   <td className="py-2 font-mono text-xs">{r.code}</td>
                   <td className="py-2 font-semibold text-slate-800">{r.name}</td>
                   <td className="py-2 text-right tnum text-slate-500">{fmtNum(r.openingQty)} {r.unit}</td>
+                  <td className="py-2 text-right tnum text-slate-500">{fmtLKR(r.openingValue)}</td>
                   <td className="py-2 text-right tnum text-emerald-600">+{fmtNum(r.receivedQty)}</td>
+                  <td className="py-2 text-right tnum text-emerald-600">{fmtLKR(r.receivedValue)}</td>
                   <td className="py-2 text-right tnum text-rose-600">-{fmtNum(r.issuedQty)}</td>
+                  <td className="py-2 text-right tnum text-rose-600">{fmtLKR(r.issuedValue)}</td>
                   <td className="py-2 text-right tnum font-bold text-slate-800">{fmtNum(r.closingQty)} {r.unit}</td>
                   <td className="py-2 text-right tnum font-semibold">{fmtLKR(r.closingValue)}</td>
                 </tr>
@@ -506,8 +512,11 @@ function StockMovementReportPanel() {
             <tfoot>
               <tr className="border-t-2 border-slate-200">
                 <td colSpan={2} className="py-2 text-xs font-bold text-slate-700">TOTAL VALUE (Rs)</td>
+                <td className="py-2"></td>
                 <td className="py-2 text-right tnum font-bold text-slate-600">{fmtLKR(totalOpening)}</td>
+                <td className="py-2"></td>
                 <td className="py-2 text-right tnum font-bold text-emerald-700">+{fmtLKR(totalReceived)}</td>
+                <td className="py-2"></td>
                 <td className="py-2 text-right tnum font-bold text-rose-700">-{fmtLKR(totalIssued)}</td>
                 <td className="py-2"></td>
                 <td className="py-2 text-right tnum font-extrabold text-slate-800">{fmtLKR(totalClosing)}</td>
@@ -517,7 +526,7 @@ function StockMovementReportPanel() {
         </div>
       )}
       <p className="mt-2 text-[10px] text-slate-400">
-        * Opening = sum of all movements before start date. Received = move_type='in' (GRN, excluding free issues). Issued = move_type='out'. Closing = opening + received − issued. Values use moving-average unit cost.
+        * Opening + GRN − Issued = Closing. Free-issued GRNs increase quantity at Rs 0. Values use the unit-cost snapshot saved on each movement; voids are compensating entries and originals remain auditable.
       </p>
     </Card>
   );

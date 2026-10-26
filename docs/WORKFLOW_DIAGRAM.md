@@ -3596,6 +3596,77 @@ authentication, RLS, or database schema.
 
 *User Management link reliability updated: October 2026.*
 
+## 49. Official Inventory Reports and Reconciliation
+
+The three office workbook templates are now implemented as live reports inside
+**Admin → Inventory & Procurement → Official Reports**. The reports reuse the
+existing inventory ledger and do not create report-copy tables or additional
+database storage.
+
+```text
+Vendor delivery
+  -> GRN + GRN lines
+  -> stock movement IN
+  -> quantity and weighted-average cost update
+  -> GRN Report
+
+Approved supplier/resource request
+  -> select supplier + item + route
+  -> Issue Note reference
+  -> stock movement OUT
+  -> supplier fertilizer ledger when issued on credit
+  -> Issue Note Report
+
+Opening balance + GRN quantity/value - issued quantity/value
+  -> fertilizer closing balance
+  -> Fertilizer Stock Balance
+```
+
+### 49.1 Adopted business rules
+
+- `GRN Supplier Name` means the fertilizer vendor that delivered the goods,
+  not the tea supplier.
+- A free-issued GRN increases physical quantity at `Rs 0`. Total inventory
+  value remains unchanged and the weighted-average cost per unit adjusts.
+- Every issue preserves the unit-cost snapshot that existed when the stock was
+  issued. Historical reports therefore do not recalculate old transactions
+  using today's price.
+- GRN numbers and generated Issue Note references use date, time and a random
+  suffix. A manually entered duplicate Issue Note reference is rejected.
+- An issue cannot reduce stock below zero.
+- Corrections post a compensating movement. The original movement is never
+  deleted, remains visible in history and is marked `VOID` in reports.
+- Credit fertilizer issues cannot be voided from Inventory alone because their
+  supplier financial ledger must be reversed at the same time.
+
+### 49.2 Reports and exports
+
+| Report | Live source | Columns |
+|---|---|---|
+| Issue Note Report | `stock_movements` OUT + `stock_items` | Date, Issue Note Ref., Supplier No, Route, Item, QTY, Unit Price, Amount |
+| GRN Report | `goods_receipts` + `stock_movements` IN + `stock_items` | Date, GRN No, vendor, item, free-issued flag, QTY, Unit Price, Amount |
+| Fertilizer Stock Balance | computed from the movement ledger | Item Code, Description, Opening/GRN/Issued/Closing QTY and Rs values |
+
+All three reports support a date range, search, CSV, Excel-compatible `.xls`
+and branded PDF export. The Fertilizer module's on-screen stock report now also
+shows both quantity and rupee value for every report section.
+
+### 49.3 Data-integrity improvements
+
+- New stock items now persist batch/lot, expiry date and vendor source fields.
+- A stock item with an opening quantity creates an opening-balance ledger entry.
+- Older stock items without that entry recover their legacy opening quantity by
+  reconciling current on-hand stock against all recorded movements.
+- Direct GRNs now support manually adding stock lines without first creating a
+  purchase order.
+- Automated tests cover free-issued stock, void reconciliation and legacy
+  opening-balance recovery.
+
+No new SQL migration is required for this round; it uses the columns already
+introduced by the existing inventory migrations.
+
+*Inventory reports updated: October 2026.*
+
 
 
 
