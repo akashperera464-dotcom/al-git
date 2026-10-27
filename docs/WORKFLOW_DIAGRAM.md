@@ -3705,6 +3705,22 @@ unchanged.
 
 *Estate editing and GPS picker updated: October 2026.*
 
+## 51. Supplier Home Summary Priority
+
+The Supplier Home summary presents operational information before financial
+information. The card order is now:
+
+1. Monthly supplied quantity
+2. Premium-quality share
+3. Monthly earnings
+4. Monthly expenses
+
+This ordering lets a supplier see the month's leaf-supply result first, then
+the related quality indicator, followed by the calculated financial summary.
+The underlying harvest and financial data sources are unchanged.
+
+*Supplier Home summary order updated: October 2026.*
+
 
 
 

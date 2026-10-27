@@ -142,12 +142,12 @@ export function SupplierHome() {
 
       <Suspense fallback={<div className="mb-4 h-64 animate-pulse rounded-2xl bg-slate-100" />}><LorryTracking userId={userUid} /></Suspense>
 
-      {/* Key stats — Earnings + Expenses + Total Supplied + Pending Sync */}
+      {/* Key stats — operational results first, finance second */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
-        <StatCard icon={Wallet} label={t("supplierHome.monthEarnings")} value={fmtLKRShort(totalEarned)} tone="emerald" />
-        <StatCard icon={TrendingUp} label={t("supplierHome.monthExpenses")} value={fmtLKRShort(monthExpenses)} sub={t("supplierHome.laborFertilizer")} tone="rose" />
         <StatCard icon={Package} label={t("supplierHome.monthSupplied")} value={`${fmtNum(totalKg)} kg`} tone="sky" />
         <StatCard icon={Leaf} label={t("supplierHome.superQuality")} value={`${superPct}%`} sub={t("supplierHome.byWeight")} tone="violet" />
+        <StatCard icon={Wallet} label={t("supplierHome.monthEarnings")} value={fmtLKRShort(totalEarned)} tone="emerald" />
+        <StatCard icon={TrendingUp} label={t("supplierHome.monthExpenses")} value={fmtLKRShort(monthExpenses)} sub={t("supplierHome.laborFertilizer")} tone="rose" />
       </div>
 
       {/* Smart reminders */}
