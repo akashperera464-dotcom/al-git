@@ -3667,6 +3667,44 @@ introduced by the existing inventory migrations.
 
 *Inventory reports updated: October 2026.*
 
+## 50. Admin Estate Editing and GPS Map Selection
+
+Registered estates can now be corrected from **Admin → Estate Master → All
+Estates**. The pencil action opens the existing estate in an edit form while
+preserving its owner, approval state and estate blocks.
+
+```text
+Registered estate
+  -> Admin clicks Edit
+  -> change estate/factory/route/contact details
+  -> choose GPS method
+       -> Use current location (device GPS + browser permission)
+       OR
+       -> click exact estate/collection point on OpenStreetMap
+       OR
+       -> enter latitude and longitude manually
+  -> validate coordinate ranges
+  -> save to the existing estates row
+  -> audit the edit
+  -> supplier weather/map features read the same saved coordinates
+```
+
+The map updates the latitude and longitude fields immediately, but the database
+is updated only after **Save changes** is pressed. Current-location detection
+requires HTTPS (provided by Vercel) and location permission on the phone or
+browser. If permission is denied or GPS times out, the form remains usable and
+the administrator can select the point directly on the map.
+
+The estate list displays whether GPS is present and shows the stored
+coordinates. A successful update is verified by requiring the database update
+to return the matching estate ID; otherwise the editor remains open with an
+error. This feature uses the existing `estates.latitude` and
+`estates.longitude` columns, so no SQL migration or additional table is
+required. Authentication, RLS and the Free-plan anon-key Supabase setup remain
+unchanged.
+
+*Estate editing and GPS picker updated: October 2026.*
+
 
 
 

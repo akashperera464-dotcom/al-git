@@ -420,8 +420,9 @@ export async function updateEstate(estateId: string, patch: Partial<Estate>, act
   if (patch.rejectionReason !== undefined) row.rejection_reason = patch.rejectionReason || null;
   if (patch.editCount !== undefined) row.edit_count = patch.editCount;
   row.last_edited_at = new Date().toISOString();
-  const { error } = await getSupabase()!.from("estates").update(row).eq("id", estateId);
+  const { data, error } = await getSupabase()!.from("estates").update(row).eq("id", estateId).select("id").maybeSingle();
   if (error) throw new Error(`Could not update estate: ${error.message}`);
+  if (!data) throw new Error("Could not update estate: no matching estate was found or the update was not accepted.");
   if (actorId) {
     await getSupabase()!.from("admin_audit_log").insert({ admin_id: actorId, action: "edit", entity_type: "estate", entity_id: estateId, details: row });
   }
