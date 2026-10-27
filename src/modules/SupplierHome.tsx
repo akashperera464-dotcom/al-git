@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Leaf, Bell, Wallet, Package, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Leaf, Bell, Wallet, Package, ReceiptText, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum, fmtLKRShort } from "@/lib/data";
@@ -25,7 +25,7 @@ export function SupplierHome() {
   const [totalKg, setTotalKg] = useState(0);
   const [totalEarned, setTotalEarned] = useState(0);
   const [monthExpenses, setMonthExpenses] = useState(0);
-  const [superPct, setSuperPct] = useState(0);
+  const [monthDeliveries, setMonthDeliveries] = useState(0);
   const [prices, setPrices] = useState<DailyTeaPrice[]>([]);
   const [farmLogs, setFarmLogs] = useState<{ activityType: string; loggedDate: string }[]>([]);
 
@@ -44,10 +44,8 @@ export function SupplierHome() {
       const month = new Date().toISOString().slice(0, 7);
       const monthly = recs.filter((record) => record.date.startsWith(month));
       const kg = monthly.reduce((sum, record) => sum + record.kg, 0);
-      const superKg = monthly.filter((record) => record.grade === "Super" || record.grade === "PV Super").reduce((sum, record) => sum + record.kg, 0);
-      const sup = kg ? Math.round((superKg / kg) * 100) : 0;
       setTotalKg(kg);
-      setSuperPct(sup);
+      setMonthDeliveries(monthly.length);
     });
     void readUserOperationalProfile(userUid)
       .then((profile) => readDailyTeaPrices(undefined, profile?.factoryId))
@@ -145,7 +143,7 @@ export function SupplierHome() {
       {/* Key stats — operational results first, finance second */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         <StatCard icon={Package} label={t("supplierHome.monthSupplied")} value={`${fmtNum(totalKg)} kg`} tone="sky" />
-        <StatCard icon={Leaf} label={t("supplierHome.superQuality")} value={`${superPct}%`} sub={t("supplierHome.byWeight")} tone="violet" />
+        <StatCard icon={ReceiptText} label={t("supplierHome.monthDeliveries")} value={fmtNum(monthDeliveries)} sub={t("supplierHome.recordedReceipts")} tone="violet" />
         <StatCard icon={Wallet} label={t("supplierHome.monthEarnings")} value={fmtLKRShort(totalEarned)} tone="emerald" />
         <StatCard icon={TrendingUp} label={t("supplierHome.monthExpenses")} value={fmtLKRShort(monthExpenses)} sub={t("supplierHome.laborFertilizer")} tone="rose" />
       </div>
@@ -215,8 +213,6 @@ export function SupplierHome() {
           </button>
         ))}
       </div>
-
-      {totalKg > 0 && superPct < 35 && <Card className="mb-4 border-amber-200 bg-amber-50 p-3.5"><p className="text-xs font-bold text-amber-800">{t("supplierHome.qualityTipTitle")}</p><p className="mt-1 text-xs text-amber-700">{t("supplierHome.qualityTipBody", { percent: superPct })}</p></Card>}
 
       {/* B30 (Round #12) — Restored Earnings quick-link banner */}
       {totalEarned > 0 && (
