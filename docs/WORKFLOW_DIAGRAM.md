@@ -3725,6 +3725,56 @@ is not yet authoritative without the office system integration.
 
 *Supplier Home summary order updated: October 2026.*
 
+## 52. Factory Office API Integration (Round 16)
+
+This integration connects the existing office leaf system to EMS without
+replacing Firebase authentication, Supabase business data, or the current
+Free-plan architecture.
+
+```text
+Supplier signs in with Firebase
+  -> Supplier screen calls same-origin /api/* over HTTPS
+  -> Vercel Function verifies the Firebase ID token with Google
+  -> server reads the supplier's internal-to-office code mapping
+       factory.office_factory_code
+       route.office_route_code
+       user.office_supplier_id
+  -> Vercel calls the office HTTP API server-to-server
+       /balance  -> current/previous balance and deductions
+       /crop     -> current crop daily leaf quantities
+       /monthly  -> monthly daily leaf details
+       /lorry    -> route lorry coordinates
+  -> server validates and normalizes the response
+  -> supplier UI displays official data
+```
+
+The browser never receives the factory API secret or the Supabase service-role
+key. They are Vercel server-only environment variables. The proxy does not use
+Supabase Auth, Third-Party Auth, `auth.uid()`, JWT bridging, or paid Supabase
+features. Firebase remains the only login system. The service-role key is used
+only inside the server function to resolve the already authenticated user's
+codes; the browser cannot choose arbitrary office factory/supplier codes.
+
+The lorry endpoint currently returns a non-JSON string such as
+`{y: 6.663675<br>x: - 80.4657916}`. The proxy removes HTML, maps `y` to latitude
+and `x` to longitude, corrects the observed negative longitude sign, and
+accepts the point only when it falls within Sri Lanka bounds. Lorry data is
+cached for 25 seconds and polled only while the app tab is visible. Crop and
+balance data are privately cached for 2–3 minutes. Lorry points are not saved
+to Supabase, so this flow makes zero GPS database writes.
+
+If the office server is temporarily unavailable or an office code is not yet
+configured, Supplier Home, Deliveries and Payments continue using the existing
+EMS/Supabase records. My Lorry Map falls back to the existing route-scoped
+Realtime broadcast only when office mappings are missing. The UI identifies
+whether the visible figures came from the Factory office system or EMS.
+
+Deployment steps and required server-only variables are documented in
+`docs/MIGRATION_CHECKLIST.md`. The database mapping columns are created by
+`docs/migration_phase3_round16_factory_api_mapping.sql`.
+
+*Factory Office API integration added: October 2026.*
+
 
 
 

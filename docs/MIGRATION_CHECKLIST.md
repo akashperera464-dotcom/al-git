@@ -167,3 +167,13 @@ Live checks:
 ## Rollback
 
 Restore the pre-deployment dump for a full rollback. For an application-only rollback, deploy the previous Git commit while leaving additive columns/tables in place. To roll back only Round 13, remove the two named policies on `realtime.messages`, restore the previous frontend commit and re-enable public access only if an older public-channel feature explicitly requires it. Round 14 is additive; an application rollback may retain `user_route_assignments`, while `users.route_id` continues to identify the primary route. Do not drop the junction table after secondary routes are in production use. Do not drop `client_record_id`, route codes, assignment history or audit rows after production writes begin. Price rollback must use the UI/RPC so the audit trail remains intact.
+# Round 16 · Factory office API integration
+
+1. Run `docs/migration_phase3_round16_factory_api_mapping.sql` in Supabase SQL Editor. This adds only three mapping columns and indexes; it does not change RLS.
+2. Open Admin → Estate Master → Office API. Enter the office factory code and each office route code.
+3. Open Admin → User Management. Edit each connected supplier and enter their Office Supplier ID / Card ID.
+4. In Vercel → Project → Settings → Environment Variables, add `FACTORY_API_BASE_URL`, `FACTORY_API_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, and `FIREBASE_API_KEY`. Apply to Production and Preview, then redeploy.
+5. Do not use `VITE_` for `FACTORY_API_SECRET` or `SUPABASE_SERVICE_ROLE_KEY`; a `VITE_` variable is bundled into the browser.
+6. Test one mapped supplier: Home monthly totals, Deliveries daily leaf rows, Payments balance, and My Lorry Map.
+
+The Vercel proxy verifies the Firebase ID token with Google, then reads mappings with the Supabase service-role key on the server. It does not enable Supabase Third-Party Auth and works on the Supabase Free plan. The service-role key must never be added to `.env` or frontend source.

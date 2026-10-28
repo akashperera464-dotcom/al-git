@@ -9,6 +9,7 @@ import { readDailyTeaPrices, readUserOperationalProfile, type DailyTeaPrice } fr
 import { gradeKey } from "@/i18n/databaseValues";
 import { readSupplierFinancialSummary } from "@/lib/financialSummary";
 import { useEstateWeather, useSupplierWeatherEstate } from "@/lib/useEstateWeather";
+import { fetchOfficeBalance, fetchOfficeCrop } from "@/lib/officeApi";
 
 const LorryTracking = lazy(() => import("@/modules/LorryTracking"));
 
@@ -26,6 +27,7 @@ export function SupplierHome() {
   const [totalEarned, setTotalEarned] = useState(0);
   const [monthExpenses, setMonthExpenses] = useState(0);
   const [monthDeliveries, setMonthDeliveries] = useState(0);
+  const [leafDataSource, setLeafDataSource] = useState<"office-api" | "ems">("ems");
   const [prices, setPrices] = useState<DailyTeaPrice[]>([]);
   const [farmLogs, setFarmLogs] = useState<{ activityType: string; loggedDate: string }[]>([]);
 
@@ -57,6 +59,18 @@ export function SupplierHome() {
       .then((summary) => { setTotalEarned(summary?.grossEarnings ?? 0); setMonthExpenses(summary?.totalDeductions ?? 0); })
       .catch(() => { setTotalEarned(0); setMonthExpenses(0); });
   }, [userUid, associatedEntityId, user?.name]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void Promise.all([fetchOfficeCrop(controller.signal), fetchOfficeBalance(controller.signal)])
+      .then(([crop, balance]) => {
+        setTotalKg(crop.totals.totalQty); setMonthDeliveries(crop.totals.deliveryCount);
+        setTotalEarned(balance.currentMonth.totalGrossPay); setMonthExpenses(balance.currentMonth.totalDeduction);
+        setLeafDataSource("office-api");
+      })
+      .catch(() => setLeafDataSource("ems"));
+    return () => controller.abort();
+  }, [userUid]);
 
   // Smart reminders from farm activities
   const lastFert = farmLogs.filter(a => a.activityType === "fertilizer").sort((a, b) => b.loggedDate.localeCompare(a.loggedDate))[0];
@@ -147,6 +161,7 @@ export function SupplierHome() {
         <StatCard icon={Wallet} label={t("supplierHome.monthEarnings")} value={fmtLKRShort(totalEarned)} tone="emerald" />
         <StatCard icon={TrendingUp} label={t("supplierHome.monthExpenses")} value={fmtLKRShort(monthExpenses)} sub={t("supplierHome.laborFertilizer")} tone="rose" />
       </div>
+      <p className="-mt-2 mb-4 text-center text-[10px] font-semibold text-slate-400">{leafDataSource === "office-api" ? "Live source: Factory office system" : "Source: EMS records"}</p>
 
       {/* Smart reminders */}
       {(fertDue || pruneDue) && (

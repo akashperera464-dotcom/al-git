@@ -19,6 +19,8 @@ import { readDailyTeaPrices, readUserOperationalProfile } from "@/lib/supplierOp
 import { gradeKey, statusKey } from "@/i18n/databaseValues";
 import { readSupplierFinancialSummary, type SupplierFinancialSummary } from "@/lib/financialSummary";
 import { createAlert, readAlerts } from "@/lib/notifications";
+import { fetchOfficeBalance } from "@/lib/officeApi";
+import type { OfficeBalanceResponse } from "@/lib/officeApiContracts";
 
 /** Daily Tea Prices card — shows today's price per kg per grade. */
 function DailyPriceCard() {
@@ -391,20 +393,23 @@ function CostEarningsChart({ financial }: { financial: SupplierFinancialSummary 
 export function SupplierPayments() {
   const { t } = useTranslation();
   const { records, loading } = useOwnSupply();
-  const suppliedKg = records.reduce((sum, record) => sum + record.kg, 0);
+  const emsSuppliedKg = records.reduce((sum, record) => sum + record.kg, 0);
   const { userUid } = useApp();
   const [financial, setFinancial] = useState<SupplierFinancialSummary | null>(null);
+  const [officeBalance, setOfficeBalance] = useState<OfficeBalanceResponse | null>(null);
   useEffect(() => { void readSupplierFinancialSummary(userUid, new Date().toISOString().slice(0, 7)).then(setFinancial).catch(() => setFinancial(null)); }, [userUid]);
-  const earned = financial?.grossEarnings ?? 0;
+  useEffect(() => { const controller = new AbortController(); void fetchOfficeBalance(controller.signal).then(setOfficeBalance).catch(() => setOfficeBalance(null)); return () => controller.abort(); }, [userUid]);
+  const suppliedKg = officeBalance ? officeBalance.currentMonth.superLeafQty + officeBalance.currentMonth.normalLeafQty : emsSuppliedKg;
+  const earned = officeBalance?.currentMonth.totalGrossPay ?? financial?.grossEarnings ?? 0;
   const realizedRate = suppliedKg > 0 ? earned / suppliedKg : 0;
-  const pending = financial?.estimatedNetPayable ?? 0;
+  const pending = officeBalance?.currentMonth.balance ?? financial?.estimatedNetPayable ?? 0;
 
   // Fertilizer credit cost estimate (kg × Rs 95/kg average)
-  const fertCreditCost = financial?.fertilizerDeduction ?? 0;
-  const advanceBalance = financial?.cashAdvanceInstallment ?? 0;
+  const fertCreditCost = officeBalance ? (officeBalance.currentMonth.deductions.fertilizerLMB ?? 0) + (officeBalance.currentMonth.deductions.fertilizerThisMonthInstalment ?? 0) : financial?.fertilizerDeduction ?? 0;
+  const advanceBalance = officeBalance ? ["advanceATM", "advancePOS", "advanceRoute", "advanceOffice", "loanInstallment", "bankLoan"].reduce((sum, key) => sum + (officeBalance.currentMonth.deductions[key] ?? 0), 0) : financial?.cashAdvanceInstallment ?? 0;
   const laborCostMonth = financial?.otherDeductions ?? 0;
   const fertCreditKg = 0;
-  const netPayable = financial?.confirmedNetPayable ?? financial?.estimatedNetPayable ?? 0;
+  const netPayable = officeBalance?.currentMonth.balance ?? financial?.confirmedNetPayable ?? financial?.estimatedNetPayable ?? 0;
 
   return (
     <div>
@@ -415,6 +420,7 @@ export function SupplierPayments() {
         icon={<IconChip icon={Wallet} tone="emerald" className="h-12 w-12" />}
       />
       <LinkedEstateBanner />
+      <p className="mb-3 text-center text-[10px] font-semibold text-slate-400">{officeBalance ? `Live source: Factory office system · ${officeBalance.currentMonth.monthName}` : "Source: EMS financial records"}</p>
 
       {/* B30 (Round #12) — Estimate disclaimer banner */}
       <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">

@@ -620,7 +620,20 @@ Quality review එකේ අවම end-to-end test එක:
 
 ---
 
-## 16. ලේඛන නඩත්තු කිරීමේ නීතිය
+## 16. Office API එකෙන් දලු, balance සහ ලොරි ස්ථානය ලැබෙන ආකාරය
+
+Office API mapping එක Admin විසින් සකස් කළ supplier කෙනෙකු login වූ විට, app එක ඔහුගේ/ඇයගේ factory code, route code සහ Office Supplier ID භාවිත කර office system එකෙන් current leaf, monthly leaf, balance සහ lorry location ලබාගනී.
+
+- Admin → Estate Master → **Office API** තුළ factory සහ route codes save කරයි.
+- Admin → User Management → supplier edit කර **Office Supplier ID / Card ID** save කරයි.
+- Supplier Home එකේ monthly kg, delivery count, earnings සහ deductions office system එකෙන් පෙන්වයි.
+- My Deliveries තුළ Normal Leaf/Super Leaf දින අනුව පෙන්වයි.
+- Payments තුළ office system එකේ gross pay, deductions සහ current balance පෙන්වයි.
+- My Lorry Map එක route එකේ office GPS coordinate එක තත්පර 25කට ආසන්න වාරයකින් refresh කරයි. Supplier වෙනත් route එකක location එක ඉල්ලිය නොහැක.
+
+Office mapping තවම දාලා නැත්නම් හෝ office server එක තාවකාලිකව unavailable නම්, app එක බිඳෙන්නේ නැහැ. Supplier financial/leaf screens existing EMS records පෙන්වයි; map එක existing EMS live broadcast එකට fallback වෙයි. Screen එකේ **Factory office system** හෝ **EMS records** යන source label එකෙන් භාවිත වන දත්ත මූලාශ්‍රය හඳුනාගත හැක.
+
+## 17. ලේඛන නඩත්තු කිරීමේ නීතිය
 
 App feature එකක් add, remove, rename හෝ flow එකක් වෙනස් කරන සෑම commit එකකදීම:
 

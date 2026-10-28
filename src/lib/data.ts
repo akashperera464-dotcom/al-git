@@ -728,6 +728,7 @@ export interface ManagedUser {
   routeId?: string;
   factoryName?: string;
   routeName?: string;
+  officeSupplierId?: string;
   status: "active" | "suspended" | "pending_approval";
   /** Recoverable account deactivation timestamp (Round 11 soft-delete). */
   deactivatedAt?: string;

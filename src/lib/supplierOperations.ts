@@ -92,13 +92,14 @@ export async function readSupplierDirectory(factoryId?: string, routeId?: string
 
 export async function updateSupplierOperationalFields(
   userId: string,
-  patch: { supplierNo?: string | null; factoryId?: string | null; routeId?: string | null; status?: "active" | "suspended" | "pending_approval" | "rejected" }
+  patch: { supplierNo?: string | null; factoryId?: string | null; routeId?: string | null; officeSupplierId?: string | null; status?: "active" | "suspended" | "pending_approval" | "rejected" }
 ): Promise<void> {
   if (!supabaseConfigured) return;
   const row: Record<string, unknown> = {};
   if (patch.supplierNo !== undefined) row.supplier_no = patch.supplierNo || null;
   if (patch.factoryId !== undefined) row.factory_id = patch.factoryId || null;
   if (patch.routeId !== undefined) row.route_id = patch.routeId || null;
+  if (patch.officeSupplierId !== undefined) row.office_supplier_id = patch.officeSupplierId || null;
   if (patch.status !== undefined) row.status = patch.status;
   if (!Object.keys(row).length) return;
   const { error } = await getSupabase()!.from("users").update(row).eq("id", userId);

@@ -13,6 +13,7 @@ import { AI_ADVISORY_DISTANCE_KM, requestProximityAdvisory, type ProximityAdviso
 import { readUserOperationalProfile } from "@/lib/supplierOperations";
 import { subscribeToLorryLocation, type LorryChannelStatus, type LorryLocation } from "@/lib/lorryBroadcast";
 import { readUserRouteAssignments, type UserRouteAssignment } from "@/lib/userRoutes";
+import { fetchOfficeLorry, isOfficeMappingMissing } from "@/lib/officeApi";
 
 interface EstatePoint { id: string; name: string; latitude: number; longitude: number }
 
@@ -36,6 +37,7 @@ export function LorryTracking({ userId }: { userId: string }) {
   const [routeOptions, setRouteOptions] = useState<UserRouteAssignment[]>([]);
   const [estates, setEstates] = useState<Estate[]>([]);
   const [channelStatus, setChannelStatus] = useState<LorryChannelStatus>("connecting");
+  const [trackingSource, setTrackingSource] = useState<"office-api" | "realtime">("office-api");
   const [error, setError] = useState("");
   const [clock, setClock] = useState(() => Date.now());
   const [advisory, setAdvisory] = useState<ProximityAdvisory | null>(null);
@@ -67,15 +69,35 @@ export function LorryTracking({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (!routeId) return;
-    let active = true;
+    let active = true; let fallbackUnsubscribe: (() => void) | undefined; let timer: number | undefined; let controller: AbortController | undefined;
     setLocation(null); setError(""); setChannelStatus("connecting");
-    const unsubscribe = subscribeToLorryLocation(routeId, (next) => active && setLocation(next), (status, message) => {
+    const startRealtimeFallback = () => {
+      if (!active || fallbackUnsubscribe) return;
+      setTrackingSource("realtime");
+      fallbackUnsubscribe = subscribeToLorryLocation(routeId, (next) => active && setLocation(next), (status, message) => {
         if (!active) return;
         setChannelStatus(status);
         if (status === "error") setError(message ?? t("lorry.trackingUnavailable"));
         else setError("");
       });
-    return () => { active = false; unsubscribe(); };
+    };
+    const poll = async () => {
+      if (!active || document.visibilityState !== "visible") return;
+      controller?.abort(); controller = new AbortController();
+      try {
+        const next = await fetchOfficeLorry(routeId, controller.signal);
+        if (!active) return;
+        setTrackingSource("office-api"); setChannelStatus("live"); setError("");
+        setLocation({ id: `office:${routeId}:${next.fetchedAt}`, latitude: next.latitude, longitude: next.longitude, routeId, active: true, updatedAt: next.fetchedAt });
+      } catch (reason) {
+        if (!active || (reason instanceof DOMException && reason.name === "AbortError")) return;
+        if (isOfficeMappingMissing(reason)) startRealtimeFallback();
+        else { setChannelStatus("error"); setError(reason instanceof Error ? reason.message : t("lorry.trackingUnavailable")); }
+      }
+    };
+    const onVisibility = () => { if (document.visibilityState === "visible") void poll(); };
+    void poll(); timer = window.setInterval(() => void poll(), 25_000); document.addEventListener("visibilitychange", onVisibility);
+    return () => { active = false; controller?.abort(); if (timer) window.clearInterval(timer); fallbackUnsubscribe?.(); document.removeEventListener("visibilitychange", onVisibility); };
   }, [routeId, t]);
 
   const selectedRoute = routeOptions.find((route) => route.id === routeId);
@@ -130,7 +152,7 @@ export function LorryTracking({ userId }: { userId: string }) {
     </div>
     {error && <p className="px-3.5 py-2 text-xs text-rose-600">{error}</p>}
     {!error && !estatePoint && <p className="px-3.5 py-2 text-xs text-amber-700">{t("lorry.noEstateGps")}</p>}
-    <div className="flex flex-wrap items-center justify-between gap-2 bg-sky-50 px-3.5 py-2 text-[11px] text-sky-700"><span className="flex items-center gap-1.5"><Radio className="h-3 w-3" />{statusLabel} · {t("lorry.databaseFree")}</span>{location && <span>{t("lorry.gpsAccuracy")}: {Math.round(location.accuracyM ?? 0)} m · {new Date(location.updatedAt).toLocaleTimeString()}</span>}</div>
+    <div className="flex flex-wrap items-center justify-between gap-2 bg-sky-50 px-3.5 py-2 text-[11px] text-sky-700"><span className="flex items-center gap-1.5"><Radio className="h-3 w-3" />{statusLabel} · {trackingSource === "office-api" ? "Office GPS API" : t("lorry.databaseFree")}</span>{location && <span>{location.accuracyM != null ? `${t("lorry.gpsAccuracy")}: ${Math.round(location.accuracyM)} m · ` : ""}{new Date(location.updatedAt).toLocaleTimeString()}</span>}</div>
   </Card>;
 }
 

@@ -11,6 +11,8 @@ import { useLiveData } from "@/lib/useLiveData";
 import { readSupplierFinancialSummary, type SupplierFinancialSummary } from "@/lib/financialSummary";
 import { createWorkflowRequest, readUserNames } from "@/lib/connectedOperations";
 import { readMyEstates } from "@/lib/estateRepo";
+import { fetchOfficeBalance, fetchOfficeMonthly } from "@/lib/officeApi";
+import type { OfficeBalanceResponse, OfficeLeafResponse } from "@/lib/officeApiContracts";
 
 type LeafGroup = "normal" | "super";
 
@@ -41,6 +43,8 @@ export function SupplierDeliveries() {
   const [collectorNames, setCollectorNames] = useState<Record<string, string>>({});
   const [estateNames, setEstateNames] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
+  const [officeLeaf, setOfficeLeaf] = useState<OfficeLeafResponse | null>(null);
+  const [officeBalance, setOfficeBalance] = useState<OfficeBalanceResponse | null>(null);
   const { data: records, loading } = useLiveData<SupplyRecord>(
     "harvest_records",
     // Round 11 multi-estate: supplier ownership, not one legacy primary estate,
@@ -58,6 +62,14 @@ export function SupplierDeliveries() {
   }, [userUid]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    void Promise.all([fetchOfficeMonthly(controller.signal), fetchOfficeBalance(controller.signal)])
+      .then(([leaf, balance]) => { setOfficeLeaf(leaf); setOfficeBalance(balance); })
+      .catch(() => { setOfficeLeaf(null); setOfficeBalance(null); });
+    return () => controller.abort();
+  }, [userUid]);
+
+  useEffect(() => {
     void readUserNames(records.map((record) => record.collectorId ?? "")).then(setCollectorNames);
     void readMyEstates(userUid).then((rows) => setEstateNames(Object.fromEntries(rows.map((row) => [row.id, row.name])))).catch(() => setEstateNames({}));
   }, [records, userUid]);
@@ -68,7 +80,7 @@ export function SupplierDeliveries() {
   );
 
   const amountFor = (record: SupplyRecord) => record.amount || record.kg * (prices[record.grade] ?? 0);
-  const breakdown = useMemo(() => {
+  const emsBreakdown = useMemo(() => {
     const result: Record<LeafGroup, { kg: number; amount: number }> = {
       normal: { kg: 0, amount: 0 },
       super: { kg: 0, amount: 0 },
@@ -81,7 +93,7 @@ export function SupplierDeliveries() {
     return result;
   }, [monthRecords, prices]);
 
-  const dailyRows = useMemo(() => {
+  const emsDailyRows = useMemo(() => {
     const grouped = new Map<string, Record<LeafGroup, { kg: number; amount: number }>>();
     for (const record of monthRecords) {
       const date = record.date.slice(0, 10);
@@ -97,8 +109,16 @@ export function SupplierDeliveries() {
     return [...grouped.entries()].sort(([a], [b]) => b.localeCompare(a));
   }, [monthRecords, prices]);
 
+  const breakdown = useMemo(() => officeLeaf ? {
+    normal: { kg: officeLeaf.totals.normalLeafQty, amount: officeLeaf.totals.normalLeafQty * (officeBalance?.currentMonth.normalLeafRate ?? 0) },
+    super: { kg: officeLeaf.totals.superLeafQty, amount: officeLeaf.totals.superLeafQty * (officeBalance?.currentMonth.superLeafRate ?? 0) },
+  } : emsBreakdown, [emsBreakdown, officeBalance, officeLeaf]);
+  const dailyRows = useMemo(() => officeLeaf ? officeLeaf.deliveries.map((row) => [row.date, {
+    normal: { kg: row.normalLeafQty, amount: row.normalLeafQty * (officeBalance?.currentMonth.normalLeafRate ?? 0) },
+    super: { kg: row.superLeafQty, amount: row.superLeafQty * (officeBalance?.currentMonth.superLeafRate ?? 0) },
+  }] as const).sort(([a], [b]) => b.localeCompare(a)) : emsDailyRows, [emsDailyRows, officeBalance, officeLeaf]);
   const totalKg = breakdown.normal.kg + breakdown.super.kg;
-  const totalAmount = financial?.grossEarnings ?? 0;
+  const totalAmount = officeBalance?.currentMonth.totalGrossPay ?? financial?.grossEarnings ?? 0;
   const superPercentage = totalKg ? Math.round((breakdown.super.kg / totalKg) * 100) : 0;
 
   const downloadStatement = async () => {
@@ -133,6 +153,7 @@ export function SupplierDeliveries() {
       />
 
       {message && <p className="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-700">{message}</p>}
+      <p className="mb-3 text-center text-[10px] font-semibold text-slate-400">{officeLeaf ? `Live source: Factory office system · ${officeLeaf.monthName}` : "Source: EMS records"}</p>
 
       <Card className="mb-4 p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
