@@ -1,4 +1,4 @@
-import { normalizeOfficeBalance, normalizeOfficeLeaf, parseOfficeLorry } from "../src/lib/officeApiContracts";
+import { normalizeOfficeBalance, normalizeOfficeLeaf, parseOfficeLorry } from "../src/lib/officeApiContracts.js";
 
 type EndpointKind = "balance" | "crop" | "monthly" | "lorry";
 interface UserMapping { uid: string; factoryCode: string; routeCode: string; supplierId?: string }

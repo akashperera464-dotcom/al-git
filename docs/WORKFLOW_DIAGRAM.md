@@ -3824,7 +3824,15 @@ Supplier browser
 This runtime correction changes no API mappings, secrets, authentication, RLS
 or database tables.
 
-*Vercel runtime handler corrected: 29 October 2026.*
+Vercel's production Node runtime uses native ESM module resolution. All
+server-function imports therefore include their emitted `.js` extension. This
+prevents `ERR_MODULE_NOT_FOUND` during function startup. `/api/health` is a
+dependency-free production probe: it must return
+`{"ok":true,"service":"factory-api-proxy"}` before office API troubleshooting
+continues. An unsigned request to an office endpoint must then return a clean
+JSON `401 AUTH_REQUIRED`, proving the full proxy module graph loaded correctly.
+
+*Vercel runtime handler and ESM loading corrected: 29 October 2026.*
 
 
 

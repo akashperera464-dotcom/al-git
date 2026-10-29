@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { handleFactoryRequest } from "./factoryProxy";
+import { handleFactoryRequest } from "./factoryProxy.js";
 
 export type FactoryEndpointKind = "balance" | "crop" | "monthly" | "lorry";
 
