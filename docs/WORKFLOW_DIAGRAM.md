@@ -3832,6 +3832,12 @@ dependency-free production probe: it must return
 continues. An unsigned request to an office endpoint must then return a clean
 JSON `401 AUTH_REQUIRED`, proving the full proxy module graph loaded correctly.
 
+Runtime failures are classified without returning secrets or personal data:
+mapping database HTTP/network failures, factory network/time-out failures and
+invalid factory response formats have separate safe error codes. The same
+category is written to Vercel Runtime Logs so deployment faults are no longer
+hidden behind an undifferentiated `500` message.
+
 *Vercel runtime handler and ESM loading corrected: 29 October 2026.*
 
 

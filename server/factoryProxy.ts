@@ -49,9 +49,14 @@ async function verifyFirebaseUser(idToken: string): Promise<string> {
 async function supabaseRows<T>(path: string): Promise<T[]> {
   const base = env("VITE_SUPABASE_URL").replace(/\/+$/, "");
   const key = env("SUPABASE_SERVICE_ROLE_KEY");
-  const response = await fetch(`${base}/rest/v1/${path}`, {
-    headers: { apikey: key, authorization: `Bearer ${key}`, accept: "application/json" },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${base}/rest/v1/${path}`, {
+      headers: { apikey: key, authorization: `Bearer ${key}`, accept: "application/json" },
+    });
+  } catch {
+    throw new Error("MAPPING_NETWORK_FAILED");
+  }
   if (!response.ok) throw new Error(`MAPPING_READ_FAILED:${response.status}`);
   return response.json() as Promise<T[]>;
 }
@@ -93,7 +98,13 @@ async function fetchFactory(kind: EndpointKind, mapping: UserMapping): Promise<u
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
   try {
-    const response = await fetch(`${base}/${FACTORY_PATH[kind]}?${query}`, { signal: controller.signal, headers: { accept: "application/json,text/plain,*/*" } });
+    let response: Response;
+    try {
+      response = await fetch(`${base}/${FACTORY_PATH[kind]}?${query}`, { signal: controller.signal, headers: { accept: "application/json,text/plain,*/*" } });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") throw new Error("FACTORY_TIMEOUT");
+      throw new Error("FACTORY_NETWORK_FAILED");
+    }
     if (!response.ok) throw new Error(`FACTORY_UPSTREAM_${response.status}`);
     const rawText = await response.text();
     const fetchedAt = new Date().toISOString();
@@ -102,7 +113,9 @@ async function fetchFactory(kind: EndpointKind, mapping: UserMapping): Promise<u
     else {
       let parsed: unknown;
       try { parsed = JSON.parse(rawText); } catch { throw new Error("FACTORY_INVALID_JSON"); }
-      normalized = kind === "balance" ? normalizeOfficeBalance(parsed, fetchedAt) : normalizeOfficeLeaf(parsed, fetchedAt);
+      try {
+        normalized = kind === "balance" ? normalizeOfficeBalance(parsed, fetchedAt) : normalizeOfficeLeaf(parsed, fetchedAt);
+      } catch { throw new Error("FACTORY_RESPONSE_INVALID"); }
     }
     responseCache.set(cacheKey, { value: normalized, expiresAt: Date.now() + TTL[kind] });
     return normalized;
@@ -114,8 +127,13 @@ function publicError(error: unknown): { status: number; code: string; message: s
   if (raw === "AUTH_REQUIRED" || raw === "AUTH_INVALID") return { status: 401, code: raw, message: "Please sign in again." };
   if (raw === "SUPPLIER_ACCESS_DENIED" || raw === "ROUTE_ACCESS_DENIED") return { status: 403, code: raw, message: "This office API route is not assigned to your account." };
   if (raw === "OFFICE_MAPPING_MISSING" || raw === "SUPPLIER_NUMBER_MISSING") return { status: 409, code: raw, message: "Factory/route codes or the supplier number have not been configured." };
+  if (raw.startsWith("MAPPING_READ_FAILED:")) {
+    const status = raw.split(":")[1] || "unknown";
+    return { status: 503, code: "OFFICE_MAPPING_READ_FAILED", message: `Office mapping database request failed (HTTP ${status}).` };
+  }
+  if (raw === "MAPPING_NETWORK_FAILED") return { status: 503, code: raw, message: "Office mapping database could not be reached." };
   if (raw.startsWith("Server configuration")) return { status: 503, code: "SERVER_NOT_CONFIGURED", message: raw };
-  if (raw.startsWith("FACTORY_") || raw === "AbortError") return { status: 502, code: "FACTORY_API_UNAVAILABLE", message: "The factory system is temporarily unavailable." };
+  if (raw.startsWith("FACTORY_")) return { status: 502, code: raw, message: `The factory system request failed (${raw}).` };
   return { status: 500, code: "OFFICE_API_ERROR", message: "The office API request could not be completed." };
 }
 
@@ -128,6 +146,11 @@ export async function handleFactoryRequest(kind: EndpointKind, request: Request)
     const data = await fetchFactory(kind, mapping);
     return json(200, data, Math.floor(TTL[kind] / 1000));
   } catch (error) {
+    console.error("[factory-api] request failed", {
+      kind,
+      name: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? error.message : "UNKNOWN",
+    });
     const result = publicError(error);
     return json(result.status, { error: { code: result.code, message: result.message } });
   }
