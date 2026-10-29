@@ -240,10 +240,10 @@ export async function readUsersForAdmin(): Promise<ManagedUser[]> {
   const sb = getSupabase()!;
   let { data, error } = await sb
     .from("users")
-    .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, office_supplier_id, status, deactivated_at, created_at, factories!users_factory_id_fkey(name), routes!users_route_id_fkey(route_name)")
+    .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, status, deactivated_at, created_at, factories!users_factory_id_fkey(name), routes!users_route_id_fkey(route_name)")
     .order("created_at", { ascending: false });
   // Keep User Management available between frontend deployment and SQL migration.
-  if (error?.message?.includes("deactivated_at") || error?.message?.includes("office_supplier_id")) {
+  if (error?.message?.includes("deactivated_at")) {
     const fallback = await sb.from("users")
       .select("id, name, email, phone, division, role, associated_entity_id, supplier_no, factory_id, route_id, status, created_at, factories!users_factory_id_fkey(name), routes!users_route_id_fkey(route_name)")
       .order("created_at", { ascending: false });
@@ -264,7 +264,6 @@ export async function readUsersForAdmin(): Promise<ManagedUser[]> {
     routeId: u.route_id ?? undefined,
     factoryName: (u.factories as unknown as { name?: string } | null)?.name,
     routeName: (u.routes as unknown as { route_name?: string } | null)?.route_name,
-    officeSupplierId: (u as unknown as { office_supplier_id?: string | null }).office_supplier_id ?? undefined,
     status: (u.status ?? "active") as ManagedUser["status"],
     deactivatedAt: u.deactivated_at ?? undefined,
     lastActive: relativeTime(u.created_at),

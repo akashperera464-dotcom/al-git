@@ -57,8 +57,8 @@ async function supabaseRows<T>(path: string): Promise<T[]> {
 }
 
 async function resolveMapping(uid: string, requestedRouteId?: string): Promise<UserMapping> {
-  type UserRow = { id: string; role: string; status: string; factory_id: string | null; route_id: string | null; office_supplier_id: string | null };
-  const users = await supabaseRows<UserRow>(`users?id=eq.${encodeURIComponent(uid)}&select=id,role,status,factory_id,route_id,office_supplier_id&limit=1`);
+  type UserRow = { id: string; role: string; status: string; factory_id: string | null; route_id: string | null; supplier_no: string | null };
+  const users = await supabaseRows<UserRow>(`users?id=eq.${encodeURIComponent(uid)}&select=id,role,status,factory_id,route_id,supplier_no&limit=1`);
   const user = users[0];
   if (!user || user.role !== "supplier" || user.status !== "active") throw new Error("SUPPLIER_ACCESS_DENIED");
 
@@ -78,11 +78,11 @@ async function resolveMapping(uid: string, requestedRouteId?: string): Promise<U
   const factoryCode = factories[0]?.office_factory_code?.trim();
   const routeCode = route.office_route_code?.trim();
   if (!factoryCode || !routeCode) throw new Error("OFFICE_MAPPING_MISSING");
-  return { uid, factoryCode, routeCode, supplierId: user.office_supplier_id?.trim() || undefined };
+  return { uid, factoryCode, routeCode, supplierId: user.supplier_no?.trim() || undefined };
 }
 
 async function fetchFactory(kind: EndpointKind, mapping: UserMapping): Promise<unknown> {
-  if (kind !== "lorry" && !mapping.supplierId) throw new Error("OFFICE_SUPPLIER_ID_MISSING");
+  if (kind !== "lorry" && !mapping.supplierId) throw new Error("SUPPLIER_NUMBER_MISSING");
   const base = env("FACTORY_API_BASE_URL").replace(/\/+$/, "");
   const query = new URLSearchParams({ secret: env("FACTORY_API_SECRET"), factoryCode: mapping.factoryCode, routeCode: mapping.routeCode });
   if (kind !== "lorry") query.set("id", mapping.supplierId!);
@@ -113,7 +113,7 @@ function publicError(error: unknown): { status: number; code: string; message: s
   const raw = error instanceof Error ? error.message : "UNKNOWN";
   if (raw === "AUTH_REQUIRED" || raw === "AUTH_INVALID") return { status: 401, code: raw, message: "Please sign in again." };
   if (raw === "SUPPLIER_ACCESS_DENIED" || raw === "ROUTE_ACCESS_DENIED") return { status: 403, code: raw, message: "This office API route is not assigned to your account." };
-  if (raw === "OFFICE_MAPPING_MISSING" || raw === "OFFICE_SUPPLIER_ID_MISSING") return { status: 409, code: raw, message: "Office API codes have not been configured for this supplier and route." };
+  if (raw === "OFFICE_MAPPING_MISSING" || raw === "SUPPLIER_NUMBER_MISSING") return { status: 409, code: raw, message: "Factory/route codes or the supplier number have not been configured." };
   if (raw.startsWith("Server configuration")) return { status: 503, code: "SERVER_NOT_CONFIGURED", message: raw };
   if (raw.startsWith("FACTORY_") || raw === "AbortError") return { status: 502, code: "FACTORY_API_UNAVAILABLE", message: "The factory system is temporarily unavailable." };
   return { status: 500, code: "OFFICE_API_ERROR", message: "The office API request could not be completed." };

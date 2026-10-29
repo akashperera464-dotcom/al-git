@@ -3738,7 +3738,7 @@ Supplier signs in with Firebase
   -> server reads the supplier's internal-to-office code mapping
        factory.office_factory_code
        route.office_route_code
-       user.office_supplier_id
+       user.supplier_no (the office supplier/card ID)
   -> Vercel calls the office HTTP API server-to-server
        /balance  -> current/previous balance and deductions
        /crop     -> current crop daily leaf quantities
@@ -3774,6 +3774,36 @@ Deployment steps and required server-only variables are documented in
 `docs/migration_phase3_round16_factory_api_mapping.sql`.
 
 *Factory Office API integration added: October 2026.*
+
+## 53. Official Route Code Import (Round 17)
+
+The office route workbook is now the authoritative mapping source for the five
+factories connected to the leaf and lorry APIs.
+
+```text
+Office workbook + supplied factory codes
+  -> Round 17 migration
+  -> 5 factory mappings
+       Galpadihenna 0101
+       Peak view    0102
+       Matuwagala   0103
+       Kuttapitiya  0104
+       Madampe      0105
+  -> 139 route mappings (leading zeros preserved)
+  -> missing workbook routes added without replacing existing route IDs
+  -> supplier login
+  -> users.supplier_no becomes API id automatically
+```
+
+Route spelling differences between the old EMS seed and the office workbook
+are mapped explicitly, so existing supplier/estate route links are preserved.
+The separate `office_supplier_id` column from Round 16 remains in the database
+for backwards compatibility but is deprecated and no longer read or edited by
+the application. The Supplier No field is text, so values such as `01` retain
+their leading zero. No RLS, Firebase, Supabase Auth or paid-plan behavior is
+changed.
+
+*Official factory and route codes integrated: 29 October 2026.*
 
 
 

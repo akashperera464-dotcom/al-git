@@ -20,7 +20,7 @@ export default function FactoryApiMapping() {
     try {
       await saveFactoryOfficeCode(factory.id, factory.officeFactoryCode);
       await Promise.all(routes.map((route) => saveRouteOfficeCode(route.id, route.officeRouteCode)));
-      setSaved("Office API codes saved. Supplier IDs are configured in User Management.");
+      setSaved("Office API codes saved. Each supplier's existing Supplier No is used as the office card ID automatically.");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save mappings."); }
     finally { setBusy(false); }
   };

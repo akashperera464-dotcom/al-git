@@ -171,9 +171,17 @@ Restore the pre-deployment dump for a full rollback. For an application-only rol
 
 1. Run `docs/migration_phase3_round16_factory_api_mapping.sql` in Supabase SQL Editor. This adds only three mapping columns and indexes; it does not change RLS.
 2. Open Admin → Estate Master → Office API. Enter the office factory code and each office route code.
-3. Open Admin → User Management. Edit each connected supplier and enter their Office Supplier ID / Card ID.
+3. Ensure each supplier's existing **Supplier No** is the exact office card/supplier ID. A separate Office Supplier ID is no longer used.
 4. In Vercel → Project → Settings → Environment Variables, add `FACTORY_API_BASE_URL`, `FACTORY_API_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, and `FIREBASE_API_KEY`. Apply to Production and Preview, then redeploy.
 5. Do not use `VITE_` for `FACTORY_API_SECRET` or `SUPABASE_SERVICE_ROLE_KEY`; a `VITE_` variable is bundled into the browser.
 6. Test one mapped supplier: Home monthly totals, Deliveries daily leaf rows, Payments balance, and My Lorry Map.
 
 The Vercel proxy verifies the Firebase ID token with Google, then reads mappings with the Supabase service-role key on the server. It does not enable Supabase Third-Party Auth and works on the Supabase Free plan. The service-role key must never be added to `.env` or frontend source.
+
+# Round 17 · Official factory and route codes
+
+1. Run `docs/migration_phase3_round17_office_route_codes.sql` after Round 16.
+2. The migration applies the five supplied factory codes (`0101`–`0105`) and 139 official route mappings from the office workbook.
+3. It also adds routes present in the official workbook but missing from the old EMS seed. Existing route IDs and supplier links are preserved.
+4. Supplier API requests now send the existing `users.supplier_no` value as the office API `id`. Preserve leading zeros when registering or editing suppliers.
+5. Verify the final SQL result lists five factories with mapped route counts: Galpadihenna 66, Peak view 24, Matuwagala 17, Kuttapitiya 17, Madampe 15.

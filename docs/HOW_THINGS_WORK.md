@@ -622,10 +622,10 @@ Quality review එකේ අවම end-to-end test එක:
 
 ## 16. Office API එකෙන් දලු, balance සහ ලොරි ස්ථානය ලැබෙන ආකාරය
 
-Office API mapping එක Admin විසින් සකස් කළ supplier කෙනෙකු login වූ විට, app එක ඔහුගේ/ඇයගේ factory code, route code සහ Office Supplier ID භාවිත කර office system එකෙන් current leaf, monthly leaf, balance සහ lorry location ලබාගනී.
+Office API mapping එක Admin විසින් සකස් කළ supplier කෙනෙකු login වූ විට, app එක ඔහුගේ/ඇයගේ factory code, route code සහ දැනටමත් තිබෙන Supplier No භාවිත කර office system එකෙන් current leaf, monthly leaf, balance සහ lorry location ලබාගනී.
 
 - Admin → Estate Master → **Office API** තුළ factory සහ route codes save කරයි.
-- Admin → User Management → supplier edit කර **Office Supplier ID / Card ID** save කරයි.
+- Supplier register/edit කරන විට **Supplier No / Office Card ID** එකම field එකට office number එක save කරයි. වෙනම Office Supplier ID field එකක් අවශ්‍ය නැහැ.
 - Supplier Home එකේ monthly kg, delivery count, earnings සහ deductions office system එකෙන් පෙන්වයි.
 - My Deliveries තුළ Normal Leaf/Super Leaf දින අනුව පෙන්වයි.
 - Payments තුළ office system එකේ gross pay, deductions සහ current balance පෙන්වයි.

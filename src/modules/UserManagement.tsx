@@ -38,9 +38,8 @@ interface UserForm {
   supplierNo: string;
   factoryId: string;
   routeIds: string[];
-  officeSupplierId: string;
 }
-const EMPTY_FORM: UserForm = { name: "", email: "", password: "", role: "extension_officer", phone: "", estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeIds: [], officeSupplierId: "" };
+const EMPTY_FORM: UserForm = { name: "", email: "", password: "", role: "extension_officer", phone: "", estateId: "", divisionId: "", supplierNo: "", factoryId: "", routeIds: [] };
 
 interface EditForm {
   id: string;
@@ -52,7 +51,6 @@ interface EditForm {
   supplierNo: string;
   factoryId: string;
   routeIds: string[];
-  officeSupplierId: string;
   status: "active" | "suspended" | "pending_approval";
 }
 
@@ -253,7 +251,6 @@ export default function UserManagement() {
       if (editing.role === "supplier") {
         await updateSupplierOperationalFields(editing.id, {
           supplierNo: editing.supplierNo.trim(),
-          officeSupplierId: editing.officeSupplierId.trim() || null,
         });
       }
       if (editing.role === "supplier" || editing.role === "extension_officer") {
@@ -310,7 +307,6 @@ export default function UserManagement() {
       if (form.role === "supplier") {
         await updateSupplierOperationalFields(newUserId, {
           supplierNo: form.supplierNo.trim(),
-          officeSupplierId: form.officeSupplierId.trim() || null,
         });
       }
       if (form.role === "supplier" || form.role === "extension_officer") {
@@ -417,8 +413,7 @@ export default function UserManagement() {
             <div><label className={labelCls}>Phone (optional)</label><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+94 77 000 0000" className={inputCls} /></div>
             {form.role === "supplier" && (
               <>
-              <div><label className={labelCls}>Supplier No (factory number) *</label><input value={form.supplierNo} onChange={e => setForm({ ...form, supplierNo: e.target.value })} placeholder="e.g., 237" className={inputCls} /></div>
-              <div><label className={labelCls}>Office Supplier ID / Card ID</label><input value={form.officeSupplierId} onChange={e => setForm({ ...form, officeSupplierId: e.target.value })} placeholder="e.g., 01" className={inputCls} /><p className="mt-1 text-[10px] text-slate-400">Used for official leaf, crop and balance data.</p></div>
+              <div><label className={labelCls}>Supplier No / Office Card ID *</label><input value={form.supplierNo} onChange={e => setForm({ ...form, supplierNo: e.target.value })} placeholder="e.g., 01" className={inputCls} /><p className="mt-1 text-[10px] text-slate-400">This exact number is sent to the factory API. Leading zeros are preserved.</p></div>
               <div><label className={labelCls}><Building2 className="mr-1 inline h-3 w-3" />Link to Estate (optional)</label>
                 <select value={form.estateId} onChange={(e) => setForm({ ...form, estateId: e.target.value })} className={inputCls}>
                   <option value="">— no linked estate —</option>
@@ -483,8 +478,7 @@ export default function UserManagement() {
             </div>
             {editing.role === "supplier" && (
               <>
-              <div><label className={labelCls}>Supplier No *</label><input value={editing.supplierNo} onChange={(e) => setEditing({ ...editing, supplierNo: e.target.value })} className={inputCls} /></div>
-              <div><label className={labelCls}>Office Supplier ID / Card ID</label><input value={editing.officeSupplierId} onChange={(e) => setEditing({ ...editing, officeSupplierId: e.target.value })} placeholder="e.g. 01" className={inputCls} /><p className="mt-1 text-[10px] text-slate-400">Required for official leaf and balance data.</p></div>
+              <div><label className={labelCls}>Supplier No / Office Card ID *</label><input value={editing.supplierNo} onChange={(e) => setEditing({ ...editing, supplierNo: e.target.value })} className={inputCls} /><p className="mt-1 text-[10px] text-slate-400">This exact number is sent to the factory API. Leading zeros are preserved.</p></div>
               <div><label className={labelCls}><Building2 className="mr-1 inline h-3 w-3" />Link to Estate (optional)</label>
                 <select value={editing.estateId} onChange={(e) => { setEditing({ ...editing, estateId: e.target.value }); setError(null); }} disabled={estateOptionsLoading || busy || !!estateOptionsError} className={inputCls}>
                   <option value="">{estateOptionsLoading ? "Loading estates…" : "— no linked estate —"}</option>
@@ -609,7 +603,7 @@ export default function UserManagement() {
                 <div className="flex items-center justify-end gap-1.5">
                   {/* Edit — all admins can edit (their own scope) */}
                   <button
-                    onClick={() => { setEditing({ id: u.id, name: u.name, role: u.role, phone: u.phone ?? "", estateId: u.associatedEntityId ?? "", divisionId: u.division ?? "", supplierNo: u.supplierNo ?? "", factoryId: u.factoryId ?? "", routeIds: u.routeId ? [u.routeId] : [], officeSupplierId: u.officeSupplierId ?? "", status: u.status }); setAdding(false); setConfirmDelete(null); setError(null); }}
+                    onClick={() => { setEditing({ id: u.id, name: u.name, role: u.role, phone: u.phone ?? "", estateId: u.associatedEntityId ?? "", divisionId: u.division ?? "", supplierNo: u.supplierNo ?? "", factoryId: u.factoryId ?? "", routeIds: u.routeId ? [u.routeId] : [], status: u.status }); setAdding(false); setConfirmDelete(null); setError(null); }}
                     title="Edit"
                     className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
                   >

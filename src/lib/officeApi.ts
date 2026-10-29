@@ -3,7 +3,7 @@ import type { OfficeBalanceResponse, OfficeLeafResponse, OfficeLorryResponse } f
 
 export class OfficeApiError extends Error {
   constructor(public code: string, message: string, public status: number) { super(message); this.name = "OfficeApiError"; }
-  get mappingMissing() { return this.code === "OFFICE_MAPPING_MISSING" || this.code === "OFFICE_SUPPLIER_ID_MISSING"; }
+  get mappingMissing() { return this.code === "OFFICE_MAPPING_MISSING" || this.code === "SUPPLIER_NUMBER_MISSING"; }
 }
 
 interface ClientCacheEntry<T> { expiresAt: number; value: T }

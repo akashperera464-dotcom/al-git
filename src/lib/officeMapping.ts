@@ -3,7 +3,7 @@ import { getSupabase, supabaseConfigured } from "./supabase";
 export interface FactoryOfficeMapping { id: string; name: string; officeFactoryCode: string }
 export interface RouteOfficeMapping { id: string; factoryId: string; name: string; routeCode?: string; officeRouteCode: string }
 
-const migrationHint = (message: string) => /office_factory_code|office_route_code|office_supplier_id|schema cache/i.test(message)
+const migrationHint = (message: string) => /office_factory_code|office_route_code|schema cache/i.test(message)
   ? " Run docs/migration_phase3_round16_factory_api_mapping.sql first."
   : "";
 
