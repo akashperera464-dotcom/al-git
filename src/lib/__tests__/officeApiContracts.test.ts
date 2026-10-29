@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { normalizeOfficeBalance, normalizeOfficeLeaf, parseOfficeLorry } from "../officeApiContracts";
+import { normalizeOfficeBalance, normalizeOfficeFactoryApiCode, normalizeOfficeLeaf, parseOfficeLorry } from "../officeApiContracts";
 
 describe("factory office API contracts", () => {
+  it("converts full office factory codes to the legacy leaf API segment", () => {
+    expect(normalizeOfficeFactoryApiCode("0101")).toBe("01");
+    expect(normalizeOfficeFactoryApiCode("0105")).toBe("05");
+    expect(normalizeOfficeFactoryApiCode("01")).toBe("01");
+  });
+
   it("sanitizes the dirty lorry payload and corrects the longitude sign", () => {
     expect(parseOfficeLorry("{y: 6.663675<br>x: - 80.4657916}", "2026-10-28T00:00:00.000Z")).toEqual({
       source: "office-api", fetchedAt: "2026-10-28T00:00:00.000Z",

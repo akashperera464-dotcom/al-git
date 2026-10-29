@@ -1,4 +1,4 @@
-import { normalizeOfficeBalance, normalizeOfficeLeaf, parseOfficeLorry } from "../src/lib/officeApiContracts.js";
+import { normalizeOfficeBalance, normalizeOfficeFactoryApiCode, normalizeOfficeLeaf, parseOfficeLorry } from "../src/lib/officeApiContracts.js";
 
 type EndpointKind = "balance" | "crop" | "monthly" | "lorry";
 interface UserMapping { uid: string; factoryCode: string; routeCode: string; supplierId?: string }
@@ -89,9 +89,10 @@ async function resolveMapping(uid: string, requestedRouteId?: string): Promise<U
 async function fetchFactory(kind: EndpointKind, mapping: UserMapping): Promise<unknown> {
   if (kind !== "lorry" && !mapping.supplierId) throw new Error("SUPPLIER_NUMBER_MISSING");
   const base = env("FACTORY_API_BASE_URL").replace(/\/+$/, "");
-  const query = new URLSearchParams({ secret: env("FACTORY_API_SECRET"), factoryCode: mapping.factoryCode, routeCode: mapping.routeCode });
+  const apiFactoryCode = normalizeOfficeFactoryApiCode(mapping.factoryCode);
+  const query = new URLSearchParams({ secret: env("FACTORY_API_SECRET"), factoryCode: apiFactoryCode, routeCode: mapping.routeCode });
   if (kind !== "lorry") query.set("id", mapping.supplierId!);
-  const cacheKey = `${kind}:${mapping.factoryCode}:${mapping.routeCode}:${mapping.supplierId ?? "route"}`;
+  const cacheKey = `${kind}:${apiFactoryCode}:${mapping.routeCode}:${mapping.supplierId ?? "route"}`;
   const cached = responseCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 
@@ -109,7 +110,10 @@ async function fetchFactory(kind: EndpointKind, mapping: UserMapping): Promise<u
     const rawText = await response.text();
     const fetchedAt = new Date().toISOString();
     let normalized: unknown;
-    if (kind === "lorry") normalized = parseOfficeLorry(rawText, fetchedAt);
+    if (kind === "lorry") {
+      try { normalized = parseOfficeLorry(rawText, fetchedAt); }
+      catch { throw new Error("FACTORY_RESPONSE_INVALID"); }
+    }
     else {
       let parsed: unknown;
       try { parsed = JSON.parse(rawText); } catch { throw new Error("FACTORY_INVALID_JSON"); }

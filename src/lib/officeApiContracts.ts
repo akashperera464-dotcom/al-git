@@ -58,6 +58,15 @@ const numberValue = (value: unknown): number => {
 
 const textValue = (value: unknown): string => String(value ?? "").trim();
 
+/**
+ * The office master list uses full codes such as 0101..0105, while the legacy
+ * leaf API accepts their two-digit factory segment (01..05).
+ */
+export function normalizeOfficeFactoryApiCode(value: unknown): string {
+  const code = textValue(value).replace(/\s+/g, "");
+  return /^01\d{2}$/.test(code) ? code.slice(-2) : code;
+}
+
 export function parseOfficeDate(value: unknown): string {
   const raw = textValue(value);
   const match = /^(\d{1,2})[-/]([0-1]?\d)[-/](\d{4})$/.exec(raw);

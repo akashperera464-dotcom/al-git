@@ -3838,6 +3838,13 @@ invalid factory response formats have separate safe error codes. The same
 category is written to Vercel Runtime Logs so deployment faults are no longer
 hidden behind an undifferentiated `500` message.
 
+The office master workbook stores full factory identifiers `0101` through
+`0105`, but the legacy leaf API accepts the final two-digit segment `01`
+through `05`. The proxy performs this conversion only when making the legacy
+API request; Supabase retains the full official factory code. For example,
+supplier 264 on Galpadihenna route 52 is requested as
+`factoryCode=01&routeCode=52&id=264`.
+
 *Vercel runtime handler and ESM loading corrected: 29 October 2026.*
 
 
