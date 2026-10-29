@@ -1,2 +1,2 @@
-import { handleFactoryRequest } from "../server/factoryProxy";
-export default { fetch: (request: Request) => handleFactoryRequest("crop", request) };
+import { createVercelHandler } from "../server/vercelAdapter";
+export default createVercelHandler("crop");

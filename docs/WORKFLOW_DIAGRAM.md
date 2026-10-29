@@ -3805,6 +3805,27 @@ changed.
 
 *Official factory and route codes integrated: 29 October 2026.*
 
+## 54. Vercel Office API Runtime Fix
+
+The four Vite `api/` endpoints now use Vercel's Node.js request/response
+function contract. The earlier Cloudflare-style `{ fetch() }` export compiled
+successfully but failed at runtime with `FUNCTION_INVOCATION_FAILED`, causing
+supplier screens to fall back to empty EMS records.
+
+```text
+Supplier browser
+  -> /api/balance | /api/crop | /api/monthly | /api/lorry
+  -> Vercel Node handler
+  -> Web Request adapter
+  -> shared authenticated factory proxy
+  -> normalized office response
+```
+
+This runtime correction changes no API mappings, secrets, authentication, RLS
+or database tables.
+
+*Vercel runtime handler corrected: 29 October 2026.*
+
 
 
 

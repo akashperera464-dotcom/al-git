@@ -1,2 +1,2 @@
-import { handleFactoryRequest } from "../server/factoryProxy";
-export default { fetch: (request: Request) => handleFactoryRequest("monthly", request) };
+import { createVercelHandler } from "../server/vercelAdapter";
+export default createVercelHandler("monthly");
