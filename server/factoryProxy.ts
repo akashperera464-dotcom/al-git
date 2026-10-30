@@ -2,7 +2,7 @@ import { normalizeOfficeBalance, normalizeOfficeFactoryApiCode, normalizeOfficeL
 
 type EndpointKind = "balance" | "crop" | "monthly" | "lorry";
 interface UserMapping { uid: string; factoryCode: string; routeCode: string; supplierId?: string }
-interface CacheEntry { expiresAt: number; value: unknown }
+interface CacheEntry { createdAt: number; expiresAt: number; value: unknown }
 
 const responseCache = new Map<string, CacheEntry>();
 const TTL: Record<EndpointKind, number> = { lorry: 25_000, crop: 120_000, balance: 120_000, monthly: 180_000 };
@@ -86,7 +86,7 @@ async function resolveMapping(uid: string, requestedRouteId?: string): Promise<U
   return { uid, factoryCode, routeCode, supplierId: user.supplier_no?.trim() || undefined };
 }
 
-async function fetchFactory(kind: EndpointKind, mapping: UserMapping): Promise<unknown> {
+async function fetchFactory(kind: EndpointKind, mapping: UserMapping, forceRefresh = false): Promise<unknown> {
   if (kind !== "lorry" && !mapping.supplierId) throw new Error("SUPPLIER_NUMBER_MISSING");
   const base = env("FACTORY_API_BASE_URL").replace(/\/+$/, "");
   const apiFactoryCode = normalizeOfficeFactoryApiCode(mapping.factoryCode);
@@ -94,7 +94,10 @@ async function fetchFactory(kind: EndpointKind, mapping: UserMapping): Promise<u
   if (kind !== "lorry") query.set("id", mapping.supplierId!);
   const cacheKey = `${kind}:${apiFactoryCode}:${mapping.routeCode}:${mapping.supplierId ?? "route"}`;
   const cached = responseCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const now = Date.now();
+  // A manual refresh can bypass the normal 2–3 minute cache, but repeated taps
+  // within 30 seconds still reuse the latest response to protect the office API.
+  if (cached && ((!forceRefresh && cached.expiresAt > now) || (forceRefresh && now - cached.createdAt < 30_000))) return cached.value;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
@@ -121,7 +124,7 @@ async function fetchFactory(kind: EndpointKind, mapping: UserMapping): Promise<u
         normalized = kind === "balance" ? normalizeOfficeBalance(parsed, fetchedAt) : normalizeOfficeLeaf(parsed, fetchedAt);
       } catch { throw new Error("FACTORY_RESPONSE_INVALID"); }
     }
-    responseCache.set(cacheKey, { value: normalized, expiresAt: Date.now() + TTL[kind] });
+    responseCache.set(cacheKey, { value: normalized, createdAt: Date.now(), expiresAt: Date.now() + TTL[kind] });
     return normalized;
   } finally { clearTimeout(timeout); }
 }
@@ -145,9 +148,11 @@ export async function handleFactoryRequest(kind: EndpointKind, request: Request)
   if (request.method !== "GET") return json(405, { error: { code: "METHOD_NOT_ALLOWED", message: "GET required." } });
   try {
     const uid = await verifyFirebaseUser(bearerToken(request));
-    const routeId = new URL(request.url).searchParams.get("routeId")?.trim() || undefined;
+    const searchParams = new URL(request.url).searchParams;
+    const routeId = searchParams.get("routeId")?.trim() || undefined;
+    const forceRefresh = searchParams.get("refresh") === "1";
     const mapping = await resolveMapping(uid, kind === "lorry" ? routeId : undefined);
-    const data = await fetchFactory(kind, mapping);
+    const data = await fetchFactory(kind, mapping, forceRefresh);
     return json(200, data, Math.floor(TTL[kind] / 1000));
   } catch (error) {
     console.error("[factory-api] request failed", {

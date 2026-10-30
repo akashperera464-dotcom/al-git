@@ -633,6 +633,28 @@ Office API mapping එක Admin විසින් සකස් කළ supplier 
 
 Office mapping තවම දාලා නැත්නම් හෝ office server එක තාවකාලිකව unavailable නම්, app එක බිඳෙන්නේ නැහැ. Supplier financial/leaf screens existing EMS records පෙන්වයි; map එක existing EMS live broadcast එකට fallback වෙයි. Screen එකේ **Factory office system** හෝ **EMS records** යන source label එකෙන් භාවිත වන දත්ත මූලාශ්‍රය හඳුනාගත හැක.
 
+### Office දලු අගයන් දෙක පෙන්වන්නේ ඇයි?
+
+Supplier Home එකේ office API එකෙන් වෙන වෙනම ලැබෙන අගයන් දෙකක් තිබේ:
+
+- **Current crop recorded** — current crop API වාර්තාවේ දැනට ඇති දලු එකතුව.
+- **Quantity reflected in account statement** — balance API එකේ account statement තුළ දැක්වෙන දලු ප්‍රමාණය.
+
+මෙම API දෙකේ නිල business meaning එක office documentation එකෙන් තවම නිශ්චිතව දී නැති නිසා app එක එකක් “Pending” සහ අනෙක “Confirmed” ලෙස හඳුන්වන්නේ නැහැ. යාවත්කාලීන වන වේලාව වෙනස් වීමෙන් අගයන් දෙක අතර තාවකාලික වෙනසක් තිබිය හැක. App එක එම වෙනස සැඟවීමකින් තොරව පෙන්වයි.
+
+### API එක තාවකාලිකව ක්‍රියා නොකළොත්
+
+අවසන් වරට සාර්ථකව ලැබුණු office record එක එම supplier account එකට පමණක් පැය 24ක් දක්වා තාවකාලිකව සුරැකේ. API/server failure එකක් ඇති විට `0 kg` හෝ `Rs 0` ලෙස වැරදි අගයක් පෙන්වීම වෙනුවට එම අවසන් record එක සහ **Last updated** වේලාව පෙන්වයි. Cached record එකක් බව warning එකකින් පැහැදිලි කරයි. Login/access/mapping error එකක් ඇති විට පැරණි financial data පෙන්වන්නේ නැහැ.
+
+**Refresh** බොත්තමෙන් නව office record එකක් ඉල්ලිය හැක. Office server එකට අනවශ්‍ය requests යැවීම වැළැක්වීමට නැවත refresh කිරීමට තත්පර 30ක් බලා සිටිය යුතුය.
+
+### ඊයේ දලු සහ අඩුකිරීම්
+
+- **Yesterday's crop** monthly details API එකේ ඊයේ දිනයට ගැළපෙන record එකෙන් ගනී. Record එකක් නැත්නම් ඒ බව පැහැදිලිව පෙන්වයි.
+- **Cash advances** සහ **Fertilizer deductions** balance API එකේ වත්මන් මාසයේ fields එකතු කර සාරාංශයක් ලෙස පෙන්වයි.
+- Payments screen එකේ fertilizer, ATM/POS/route/office advances, loan, transport, tea සහ වෙනත් සෑම non-zero deduction එකක්ම වෙන වෙනම පෙන්වයි.
+- Current account balance එක office API එකෙන් ලැබුණු අගයමයි; app එක එය නැවත ගණනය කර official confirmation එකක් ලෙස නම් නොකරයි.
+
 ## 17. ලේඛන නඩත්තු කිරීමේ නීතිය
 
 App feature එකක් add, remove, rename හෝ flow එකක් වෙනස් කරන සෑම commit එකකදීම:

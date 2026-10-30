@@ -3847,6 +3847,50 @@ supplier 264 on Galpadihenna route 52 is requested as
 
 *Vercel runtime handler and ESM loading corrected: 29 October 2026.*
 
+## 55. Supplier Office Records, Resilient Cache and Statement Clarity
+
+Supplier Home and Payments now keep the factory API records distinct instead
+of assigning an unverified business meaning to them:
+
+```text
+get_current_crop_balance.php
+  -> Current crop recorded
+
+get_current_balance.php
+  -> Quantity reflected in account statement
+  -> Gross pay + itemized deductions + current balance
+
+get_monthly_details.php
+  -> Daily rows
+  -> Yesterday's crop summary
+```
+
+The UI does not label either source as `confirmed` or `pending` because the
+office has not yet documented those endpoint semantics. A temporary difference
+between the two quantities is shown neutrally with an explanation that the
+separate office records may update at different times.
+
+Successful office responses are cached in memory for normal request control
+and in browser storage for up to 24 hours as a last-known record. Persistent
+cache keys include the signed-in Firebase UID and API path, preventing one
+supplier's data from being reused for another supplier. A stale record is used
+only after a temporary network/server failure; it is never used after an
+authentication, authorization or mapping failure. The screen always shows the
+last-updated time and whether a cached record is visible.
+
+The manual Refresh action bypasses the normal 2–3 minute proxy cache, while a
+30-second client and server guard prevents repeated taps from overloading the
+office server. This uses the existing Vercel function memory and browser
+storage, creates no Supabase table and remains compatible with the free plan.
+
+The Payments screen itemizes every non-zero deduction returned by the balance
+API, including fertilizer balances/installments, advances, loans, tea,
+transport, other deductions and previous debt. It also displays the API's
+total deduction and current account balance without recomputing or relabeling
+them as a factory-confirmed settlement.
+
+*Supplier office record clarity and resilient caching added: 30 October 2026.*
+
 
 
 

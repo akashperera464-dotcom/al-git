@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Leaf, Bell, Wallet, Package, ReceiptText, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
@@ -9,7 +9,10 @@ import { readDailyTeaPrices, readUserOperationalProfile, type DailyTeaPrice } fr
 import { gradeKey } from "@/i18n/databaseValues";
 import { readSupplierFinancialSummary } from "@/lib/financialSummary";
 import { useEstateWeather, useSupplierWeatherEstate } from "@/lib/useEstateWeather";
-import { fetchOfficeBalance, fetchOfficeCrop } from "@/lib/officeApi";
+import { fetchOfficeBalanceWithMeta, fetchOfficeCropWithMeta, fetchOfficeMonthlyWithMeta, type OfficeDataFreshness } from "@/lib/officeApi";
+import type { OfficeBalanceResponse, OfficeLeafResponse } from "@/lib/officeApiContracts";
+import { findOfficeDeliveryForDate, getOfficeCropComparison, sumOfficeDeductionsByGroup, yesterdaySriLankaIso } from "@/lib/officeSupplierSummary";
+import { OfficeDataStatus } from "@/components/OfficeDataStatus";
 
 const LorryTracking = lazy(() => import("@/modules/LorryTracking"));
 
@@ -23,11 +26,18 @@ export function SupplierHome() {
   const greeting = getGreeting(currentTime);
   const firstName = (session?.name ?? user?.name ?? "Supplier").split(" ")[0];
 
-  const [totalKg, setTotalKg] = useState(0);
-  const [totalEarned, setTotalEarned] = useState(0);
-  const [monthExpenses, setMonthExpenses] = useState(0);
-  const [monthDeliveries, setMonthDeliveries] = useState(0);
-  const [leafDataSource, setLeafDataSource] = useState<"office-api" | "ems">("ems");
+  const [emsTotalKg, setEmsTotalKg] = useState(0);
+  const [emsTotalEarned, setEmsTotalEarned] = useState(0);
+  const [emsMonthExpenses, setEmsMonthExpenses] = useState(0);
+  const [emsMonthDeliveries, setEmsMonthDeliveries] = useState(0);
+  const [officeCrop, setOfficeCrop] = useState<OfficeLeafResponse | null>(null);
+  const [officeMonthly, setOfficeMonthly] = useState<OfficeLeafResponse | null>(null);
+  const [officeBalance, setOfficeBalance] = useState<OfficeBalanceResponse | null>(null);
+  const [officeFreshness, setOfficeFreshness] = useState<OfficeDataFreshness | null>(null);
+  const [officeFetchedAt, setOfficeFetchedAt] = useState("");
+  const [officeError, setOfficeError] = useState("");
+  const [officeLoading, setOfficeLoading] = useState(false);
+  const [refreshCooldown, setRefreshCooldown] = useState(0);
   const [prices, setPrices] = useState<DailyTeaPrice[]>([]);
   const [farmLogs, setFarmLogs] = useState<{ activityType: string; loggedDate: string }[]>([]);
 
@@ -46,8 +56,8 @@ export function SupplierHome() {
       const month = new Date().toISOString().slice(0, 7);
       const monthly = recs.filter((record) => record.date.startsWith(month));
       const kg = monthly.reduce((sum, record) => sum + record.kg, 0);
-      setTotalKg(kg);
-      setMonthDeliveries(monthly.length);
+      setEmsTotalKg(kg);
+      setEmsMonthDeliveries(monthly.length);
     });
     void readUserOperationalProfile(userUid)
       .then((profile) => readDailyTeaPrices(undefined, profile?.factoryId))
@@ -56,21 +66,69 @@ export function SupplierHome() {
 
     // Round 12: one authoritative finance view; no localStorage calculations.
     void readSupplierFinancialSummary(userUid, new Date().toISOString().slice(0, 7))
-      .then((summary) => { setTotalEarned(summary?.grossEarnings ?? 0); setMonthExpenses(summary?.totalDeductions ?? 0); })
-      .catch(() => { setTotalEarned(0); setMonthExpenses(0); });
+      .then((summary) => { setEmsTotalEarned(summary?.grossEarnings ?? 0); setEmsMonthExpenses(summary?.totalDeductions ?? 0); })
+      .catch(() => { setEmsTotalEarned(0); setEmsMonthExpenses(0); });
   }, [userUid, associatedEntityId, user?.name]);
+
+  const loadOfficeData = useCallback(async (forceRefresh = false, signal?: AbortSignal) => {
+    setOfficeLoading(true);
+    const results = await Promise.allSettled([
+      fetchOfficeCropWithMeta({ signal, forceRefresh }),
+      fetchOfficeBalanceWithMeta({ signal, forceRefresh }),
+      fetchOfficeMonthlyWithMeta({ signal, forceRefresh }),
+    ]);
+    if (signal?.aborted) return;
+    const [cropResult, balanceResult, monthlyResult] = results;
+    if (cropResult.status === "fulfilled") setOfficeCrop(cropResult.value.data);
+    if (balanceResult.status === "fulfilled") setOfficeBalance(balanceResult.value.data);
+    if (monthlyResult.status === "fulfilled") setOfficeMonthly(monthlyResult.value.data);
+
+    const fulfilled = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+    if (fulfilled.length) {
+      const freshness = fulfilled.some((result) => result.freshness === "stale-cache") || fulfilled.length !== results.length
+        ? "stale-cache"
+        : fulfilled.some((result) => result.freshness === "live") ? "live" : "recent-cache";
+      const timestamps = fulfilled.map((result) => new Date(result.fetchedAt).getTime()).filter(Number.isFinite);
+      setOfficeFreshness(freshness);
+      setOfficeFetchedAt(timestamps.length ? new Date(Math.min(...timestamps)).toISOString() : "");
+      setOfficeError(fulfilled.find((result) => result.error)?.error ?? "");
+    } else {
+      const reason = results.find((result): result is PromiseRejectedResult => result.status === "rejected")?.reason;
+      setOfficeFreshness(null);
+      setOfficeError(reason instanceof Error ? reason.message : "Office data is temporarily unavailable.");
+    }
+    setOfficeLoading(false);
+  }, [userUid]);
 
   useEffect(() => {
     const controller = new AbortController();
-    void Promise.all([fetchOfficeCrop(controller.signal), fetchOfficeBalance(controller.signal)])
-      .then(([crop, balance]) => {
-        setTotalKg(crop.totals.totalQty); setMonthDeliveries(crop.totals.deliveryCount);
-        setTotalEarned(balance.currentMonth.totalGrossPay); setMonthExpenses(balance.currentMonth.totalDeduction);
-        setLeafDataSource("office-api");
-      })
-      .catch(() => setLeafDataSource("ems"));
+    setOfficeCrop(null); setOfficeBalance(null); setOfficeMonthly(null); setOfficeFreshness(null); setOfficeError("");
+    void loadOfficeData(false, controller.signal);
     return () => controller.abort();
-  }, [userUid]);
+  }, [loadOfficeData, userUid]);
+
+  useEffect(() => {
+    if (refreshCooldown <= 0) return;
+    const timer = window.setInterval(() => setRefreshCooldown((value) => Math.max(0, value - 1)), 1_000);
+    return () => window.clearInterval(timer);
+  }, [refreshCooldown]);
+
+  const refreshOfficeData = () => {
+    if (refreshCooldown > 0 || officeLoading) return;
+    setRefreshCooldown(30);
+    void loadOfficeData(true);
+  };
+
+  const totalKg = officeCrop?.totals.totalQty ?? emsTotalKg;
+  const monthDeliveries = officeCrop?.totals.deliveryCount ?? emsMonthDeliveries;
+  const totalEarned = officeBalance?.currentMonth.totalGrossPay ?? emsTotalEarned;
+  const monthExpenses = officeBalance?.currentMonth.totalDeduction ?? emsMonthExpenses;
+  const cropComparison = useMemo(() => officeCrop && officeBalance ? getOfficeCropComparison(officeCrop, officeBalance) : null, [officeBalance, officeCrop]);
+  const yesterdayDate = useMemo(() => yesterdaySriLankaIso(currentTime), [currentTime]);
+  const yesterdayDelivery = useMemo(() => officeMonthly ? findOfficeDeliveryForDate(officeMonthly, yesterdayDate) : null, [officeMonthly, yesterdayDate]);
+  const advanceTotal = officeBalance ? sumOfficeDeductionsByGroup(officeBalance.currentMonth, "advance") : 0;
+  const fertilizerTotal = officeBalance ? sumOfficeDeductionsByGroup(officeBalance.currentMonth, "fertilizer") : 0;
+  const netPayable = officeBalance?.currentMonth.balance ?? totalEarned - monthExpenses;
 
   // Smart reminders from farm activities
   const lastFert = farmLogs.filter(a => a.activityType === "fertilizer").sort((a, b) => b.loggedDate.localeCompare(a.loggedDate))[0];
@@ -152,6 +210,64 @@ export function SupplierHome() {
         </div>
       )}
 
+      <OfficeDataStatus
+        freshness={officeFreshness}
+        fetchedAt={officeFetchedAt}
+        error={officeError}
+        refreshing={officeLoading}
+        cooldownSeconds={refreshCooldown}
+        onRefresh={refreshOfficeData}
+      />
+
+      {cropComparison && (
+        <Card className="mb-4 border-sky-100 p-4">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-display text-sm font-bold text-slate-800">{t("officeSummary.cropComparison")}</h3>
+              <p className="mt-0.5 text-[10px] text-slate-500">{t("officeSummary.processingNote")}</p>
+            </div>
+            <button type="button" onClick={() => setActiveModule("supplier-payments")} className="shrink-0 text-[10px] font-bold text-sky-700">
+              {t("officeSummary.detailedStatement")} →
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-xl bg-emerald-50 p-3">
+              <p className="text-[10px] font-semibold text-emerald-700">{t("officeSummary.currentCropRecorded")}</p>
+              <p className="mt-1 text-xl font-extrabold text-emerald-800">{fmtNum(cropComparison.currentCropKg)} kg</p>
+            </div>
+            <div className="rounded-xl bg-sky-50 p-3">
+              <p className="text-[10px] font-semibold text-sky-700">{t("officeSummary.accountStatementQuantity")}</p>
+              <p className="mt-1 text-xl font-extrabold text-sky-800">{fmtNum(cropComparison.statementKg)} kg</p>
+            </div>
+          </div>
+          {cropComparison.differenceKg !== 0 && (
+            <p className="mt-2 text-center text-[10px] font-semibold text-slate-500">
+              {t("officeSummary.sourceDifference")}: {cropComparison.differenceKg > 0 ? "+" : ""}{fmtNum(cropComparison.differenceKg)} kg
+            </p>
+          )}
+        </Card>
+      )}
+
+      <div className="mb-4 grid grid-cols-2 gap-2.5">
+        <Card className="p-3.5">
+          <p className="text-[10px] font-semibold uppercase text-slate-400">{t("officeSummary.yesterdayCrop")}</p>
+          {officeMonthly ? yesterdayDelivery ? (
+            <>
+              <p className="mt-1 text-lg font-extrabold text-slate-800">{fmtNum(yesterdayDelivery.totalQty)} kg</p>
+              <p className="text-[10px] text-slate-500">{t("officeSummary.normalAndSuper", { normal: fmtNum(yesterdayDelivery.normalLeafQty), super: fmtNum(yesterdayDelivery.superLeafQty) })}</p>
+            </>
+          ) : <p className="mt-2 text-xs font-semibold text-slate-500">{t("officeSummary.noYesterday")}</p>
+          : <p className="mt-2 text-xs font-semibold text-slate-400">{t("officeSummary.yesterdayUnavailable")}</p>}
+        </Card>
+        <Card className="p-3.5">
+          <p className="text-[10px] font-semibold uppercase text-slate-400">{t("officeSummary.currentMonthDeductions")}</p>
+          <div className="mt-2 space-y-1.5">
+            <div className="flex items-center justify-between gap-2 text-xs"><span className="text-slate-500">{t("officeSummary.currentMonthAdvances")}</span><strong className="text-amber-700">{fmtLKRShort(advanceTotal)}</strong></div>
+            <div className="flex items-center justify-between gap-2 text-xs"><span className="text-slate-500">{t("officeSummary.fertilizerDeductions")}</span><strong className="text-rose-700">{fmtLKRShort(fertilizerTotal)}</strong></div>
+          </div>
+        </Card>
+      </div>
+
       <Suspense fallback={<div className="mb-4 h-64 animate-pulse rounded-2xl bg-slate-100" />}><LorryTracking userId={userUid} /></Suspense>
 
       {/* Key stats — operational results first, finance second */}
@@ -161,7 +277,7 @@ export function SupplierHome() {
         <StatCard icon={Wallet} label={t("supplierHome.monthEarnings")} value={fmtLKRShort(totalEarned)} tone="emerald" />
         <StatCard icon={TrendingUp} label={t("supplierHome.monthExpenses")} value={fmtLKRShort(monthExpenses)} sub={t("supplierHome.laborFertilizer")} tone="rose" />
       </div>
-      <p className="-mt-2 mb-4 text-center text-[10px] font-semibold text-slate-400">{leafDataSource === "office-api" ? "Live source: Factory office system" : "Source: EMS records"}</p>
+      <p className="-mt-2 mb-4 text-center text-[10px] font-semibold text-slate-400">{officeCrop || officeBalance ? t("officeSummary.officeSource") : t("officeSummary.emsSource")}</p>
 
       {/* Smart reminders */}
       {(fertDue || pruneDue) && (
@@ -230,13 +346,13 @@ export function SupplierHome() {
       </div>
 
       {/* B30 (Round #12) — Restored Earnings quick-link banner */}
-      {totalEarned > 0 && (
+      {(totalEarned > 0 || netPayable !== 0) && (
         <Card className="p-3.5 border-emerald-200 bg-emerald-50 mb-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-emerald-700">💰 {t("supplierHome.netPayable")}</p>
-              <p className="text-lg font-extrabold text-emerald-800 mt-0.5">{fmtLKRShort(totalEarned)}</p>
-              <p className="text-[10px] text-emerald-600 mt-0.5">⚠ {t("supplierHome.financeDisclaimer")}</p>
+              <p className="text-lg font-extrabold text-emerald-800 mt-0.5">{fmtLKRShort(netPayable)}</p>
+              <p className="text-[10px] text-emerald-600 mt-0.5">{officeBalance ? t("officeSummary.accountStatementBalance") : `⚠ ${t("supplierHome.financeDisclaimer")}`}</p>
             </div>
             <button onClick={() => setActiveModule("supplier-payments")} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white">
               {t("supplierHome.view")} →

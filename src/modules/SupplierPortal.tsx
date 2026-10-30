@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Package, BellRing, Wallet, Leaf, TrendingUp, CalendarCheck, Droplets, Sparkles, Building2 } from "lucide-react";
@@ -19,8 +19,10 @@ import { readDailyTeaPrices, readUserOperationalProfile } from "@/lib/supplierOp
 import { gradeKey, statusKey } from "@/i18n/databaseValues";
 import { readSupplierFinancialSummary, type SupplierFinancialSummary } from "@/lib/financialSummary";
 import { createAlert, readAlerts } from "@/lib/notifications";
-import { fetchOfficeBalance } from "@/lib/officeApi";
+import { fetchOfficeBalanceWithMeta, type OfficeDataFreshness } from "@/lib/officeApi";
 import type { OfficeBalanceResponse } from "@/lib/officeApiContracts";
+import { getOfficeDeductionLines, sumOfficeDeductionsByGroup } from "@/lib/officeSupplierSummary";
+import { OfficeDataStatus } from "@/components/OfficeDataStatus";
 
 /** Daily Tea Prices card — shows today's price per kg per grade. */
 function DailyPriceCard() {
@@ -351,13 +353,10 @@ export function SupplierAlerts() {
   );
 }
 
-/** Round 12 — unified monthly finance card backed only by
- *  supplier_financial_summary. Local cache is never authoritative. */
-function CostEarningsChart({ financial }: { financial: SupplierFinancialSummary | null }) {
+/** Monthly finance card. Office statement data takes precedence when available;
+ *  the EMS financial summary remains the explicit fallback source. */
+function CostEarningsChart({ totalEarned, totalCost, netEarnings, periodLabel }: { totalEarned: number; totalCost: number; netEarnings: number; periodLabel: string }) {
   const { t } = useTranslation();
-  const totalEarned = financial?.grossEarnings ?? 0;
-  const totalCost = financial?.totalDeductions ?? 0;
-  const netEarnings = financial?.confirmedNetPayable ?? financial?.estimatedNetPayable ?? 0;
 
   return (
     <Card className="mt-3 mb-4 p-4 border-emerald-100">
@@ -377,19 +376,14 @@ function CostEarningsChart({ financial }: { financial: SupplierFinancialSummary 
         </div>
       </div>
       <p className="text-[10px] text-slate-400">
-        {financial ? new Date(financial.periodMonth).toLocaleDateString("en-LK", { month: "long", year: "numeric" }) : t("common.noData")}
+        {periodLabel || t("common.noData")}
       </p>
     </Card>
   );
 }
 
-/** 3 · Earnings & Deductions — B30 (Round #12) RESTORED.
- *  Live transparency dashboard showing:
- *    - Gross earnings (from leaf deliveries × daily tea price)
- *    - Fertilizer credit outstanding (kg × Rs 95/kg estimate)
- *    - Advance balance (from SupplierLoans)
- *    - Net payable estimate
- *  Disclaimer: "This is an estimate — factory finance office confirms at month-end." */
+/** Earnings and deductions. Factory office fields are displayed without
+ *  recomputing or claiming an undocumented confirmed/pending status. */
 export function SupplierPayments() {
   const { t } = useTranslation();
   const { records, loading } = useOwnSupply();
@@ -397,19 +391,52 @@ export function SupplierPayments() {
   const { userUid } = useApp();
   const [financial, setFinancial] = useState<SupplierFinancialSummary | null>(null);
   const [officeBalance, setOfficeBalance] = useState<OfficeBalanceResponse | null>(null);
+  const [officeFreshness, setOfficeFreshness] = useState<OfficeDataFreshness | null>(null);
+  const [officeFetchedAt, setOfficeFetchedAt] = useState("");
+  const [officeError, setOfficeError] = useState("");
+  const [officeLoading, setOfficeLoading] = useState(false);
+  const [refreshCooldown, setRefreshCooldown] = useState(0);
   useEffect(() => { void readSupplierFinancialSummary(userUid, new Date().toISOString().slice(0, 7)).then(setFinancial).catch(() => setFinancial(null)); }, [userUid]);
-  useEffect(() => { const controller = new AbortController(); void fetchOfficeBalance(controller.signal).then(setOfficeBalance).catch(() => setOfficeBalance(null)); return () => controller.abort(); }, [userUid]);
+  const loadOfficeBalance = useCallback(async (forceRefresh = false, signal?: AbortSignal) => {
+    setOfficeLoading(true);
+    try {
+      const result = await fetchOfficeBalanceWithMeta({ forceRefresh, signal });
+      if (signal?.aborted) return;
+      setOfficeBalance(result.data);
+      setOfficeFreshness(result.freshness);
+      setOfficeFetchedAt(result.fetchedAt);
+      setOfficeError(result.error ?? "");
+    } catch (error) {
+      if (signal?.aborted) return;
+      setOfficeFreshness(null);
+      setOfficeError(error instanceof Error ? error.message : "Office data is temporarily unavailable.");
+    } finally {
+      if (!signal?.aborted) setOfficeLoading(false);
+    }
+  }, [userUid]);
+  useEffect(() => { const controller = new AbortController(); setOfficeBalance(null); void loadOfficeBalance(false, controller.signal); return () => controller.abort(); }, [loadOfficeBalance, userUid]);
+  useEffect(() => {
+    if (refreshCooldown <= 0) return;
+    const timer = window.setInterval(() => setRefreshCooldown((value) => Math.max(0, value - 1)), 1_000);
+    return () => window.clearInterval(timer);
+  }, [refreshCooldown]);
+  const refreshOfficeBalance = () => {
+    if (officeLoading || refreshCooldown > 0) return;
+    setRefreshCooldown(30);
+    void loadOfficeBalance(true);
+  };
   const suppliedKg = officeBalance ? officeBalance.currentMonth.superLeafQty + officeBalance.currentMonth.normalLeafQty : emsSuppliedKg;
   const earned = officeBalance?.currentMonth.totalGrossPay ?? financial?.grossEarnings ?? 0;
   const realizedRate = suppliedKg > 0 ? earned / suppliedKg : 0;
   const pending = officeBalance?.currentMonth.balance ?? financial?.estimatedNetPayable ?? 0;
 
-  // Fertilizer credit cost estimate (kg × Rs 95/kg average)
-  const fertCreditCost = officeBalance ? (officeBalance.currentMonth.deductions.fertilizerLMB ?? 0) + (officeBalance.currentMonth.deductions.fertilizerThisMonthInstalment ?? 0) : financial?.fertilizerDeduction ?? 0;
-  const advanceBalance = officeBalance ? ["advanceATM", "advancePOS", "advanceRoute", "advanceOffice", "loanInstallment", "bankLoan"].reduce((sum, key) => sum + (officeBalance.currentMonth.deductions[key] ?? 0), 0) : financial?.cashAdvanceInstallment ?? 0;
+  const fertCreditCost = officeBalance ? sumOfficeDeductionsByGroup(officeBalance.currentMonth, "fertilizer") : financial?.fertilizerDeduction ?? 0;
+  const advanceBalance = officeBalance ? sumOfficeDeductionsByGroup(officeBalance.currentMonth, "advance") : financial?.cashAdvanceInstallment ?? 0;
   const laborCostMonth = financial?.otherDeductions ?? 0;
-  const fertCreditKg = 0;
   const netPayable = officeBalance?.currentMonth.balance ?? financial?.confirmedNetPayable ?? financial?.estimatedNetPayable ?? 0;
+  const deductionLines = officeBalance ? getOfficeDeductionLines(officeBalance.currentMonth) : [];
+  const totalDeductions = officeBalance?.currentMonth.totalDeduction ?? financial?.totalDeductions ?? 0;
+  const periodLabel = officeBalance?.currentMonth.monthName || (financial ? new Date(financial.periodMonth).toLocaleDateString("en-LK", { month: "long", year: "numeric" }) : "");
 
   return (
     <div>
@@ -420,15 +447,15 @@ export function SupplierPayments() {
         icon={<IconChip icon={Wallet} tone="emerald" className="h-12 w-12" />}
       />
       <LinkedEstateBanner />
-      <p className="mb-3 text-center text-[10px] font-semibold text-slate-400">{officeBalance ? `Live source: Factory office system · ${officeBalance.currentMonth.monthName}` : "Source: EMS financial records"}</p>
+      <OfficeDataStatus freshness={officeFreshness} fetchedAt={officeFetchedAt} error={officeError} refreshing={officeLoading} cooldownSeconds={refreshCooldown} onRefresh={refreshOfficeBalance} />
+      <p className="mb-3 text-center text-[10px] font-semibold text-slate-400">{officeBalance ? `${t("officeSummary.officeSource")} · ${officeBalance.currentMonth.monthName}` : t("officeSummary.emsSource")}</p>
 
-      {/* B30 (Round #12) — Estimate disclaimer banner */}
-      <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-        <p className="font-bold">⚠ {t("supplierDelivery.estimateTitle")}</p>
-        <p className="mt-0.5">The factory finance office confirms the actual net payable amount at month-end. Figures shown here are computed live from your leaf deliveries × today's tea price, minus fertilizer credit and active advances.</p>
+      <div className={`mb-4 rounded-xl border p-3 text-xs ${officeBalance ? "border-sky-200 bg-sky-50 text-sky-800" : "border-amber-300 bg-amber-50 text-amber-800"}`}>
+        <p className="font-bold">{officeBalance ? t("officeFinance.statementTitle") : `⚠ ${t("officeFinance.emsEstimate")}`}</p>
+        <p className="mt-0.5">{officeBalance ? t("officeFinance.statementNote") : t("supplierHome.financeDisclaimer")}</p>
       </div>
 
-      <CostEarningsChart financial={financial} />
+      <CostEarningsChart totalEarned={earned} totalCost={totalDeductions} netEarnings={netPayable} periodLabel={periodLabel} />
 
       {/* Gross earnings + pending + rate */}
       <div className="grid grid-cols-3 gap-2.5">
@@ -441,30 +468,23 @@ export function SupplierPayments() {
       <Card className="mt-4 p-4">
         <h3 className="mb-3 font-display text-sm font-bold text-slate-800">📋 {t("supplierDelivery.deductions")}</h3>
         <div className="space-y-2">
-          <div className="flex items-center justify-between rounded-lg border border-rose-100 bg-rose-50/50 p-2.5">
-            <div>
-              <p className="text-sm font-semibold text-slate-700">Fertilizer Credit (kg × Rs 95/kg est.)</p>
-              <p className="text-[10px] text-slate-400">{fertCreditKg} kg outstanding</p>
+          {officeBalance ? deductionLines.length > 0 ? deductionLines.map((line) => (
+            <div key={line.key} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/70 p-2.5">
+              <p className="text-sm font-semibold text-slate-700">{t(line.labelKey)}</p>
+              <p className="text-sm font-bold text-rose-600">− {fmtLKR(line.amount)}</p>
             </div>
-            <p className="text-sm font-bold text-rose-600">− {fmtLKR(fertCreditCost)}</p>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50/50 p-2.5">
-            <div>
-              <p className="text-sm font-semibold text-slate-700">Active Advances (loans)</p>
-              <p className="text-[10px] text-slate-400">From supplier loans module</p>
-            </div>
-            <p className="text-sm font-bold text-amber-600">− {fmtLKR(advanceBalance)}</p>
-          </div>
-          {/* B32 (Round #14) — Labor Cost deduction */}
-          <div className="flex items-center justify-between rounded-lg border border-orange-100 bg-orange-50/50 p-2.5">
-            <div>
-              <p className="text-sm font-semibold text-slate-700">👷 Labor Cost (this month)</p>
-              <p className="text-[10px] text-slate-400">From My Labor module · {laborCostMonth > 0 ? "logged" : "not logged yet"}</p>
-            </div>
-            <p className="text-sm font-bold text-orange-600">− {fmtLKR(laborCostMonth)}</p>
+          )) : <p className="rounded-lg bg-emerald-50 p-3 text-xs font-semibold text-emerald-700">{t("officeFinance.noDeductions")}</p>
+          : <>
+            <div className="flex items-center justify-between rounded-lg border border-rose-100 bg-rose-50/50 p-2.5"><p className="text-sm font-semibold text-slate-700">{t("officeSummary.fertilizerDeductions")}</p><p className="text-sm font-bold text-rose-600">− {fmtLKR(fertCreditCost)}</p></div>
+            <div className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50/50 p-2.5"><p className="text-sm font-semibold text-slate-700">{t("officeSummary.currentMonthAdvances")}</p><p className="text-sm font-bold text-amber-600">− {fmtLKR(advanceBalance)}</p></div>
+            <div className="flex items-center justify-between rounded-lg border border-orange-100 bg-orange-50/50 p-2.5"><p className="text-sm font-semibold text-slate-700">{t("officeFinance.laborCost")}</p><p className="text-sm font-bold text-orange-600">− {fmtLKR(laborCostMonth)}</p></div>
+          </>}
+          <div className="flex items-center justify-between rounded-lg border border-rose-200 bg-rose-50 p-2.5">
+            <p className="text-sm font-bold text-slate-800">{t("officeFinance.totalDeductions")}</p>
+            <p className="text-sm font-extrabold text-rose-700">− {fmtLKR(totalDeductions)}</p>
           </div>
           <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-bold text-slate-800">{t("supplierDelivery.netPayable")}</p>
+            <p className="text-sm font-bold text-slate-800">{officeBalance ? t("officeFinance.currentBalance") : t("supplierDelivery.netPayable")}</p>
             <p className={`font-display text-lg font-extrabold ${netPayable >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{fmtLKR(netPayable)}</p>
           </div>
         </div>
