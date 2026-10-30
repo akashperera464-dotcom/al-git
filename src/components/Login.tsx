@@ -6,6 +6,7 @@ import { readFactories, readRoutes, readUserOperationalProfile, type FactoryOpti
 import { usesAdminShell } from "@/lib/rbac";
 import type { Role } from "@/lib/data";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useBranding, isMediaUrl, isVideoUrl } from "@/lib/branding";
 import { useTranslation } from "react-i18next";
 import { validateRegistration } from "@/lib/registrationHardening";
@@ -153,11 +154,10 @@ export function Login() {
 
       {/* Keep the selector in the viewport's top-right corner on every screen size.
           safe-top-absolute moves it below a mobile display notch when necessary. */}
-      {!embeddedAndroidApp && (
-        <div className="safe-top-absolute absolute right-4 top-4 z-20">
-          <LanguageSwitcher dark />
-        </div>
-      )}
+      <div className="safe-top-absolute absolute right-4 top-4 z-20 flex items-center gap-2">
+        {!embeddedAndroidApp && <LanguageSwitcher dark={hasBg} />}
+        <ThemeToggle darkSurface={hasBg} />
+      </div>
 
       <div className="relative z-10 w-full max-w-md animate-fade-up">
         {/* brand */}

@@ -250,6 +250,221 @@ body {
 }
 
 /* ============================================================================
+ * Global light / dark appearance
+ * ============================================================================
+ * The application predates Tailwind dark variants and contains many modules.
+ * These centralized mappings preserve every module's semantic tone while
+ * changing shared surfaces, borders, text, forms, charts and map controls.
+ * This avoids partial dark mode where only the shell changes.
+ * ========================================================================== */
+.dark body {
+  background-color: #07110e;
+  color: #e2e8f0;
+}
+
+.dark .app-aurora {
+  background:
+    radial-gradient(1200px 620px at 100% -12%, rgba(16, 185, 129, 0.11), transparent 60%),
+    radial-gradient(900px 520px at -12% 8%, rgba(245, 158, 11, 0.07), transparent 55%),
+    radial-gradient(760px 520px at 50% 118%, rgba(13, 148, 136, 0.09), transparent 60%),
+    #07110e;
+}
+
+.dark .grid-overlay {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.055) 1px, transparent 1px);
+}
+
+.dark .card {
+  background: #111f1b;
+  border-color: #2b4038;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.32), 0 8px 28px rgba(0, 0, 0, 0.12);
+}
+.dark .card-hover:hover {
+  border-color: #3c6a59;
+  box-shadow: 0 22px 44px -18px rgba(0, 0, 0, 0.72);
+}
+.dark .glass {
+  background: rgba(17, 31, 27, 0.82);
+  border-color: rgba(71, 101, 90, 0.62);
+}
+.dark .text-gradient {
+  background-image: linear-gradient(115deg, #6ee7b7, #34d399 38%, #fbbf24);
+}
+
+/* Neutral surfaces */
+.dark .bg-white,
+.dark [class~="bg-white/95"],
+.dark [class~="bg-white/90"],
+.dark [class~="bg-white/80"],
+.dark [class~="bg-white/70"] { background-color: #111f1b !important; }
+.dark .bg-slate-50,
+.dark [class~="bg-slate-50/70"],
+.dark [class~="bg-slate-50/50"],
+.dark [class~="bg-slate-50/40"] { background-color: #0c1814 !important; }
+.dark .bg-slate-100 { background-color: #172821 !important; }
+.dark .bg-slate-200 { background-color: #273a33 !important; }
+.dark .bg-slate-300 { background-color: #3b5149 !important; }
+
+/* Pale semantic surfaces retain their meaning without producing glare. */
+.dark .bg-emerald-50,
+.dark [class~="bg-emerald-50/50"],
+.dark [class~="bg-emerald-50/40"],
+.dark [class~="bg-emerald-50/60"] { background-color: rgba(16, 185, 129, 0.13) !important; }
+.dark .bg-emerald-100,
+.dark .bg-emerald-200 { background-color: rgba(16, 185, 129, 0.22) !important; }
+.dark .bg-teal-50,
+.dark [class~="bg-teal-50/50"] { background-color: rgba(20, 184, 166, 0.13) !important; }
+.dark .bg-teal-100 { background-color: rgba(20, 184, 166, 0.22) !important; }
+.dark .bg-sky-50,
+.dark [class~="bg-sky-50/50"] { background-color: rgba(14, 165, 233, 0.13) !important; }
+.dark .bg-sky-100 { background-color: rgba(14, 165, 233, 0.22) !important; }
+.dark .bg-blue-50,
+.dark [class~="bg-blue-50/50"] { background-color: rgba(59, 130, 246, 0.13) !important; }
+.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.22) !important; }
+.dark .bg-violet-50,
+.dark [class~="bg-violet-50/50"] { background-color: rgba(139, 92, 246, 0.14) !important; }
+.dark .bg-violet-100 { background-color: rgba(139, 92, 246, 0.22) !important; }
+.dark .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.22) !important; }
+.dark .bg-amber-50,
+.dark [class~="bg-amber-50/50"] { background-color: rgba(245, 158, 11, 0.13) !important; }
+.dark .bg-amber-100,
+.dark .bg-amber-200 { background-color: rgba(245, 158, 11, 0.22) !important; }
+.dark .bg-orange-50,
+.dark [class~="bg-orange-50/50"] { background-color: rgba(249, 115, 22, 0.13) !important; }
+.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.22) !important; }
+.dark .bg-rose-50,
+.dark [class~="bg-rose-50/50"] { background-color: rgba(244, 63, 94, 0.13) !important; }
+.dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.22) !important; }
+.dark .bg-red-50,
+.dark [class~="bg-red-50/50"] { background-color: rgba(239, 68, 68, 0.13) !important; }
+
+/* High-contrast text hierarchy */
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-800 { color: #f1f5f9 !important; }
+.dark .text-slate-700 { color: #e2e8f0 !important; }
+.dark .text-slate-600 { color: #cbd5e1 !important; }
+.dark .text-slate-500 { color: #a8b4c5 !important; }
+.dark .text-slate-400 { color: #94a3b8 !important; }
+.dark .text-slate-300 { color: #7f8da2 !important; }
+.dark .text-emerald-800,
+.dark .text-emerald-700 { color: #a7f3d0 !important; }
+.dark .text-emerald-600 { color: #6ee7b7 !important; }
+.dark .text-teal-800,
+.dark .text-teal-700,
+.dark .text-teal-600 { color: #99f6e4 !important; }
+.dark .text-sky-800,
+.dark .text-sky-700,
+.dark .text-sky-600 { color: #bae6fd !important; }
+.dark .text-blue-800,
+.dark .text-blue-700,
+.dark .text-blue-600 { color: #bfdbfe !important; }
+.dark .text-violet-800,
+.dark .text-violet-700,
+.dark .text-violet-600 { color: #ddd6fe !important; }
+.dark .text-indigo-700 { color: #c7d2fe !important; }
+.dark .text-amber-800,
+.dark .text-amber-700,
+.dark .text-amber-600 { color: #fde68a !important; }
+.dark .text-orange-800,
+.dark .text-orange-700,
+.dark .text-orange-600 { color: #fed7aa !important; }
+.dark .text-rose-800,
+.dark .text-rose-700,
+.dark .text-rose-600 { color: #fecdd3 !important; }
+.dark .text-red-800,
+.dark .text-red-700,
+.dark .text-red-600 { color: #fecaca !important; }
+
+/* Borders, dividers and focus rings */
+.dark .border-slate-50,
+.dark .border-slate-100 { border-color: #20332c !important; }
+.dark .border-slate-200 { border-color: #314840 !important; }
+.dark .border-slate-300 { border-color: #465f56 !important; }
+.dark .border-emerald-100,
+.dark .border-emerald-200,
+.dark .border-emerald-300 { border-color: rgba(52, 211, 153, 0.38) !important; }
+.dark .border-sky-100,
+.dark .border-sky-200 { border-color: rgba(56, 189, 248, 0.36) !important; }
+.dark .border-blue-100,
+.dark .border-blue-200 { border-color: rgba(96, 165, 250, 0.36) !important; }
+.dark .border-violet-100,
+.dark .border-violet-200 { border-color: rgba(167, 139, 250, 0.36) !important; }
+.dark .border-amber-100,
+.dark .border-amber-200,
+.dark .border-amber-300 { border-color: rgba(251, 191, 36, 0.38) !important; }
+.dark .border-orange-100,
+.dark .border-orange-200 { border-color: rgba(251, 146, 60, 0.36) !important; }
+.dark .border-rose-100,
+.dark .border-rose-200,
+.dark .border-rose-300 { border-color: rgba(251, 113, 133, 0.38) !important; }
+
+/* Forms must remain legible regardless of module-specific light classes. */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark select,
+.dark textarea {
+  background-color: #0d1a16 !important;
+  border-color: #3a5148 !important;
+  color: #f8fafc !important;
+  caret-color: #6ee7b7;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #7d8b9f !important; opacity: 1; }
+.dark input:disabled,
+.dark select:disabled,
+.dark textarea:disabled { background-color: #14231e !important; color: #87958f !important; }
+.dark select option { background-color: #0d1a16; color: #f8fafc; }
+.dark input[type="date"],
+.dark input[type="datetime-local"],
+.dark input[type="time"] { color-scheme: dark; }
+
+/* Common hover utilities need dark equivalents as well. */
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover { background-color: #1a2b25 !important; }
+.dark .hover\:bg-emerald-50:hover { background-color: rgba(16, 185, 129, 0.18) !important; }
+.dark .hover\:bg-rose-50:hover,
+.dark .hover\:bg-rose-100:hover { background-color: rgba(244, 63, 94, 0.18) !important; }
+
+/* Charts, tables, native widgets and map chrome */
+.dark .recharts-cartesian-axis-tick-value,
+.dark .recharts-text { fill: #a8b4c5 !important; }
+.dark .recharts-cartesian-grid line { stroke: #2b4038 !important; }
+.dark .recharts-default-tooltip {
+  background-color: #111f1b !important;
+  border-color: #3a5148 !important;
+  color: #e2e8f0 !important;
+}
+.dark .leaflet-bar a,
+.dark .leaflet-control-layers,
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #111f1b !important;
+  color: #e2e8f0 !important;
+  border-color: #3a5148 !important;
+}
+.dark ::-webkit-calendar-picker-indicator { filter: invert(0.9); }
+.dark ::-webkit-scrollbar-thumb { background: #465f56; background-clip: padding-box; }
+.dark .shimmer::after { background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.16), transparent); }
+
+body,
+.card,
+input,
+select,
+textarea {
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .card,
+  input,
+  select,
+  textarea { transition: none; }
+}
+
+/* ============================================================================
  * iPhone notch / Dynamic Island safe-area helpers
  * ============================================================================
  * Purpose: push UI elements below the notch (top) and above the home indicator

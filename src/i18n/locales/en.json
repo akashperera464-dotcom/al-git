@@ -724,5 +724,6 @@
   "finance": { "grossEarnings": "Gross Earnings", "totalDeductions": "Total Deductions", "paidAmount": "Paid Amount", "estimatedNetPayable": "Estimated Net Payable", "confirmedNetPayable": "Confirmed Net Payable", "confirmMonthEnd": "Confirm Month-End" },
   "registration": { "suspiciousActivity": "Suspicious activity detected. Please try again later.", "tooManyAttempts": "Too many registration attempts. Try again later.", "accountExists": "An account with this phone/email already exists" },
   "round15": { "supportTitle": "Help, Support & Sync", "supportDesc": "Contact the estate office and see the real state of records waiting to sync.", "openRequests": "Open requests", "waitingSync": "Waiting to sync", "newTicket": "New support ticket", "subject": "Subject", "helpMessage": "Explain what help you need", "sendAdmin": "Send to admin", "sending": "Sending…", "myRequests": "My requests", "noSupportRequests": "No support, dispute or profile requests yet.", "offlineDetails": "Offline sync details", "allSynced": "All locally saved records are synced.", "supportSubmitted": "Support request submitted." },
+  "theme": { "switchLight": "Switch to light mode", "switchDark": "Switch to dark mode", "light": "Light mode", "dark": "Dark mode" },
   "schema": { "updateRequired": "Database schema update required — contact admin" }
 }

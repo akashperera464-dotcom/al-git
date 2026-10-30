@@ -9,6 +9,7 @@ import { Login } from "@/components/Login";
 import { REGISTRY } from "@/modules/registry";
 import { homeModuleFor } from "@/lib/rbac";
 import { SchemaVersionWarning } from "@/components/SchemaVersionWarning";
+import { ThemeProvider } from "@/lib/theme";
 
 /** Resolves the module for the active nav key, behind the RouteGuard. */
 function ModuleView() {
@@ -42,12 +43,14 @@ function Root() {
 
 export default function App() {
   return (
-    <ErrorBoundary>
-    <BrandingProvider>
-      <AppProvider>
-        <Root />
-      </AppProvider>
-    </BrandingProvider>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <BrandingProvider>
+          <AppProvider>
+            <Root />
+          </AppProvider>
+        </BrandingProvider>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }

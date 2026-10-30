@@ -663,6 +663,12 @@ Payments screen එකේ **Previous Month Statement** කොටස `get_current
 
 **Download PDF** මගින් `lm` object එකේ පෙර මාසික summary සහ deduction breakdown එක PDF ගොනුවක් ලෙස ලබාගත හැක. මෙය previous month daily delivery list එකක් නොව account statement summary එකකි. මේ සඳහා Supabase archive table එකක් හෝ database write එකක් භාවිත නොවේ.
 
+### Light Mode සහ Dark Mode
+
+Login, Admin, Supplier සහ Collector interfaces වල header එකේ ඉර/සඳ icon button එකෙන් Light Mode සහ Dark Mode අතර මාරු විය හැක. Cards, text, forms, tables, charts, popup සහ map controls සියල්ල selected mode එකට ගැළපෙන readable colors භාවිත කරයි.
+
+පළමු වරට app එක විවෘත කරන විට device එකේ appearance preference එක භාවිත වේ. පසුව user තෝරාගත් mode එක එම browser/device එකේ සුරැකෙන නිසා app එක නැවත විවෘත කළ විටත් එයම යොදාගනී. මෙය UI preference එකක් පමණි; user records, office API data හෝ Supabase database එක වෙනස් නොකරයි.
+
 ## 17. ලේඛන නඩත්තු කිරීමේ නීතිය
 
 App feature එකක් add, remove, rename හෝ flow එකක් වෙනස් කරන සෑම commit එකකදීම:

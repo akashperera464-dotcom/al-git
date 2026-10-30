@@ -19,6 +19,7 @@ import {
 import { cn } from "@/utils/cn";
 import { useApp } from "@/context/AppContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Onboarding } from "@/components/Onboarding";
 import { useBranding, isMediaUrl } from "@/lib/branding";
 import { resolveShellBrandIdentity } from "@/lib/brandIdentity";
@@ -357,6 +358,7 @@ function AdminShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-2">
             <SyncPill />
             {!embeddedAndroidApp && <LanguageSwitcher />}
+            <ThemeToggle />
             <div title={weather.status === "live" ? `${weatherEstate?.name ?? "Estate"} · live weather` : "Live estate weather unavailable"} className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 sm:flex">
               <CloudSun className="h-4 w-4 text-amber-500" />
               <span className="text-xs font-bold text-slate-700">{weather.status === "live" ? `${weather.today?.tempMax ?? "—"}°C` : "—°C"}</span>
@@ -474,6 +476,7 @@ function MobileShell({ children }: { children: ReactNode }) {
           <Brand />
           <div className="flex items-center gap-1.5">
             {!embeddedAndroidApp && <LanguageSwitcher dark prominent />}
+            <ThemeToggle darkSurface prominent />
             {/* Always-visible sign-out button — now also duplicated at the bottom */}
             {isAuthenticated ? (
               <button

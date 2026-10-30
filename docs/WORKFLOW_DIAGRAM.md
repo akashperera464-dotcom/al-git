@@ -3927,6 +3927,35 @@ dependency.
 
 *Previous month office statement and comparison added: 30 October 2026.*
 
+## 57. Application-wide Light and Dark Appearance
+
+One persistent appearance state now controls every authenticated role and the
+login surface:
+
+```text
+First visit
+  -> saved theme exists? use it
+  -> otherwise use device light/dark preference
+
+Theme button
+  -> ThemeProvider
+  -> html.dark + data-theme
+  -> Admin desktop shell
+  -> Supplier / Collector mobile shell
+  -> Login and registration
+  -> cards, tables, forms, dialogs, charts and map controls
+  -> save choice in browser storage
+```
+
+Dark mode uses centralized high-contrast surface, text, border, semantic tone,
+form-control, chart and Leaflet control mappings. Module data and business
+logic are unchanged. Theme state is browser-local UI preference only; it adds
+no database record, SQL migration, authentication change or paid-plan
+dependency. The mobile browser theme color follows the selected appearance,
+and reduced-motion preferences disable theme transition animation.
+
+*Application-wide light/dark appearance added: 30 October 2026.*
+
 
 
 
