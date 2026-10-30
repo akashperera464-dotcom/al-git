@@ -655,6 +655,14 @@ Supplier Home එකේ office API එකෙන් වෙන වෙනම ලැ
 - Payments screen එකේ fertilizer, ATM/POS/route/office advances, loan, transport, tea සහ වෙනත් සෑම non-zero deduction එකක්ම වෙන වෙනම පෙන්වයි.
 - Current account balance එක office API එකෙන් ලැබුණු අගයමයි; app එක එය නැවත ගණනය කර official confirmation එකක් ලෙස නම් නොකරයි.
 
+### පෙර මාසයේ ගිණුම් ප්‍රකාශය
+
+Payments screen එකේ **Previous Month Statement** කොටස `get_current_balance.php` response එකේ `lm` object එකෙන්ම load වේ. මෙහි පෙර මාසයේ Normal/Super දලු ප්‍රමාණය, මුළු ආදායම, අඩුකිරීම් සහ Account Balance එක පෙන්වයි. Non-zero deduction fields වෙන වෙනම කියවිය හැක.
+
+**Current vs Previous Month** කොටසෙන් දලු ප්‍රමාණය, මුළු ආදායම, මුළු අඩුකිරීම් සහ ගිණුම් ශේෂය සසඳයි. පෙර අගය `0` නම් වැරදි හෝ අනන්ත percentage එකක් නොපෙන්වා **No previous base** ලෙස පෙන්වයි. ඉහළ/පහළ badge එක වෙනස පමණක් පෙන්වන අතර එය හොඳ හෝ නරක වෙනසක් ලෙස තීරණය නොකරයි.
+
+**Download PDF** මගින් `lm` object එකේ පෙර මාසික summary සහ deduction breakdown එක PDF ගොනුවක් ලෙස ලබාගත හැක. මෙය previous month daily delivery list එකක් නොව account statement summary එකකි. මේ සඳහා Supabase archive table එකක් හෝ database write එකක් භාවිත නොවේ.
+
 ## 17. ලේඛන නඩත්තු කිරීමේ නීතිය
 
 App feature එකක් add, remove, rename හෝ flow එකක් වෙනස් කරන සෑම commit එකකදීම:

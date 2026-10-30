@@ -3891,6 +3891,42 @@ them as a factory-confirmed settlement.
 
 *Supplier office record clarity and resilient caching added: 30 October 2026.*
 
+## 56. Previous Month Account Statement from the Office API
+
+The Payments screen now uses both month objects already returned by
+`get_current_balance.php`; no archive table or scheduled database write is
+required.
+
+```text
+Factory balance response
+  -> cm (current month)
+  -> lm (previous month)
+       -> Normal Leaf + Super Leaf kg
+       -> Gross earnings
+       -> Itemized deductions + total deductions
+       -> Account balance
+       -> Previous Month Statement UI
+       -> Previous Month PDF
+
+cm + lm
+  -> current-versus-previous comparison
+       leaf quantity | gross earnings | deductions | account balance
+       percentage = (current - previous) / abs(previous) * 100
+```
+
+When the previous value is zero, the UI displays `No previous base` instead of
+inventing an infinite or misleading percentage. Increase/decrease badges are
+directional only and do not claim that a financial change is good or bad.
+`Balance` is labelled neutrally as `Account balance`; it is not relabelled as
+paid, approved or confirmed. The generated PDF contains only the previous
+month `lm` summary and its non-zero deduction fields, and identifies the
+Factory office API as its source.
+
+This feature adds no Supabase table, storage usage, migration, RLS or paid-plan
+dependency.
+
+*Previous month office statement and comparison added: 30 October 2026.*
+
 
 
 

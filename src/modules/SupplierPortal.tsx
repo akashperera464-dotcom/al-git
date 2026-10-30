@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Package, BellRing, Wallet, Leaf, TrendingUp, CalendarCheck, Droplets, Sparkles, Building2 } from "lucide-react";
+import { Package, BellRing, Wallet, Leaf, TrendingUp, CalendarCheck, Droplets, Sparkles, Building2, Download } from "lucide-react";
 import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { Icon } from "@/components/Icon";
 import { evaluateFertilizerWindow, recommendPlucking, type AdviceLevel } from "@/lib/predictive";
@@ -21,7 +21,7 @@ import { readSupplierFinancialSummary, type SupplierFinancialSummary } from "@/l
 import { createAlert, readAlerts } from "@/lib/notifications";
 import { fetchOfficeBalanceWithMeta, type OfficeDataFreshness } from "@/lib/officeApi";
 import type { OfficeBalanceResponse } from "@/lib/officeApiContracts";
-import { getOfficeDeductionLines, sumOfficeDeductionsByGroup } from "@/lib/officeSupplierSummary";
+import { compareOfficeMonths, getOfficeDeductionLines, sumOfficeDeductionsByGroup, type OfficeMonthMetricComparison } from "@/lib/officeSupplierSummary";
 import { OfficeDataStatus } from "@/components/OfficeDataStatus";
 
 /** Daily Tea Prices card — shows today's price per kg per grade. */
@@ -382,6 +382,26 @@ function CostEarningsChart({ totalEarned, totalCost, netEarnings, periodLabel }:
   );
 }
 
+function MonthComparisonMetric({ label, comparison, value }: { label: string; comparison: OfficeMonthMetricComparison; value: string }) {
+  const { t } = useTranslation();
+  const direction = comparison.difference > 0 ? "up" : comparison.difference < 0 ? "down" : "same";
+  const changeLabel = comparison.percentChange == null
+    ? t("officeFinance.noPercentageBase")
+    : comparison.percentChange === 0
+      ? t("officeFinance.noChange")
+      : `${comparison.percentChange > 0 ? "+" : ""}${comparison.percentChange.toFixed(1)}%`;
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+      <p className="text-[10px] font-semibold text-slate-500">{label}</p>
+      <div className="mt-1 flex items-end justify-between gap-2">
+        <strong className="text-sm text-slate-800">{value}</strong>
+        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${direction === "up" ? "bg-sky-100 text-sky-700" : direction === "down" ? "bg-amber-100 text-amber-700" : "bg-slate-200 text-slate-600"}`}>{changeLabel}</span>
+      </div>
+      <p className="mt-1 text-[9px] text-slate-400">{t("officeFinance.vsPreviousMonth")}</p>
+    </div>
+  );
+}
+
 /** Earnings and deductions. Factory office fields are displayed without
  *  recomputing or claiming an undocumented confirmed/pending status. */
 export function SupplierPayments() {
@@ -435,8 +455,53 @@ export function SupplierPayments() {
   const laborCostMonth = financial?.otherDeductions ?? 0;
   const netPayable = officeBalance?.currentMonth.balance ?? financial?.confirmedNetPayable ?? financial?.estimatedNetPayable ?? 0;
   const deductionLines = officeBalance ? getOfficeDeductionLines(officeBalance.currentMonth) : [];
+  const previousDeductionLines = officeBalance ? getOfficeDeductionLines(officeBalance.previousMonth) : [];
+  const monthComparison = officeBalance ? compareOfficeMonths(officeBalance.currentMonth, officeBalance.previousMonth) : null;
   const totalDeductions = officeBalance?.currentMonth.totalDeduction ?? financial?.totalDeductions ?? 0;
   const periodLabel = officeBalance?.currentMonth.monthName || (financial ? new Date(financial.periodMonth).toLocaleDateString("en-LK", { month: "long", year: "numeric" }) : "");
+
+  const downloadPreviousMonthStatement = async () => {
+    if (!officeBalance) return;
+    const [{ jsPDF }, autoTableModule] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+    const autoTable = autoTableModule.default;
+    const previous = officeBalance.previousMonth;
+    const previousKg = previous.normalLeafQty + previous.superLeafQty;
+    const pdf = new jsPDF();
+    pdf.setFontSize(16);
+    pdf.text("Estate Pulse - Previous Month Account Statement", 14, 18);
+    pdf.setFontSize(10);
+    pdf.text(`Month: ${previous.monthName || "Previous month"}`, 14, 27);
+    pdf.text(`Supplier: ${officeBalance.supplierId}   Factory: ${officeBalance.factoryName}   Route: ${officeBalance.routeName}`, 14, 34);
+    autoTable(pdf, {
+      startY: 42,
+      head: [["Account statement item", "Value"]],
+      body: [
+        ["Normal Leaf", `${fmtNum(previous.normalLeafQty)} kg`],
+        ["Super Leaf", `${fmtNum(previous.superLeafQty)} kg`],
+        ["Total Leaf", `${fmtNum(previousKg)} kg`],
+        ["Gross Earnings", fmtLKR(previous.totalGrossPay)],
+        ["Total Deductions", fmtLKR(previous.totalDeduction)],
+        ["Account Balance", fmtLKR(previous.balance)],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [5, 150, 105] },
+    });
+    const deductionsY = (pdf as typeof pdf & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 92;
+    if (previousDeductionLines.length > 0) {
+      autoTable(pdf, {
+        startY: deductionsY + 8,
+        head: [["Deduction", "Amount"]],
+        body: previousDeductionLines.map((line) => [t(line.labelKey), fmtLKR(line.amount)]),
+        theme: "striped",
+        headStyles: { fillColor: [71, 85, 105] },
+      });
+    }
+    pdf.setFontSize(8);
+    pdf.setTextColor(100);
+    pdf.text("Source: Factory office account statement API. Generated by Estate Pulse.", 14, 287);
+    const safeMonth = (previous.monthName || "previous-month").replace(/[^a-zA-Z0-9_-]+/g, "-");
+    pdf.save(`estate-pulse-account-statement-${safeMonth}.pdf`);
+  };
 
   return (
     <div>
@@ -456,6 +521,49 @@ export function SupplierPayments() {
       </div>
 
       <CostEarningsChart totalEarned={earned} totalCost={totalDeductions} netEarnings={netPayable} periodLabel={periodLabel} />
+
+      {officeBalance && monthComparison && (
+        <Card className="mb-4 p-4">
+          <div className="mb-3">
+            <h3 className="font-display text-sm font-bold text-slate-800">{t("officeFinance.monthComparison")}</h3>
+            <p className="text-[10px] text-slate-400">{officeBalance.currentMonth.monthName} · {t("officeFinance.vsPreviousMonth")} {officeBalance.previousMonth.monthName}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <MonthComparisonMetric label={t("officeFinance.suppliedKg")} comparison={monthComparison.suppliedKg} value={`${fmtNum(monthComparison.suppliedKg.current)} kg`} />
+            <MonthComparisonMetric label={t("officeFinance.grossEarnings")} comparison={monthComparison.grossEarnings} value={fmtLKRShort(monthComparison.grossEarnings.current)} />
+            <MonthComparisonMetric label={t("officeFinance.totalDeductions")} comparison={monthComparison.totalDeductions} value={fmtLKRShort(monthComparison.totalDeductions.current)} />
+            <MonthComparisonMetric label={t("officeFinance.currentBalance")} comparison={monthComparison.accountBalance} value={fmtLKRShort(monthComparison.accountBalance.current)} />
+          </div>
+        </Card>
+      )}
+
+      {officeBalance && (
+        <Card className="mb-4 p-4">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-display text-sm font-bold text-slate-800">{t("officeFinance.previousMonthStatement")}</h3>
+              <p className="text-[10px] text-slate-400">{officeBalance.previousMonth.monthName || t("officeFinance.previousMonth")}</p>
+            </div>
+            <button type="button" onClick={() => void downloadPreviousMonthStatement()} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-2 text-[10px] font-bold text-white">
+              <Download className="h-3.5 w-3.5" /> {t("officeFinance.downloadPreviousPdf")}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-lg bg-emerald-50 p-2.5"><p className="text-[9px] font-semibold text-emerald-700">{t("officeFinance.suppliedKg")}</p><p className="mt-1 text-sm font-bold text-emerald-800">{fmtNum(officeBalance.previousMonth.normalLeafQty + officeBalance.previousMonth.superLeafQty)} kg</p><p className="text-[9px] text-emerald-600">{t("supplierDelivery.normalLeaf")} {fmtNum(officeBalance.previousMonth.normalLeafQty)} · {t("supplierDelivery.superLeaf")} {fmtNum(officeBalance.previousMonth.superLeafQty)}</p></div>
+            <div className="rounded-lg bg-sky-50 p-2.5"><p className="text-[9px] font-semibold text-sky-700">{t("officeFinance.grossEarnings")}</p><p className="mt-1 text-sm font-bold text-sky-800">{fmtLKR(officeBalance.previousMonth.totalGrossPay)}</p></div>
+            <div className="rounded-lg bg-rose-50 p-2.5"><p className="text-[9px] font-semibold text-rose-700">{t("officeFinance.totalDeductions")}</p><p className="mt-1 text-sm font-bold text-rose-800">{fmtLKR(officeBalance.previousMonth.totalDeduction)}</p></div>
+            <div className="rounded-lg bg-violet-50 p-2.5"><p className="text-[9px] font-semibold text-violet-700">{t("officeFinance.currentBalance")}</p><p className="mt-1 text-sm font-bold text-violet-800">{fmtLKR(officeBalance.previousMonth.balance)}</p></div>
+          </div>
+          {previousDeductionLines.length > 0 && (
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="mb-2 text-[10px] font-bold text-slate-600">{t("officeFinance.deductionDetails")}</p>
+              <div className="space-y-1.5">
+                {previousDeductionLines.map((line) => <div key={line.key} className="flex justify-between gap-3 text-[10px]"><span className="text-slate-500">{t(line.labelKey)}</span><strong className="text-slate-700">− {fmtLKR(line.amount)}</strong></div>)}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Gross earnings + pending + rate */}
       <div className="grid grid-cols-3 gap-2.5">

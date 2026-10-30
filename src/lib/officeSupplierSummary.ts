@@ -13,6 +13,20 @@ export interface OfficeDeductionLine {
   group: "fertilizer" | "advance" | "loan" | "other";
 }
 
+export interface OfficeMonthMetricComparison {
+  current: number;
+  previous: number;
+  difference: number;
+  percentChange: number | null;
+}
+
+export interface OfficeMonthComparison {
+  suppliedKg: OfficeMonthMetricComparison;
+  grossEarnings: OfficeMonthMetricComparison;
+  totalDeductions: OfficeMonthMetricComparison;
+  accountBalance: OfficeMonthMetricComparison;
+}
+
 const DEDUCTION_DEFINITIONS: Array<Omit<OfficeDeductionLine, "amount">> = [
   { key: "fertilizerLMB", labelKey: "officeFinance.fertilizerPreviousBalance", group: "fertilizer" },
   { key: "fertilizerThisMonthInstalment", labelKey: "officeFinance.fertilizerInstallment", group: "fertilizer" },
@@ -49,6 +63,25 @@ export function sumOfficeDeductionsByGroup(month: OfficeMonthBalance, group: Off
   return getOfficeDeductionLines(month)
     .filter((line) => line.group === group)
     .reduce((sum, line) => sum + line.amount, 0);
+}
+
+function compareMetric(current: number, previous: number): OfficeMonthMetricComparison {
+  const difference = current - previous;
+  return {
+    current,
+    previous,
+    difference,
+    percentChange: previous === 0 ? (current === 0 ? 0 : null) : (difference / Math.abs(previous)) * 100,
+  };
+}
+
+export function compareOfficeMonths(current: OfficeMonthBalance, previous: OfficeMonthBalance): OfficeMonthComparison {
+  return {
+    suppliedKg: compareMetric(current.normalLeafQty + current.superLeafQty, previous.normalLeafQty + previous.superLeafQty),
+    grossEarnings: compareMetric(current.totalGrossPay, previous.totalGrossPay),
+    totalDeductions: compareMetric(current.totalDeduction, previous.totalDeduction),
+    accountBalance: compareMetric(current.balance, previous.balance),
+  };
 }
 
 export function sriLankaDateIso(date = new Date()): string {
