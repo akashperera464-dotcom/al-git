@@ -3985,6 +3985,19 @@ No database, API, authentication or role logic changed.
 
 *Responsive admin header and neutral dashboard weather presentation added: 30 October 2026.*
 
+## 60. Supplier Home Deduction Label
+
+The fourth Supplier Home summary card still reads the office balance API's
+`currentMonth.totalDeduction` without changing or recomputing the amount. Its
+user-facing label now accurately says `Total deductions` rather than `Monthly
+expenses`, and its subtitle identifies advances, fertilizer, loans and other
+office deductions instead of incorrectly limiting the amount to labour and
+fertilizer. English, Sinhala and Tamil use the same meaning.
+
+No calculation, API field, database record or payment workflow changed.
+
+*Supplier deduction label corrected: 30 October 2026.*
+
 
 
 

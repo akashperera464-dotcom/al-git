@@ -696,7 +696,7 @@
     "greetingWithName": "{{greeting}}, {{name}}",
     "welcome": "Welcome, {{name}}!", "linkedEstate": "{{estate}} · Linked estate", "interface": "Supplier portal",
     "pendingSync": "{{count}} pending sync", "weather": "Today's weather", "weatherDetail": "High {{temperature}}°C · Rain {{rain}}% · Wind {{wind}} km/h",
-    "perKgToday": "per kg · latest rate", "priceReference": "Latest effective rates for your assigned factory. The finance office confirms the final monthly price.", "monthEarnings": "Monthly earnings", "monthExpenses": "Monthly expenses", "laborFertilizer": "labour + fertilizer",
+    "perKgToday": "per kg · latest rate", "priceReference": "Latest effective rates for your assigned factory. The finance office confirms the final monthly price.", "monthEarnings": "Monthly earnings", "monthExpenses": "Total deductions", "laborFertilizer": "advances · fertilizer · loans · other",
     "monthSupplied": "Monthly supplied", "monthDeliveries": "Deliveries this month", "recordedReceipts": "recorded receipts", "superQuality": "Premium quality", "byWeight": "by leaf weight", "reminders": "Farm reminders",
     "fertilizerReminder": "Fertilizer cycle is approaching", "pruningReminder": "Pruning reminder is due", "viewAlerts": "View all alerts",
     "quickActions": "Quick actions", "myPlot": "My plot", "farmLog": "Farm log", "deliveries": "Deliveries", "requests": "Requests",

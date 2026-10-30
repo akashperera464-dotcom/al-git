@@ -653,6 +653,7 @@ Supplier Home එකේ office API එකෙන් වෙන වෙනම ලැ
 - **Yesterday's crop** monthly details API එකේ ඊයේ දිනයට ගැළපෙන record එකෙන් ගනී. Record එකක් නැත්නම් ඒ බව පැහැදිලිව පෙන්වයි.
 - **Cash advances** සහ **Fertilizer deductions** balance API එකේ වත්මන් මාසයේ fields එකතු කර සාරාංශයක් ලෙස පෙන්වයි.
 - Payments screen එකේ fertilizer, ATM/POS/route/office advances, loan, transport, tea සහ වෙනත් සෑම non-zero deduction එකක්ම වෙන වෙනම පෙන්වයි.
+- Supplier Home එකේ **මුළු අඩුකිරීම්** card එක Office API `totalDeduction` අගයම පෙන්වයි. එය labour/fertilizer වතු වියදමක් නොව advances, fertilizer, loans, transport, previous debt සහ වෙනත් office deductions එකතුවකි.
 - Current account balance එක office API එකෙන් ලැබුණු අගයමයි; app එක එය නැවත ගණනය කර official confirmation එකක් ලෙස නම් නොකරයි.
 
 ### පෙර මාසයේ ගිණුම් ප්‍රකාශය
