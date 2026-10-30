@@ -71,15 +71,15 @@ export function LanguageSwitcher({ dark, prominent }: { dark?: boolean; prominen
         aria-label={t("common.language")}
         title={t("common.language")}
         className={cn(
-          "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-2.5 py-2 text-xs font-bold leading-none transition ring-focus",
+          "inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border px-0 text-xs font-bold leading-none transition ring-focus md:w-auto md:px-2.5",
           dark
             ? "border-white/15 bg-white/10 text-white hover:bg-white/20"
             : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
         )}
       >
         <Globe className="h-4 w-4 shrink-0" />
-        <span className="hidden max-w-24 truncate sm:inline">{t(current.labelKey)}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open && "rotate-180")} />
+        <span className="hidden max-w-24 truncate md:inline">{t(current.labelKey)}</span>
+        <ChevronDown className={cn("hidden h-3.5 w-3.5 shrink-0 transition-transform md:block", open && "rotate-180")} />
       </button>
 
       {open && (

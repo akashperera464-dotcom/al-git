@@ -214,14 +214,7 @@ export default function Dashboard() {
         desc="Real-time operational intelligence — live data from Supabase."
         icon={<IconChip icon={Sprout} tone="emerald" className="h-12 w-12" />}
         actions={
-          <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:flex">
-              <CloudSun className="h-5 w-5 text-amber-500" />
-              <div className="leading-tight">
-                <p className="text-sm font-bold text-slate-800 tnum">{weather.status === "live" ? `${weather.today?.tempMax ?? "—"}°C` : "—°C"}</p>
-                <p className="max-w-44 truncate text-[10px] text-slate-400">{weather.loading ? "Loading live weather…" : weather.status === "live" ? `${weatherEstate?.name ?? "Estate"} · ${weather.today?.condition ?? "Weather"}` : weatherStatusText(weather.status, weather.days.length)}</p>
-              </div>
-            </div>
+          <div className="flex items-center">
             <button
               onClick={() => {
                 import("@/lib/pdfExport").then(({ exportHarvestReport }) => {

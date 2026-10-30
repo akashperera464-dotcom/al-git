@@ -3966,6 +3966,25 @@ No database, API, authentication or paid-plan configuration changed.
 
 *Supplier advisory title simplified: 30 October 2026.*
 
+## 59. Responsive Admin Header Consistency
+
+The admin shell now keeps the active module title on one line and switches the
+sync and language controls to compact icon presentation on phone and narrow
+tablet widths. Full labels return automatically when enough horizontal space
+is available. Weather and account identity controls appear only at wide
+desktop breakpoints; their underlying state remains available throughout the
+application.
+
+The Estate Dashboard no longer renders a second, desktop-only weather card
+labelled with whichever GPS estate happened to be first in the loaded estate
+array. The global header retains the live temperature without presenting that
+single estate as the organization-wide selection. Dashboard weather-driven
+alerts and recommendations continue to use the same verified live data.
+
+No database, API, authentication or role logic changed.
+
+*Responsive admin header and neutral dashboard weather presentation added: 30 October 2026.*
+
 
 
 

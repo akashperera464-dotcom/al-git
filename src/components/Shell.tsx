@@ -175,7 +175,9 @@ function NotificationBell() {
     <div className="relative">
       <button
         onClick={() => { setOpen((o) => !o); if (!open && count > 0) void markAllRead(); }}
-        className="relative rounded-xl border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-50"
+        aria-label="Notifications"
+        title="Notifications"
+        className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
       >
         <Bell className="h-4 w-4" />
         {count > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">{count}</span>}
@@ -214,7 +216,7 @@ function NotificationBell() {
 }
 
 /* ----------------------------- Sync Pill ----------------------------- */
-function SyncPill({ dark }: { dark?: boolean }) {
+function SyncPill({ dark, compactOnMobile = false }: { dark?: boolean; compactOnMobile?: boolean }) {
   const { t } = useTranslation();
   const { online, toggleOnline, syncQueue } = useApp();
   const queued = syncQueue.filter((q) => q.status === "queued").length;
@@ -227,8 +229,10 @@ function SyncPill({ dark }: { dark?: boolean }) {
     <button
       onClick={toggleOnline}
       title={isSynced ? "All data synced to server" : failed > 0 ? `${failed} failed record(s) are preserved for recovery` : queued > 0 ? `${queued} item(s) waiting to sync` : "You are offline"}
+      aria-label={label}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition",
+        "inline-flex items-center justify-center gap-1.5 rounded-full text-[11px] font-semibold transition",
+        compactOnMobile ? "h-9 w-9 px-0 md:h-auto md:w-auto md:px-2.5 md:py-1" : "px-2.5 py-1",
         !online || failed > 0
           ? (dark ? "bg-rose-500/20 text-rose-200" : "bg-rose-50 text-rose-700")
           : isSynced
@@ -237,8 +241,7 @@ function SyncPill({ dark }: { dark?: boolean }) {
       )}
     >
       {!online ? <WifiOff className="h-3 w-3" /> : isSynced ? <Check className="h-3 w-3" /> : <Wifi className="h-3 w-3" />}
-      <span className="hidden sm:inline">{isSynced ? "✓ " : !online ? "" : "⏳ "}{label}</span>
-      <span className="sm:hidden">{label}</span>
+      <span className={compactOnMobile ? "hidden md:inline" : undefined}>{isSynced ? "✓ " : !online ? "" : "⏳ "}{label}</span>
     </button>
   );
 }
@@ -347,24 +350,24 @@ function AdminShell({ children }: { children: ReactNode }) {
 
       {/* Main column */}
       <div className="flex min-h-screen flex-1 flex-col">
-        <header className="safe-top md:!pt-3 sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200/70 bg-white/80 px-4 py-3 backdrop-blur-xl lg:px-6">
-          <button onClick={() => setDrawer(true)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden">
+        <header className="safe-top md:!pt-3 sticky top-0 z-30 flex items-center gap-1.5 border-b border-slate-200/70 bg-white/80 px-2.5 py-2.5 backdrop-blur-xl sm:gap-3 sm:px-4 sm:py-3 lg:px-6">
+          <button onClick={() => setDrawer(true)} aria-label="Open navigation" className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden">
             <Menu className="h-5 w-5" />
           </button>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-slate-400">Estate Pulse</p>
-            <h1 className="font-display text-base font-bold tracking-tight text-slate-900 sm:text-lg">{current ? moduleLabel(t, current.key) : t("common.home")}</h1>
+          <div className="min-w-0 flex-1 lg:flex-none">
+            <p className="hidden text-[11px] font-medium text-slate-400 md:block">Estate Pulse</p>
+            <h1 className="truncate font-display text-sm font-bold tracking-tight text-slate-900 sm:text-base md:text-lg">{current ? moduleLabel(t, current.key) : t("common.home")}</h1>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <SyncPill />
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+            <SyncPill compactOnMobile />
             {!embeddedAndroidApp && <LanguageSwitcher />}
             <ThemeToggle />
-            <div title={weather.status === "live" ? `${weatherEstate?.name ?? "Estate"} · live weather` : "Live estate weather unavailable"} className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 sm:flex">
+            <div title={weather.status === "live" ? "Live estate weather" : "Live estate weather unavailable"} className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 xl:flex">
               <CloudSun className="h-4 w-4 text-amber-500" />
               <span className="text-xs font-bold text-slate-700">{weather.status === "live" ? `${weather.today?.tempMax ?? "—"}°C` : "—°C"}</span>
             </div>
             <NotificationBell />
-            <div className="hidden w-48 sm:block">
+            <div className="hidden w-48 xl:block">
               <RoleSwitcher />
             </div>
             {isAuthenticated && (

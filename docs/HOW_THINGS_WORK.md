@@ -669,6 +669,12 @@ Login, Admin, Supplier සහ Collector interfaces වල header එකේ ඉ�
 
 පළමු වරට app එක විවෘත කරන විට device එකේ appearance preference එක භාවිත වේ. පසුව user තෝරාගත් mode එක එම browser/device එකේ සුරැකෙන නිසා app එක නැවත විවෘත කළ විටත් එයම යොදාගනී. මෙය UI preference එකක් පමණි; user records, office API data හෝ Supabase database එක වෙනස් නොකරයි.
 
+### Admin header එක device අනුව පෙනෙන ආකාරය
+
+Phone සහ පටු tablet screens වල Admin header එකේ module name එක එක පේළියක පෙන්වන අතර Sync සහ Language controls icon ලෙස compact වේ. Screen එක පුළුල් වන විට ඒවායේ full labels නැවත පෙන්වයි. මෙය layout වෙනසක් පමණි; mobile සහ desktop දෙකම එකම account, module, sync state සහ live data භාවිත කරයි.
+
+Estate Dashboard එකේ weather-based alerts/recommendations දිගටම live estate weather භාවිත කරයි. Dashboard title එක අසල පළමු estate නම organization-wide weather එකක් ලෙස පෙන්වූ duplicate desktop card එක ඉවත් කර ඇත.
+
 ## 17. ලේඛන නඩත්තු කිරීමේ නීතිය
 
 App feature එකක් add, remove, rename හෝ flow එකක් වෙනස් කරන සෑම commit එකකදීම:
