@@ -3956,6 +3956,16 @@ and reduced-motion preferences disable theme transition animation.
 
 *Application-wide light/dark appearance added: 30 October 2026.*
 
+## 58. Supplier Proximity Advisory Label
+
+The supplier lorry-proximity card now uses a neutral user-facing title in all
+three languages: `Estate Insights`, `වතු උපදෙස්` and `தோட்ட ஆலோசனைகள்`.
+Only the visible title changed; the localized ETA, leaf-preparation guidance,
+safe fallback, proximity threshold and advisory delivery logic are unchanged.
+No database, API, authentication or paid-plan configuration changed.
+
+*Supplier advisory title simplified: 30 October 2026.*
+
 
 
 

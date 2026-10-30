@@ -273,7 +273,7 @@ Collector Start Collection කර GPS tracking සක්‍රීය කළ ප�
 - Supplier subscribe කරන්නේ තම assigned route channel එකට පමණි.
 - Supplier map එකේ lorry marker සහ estate marker පෙන්වයි.
 - Haversine calculation මගින් distance සහ ETA frontend එකේම ගණනය වේ.
-- 1.5 kmට අඩු වූ විට AI/safe-fallback advice පෙන්විය හැක.
+- 1.5 kmට අඩු වූ විට **වතු උපදෙස්** card එකේ ලොරිය සහ දලු සූදානම පිළිබඳ උපදෙස් පෙන්වයි.
 
 ---
 
