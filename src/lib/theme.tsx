@@ -2,7 +2,10 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useStat
 
 export type ColorTheme = "light" | "dark";
 
-const THEME_STORAGE_KEY = "kdu.color-theme";
+// Versioned so devices that previously auto-saved the operating system's dark
+// preference start with the new application default once. From this version
+// onward, only a theme deliberately selected in the app is restored.
+const THEME_STORAGE_KEY = "kdu.color-theme.v2";
 
 interface ThemeContextValue {
   theme: ColorTheme;
@@ -13,9 +16,9 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 const useBrowserLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-export function resolveInitialTheme(savedTheme: string | null, prefersDark: boolean): ColorTheme {
+export function resolveInitialTheme(savedTheme: string | null, _prefersDark: boolean): ColorTheme {
   if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
-  return prefersDark ? "dark" : "light";
+  return "light";
 }
 
 function readInitialTheme(): ColorTheme {
