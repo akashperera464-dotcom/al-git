@@ -2,11 +2,6 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useStat
 
 export type ColorTheme = "light" | "dark";
 
-// Versioned so devices that previously auto-saved the operating system's dark
-// preference start with the new application default once. From this version
-// onward, only a theme deliberately selected in the app is restored.
-const THEME_STORAGE_KEY = "kdu.color-theme.v2";
-
 interface ThemeContextValue {
   theme: ColorTheme;
   setTheme: (theme: ColorTheme) => void;
@@ -16,16 +11,12 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 const useBrowserLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-export function resolveInitialTheme(savedTheme: string | null, _prefersDark: boolean): ColorTheme {
-  if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
+export function resolveInitialTheme(_savedTheme: string | null, _prefersDark: boolean): ColorTheme {
   return "light";
 }
 
 function readInitialTheme(): ColorTheme {
-  if (typeof window === "undefined") return "light";
-  let saved: string | null = null;
-  try { saved = window.localStorage.getItem(THEME_STORAGE_KEY); } catch { /* Restricted browser storage. */ }
-  return resolveInitialTheme(saved, window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false);
+  return "light";
 }
 
 function applyTheme(theme: ColorTheme): void {
@@ -41,17 +32,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useBrowserLayoutEffect(() => {
     applyTheme(theme);
-    try { window.localStorage.setItem(THEME_STORAGE_KEY, theme); } catch { /* Theme still works for this session. */ }
   }, [theme]);
-
-  useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== THEME_STORAGE_KEY) return;
-      setThemeState(resolveInitialTheme(event.newValue, window.matchMedia("(prefers-color-scheme: dark)").matches));
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
 
   const value = useMemo<ThemeContextValue>(() => ({
     theme,
@@ -67,5 +48,3 @@ export function useTheme(): ThemeContextValue {
   if (!context) throw new Error("useTheme must be used inside ThemeProvider.");
   return context;
 }
-
-export { THEME_STORAGE_KEY };

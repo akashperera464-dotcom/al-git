@@ -4000,16 +4000,15 @@ No calculation, API field, database record or payment workflow changed.
 
 ## 61. Light-First Theme Startup
 
-The application now starts in Light Mode when the current browser/device has
-no explicit in-app theme selection. It no longer adopts the operating system's
-dark appearance automatically. The theme preference storage key is versioned
-so devices that previously auto-saved system Dark Mode receive the new Light
-Mode default once after deployment.
+The application now starts in Light Mode on every fresh launch or reload. It
+does not adopt the operating system appearance and does not restore an older
+saved Dark Mode selection. A small head script establishes Light Mode before
+React paints, preventing an initial dark flash while the application loads.
 
-Users can still switch to Dark Mode with the existing theme button. A theme
-selected inside the application is saved on that browser/device and restored
-on later visits. This is a presentation-only change; authentication, API data,
-roles and database records are unchanged.
+Users can still switch to Dark Mode with the existing theme button. That choice
+remains active while the current application session is open; a refresh or new
+launch intentionally returns to Light Mode. This is a presentation-only change;
+authentication, API data, roles and database records are unchanged.
 
 *Light-first theme startup added: 31 October 2026.*
 

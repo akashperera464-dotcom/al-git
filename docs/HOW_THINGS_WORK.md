@@ -668,7 +668,7 @@ Payments screen එකේ **Previous Month Statement** කොටස `get_current
 
 Login, Admin, Supplier සහ Collector interfaces වල header එකේ ඉර/සඳ icon button එකෙන් Light Mode සහ Dark Mode අතර මාරු විය හැක. Cards, text, forms, tables, charts, popup සහ map controls සියල්ල selected mode එකට ගැළපෙන readable colors භාවිත කරයි.
 
-පළමු වරට app එක විවෘත කරන විට සැමවිටම Light Mode භාවිත වේ. User කැමති නම් ඉර/සඳ button එකෙන් Dark Mode තෝරාගත හැක. App එක තුළ user තෝරාගත් mode එක එම browser/device එකේ සුරැකෙන නිසා app එක නැවත විවෘත කළ විටත් එයම යොදාගනී. Phone එකේ system appearance එක Dark වුවත් app එක ස්වයංක්‍රීයව Dark Mode වෙන්නේ නැත. මෙය UI preference එකක් පමණි; user records, office API data හෝ Supabase database එක වෙනස් නොකරයි.
+App එක fresh open හෝ refresh කරන සෑම අවස්ථාවකදීම Light Mode භාවිත වේ. User කැමති නම් ඉර/සඳ button එකෙන් Dark Mode තෝරාගත හැකි අතර app session එක විවෘතව තිබෙන තුරු එය සියලු screens සඳහා පවතී. App එක නැවත open/refresh කළ විට නැවත Light Mode වෙයි. Phone එකේ system appearance එක Dark වුවත් හෝ කලින් Dark Mode තෝරා තිබුණත් startup එකේ app එක Dark Mode නොවේ. මෙය UI preference එකක් පමණි; user records, office API data හෝ Supabase database එක වෙනස් නොකරයි.
 
 ### Admin header එක device අනුව පෙනෙන ආකාරය
 
