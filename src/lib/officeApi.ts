@@ -122,3 +122,13 @@ export const fetchOfficeLorry = (routeId: string, signal?: AbortSignal) => fetch
 export function isOfficeMappingMissing(error: unknown): boolean {
   return error instanceof OfficeApiError && error.mappingMissing;
 }
+
+export function canUseLorryBroadcastFallback(error: unknown): boolean {
+  return error instanceof OfficeApiError && (
+    error.mappingMissing
+    || error.code === "FACTORY_LOCATION_UNAVAILABLE"
+    || error.code === "FACTORY_RESPONSE_INVALID"
+    || error.code === "FACTORY_TIMEOUT"
+    || error.code === "FACTORY_NETWORK_FAILED"
+  );
+}

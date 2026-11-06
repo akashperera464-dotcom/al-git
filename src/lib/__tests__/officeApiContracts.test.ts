@@ -16,6 +16,18 @@ describe("factory office API contracts", () => {
     });
   });
 
+  it("accepts JSON, nested payloads and either X/Y axis order", () => {
+    expect(parseOfficeLorry('{"data":{"latitude":"6.7123","longitude":"80.4456"}}').latitude).toBe(6.7123);
+    expect(parseOfficeLorry('[{"X":"6.701","Y":"80.401"}]')).toMatchObject({ latitude: 6.701, longitude: 80.401 });
+    expect(parseOfficeLorry('{"X":"-80.401","Y":"6.701"}')).toMatchObject({ latitude: 6.701, longitude: 80.401, correctedLongitudeSign: true });
+    expect(parseOfficeLorry('lat=6.7001; lng=80.4002')).toMatchObject({ latitude: 6.7001, longitude: 80.4002 });
+  });
+
+  it("recognizes an empty/no-location response separately from malformed coordinates", () => {
+    expect(() => parseOfficeLorry("No location found")).toThrow("FACTORY_LOCATION_UNAVAILABLE");
+    expect(() => parseOfficeLorry("[]")).toThrow("FACTORY_LOCATION_UNAVAILABLE");
+  });
+
   it("rejects coordinates outside Sri Lanka instead of plotting bad data", () => {
     expect(() => parseOfficeLorry("{y: 50<br>x: 10}")).toThrow(/outside Sri Lanka/);
   });

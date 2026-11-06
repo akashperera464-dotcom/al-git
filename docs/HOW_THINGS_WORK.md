@@ -676,6 +676,10 @@ Phone සහ පටු tablet screens වල Admin header එකේ module name 
 
 Estate Dashboard එකේ weather-based alerts/recommendations දිගටම live estate weather භාවිත කරයි. Dashboard title එක අසල පළමු estate නම organization-wide weather එකක් ලෙස පෙන්වූ duplicate desktop card එක ඉවත් කර ඇත.
 
+### Office GPS response එක නොලැබුණොත්
+
+Supplierගේ ලොරි map එක Office GPS API එකෙන් පැරණි HTML `x/y` format එක හෝ JSON/latitude/longitude වැනි නව format එකක් ලැබුණත් ඒවා Sri Lanka GPS සීමාව තුළදැයි පරීක්ෂා කර පෙන්වයි. Office system එකේ අදාළ route එකට එම මොහොතේ live location එකක් නොමැති නම්, response format එක හඳුනාගත නොහැකි නම් හෝ request එක තාවකාලිකව fail වුණොත් technical error code එක Supplierට පෙන්වන්නේ නැත. App එක එම route එකේ existing live Broadcast channel එකෙන් ඊළඟ GPS update එක බලා සිටී. මෙම fallback එකෙන් Factory API හෝ database එකට කිසිදු data write එකක් සිදු නොවේ.
+
 ## 17. ලේඛන නඩත්තු කිරීමේ නීතිය
 
 App feature එකක් add, remove, rename හෝ flow එකක් වෙනස් කරන සෑම commit එකකදීම:

@@ -13,7 +13,7 @@ import { AI_ADVISORY_DISTANCE_KM, requestProximityAdvisory, type ProximityAdviso
 import { readUserOperationalProfile } from "@/lib/supplierOperations";
 import { subscribeToLorryLocation, type LorryChannelStatus, type LorryLocation } from "@/lib/lorryBroadcast";
 import { readUserRouteAssignments, type UserRouteAssignment } from "@/lib/userRoutes";
-import { fetchOfficeLorry, isOfficeMappingMissing } from "@/lib/officeApi";
+import { canUseLorryBroadcastFallback, fetchOfficeLorry } from "@/lib/officeApi";
 
 interface EstatePoint { id: string; name: string; latitude: number; longitude: number }
 
@@ -91,7 +91,7 @@ export function LorryTracking({ userId }: { userId: string }) {
         setLocation({ id: `office:${routeId}:${next.fetchedAt}`, latitude: next.latitude, longitude: next.longitude, routeId, active: true, updatedAt: next.fetchedAt });
       } catch (reason) {
         if (!active || (reason instanceof DOMException && reason.name === "AbortError")) return;
-        if (isOfficeMappingMissing(reason)) startRealtimeFallback();
+        if (canUseLorryBroadcastFallback(reason)) startRealtimeFallback();
         else { setChannelStatus("error"); setError(reason instanceof Error ? reason.message : t("lorry.trackingUnavailable")); }
       }
     };

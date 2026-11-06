@@ -115,7 +115,16 @@ async function fetchFactory(kind: EndpointKind, mapping: UserMapping, forceRefre
     let normalized: unknown;
     if (kind === "lorry") {
       try { normalized = parseOfficeLorry(rawText, fetchedAt); }
-      catch { throw new Error("FACTORY_RESPONSE_INVALID"); }
+      catch (error) {
+        if (error instanceof Error && error.message === "FACTORY_LOCATION_UNAVAILABLE") throw error;
+        console.warn("[factory-api] unrecognized lorry payload", {
+          length: rawText.length,
+          // Preserve enough structure for diagnostics without logging exact
+          // coordinates, supplier information or credentials.
+          shape: rawText.slice(0, 160).replace(/\d/g, "#").replace(/\s+/g, " "),
+        });
+        throw new Error("FACTORY_RESPONSE_INVALID");
+      }
     }
     else {
       let parsed: unknown;
@@ -134,6 +143,7 @@ function publicError(error: unknown): { status: number; code: string; message: s
   if (raw === "AUTH_REQUIRED" || raw === "AUTH_INVALID") return { status: 401, code: raw, message: "Please sign in again." };
   if (raw === "SUPPLIER_ACCESS_DENIED" || raw === "ROUTE_ACCESS_DENIED") return { status: 403, code: raw, message: "This office API route is not assigned to your account." };
   if (raw === "OFFICE_MAPPING_MISSING" || raw === "SUPPLIER_NUMBER_MISSING") return { status: 409, code: raw, message: "Factory/route codes or the supplier number have not been configured." };
+  if (raw === "FACTORY_LOCATION_UNAVAILABLE") return { status: 404, code: raw, message: "The factory system has no live lorry location for this route right now." };
   if (raw.startsWith("MAPPING_READ_FAILED:")) {
     const status = raw.split(":")[1] || "unknown";
     return { status: 503, code: "OFFICE_MAPPING_READ_FAILED", message: `Office mapping database request failed (HTTP ${status}).` };

@@ -4012,6 +4012,27 @@ authentication, API data, roles and database records are unchanged.
 
 *Light-first theme startup added: 31 October 2026.*
 
+## 62. Factory GPS Response Compatibility
+
+The read-only Office GPS integration now accepts the factory's historical HTML
+`x/y` response as well as JSON, nested JSON, named `latitude/longitude`,
+`lat/lng`, and either X/Y axis order. Every parsed pair is still validated
+against Sri Lankan geographic bounds, and the historical negative-longitude
+sign is corrected only after validation.
+
+An empty or explicit no-location response is now distinguished from a malformed
+response. When the Office GPS endpoint is temporarily unavailable, has no live
+route coordinate, times out, or returns an unrecognized format, the supplier
+map switches to the existing route-scoped Realtime Broadcast listener instead
+of displaying a raw `FACTORY_RESPONSE_INVALID` message. Diagnostic server logs
+retain only a digit-redacted response shape; credentials and exact coordinates
+are not logged.
+
+This flow remains read-only: it does not change factory data, create database
+location rows, alter authentication, or require a paid Supabase feature.
+
+*Factory GPS response compatibility and safe fallback added: 6 November 2026.*
+
 
 
 

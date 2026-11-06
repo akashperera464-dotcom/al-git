@@ -47,7 +47,7 @@ export interface OfficeLorryResponse {
   fetchedAt: string;
   latitude: number;
   longitude: number;
-  axisMapping: "y-latitude/x-longitude";
+  axisMapping: "y-latitude/x-longitude" | "x-latitude/y-longitude" | "named-latitude/longitude";
   correctedLongitudeSign: boolean;
 }
 
@@ -124,20 +124,115 @@ export function normalizeOfficeBalance(raw: unknown, fetchedAt = new Date().toIS
   };
 }
 
-/** Parse the factory's non-JSON `{y: 6.66<br>x: - 80.46}` response safely. */
-export function parseOfficeLorry(raw: string, fetchedAt = new Date().toISOString()): OfficeLorryResponse {
-  const cleaned = raw.replace(/<br\s*\/?\s*>/gi, "\n").replace(/<[^>]*>/g, " ");
-  const yMatch = /(?:^|[,{\s])y\s*:\s*([+-]?\s*\d+(?:\.\d+)?)/i.exec(cleaned);
-  const xMatch = /(?:^|[,{\s])x\s*:\s*([+-]?\s*\d+(?:\.\d+)?)/i.exec(cleaned);
-  if (!yMatch || !xMatch) throw new Error("Factory lorry API returned an unrecognized coordinate format.");
-  const latitude = Number(yMatch[1].replace(/\s+/g, ""));
-  const rawLongitude = Number(xMatch[1].replace(/\s+/g, ""));
-  const correctedLongitudeSign = rawLongitude < 0;
-  const longitude = Math.abs(rawLongitude);
-  // Sri Lanka bounds with a small operational margin. This also prevents an
-  // accidental axis swap from placing the marker in an unrelated country.
-  if (latitude < 5.5 || latitude > 10.2 || longitude < 79 || longitude > 82.5) {
+const SRI_LANKA_LATITUDE = { min: 5.5, max: 10.2 } as const;
+const SRI_LANKA_LONGITUDE = { min: 79, max: 82.5 } as const;
+
+function coordinateNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const match = /[+-]?\s*\d+(?:\.\d+)?/.exec(value.replace(/,/g, ""));
+  if (!match) return null;
+  const parsed = Number(match[0].replace(/\s+/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function inLatitudeBounds(value: number): boolean {
+  return value >= SRI_LANKA_LATITUDE.min && value <= SRI_LANKA_LATITUDE.max;
+}
+
+function inLongitudeBounds(value: number): boolean {
+  const absolute = Math.abs(value);
+  return absolute >= SRI_LANKA_LONGITUDE.min && absolute <= SRI_LANKA_LONGITUDE.max;
+}
+
+function lorryResponse(
+  latitude: number,
+  rawLongitude: number,
+  fetchedAt: string,
+  axisMapping: OfficeLorryResponse["axisMapping"],
+): OfficeLorryResponse {
+  if (!inLatitudeBounds(latitude) || !inLongitudeBounds(rawLongitude)) {
     throw new Error("Factory lorry coordinates are outside Sri Lanka bounds.");
   }
-  return { source: "office-api", fetchedAt, latitude, longitude, axisMapping: "y-latitude/x-longitude", correctedLongitudeSign };
+  return {
+    source: "office-api", fetchedAt, latitude, longitude: Math.abs(rawLongitude),
+    axisMapping, correctedLongitudeSign: rawLongitude < 0,
+  };
+}
+
+function objectCoordinatePair(value: unknown): { latitude: number; longitude: number; axisMapping: OfficeLorryResponse["axisMapping"] } | null {
+  if (!value || typeof value !== "object") return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const result = objectCoordinatePair(item);
+      if (result) return result;
+    }
+    return null;
+  }
+  const source = value as Record<string, unknown>;
+  const normalized = new Map(Object.entries(source).map(([key, item]) => [key.toLowerCase().replace(/[^a-z]/g, ""), item]));
+  const first = (...keys: string[]) => keys.map((key) => normalized.get(key)).find((item) => item != null);
+  const namedLatitude = coordinateNumber(first("latitude", "lat"));
+  const namedLongitude = coordinateNumber(first("longitude", "lng", "lon", "long"));
+  if (namedLatitude != null && namedLongitude != null) return { latitude: namedLatitude, longitude: namedLongitude, axisMapping: "named-latitude/longitude" };
+
+  const x = coordinateNumber(first("x"));
+  const y = coordinateNumber(first("y"));
+  if (x != null && y != null) {
+    if (inLatitudeBounds(y) && inLongitudeBounds(x)) return { latitude: y, longitude: x, axisMapping: "y-latitude/x-longitude" };
+    if (inLatitudeBounds(x) && inLongitudeBounds(y)) return { latitude: x, longitude: y, axisMapping: "x-latitude/y-longitude" };
+  }
+
+  for (const item of Object.values(source)) {
+    const result = objectCoordinatePair(item);
+    if (result) return result;
+  }
+  return null;
+}
+
+function textCoordinate(cleaned: string, labels: string[]): number | null {
+  const label = labels.join("|");
+  const match = new RegExp(`(?:^|[,;{\\s\"'])(${label})\\s*[=:]\\s*[\"']?([+-]?\\s*\\d+(?:\\.\\d+)?)`, "i").exec(cleaned);
+  return coordinateNumber(match?.[2]);
+}
+
+/**
+ * Parse both the legacy `{y: 6.66<br>x: -80.46}` payload and newer JSON/text
+ * coordinate variants. The factory has used inconsistent X/Y signs and axis
+ * order, so Sri Lankan geographic bounds are the final safety check.
+ */
+export function parseOfficeLorry(raw: string, fetchedAt = new Date().toISOString()): OfficeLorryResponse {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed || /^(?:null|false|\[\s*\]|\{\s*\})$/i.test(trimmed)
+    || /\b(?:no\s*(?:data|record|location)|not\s*found|location\s*unavailable)\b/i.test(trimmed)) {
+    throw new Error("FACTORY_LOCATION_UNAVAILABLE");
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    const pair = objectCoordinatePair(parsed);
+    if (pair) return lorryResponse(pair.latitude, pair.longitude, fetchedAt, pair.axisMapping);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("outside Sri Lanka")) throw error;
+    // The historical office response is deliberately non-JSON; continue with
+    // the tolerant text parser when JSON decoding fails.
+  }
+
+  const cleaned = trimmed
+    .replace(/&minus;|&#8722;/gi, "-")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<[^>]*>/g, " ");
+  const namedLatitude = textCoordinate(cleaned, ["latitude", "lat"]);
+  const namedLongitude = textCoordinate(cleaned, ["longitude", "lng", "lon", "long"]);
+  if (namedLatitude != null && namedLongitude != null) return lorryResponse(namedLatitude, namedLongitude, fetchedAt, "named-latitude/longitude");
+
+  const x = textCoordinate(cleaned, ["x"]);
+  const y = textCoordinate(cleaned, ["y"]);
+  if (x != null && y != null) {
+    if (inLatitudeBounds(y) && inLongitudeBounds(x)) return lorryResponse(y, x, fetchedAt, "y-latitude/x-longitude");
+    if (inLatitudeBounds(x) && inLongitudeBounds(y)) return lorryResponse(x, y, fetchedAt, "x-latitude/y-longitude");
+    throw new Error("Factory lorry coordinates are outside Sri Lanka bounds.");
+  }
+  throw new Error("Factory lorry API returned an unrecognized coordinate format.");
 }
