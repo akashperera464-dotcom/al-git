@@ -629,7 +629,7 @@ Office API mapping එක Admin විසින් සකස් කළ supplier 
 - Supplier Home එකේ monthly kg, delivery count, earnings සහ deductions office system එකෙන් පෙන්වයි.
 - My Deliveries තුළ Normal Leaf/Super Leaf දින අනුව පෙන්වයි.
 - Payments තුළ office system එකේ gross pay, deductions සහ current balance පෙන්වයි.
-- My Lorry Map එක route එකේ office GPS coordinate එක තත්පර 25කට ආසන්න වාරයකින් refresh කරයි. Supplier වෙනත් route එකක location එක ඉල්ලිය නොහැක.
+- Supplier Home එකේ ලොරි card එක ස්වයංක්‍රීය Office GPS request යවන්නේ නැත. Supplier **ලොරියේ ස්ථානය බලන්න** button එක press කළ විට පමණක් තමන්ට පවරා ඇති route එකේ GPS snapshot එක එක වරක් ඉල්ලයි. Supplier වෙනත් route එකක location එක ඉල්ලිය නොහැක.
 
 Office mapping තවම දාලා නැත්නම් හෝ office server එක තාවකාලිකව unavailable නම්, app එක බිඳෙන්නේ නැහැ. Supplier financial/leaf screens existing EMS records පෙන්වයි; map එක existing EMS live broadcast එකට fallback වෙයි. Screen එකේ **Factory office system** හෝ **EMS records** යන source label එකෙන් භාවිත වන දත්ත මූලාශ්‍රය හඳුනාගත හැක.
 
@@ -646,7 +646,7 @@ Supplier Home එකේ office API එකෙන් වෙන වෙනම ලැ
 
 අවසන් වරට සාර්ථකව ලැබුණු office record එක එම supplier account එකට පමණක් පැය 24ක් දක්වා තාවකාලිකව සුරැකේ. API/server failure එකක් ඇති විට `0 kg` හෝ `Rs 0` ලෙස වැරදි අගයක් පෙන්වීම වෙනුවට එම අවසන් record එක සහ **Last updated** වේලාව පෙන්වයි. Cached record එකක් බව warning එකකින් පැහැදිලි කරයි. Login/access/mapping error එකක් ඇති විට පැරණි financial data පෙන්වන්නේ නැහැ.
 
-**Refresh** බොත්තමෙන් නව office record එකක් ඉල්ලිය හැක. Office server එකට අනවශ්‍ය requests යැවීම වැළැක්වීමට නැවත refresh කිරීමට තත්පර 30ක් බලා සිටිය යුතුය.
+**Refresh Office Data** බොත්තමෙන් නව office record එකක් ඉල්ලිය හැක. Office server එකට අනවශ්‍ය requests යැවීම වැළැක්වීමට නැවත refresh කිරීමට විනාඩි 5ක් බලා සිටිය යුතුය. Crop data විනාඩි 5ක්, balance data විනාඩි 10ක් සහ monthly details විනාඩි 15ක් client/server cache භාවිත කරයි. Supplier Home එක open තබාගැනීමෙන් මේ APIs නැවත නැවත call නොවේ.
 
 ### ඊයේ දලු සහ අඩුකිරීම්
 
@@ -678,7 +678,13 @@ Estate Dashboard එකේ weather-based alerts/recommendations දිගටම 
 
 ### Office GPS response එක නොලැබුණොත්
 
-Supplierගේ ලොරි map එක Office GPS API එකෙන් පැරණි HTML `x/y` format එක හෝ JSON/latitude/longitude වැනි නව format එකක් ලැබුණත් ඒවා Sri Lanka GPS සීමාව තුළදැයි පරීක්ෂා කර පෙන්වයි. Office system එකේ අදාළ route එකට එම මොහොතේ live location එකක් නොමැති නම්, response format එක හඳුනාගත නොහැකි නම් හෝ request එක තාවකාලිකව fail වුණොත් technical error code එක Supplierට පෙන්වන්නේ නැත. App එක එම route එකේ existing live Broadcast channel එකෙන් ඊළඟ GPS update එක බලා සිටී. මෙම fallback එකෙන් Factory API හෝ database එකට කිසිදු data write එකක් සිදු නොවේ.
+Supplierගේ ලොරි map එක මුලින් compact card එකක් ලෙස පෙන්වයි. Supplier **ලොරියේ ස්ථානය බලන්න** press කළ පසු පමණක් Office GPS snapshot එකක් ඉල්ලයි. Map එක open තබාගෙන සිටියත් automatic polling සිදු නොවේ. Manual refresh එකකට පසු නැවත refresh කිරීමට තත්පර 60ක් බලා සිටිය යුතුය.
+
+Super Admin → Branding & Settings තුළ **Office Lorry GPS API** ON/OFF control එක තිබේ. Default එක OFFය. OFF විට Vercel server proxy එකෙන්ම request එක නවතා Office server එකට කිසිවක් යවන්නේ නැත. ON කළත් user button එක press කළ විට පමණක් snapshot එකක් යවයි. Control එක වෙනස් කළ user සහ වේලාව එම settings record එකේ පෙන්වයි.
+
+Office GPS API එකෙන් පැරණි HTML `x/y` format එක හෝ JSON/latitude/longitude වැනි නව format එකක් ලැබුණත් ඒවා Sri Lanka GPS සීමාව තුළදැයි පරීක්ෂා කර පෙන්වයි. Office system එකේ අදාළ route එකට live location එකක් නොමැති නම් එම failure එක විනාඩි 5ක් cache කර repeated requests නවත්වයි. Timeout/network failures සඳහාද retry delay එකක් ඇත. Last successful location එක තිබේ නම් එහි updated time එක පෙන්වයි; නැත්නම් user-friendly unavailable message එක පෙන්වයි. Technical credentials හෝ raw error payload Supplierට පෙන්වන්නේ නැත.
+
+Office API snapshot එක fail වූ විට user විසින් map එක විවෘත කර තිබේ නම් පමණක් existing route-scoped live Broadcast channel එකෙන් GPS update එකක් බලා සිටිය හැක. Map එක close/background කළ විට pending request සහ Broadcast subscription නවතී. මෙම fallback එකෙන් Factory API හෝ database එකට කිසිදු location data write එකක් සිදු නොවේ.
 
 ## 17. ලේඛන නඩත්තු කිරීමේ නීතිය
 

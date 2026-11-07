@@ -25,6 +25,14 @@ interface PersistentCacheEntry<T> { savedAt: number; value: T; fetchedAt: string
 const clientCache = new Map<string, ClientCacheEntry<unknown>>();
 const PERSISTENT_CACHE_PREFIX = "kdu.office-api.v2";
 const MAX_STALE_AGE_MS = 24 * 60 * 60 * 1000;
+export const OFFICE_CLIENT_CACHE_MS = {
+  crop: 5 * 60_000,
+  balance: 10 * 60_000,
+  monthly: 15 * 60_000,
+  lorry: 60_000,
+} as const;
+export const OFFICE_DATA_REFRESH_COOLDOWN_SECONDS = 5 * 60;
+export const LORRY_REFRESH_COOLDOWN_SECONDS = 60;
 
 function dataFetchedAt(value: unknown): string {
   if (value && typeof value === "object" && typeof (value as { fetchedAt?: unknown }).fetchedAt === "string") {
@@ -97,7 +105,9 @@ async function requestWithMeta<T>(path: string, ttlMs: number, options: OfficeFe
     const status = error instanceof OfficeApiError ? error.status : 0;
     // Never reveal cached financial data after an auth, access or mapping
     // failure. Stale fallback is only for temporary server/network faults.
-    if (status === 0 || status >= 500) {
+    const code = error instanceof OfficeApiError ? error.code : "";
+    const lorrySnapshotUnavailable = path.startsWith("/api/lorry") && code === "FACTORY_LOCATION_UNAVAILABLE";
+    if (status === 0 || status >= 500 || lorrySnapshotUnavailable) {
       const persisted = readPersistent<T>(uid, path);
       if (persisted) {
         const message = error instanceof Error ? error.message : "Office API temporarily unavailable.";
@@ -108,10 +118,10 @@ async function requestWithMeta<T>(path: string, ttlMs: number, options: OfficeFe
   }
 }
 
-export const fetchOfficeBalanceWithMeta = (options?: OfficeFetchOptions) => requestWithMeta<OfficeBalanceResponse>("/api/balance", 120_000, options);
-export const fetchOfficeCropWithMeta = (options?: OfficeFetchOptions) => requestWithMeta<OfficeLeafResponse>("/api/crop", 120_000, options);
-export const fetchOfficeMonthlyWithMeta = (options?: OfficeFetchOptions) => requestWithMeta<OfficeLeafResponse>("/api/monthly", 180_000, options);
-export const fetchOfficeLorryWithMeta = (routeId: string, options?: OfficeFetchOptions) => requestWithMeta<OfficeLorryResponse>(`/api/lorry?routeId=${encodeURIComponent(routeId)}`, 20_000, options);
+export const fetchOfficeBalanceWithMeta = (options?: OfficeFetchOptions) => requestWithMeta<OfficeBalanceResponse>("/api/balance", OFFICE_CLIENT_CACHE_MS.balance, options);
+export const fetchOfficeCropWithMeta = (options?: OfficeFetchOptions) => requestWithMeta<OfficeLeafResponse>("/api/crop", OFFICE_CLIENT_CACHE_MS.crop, options);
+export const fetchOfficeMonthlyWithMeta = (options?: OfficeFetchOptions) => requestWithMeta<OfficeLeafResponse>("/api/monthly", OFFICE_CLIENT_CACHE_MS.monthly, options);
+export const fetchOfficeLorryWithMeta = (routeId: string, options?: OfficeFetchOptions) => requestWithMeta<OfficeLorryResponse>(`/api/lorry?routeId=${encodeURIComponent(routeId)}`, OFFICE_CLIENT_CACHE_MS.lorry, options);
 
 // Backwards-compatible data-only helpers used by existing modules.
 export const fetchOfficeBalance = (signal?: AbortSignal) => fetchOfficeBalanceWithMeta({ signal }).then((result) => result.data);
@@ -131,4 +141,8 @@ export function canUseLorryBroadcastFallback(error: unknown): boolean {
     || error.code === "FACTORY_TIMEOUT"
     || error.code === "FACTORY_NETWORK_FAILED"
   );
+}
+
+export function isOfficeLorryDisabled(error: unknown): boolean {
+  return error instanceof OfficeApiError && error.code === "OFFICE_LORRY_DISABLED";
 }

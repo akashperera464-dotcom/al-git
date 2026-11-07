@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Palette, Save, RotateCcw, Building2, LogIn, ImageIcon, Type, Check, Eye, Cloud, ShieldAlert, Loader2, Users } from "lucide-react";
+import { Palette, Save, RotateCcw, Building2, LogIn, ImageIcon, Type, Check, Eye, Cloud, ShieldAlert, Loader2, Users, Truck, Power } from "lucide-react";
 import { PageHeader, Card, Badge, IconChip } from "@/components/ui";
 import { useBranding, DEFAULT_BRANDING, isMediaUrl, isVideoUrl } from "@/lib/branding";
 import { useApp } from "@/context/AppContext";
@@ -14,7 +14,7 @@ import { resolveShellBrandIdentity } from "@/lib/brandIdentity";
  */
 export default function Settings() {
   const { branding, setBranding, resetBranding, source, saving, syncError } = useBranding();
-  const { notify } = useApp();
+  const { notify, userUid, session } = useApp();
 
   // local draft so we can preview-save explicitly
   const [draft, setDraft] = useState(branding);
@@ -41,6 +41,27 @@ export default function Settings() {
     setDraft(DEFAULT_BRANDING);
     const ok = await resetBranding();
     notify({ title: ok ? "Branding reset" : "Reset failed", body: ok ? "Restored to default Estate Pulse branding." : syncError ?? "DB error", tone: ok ? "amber" : "rose", channel: "system" });
+  };
+
+  const toggleOfficeLorryTracking = async () => {
+    const enabled = !branding.officeLorryTrackingEnabled;
+    const changedAt = new Date().toISOString();
+    const changedBy = session?.name || userUid;
+    const ok = await setBranding({
+      officeLorryTrackingEnabled: enabled,
+      officeLorryTrackingUpdatedAt: changedAt,
+      officeLorryTrackingUpdatedBy: changedBy,
+    });
+    notify({
+      title: ok ? `Office lorry GPS ${enabled ? "enabled" : "disabled"}` : "Control update failed",
+      body: ok
+        ? enabled
+          ? "Suppliers can request a single GPS snapshot from the lorry map. Automatic polling remains disabled."
+          : "The Vercel proxy will block Office lorry GPS requests."
+        : syncError ?? "Could not save the operational control.",
+      tone: ok ? (enabled ? "emerald" : "amber") : "rose",
+      channel: "system",
+    });
   };
 
   const inputCls = "mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm";
@@ -144,6 +165,42 @@ export default function Settings() {
               <input type="color" value={draft.accentColor} onChange={(e) => update("accentColor", e.target.value)} className="h-10 w-16 cursor-pointer rounded-lg border border-slate-200" />
               <input value={draft.accentColor} onChange={(e) => update("accentColor", e.target.value)} className={inputCls + " max-w-[140px]"} placeholder="#10b981" />
               <p className="text-xs text-slate-400">Used for buttons & highlights across the app.</p>
+            </div>
+          </Card>
+
+          {/* Office API operational safety control */}
+          <Card className={`border-2 p-4 ${branding.officeLorryTrackingEnabled ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/50"}`}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${branding.officeLorryTrackingEnabled ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>
+                  <Truck className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-display text-sm font-bold text-slate-800">Office Lorry GPS API</h3>
+                    <Badge tone={branding.officeLorryTrackingEnabled ? "emerald" : "amber"} dot>
+                      {branding.officeLorryTrackingEnabled ? "ON" : "OFF · Safe default"}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                    Server-enforced emergency control. Even when ON, suppliers receive one on-demand GPS snapshot only; there is no automatic polling.
+                  </p>
+                  {branding.officeLorryTrackingUpdatedAt && (
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      Last changed {new Date(branding.officeLorryTrackingUpdatedAt).toLocaleString()} by {branding.officeLorryTrackingUpdatedBy || "Super Admin"}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void toggleOfficeLorryTracking()}
+                disabled={saving}
+                className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm disabled:opacity-60 ${branding.officeLorryTrackingEnabled ? "bg-rose-600" : "bg-emerald-600"}`}
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                {branding.officeLorryTrackingEnabled ? "Turn OFF" : "Turn ON"}
+              </button>
             </div>
           </Card>
 

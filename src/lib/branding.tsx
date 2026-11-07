@@ -27,6 +27,10 @@ export interface Branding {
   loginBackgroundUrl: string;
   loginScrimOpacity: number;
   accentColor: string;
+  /** Operational kill switch for the read-only Office lorry GPS endpoint. */
+  officeLorryTrackingEnabled: boolean;
+  officeLorryTrackingUpdatedAt: string;
+  officeLorryTrackingUpdatedBy: string;
 }
 
 export const DEFAULT_BRANDING: Branding = {
@@ -42,6 +46,9 @@ export const DEFAULT_BRANDING: Branding = {
   loginBackgroundUrl: "",
   loginScrimOpacity: 70,
   accentColor: "#10b981",
+  officeLorryTrackingEnabled: false,
+  officeLorryTrackingUpdatedAt: "",
+  officeLorryTrackingUpdatedBy: "",
 };
 
 const CACHE_KEY = "estate_pulse.branding.cache";

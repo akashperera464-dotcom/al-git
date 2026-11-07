@@ -4033,6 +4033,51 @@ location rows, alter authentication, or require a paid Supabase feature.
 
 *Factory GPS response compatibility and safe fallback added: 6 November 2026.*
 
+## 63. Office API Request-Safety Controls
+
+The supplier integration now treats the factory system as a constrained,
+read-only upstream service:
+
+```text
+Supplier Home opens
+  -> crop request once (5-minute client/server cache)
+  -> balance request once (10-minute client/server cache)
+  -> monthly request once (15-minute client/server cache)
+  -> no background refresh timer
+
+Supplier lorry card
+  -> compact route/status view; no Office GPS request
+  -> user selects "View lorry location"
+  -> server checks the Super Admin Office Lorry GPS switch
+       OFF -> HTTP 423 safe disabled response; zero factory request
+       ON  -> one Office GPS snapshot request
+  -> manual refresh has a 60-second cooldown
+  -> closing, hiding or leaving the page aborts the pending request
+```
+
+The former 25-second Office GPS polling loop has been removed. Successful GPS
+snapshots are cached for 60 seconds. A no-location response is cached for five
+minutes, while timeout/network/upstream failures receive a two-to-five-minute
+backoff. Concurrent requests for the same mapped route share the same in-flight
+server promise inside a warm function instance. Failed responses therefore no
+longer hammer the factory endpoint.
+
+The operational switch is stored in the existing Supabase `settings` row under
+the branding JSON, defaults to `OFF`, and records who changed it and when. The
+Vercel `/api/lorry` proxy enforces the value server-side and fails closed when
+the setting is missing or cannot be read. Turning the switch ON permits only
+user-initiated snapshots; it never restores automatic polling.
+
+The service worker does not cache, replay or background-sync the four Office
+API GET endpoints. Crop, balance and monthly manual refresh is protected by a
+five-minute client cooldown. Cached last-known data remains available for
+temporary upstream faults without replacing it with misleading zero values.
+
+No new table, authentication bridge, paid Supabase feature or factory-system
+write was introduced.
+
+*Office API on-demand request controls added: 7 November 2026.*
+
 
 
 

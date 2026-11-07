@@ -3,13 +3,25 @@ import { normalizeOfficeBalance, normalizeOfficeFactoryApiCode, normalizeOfficeL
 type EndpointKind = "balance" | "crop" | "monthly" | "lorry";
 interface UserMapping { uid: string; factoryCode: string; routeCode: string; supplierId?: string }
 interface CacheEntry { createdAt: number; expiresAt: number; value: unknown }
+interface FailureCacheEntry { expiresAt: number; code: string }
 
 const responseCache = new Map<string, CacheEntry>();
-const TTL: Record<EndpointKind, number> = { lorry: 25_000, crop: 120_000, balance: 120_000, monthly: 180_000 };
+const failureCache = new Map<string, FailureCacheEntry>();
+const inFlightRequests = new Map<string, Promise<unknown>>();
+const TTL: Record<EndpointKind, number> = { lorry: 60_000, crop: 300_000, balance: 600_000, monthly: 900_000 };
+const FAILURE_TTL: Record<string, number> = {
+  FACTORY_LOCATION_UNAVAILABLE: 300_000,
+  FACTORY_TIMEOUT: 120_000,
+  FACTORY_NETWORK_FAILED: 120_000,
+  FACTORY_INVALID_JSON: 300_000,
+  FACTORY_RESPONSE_INVALID: 300_000,
+};
 const FACTORY_PATH: Record<EndpointKind, string> = {
   balance: "get_current_balance.php", crop: "get_current_crop_balance.php",
   monthly: "get_monthly_details.php", lorry: "get_lorry_deatails.php",
 };
+
+let lorryControlCache: { enabled: boolean; expiresAt: number } | null = null;
 
 function env(name: string): string {
   const value = process.env[name]?.trim();
@@ -61,6 +73,23 @@ async function supabaseRows<T>(path: string): Promise<T[]> {
   return response.json() as Promise<T[]>;
 }
 
+/**
+ * Fail-closed operational switch stored in the existing branding settings row.
+ * A missing field, database error, or stale pre-control row all mean OFF.
+ */
+async function isOfficeLorryEnabled(): Promise<boolean> {
+  if (lorryControlCache && lorryControlCache.expiresAt > Date.now()) return lorryControlCache.enabled;
+  try {
+    const rows = await supabaseRows<{ data?: { officeLorryTrackingEnabled?: unknown } }>("settings?key=eq.branding&select=data&limit=1");
+    const enabled = rows[0]?.data?.officeLorryTrackingEnabled === true;
+    lorryControlCache = { enabled, expiresAt: Date.now() + 15_000 };
+    return enabled;
+  } catch {
+    lorryControlCache = { enabled: false, expiresAt: Date.now() + 15_000 };
+    return false;
+  }
+}
+
 async function resolveMapping(uid: string, requestedRouteId?: string): Promise<UserMapping> {
   type UserRow = { id: string; role: string; status: string; factory_id: string | null; route_id: string | null; supplier_no: string | null };
   const users = await supabaseRows<UserRow>(`users?id=eq.${encodeURIComponent(uid)}&select=id,role,status,factory_id,route_id,supplier_no&limit=1`);
@@ -88,10 +117,7 @@ async function resolveMapping(uid: string, requestedRouteId?: string): Promise<U
 
 async function fetchFactory(kind: EndpointKind, mapping: UserMapping, forceRefresh = false): Promise<unknown> {
   if (kind !== "lorry" && !mapping.supplierId) throw new Error("SUPPLIER_NUMBER_MISSING");
-  const base = env("FACTORY_API_BASE_URL").replace(/\/+$/, "");
   const apiFactoryCode = normalizeOfficeFactoryApiCode(mapping.factoryCode);
-  const query = new URLSearchParams({ secret: env("FACTORY_API_SECRET"), factoryCode: apiFactoryCode, routeCode: mapping.routeCode });
-  if (kind !== "lorry") query.set("id", mapping.supplierId!);
   const cacheKey = `${kind}:${apiFactoryCode}:${mapping.routeCode}:${mapping.supplierId ?? "route"}`;
   const cached = responseCache.get(cacheKey);
   const now = Date.now();
@@ -99,43 +125,67 @@ async function fetchFactory(kind: EndpointKind, mapping: UserMapping, forceRefre
   // within 30 seconds still reuse the latest response to protect the office API.
   if (cached && ((!forceRefresh && cached.expiresAt > now) || (forceRefresh && now - cached.createdAt < 30_000))) return cached.value;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8_000);
-  try {
-    let response: Response;
+  const failed = failureCache.get(cacheKey);
+  if (failed && failed.expiresAt > now) throw new Error(failed.code);
+  if (failed) failureCache.delete(cacheKey);
+
+  const inFlight = inFlightRequests.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const request = (async () => {
+    const base = env("FACTORY_API_BASE_URL").replace(/\/+$/, "");
+    const query = new URLSearchParams({ secret: env("FACTORY_API_SECRET"), factoryCode: apiFactoryCode, routeCode: mapping.routeCode });
+    if (kind !== "lorry") query.set("id", mapping.supplierId!);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
     try {
-      response = await fetch(`${base}/${FACTORY_PATH[kind]}?${query}`, { signal: controller.signal, headers: { accept: "application/json,text/plain,*/*" } });
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") throw new Error("FACTORY_TIMEOUT");
-      throw new Error("FACTORY_NETWORK_FAILED");
-    }
-    if (!response.ok) throw new Error(`FACTORY_UPSTREAM_${response.status}`);
-    const rawText = await response.text();
-    const fetchedAt = new Date().toISOString();
-    let normalized: unknown;
-    if (kind === "lorry") {
-      try { normalized = parseOfficeLorry(rawText, fetchedAt); }
-      catch (error) {
-        if (error instanceof Error && error.message === "FACTORY_LOCATION_UNAVAILABLE") throw error;
-        console.warn("[factory-api] unrecognized lorry payload", {
-          length: rawText.length,
-          // Preserve enough structure for diagnostics without logging exact
-          // coordinates, supplier information or credentials.
-          shape: rawText.slice(0, 160).replace(/\d/g, "#").replace(/\s+/g, " "),
-        });
-        throw new Error("FACTORY_RESPONSE_INVALID");
-      }
-    }
-    else {
-      let parsed: unknown;
-      try { parsed = JSON.parse(rawText); } catch { throw new Error("FACTORY_INVALID_JSON"); }
+      let response: Response;
       try {
-        normalized = kind === "balance" ? normalizeOfficeBalance(parsed, fetchedAt) : normalizeOfficeLeaf(parsed, fetchedAt);
-      } catch { throw new Error("FACTORY_RESPONSE_INVALID"); }
+        response = await fetch(`${base}/${FACTORY_PATH[kind]}?${query}`, { signal: controller.signal, headers: { accept: "application/json,text/plain,*/*" } });
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") throw new Error("FACTORY_TIMEOUT");
+        throw new Error("FACTORY_NETWORK_FAILED");
+      }
+      if (!response.ok) throw new Error(`FACTORY_UPSTREAM_${response.status}`);
+      const rawText = await response.text();
+      const fetchedAt = new Date().toISOString();
+      let normalized: unknown;
+      if (kind === "lorry") {
+        try { normalized = parseOfficeLorry(rawText, fetchedAt); }
+        catch (error) {
+          if (error instanceof Error && error.message === "FACTORY_LOCATION_UNAVAILABLE") throw error;
+          console.warn("[factory-api] unrecognized lorry payload", {
+            length: rawText.length,
+            // Preserve enough structure for diagnostics without logging exact
+            // coordinates, supplier information or credentials.
+            shape: rawText.slice(0, 160).replace(/\d/g, "#").replace(/\s+/g, " "),
+          });
+          throw new Error("FACTORY_RESPONSE_INVALID");
+        }
+      } else {
+        let parsed: unknown;
+        try { parsed = JSON.parse(rawText); } catch { throw new Error("FACTORY_INVALID_JSON"); }
+        try {
+          normalized = kind === "balance" ? normalizeOfficeBalance(parsed, fetchedAt) : normalizeOfficeLeaf(parsed, fetchedAt);
+        } catch { throw new Error("FACTORY_RESPONSE_INVALID"); }
+      }
+      responseCache.set(cacheKey, { value: normalized, createdAt: Date.now(), expiresAt: Date.now() + TTL[kind] });
+      failureCache.delete(cacheKey);
+      return normalized;
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "FACTORY_NETWORK_FAILED";
+      const failureTtl = FAILURE_TTL[code] ?? (code.startsWith("FACTORY_UPSTREAM_") ? 120_000 : 0);
+      if (failureTtl > 0) failureCache.set(cacheKey, { code, expiresAt: Date.now() + failureTtl });
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
-    responseCache.set(cacheKey, { value: normalized, createdAt: Date.now(), expiresAt: Date.now() + TTL[kind] });
-    return normalized;
-  } finally { clearTimeout(timeout); }
+  })();
+
+  inFlightRequests.set(cacheKey, request);
+  try { return await request; }
+  finally { inFlightRequests.delete(cacheKey); }
 }
 
 function publicError(error: unknown): { status: number; code: string; message: string } {
@@ -143,6 +193,7 @@ function publicError(error: unknown): { status: number; code: string; message: s
   if (raw === "AUTH_REQUIRED" || raw === "AUTH_INVALID") return { status: 401, code: raw, message: "Please sign in again." };
   if (raw === "SUPPLIER_ACCESS_DENIED" || raw === "ROUTE_ACCESS_DENIED") return { status: 403, code: raw, message: "This office API route is not assigned to your account." };
   if (raw === "OFFICE_MAPPING_MISSING" || raw === "SUPPLIER_NUMBER_MISSING") return { status: 409, code: raw, message: "Factory/route codes or the supplier number have not been configured." };
+  if (raw === "OFFICE_LORRY_DISABLED") return { status: 423, code: raw, message: "Lorry location service is temporarily disabled by administration." };
   if (raw === "FACTORY_LOCATION_UNAVAILABLE") return { status: 404, code: raw, message: "The factory system has no live lorry location for this route right now." };
   if (raw.startsWith("MAPPING_READ_FAILED:")) {
     const status = raw.split(":")[1] || "unknown";
@@ -158,6 +209,7 @@ export async function handleFactoryRequest(kind: EndpointKind, request: Request)
   if (request.method !== "GET") return json(405, { error: { code: "METHOD_NOT_ALLOWED", message: "GET required." } });
   try {
     const uid = await verifyFirebaseUser(bearerToken(request));
+    if (kind === "lorry" && !(await isOfficeLorryEnabled())) throw new Error("OFFICE_LORRY_DISABLED");
     const searchParams = new URL(request.url).searchParams;
     const routeId = searchParams.get("routeId")?.trim() || undefined;
     const forceRefresh = searchParams.get("refresh") === "1";
@@ -165,11 +217,17 @@ export async function handleFactoryRequest(kind: EndpointKind, request: Request)
     const data = await fetchFactory(kind, mapping, forceRefresh);
     return json(200, data, Math.floor(TTL[kind] / 1000));
   } catch (error) {
-    console.error("[factory-api] request failed", {
+    const message = error instanceof Error ? error.message : "UNKNOWN";
+    const diagnostic = {
       kind,
       name: error instanceof Error ? error.name : typeof error,
-      message: error instanceof Error ? error.message : "UNKNOWN",
-    });
+      message,
+    };
+    if (message === "OFFICE_LORRY_DISABLED" || message === "FACTORY_LOCATION_UNAVAILABLE") {
+      console.info("[factory-api] request skipped", diagnostic);
+    } else {
+      console.error("[factory-api] request failed", diagnostic);
+    }
     const result = publicError(error);
     return json(result.status, { error: { code: result.code, message: result.message } });
   }

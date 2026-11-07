@@ -9,7 +9,7 @@ import { readDailyTeaPrices, readUserOperationalProfile, type DailyTeaPrice } fr
 import { gradeKey } from "@/i18n/databaseValues";
 import { readSupplierFinancialSummary } from "@/lib/financialSummary";
 import { useEstateWeather, useSupplierWeatherEstate } from "@/lib/useEstateWeather";
-import { fetchOfficeBalanceWithMeta, fetchOfficeCropWithMeta, fetchOfficeMonthlyWithMeta, type OfficeDataFreshness } from "@/lib/officeApi";
+import { fetchOfficeBalanceWithMeta, fetchOfficeCropWithMeta, fetchOfficeMonthlyWithMeta, OFFICE_DATA_REFRESH_COOLDOWN_SECONDS, type OfficeDataFreshness } from "@/lib/officeApi";
 import type { OfficeBalanceResponse, OfficeLeafResponse } from "@/lib/officeApiContracts";
 import { findOfficeDeliveryForDate, getOfficeCropComparison, sumOfficeDeductionsByGroup, yesterdaySriLankaIso } from "@/lib/officeSupplierSummary";
 import { OfficeDataStatus } from "@/components/OfficeDataStatus";
@@ -115,7 +115,7 @@ export function SupplierHome() {
 
   const refreshOfficeData = () => {
     if (refreshCooldown > 0 || officeLoading) return;
-    setRefreshCooldown(30);
+    setRefreshCooldown(OFFICE_DATA_REFRESH_COOLDOWN_SECONDS);
     void loadOfficeData(true);
   };
 
