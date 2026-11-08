@@ -4100,6 +4100,24 @@ both workflow documents so the written guide continues to match production.
 
 *Office API A-to-Z operational guide added: 8 November 2026.*
 
+## 65. HOW_THINGS_WORK Rewritten as an Evergreen System Manual
+
+`docs/HOW_THINGS_WORK.md` was restructured so it no longer acts as a daily
+checklist, troubleshooting page, acceptance script or implementation-history
+log. Numbered round-style subsections and dated development narration were
+removed from that document.
+
+The document now contains only the current system model: platform components,
+identity and role routing, core database relationships, Admin/Supplier/Collector
+feature responsibilities, estate/weather/resource/collection/finance flows,
+the complete Office API proxy and mapping path, lorry location sources,
+offline/PWA behavior, status meanings and source-of-truth rules.
+
+Future technical history remains in `WORKFLOW_DIAGRAM.md`, while every change
+that affects current behavior must keep the evergreen manual synchronized.
+
+*Evergreen system manual structure applied: 8 November 2026.*
+
 
 
 
