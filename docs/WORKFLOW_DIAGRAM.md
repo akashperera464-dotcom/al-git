@@ -4078,6 +4078,28 @@ write was introduced.
 
 *Office API on-demand request controls added: 7 November 2026.*
 
+## 64. Office API A-to-Z Operational Documentation
+
+`docs/HOW_THINGS_WORK.md` now documents the complete current Office API flow in
+Sinhala with the required English technical terms. It identifies all four
+upstream endpoint filenames, their four Vercel proxy routes, the shared server
+adapter/proxy, frontend client and response-normalization files, Admin mapping
+and emergency-control modules, Supplier display modules, and the route-code SQL
+reference.
+
+The guide explains Firebase token verification, Free-plan Supabase mapping,
+server-only environment variables, Supplier/Factory/Route code resolution,
+read-only upstream calls, current cache/cooldown values, the on-demand lorry
+snapshot flow, fail-closed Admin control, background abort behavior, stale data
+rules, and the controlled production enable/test procedure. Credentials and
+their values are intentionally excluded.
+
+The maintenance section requires every future Office API endpoint, response,
+mapping, cache, request-frequency or Supplier UI change to update its tests and
+both workflow documents so the written guide continues to match production.
+
+*Office API A-to-Z operational guide added: 8 November 2026.*
+
 
 
 

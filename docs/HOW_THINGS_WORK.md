@@ -624,6 +624,169 @@ Quality review එකේ අවම end-to-end test එක:
 
 Office API mapping එක Admin විසින් සකස් කළ supplier කෙනෙකු login වූ විට, app එක ඔහුගේ/ඇයගේ factory code, route code සහ දැනටමත් තිබෙන Supplier No භාවිත කර office system එකෙන් current leaf, monthly leaf, balance සහ lorry location ලබාගනී.
 
+### 16.1 Big Picture — මුළු පද්ධතිය එකවර තේරුම් ගැනීම
+
+Office එකෙන් ලබාදුන් APIs හතර EMS database එකක් නොවේ. ඒවා Factory Office system එකේ තිබෙන read-only data ලබාදෙන HTTP endpoints හතරකි. Supplierගේ browser/iPhone/Android app එක එම HTTP server එකට direct call නොකරයි. සියලු calls Vercel server-side proxy එක හරහා යයි.
+
+```text
+Supplier Web/PWA/Android wrapper
+  -> HTTPS request to our Vercel endpoint (/api/crop, /api/balance, ...)
+  -> Vercel verifies the Firebase login token
+  -> Vercel reads the supplier/factory/route mapping from Supabase
+  -> Vercel adds the server-only Office API secret
+  -> read-only HTTP request to the Factory Office API
+  -> response validation + normalization + cache
+  -> safe JSON response to the Supplier interface
+```
+
+මෙම flow එකෙන් Supplierගේ browser එකට Office secret එක හෝ full upstream URL එක ලැබෙන්නේ නැත. Factory Office system එකේ data වෙනස් කරන `POST`, `PUT`, `PATCH` හෝ `DELETE` request කිසිවක් EMS එකෙන් යවන්නේ නැත.
+
+### 16.2 Office APIs හතර සහ EMS endpoints
+
+| Office endpoint filename | Vercel endpoint | භාවිතය / Purpose |
+|---|---|---|
+| `get_current_crop_balance.php` | `/api/crop` | Current crop records, monthly quantity සහ delivery count ලබාගැනීම |
+| `get_current_balance.php` | `/api/balance` | Account quantity, gross pay, deductions, balance සහ previous-month `lm` summary ලබාගැනීම |
+| `get_monthly_details.php` | `/api/monthly` | දින අනුව monthly leaf details සහ yesterday record ලබාගැනීම |
+| `get_lorry_deatails.php` | `/api/lorry` | Assigned route එකේ latest Office GPS snapshot ලබාගැනීම |
+
+Office එකෙන් ලබාදුන් full URLs හතරෙම එකම පොදු URL prefix එක සහ `secret` query parameter එක තිබුණි. Code එක ඒවා මෙහෙම වෙන් කර භාවිත කරයි:
+
+```text
+FACTORY_API_BASE_URL  = common URL portion before the endpoint filename
+FACTORY_API_SECRET    = value between "secret=" and "&factoryCode="
+```
+
+Actual values Vercel **Environment Variables** තුළ පමණක් තැබිය යුතුය. API secret එක, service-role key එක හෝ වෙනත් credential එක GitHub source files, screenshots හෝ මෙම documentation එකට ලියන්නේ නැත.
+
+### 16.3 Project එකේ API code තිබෙන exact files
+
+#### Vercel route entry files
+
+- `api/crop.ts` — `/api/crop` route එක `crop` handler එකට සම්බන්ධ කරයි.
+- `api/balance.ts` — `/api/balance` route එක `balance` handler එකට සම්බන්ධ කරයි.
+- `api/monthly.ts` — `/api/monthly` route එක `monthly` handler එකට සම්බන්ධ කරයි.
+- `api/lorry.ts` — `/api/lorry` route එක `lorry` handler එකට සම්බන්ධ කරයි.
+- `api/health.ts` — Vercel Node function runtime එක load වෙනවාද පරීක්ෂා කරන lightweight health endpoint එකයි; Factory data ඉල්ලන්නේ නැත.
+
+මෙම files තුළ Office URL හෝ secret hard-code කර නැත. ඒවා `createVercelHandler(...)` call එකෙන් shared server logic එකට route type එක පමණක් ලබාදෙයි.
+
+#### Server-side security, mapping සහ Office fetch
+
+- `server/vercelAdapter.ts` — Vercel `IncomingMessage/ServerResponse` request එක Web `Request/Response` format එකට adapt කරයි.
+- `server/factoryProxy.ts` — ප්‍රධාන server logic එකයි. Firebase token verify කිරීම, Supabase mapping read කිරීම, Admin GPS switch check කිරීම, Environment Variables read කිරීම, Office URL assemble කිරීම, timeout, caching, backoff සහ safe error response මෙහි සිදු වේ.
+
+#### Frontend API client සහ response parser
+
+- `src/lib/officeApi.ts` — Supplier browser එකෙන් අපේ `/api/*` endpoints call කරයි. Firebase ID token එක Authorization header එකට දමයි. Per-user client cache, last-known cache සහ manual refresh cooldown මෙහි පාලනය වේ.
+- `src/lib/officeApiContracts.ts` — Office response formats validate සහ normalize කරයි. Leaf/balance JSON fields canonical objects වලට මාරු කරයි. Lorry HTML/JSON `x/y`, `lat/lng`, `latitude/longitude` formats parse කර Sri Lanka geographic bounds පරීක්ෂා කරයි.
+- `src/lib/officeSupplierSummary.ts` — yesterday crop, crop comparison සහ deduction groups වැනි Supplier-facing summaries ගණනය කරයි.
+- `src/lib/officeMapping.ts` — Admin UI එකෙන් factory/route Office codes read සහ save කරන Supabase helpers අඩංගු වේ.
+
+#### Admin mapping සහ operational control UI
+
+- `src/modules/FactoryApiMapping.tsx` — Factories සහ routes සඳහා Office codes enter/save කරන Admin interface එකයි.
+- `src/modules/EstateMaster.tsx` — Office API mapping section එක Admin navigation තුළ සම්බන්ධ කරයි.
+- `src/modules/Settings.tsx` — Super Adminගේ **Office Lorry GPS API ON/OFF** emergency control එක පෙන්වයි.
+- `src/lib/branding.tsx` — එම operational switch එක existing Supabase `settings` JSON record එකේ save කරයි. Default value එක `OFF`ය.
+
+#### Supplier data display files
+
+- `src/modules/SupplierHome.tsx` — Crop, Balance සහ Monthly APIs එකවර load කර monthly kg, delivery count, income, deductions සහ quick summaries පෙන්වයි.
+- `src/modules/SupplierDeliveries.tsx` — Monthly deliveries, Normal/Super grade breakdown සහ statement data පෙන්වයි.
+- `src/modules/SupplierPortal.tsx` — Current/previous month payment statement, deductions සහ PDF download flow පෙන්වයි.
+- `src/modules/LorryTracking.tsx` — Route name සහ on-demand lorry map පෙන්වයි. Automatic Office GPS polling මෙහි නැත.
+
+#### Mapping SQL/reference file
+
+- `docs/migration_phase3_round17_office_route_codes.sql` — Official factory/route code mappings database එකට apply කරන migration/reference script එකයි. Secret හෝ full Office API URL මෙහි නැත.
+
+### 16.4 Supplier සහ Office codes එකිනෙකට ගැළපෙන ආකාරය
+
+Supplier login email/password එක API supplier number එක නොවේ. Firebase login එකෙන් user UID එක හඳුනාගත් පසු Vercel proxy එක Supabase records කියවයි:
+
+```text
+users.id                 -> Firebase UID
+users.supplier_no        -> Office Supplier/Card Number
+users.factory_id         -> assigned EMS factory
+users.route_id           -> primary assigned EMS route
+factories.office_factory_code -> Office factory code
+routes.office_route_code       -> Office route code
+```
+
+Supplierට routes කිහිපයක් authorized නම් `user_route_assignments` record එකද පරීක්ෂා කරයි. Supplierට assign කර නැති route ID එකක් browser request එකේ වෙනස් කර යැව්වත් server proxy එක `ROUTE_ACCESS_DENIED` ලෙස නවත්වයි.
+
+### 16.5 Authentication සහ Free-plan architecture
+
+1. Firebase Email/Password login Supplier identity එක ලබාදෙයි.
+2. Frontend `src/lib/officeApi.ts` Firebase ID token එක ලබාගෙන Vercel `/api/*` endpoint එකට යවයි.
+3. `server/factoryProxy.ts` Firebase Identity Toolkit මගින් token එක verify කර UID එක ලබාගනී.
+4. Vercel server-side `SUPABASE_SERVICE_ROLE_KEY` භාවිත කර එම UID එකට අදාළ mapping records පමණක් කියවයි.
+5. Browser එකට service-role key හෝ Office secret එක කිසිවිටක ලබා නොදෙයි.
+
+මෙය Firebase → Supabase Third-Party Auth/JWT bridge එකක් නොවේ. Supabase Free plan එකට අනුකූල current architecture එකම භාවිත කරයි. Frontend `src/lib/supabase.ts` Firebase token එක Supabase Authorization header එකට inject නොකරයි.
+
+### 16.6 Supplier Home එක open වූ විට data flow එක
+
+1. Supplier login වී Home interface එක open කරයි.
+2. `SupplierHome.tsx` Crop, Balance සහ Monthly endpoints තුන එකවර request කරයි.
+3. `officeApi.ts` valid unexpired client cache එකක් තිබේ නම් Vercel/Office request නොයවා එය භාවිත කරයි.
+4. Cache expired නම් Firebase token සහිත HTTPS request එක Vercel වෙත යයි.
+5. Vercel token verify කර Supplier No, factory code සහ route code resolve කරයි.
+6. Vercel Environment Variables වල Base URL සහ Secret එක request execution memory තුළ පමණක් එකතු කර Office endpoint එකට read-only GET එකක් යවයි.
+7. Office response එක `officeApiContracts.ts` මගින් validate/normalize කරයි.
+8. Valid response එක server cache සහ supplier-specific browser cache එකට තාවකාලිකව තබයි.
+9. Supplier UI එක data source සහ last-updated time සමඟ values පෙන්වයි.
+
+Home interface එක open තබාගෙන සිටීමෙන් Crop, Balance හෝ Monthly requests නැවත නැවත යන්නේ නැත. Current cache windows:
+
+- Crop: විනාඩි 5 / 5 minutes
+- Balance: විනාඩි 10 / 10 minutes
+- Monthly details: විනාඩි 15 / 15 minutes
+- Manual Office Data refresh cooldown: විනාඩි 5 / 5 minutes
+
+### 16.7 Lorry GPS request flow එක
+
+1. Supplier Home එකේ route/status card එක පමණක් load වේ; Office GPS request එකක් නොයයි.
+2. Supplier **ලොරියේ ස්ථානය බලන්න / View lorry location** press කරයි.
+3. `/api/lorry` server handler එක මුලින් Super Admin operational switch එක පරීක්ෂා කරයි.
+4. Switch එක `OFF` නම් HTTP `423` safe response එකක් ලබාදී Office server එකට request `0`ක් යවයි.
+5. Switch එක `ON` නම් assigned route validate කර Office GPS endpoint එකට snapshot request එකක් පමණක් යවයි.
+6. Snapshot එක map marker, estate marker, distance සහ ETA සමඟ පෙන්වයි.
+7. Map එක open තබාගෙන සිටියත් automatic polling සිදු නොවේ.
+8. Manual refresh cooldown එක තත්පර 60කි.
+9. Page hide, app background, map close, module change හෝ logout විට pending request සහ fallback WebSocket subscription abort වේ.
+
+Success GPS snapshot එක තත්පර 60ක් cache වේ. `Location unavailable` response එක විනාඩි 5ක් cache වේ. Timeout/network/upstream errors සඳහා විනාඩි 2–5ක backoff එකක් ඇත. එකම warm Vercel function instance එකට එකවර එන same-route requests එක in-flight request එක share කරයි.
+
+### 16.8 Vercel Environment Variables නොමැති විට
+
+`FACTORY_API_BASE_URL` හෝ `FACTORY_API_SECRET` නොමැති deployment එකක Vercel proxy එක `503 Server configuration is missing...` response එකක් ලබාදෙයි. එම අවස්ථාවේ request එක Factory Office server එකට යන්නේ නැත. Supplier UI එක `Office data is temporarily unavailable` ලෙස පෙන්වයි.
+
+Environment Variable එක Vercel Settings තුළ add/change/delete කළ පමණින් දැනට active deployment එක වෙනස් නොවේ. Latest source code එකෙන් Production **Redeploy** කළ පසු පමණක් අලුත් variables deployment එකට ලැබේ.
+
+### 16.9 Error, cache සහ fallback behavior
+
+- Authentication/access/mapping error එකකදී වෙන supplier කෙනෙකුගේ cached financial data කිසිවිටක පෙන්වන්නේ නැත.
+- Temporary network/server error එකකදී එම supplierගේ last successful cache එක තිබේ නම් source warning සහ updated time සමඟ පෙන්වයි.
+- Raw Office payload, API secret, exact upstream URL හෝ service-role key browser console/UI එකට පෙන්වන්නේ නැත.
+- Service Worker එක Office API GET requests queue, replay හෝ background-sync කරන්නේ නැත.
+- Office GPS snapshot එක නොලැබුණොත් user map එක විවෘත කර ඇති විට පමණක් assigned route Supabase Realtime Broadcast fallback එක බලා සිටිය හැක. එය location database row ලියන්නේ නැත.
+
+### 16.10 Production enable/test checklist
+
+1. GitHub `main` හි latest request-control commit Vercel Production deployment එකේ `Ready` බව බලන්න.
+2. `FACTORY_API_BASE_URL` සහ `FACTORY_API_SECRET` server-only Production variables ලෙස Vercel තුළ තිබේද බලන්න. `VITE_` prefix දාන්න එපා.
+3. Redeploy කරන්න.
+4. Super Admin → Branding & Settings → Office Lorry GPS API `OFF` බව තහවුරු කරන්න.
+5. Supplier Home එක open කර Crop/Balance/Monthly requests එකවර පමණක් යනවාද Network/Office logs වලින් බලන්න.
+6. Office IT සමඟ test window එකක් තීරණය කර GPS switch එක `ON` කරන්න.
+7. එක් Supplier account එකකින් **View lorry location** එකවරක් press කරන්න.
+8. Office log එකේ lorry endpoint request එකක් පමණක් ලැබුණාද confirm කරන්න.
+9. Test අවසානයේ switch එක නැවත `OFF` කරන්න.
+
+### 16.11 Current Supplier UI summary
+
 - Admin → Estate Master → **Office API** තුළ factory සහ route codes save කරයි.
 - Supplier register/edit කරන විට **Supplier No / Office Card ID** එකම field එකට office number එක save කරයි. වෙනම Office Supplier ID field එකක් අවශ්‍ය නැහැ.
 - Supplier Home එකේ monthly kg, delivery count, earnings සහ deductions office system එකෙන් පෙන්වයි.
@@ -633,7 +796,7 @@ Office API mapping එක Admin විසින් සකස් කළ supplier 
 
 Office mapping තවම දාලා නැත්නම් හෝ office server එක තාවකාලිකව unavailable නම්, app එක බිඳෙන්නේ නැහැ. Supplier financial/leaf screens existing EMS records පෙන්වයි; map එක existing EMS live broadcast එකට fallback වෙයි. Screen එකේ **Factory office system** හෝ **EMS records** යන source label එකෙන් භාවිත වන දත්ත මූලාශ්‍රය හඳුනාගත හැක.
 
-### Office දලු අගයන් දෙක පෙන්වන්නේ ඇයි?
+### 16.12 Office දලු අගයන් දෙක පෙන්වන්නේ ඇයි?
 
 Supplier Home එකේ office API එකෙන් වෙන වෙනම ලැබෙන අගයන් දෙකක් තිබේ:
 
@@ -642,13 +805,13 @@ Supplier Home එකේ office API එකෙන් වෙන වෙනම ලැ
 
 මෙම API දෙකේ නිල business meaning එක office documentation එකෙන් තවම නිශ්චිතව දී නැති නිසා app එක එකක් “Pending” සහ අනෙක “Confirmed” ලෙස හඳුන්වන්නේ නැහැ. යාවත්කාලීන වන වේලාව වෙනස් වීමෙන් අගයන් දෙක අතර තාවකාලික වෙනසක් තිබිය හැක. App එක එම වෙනස සැඟවීමකින් තොරව පෙන්වයි.
 
-### API එක තාවකාලිකව ක්‍රියා නොකළොත්
+### 16.13 API එක තාවකාලිකව ක්‍රියා නොකළොත්
 
 අවසන් වරට සාර්ථකව ලැබුණු office record එක එම supplier account එකට පමණක් පැය 24ක් දක්වා තාවකාලිකව සුරැකේ. API/server failure එකක් ඇති විට `0 kg` හෝ `Rs 0` ලෙස වැරදි අගයක් පෙන්වීම වෙනුවට එම අවසන් record එක සහ **Last updated** වේලාව පෙන්වයි. Cached record එකක් බව warning එකකින් පැහැදිලි කරයි. Login/access/mapping error එකක් ඇති විට පැරණි financial data පෙන්වන්නේ නැහැ.
 
 **Refresh Office Data** බොත්තමෙන් නව office record එකක් ඉල්ලිය හැක. Office server එකට අනවශ්‍ය requests යැවීම වැළැක්වීමට නැවත refresh කිරීමට විනාඩි 5ක් බලා සිටිය යුතුය. Crop data විනාඩි 5ක්, balance data විනාඩි 10ක් සහ monthly details විනාඩි 15ක් client/server cache භාවිත කරයි. Supplier Home එක open තබාගැනීමෙන් මේ APIs නැවත නැවත call නොවේ.
 
-### ඊයේ දලු සහ අඩුකිරීම්
+### 16.14 ඊයේ දලු සහ අඩුකිරීම්
 
 - **Yesterday's crop** monthly details API එකේ ඊයේ දිනයට ගැළපෙන record එකෙන් ගනී. Record එකක් නැත්නම් ඒ බව පැහැදිලිව පෙන්වයි.
 - **Cash advances** සහ **Fertilizer deductions** balance API එකේ වත්මන් මාසයේ fields එකතු කර සාරාංශයක් ලෙස පෙන්වයි.
@@ -656,7 +819,7 @@ Supplier Home එකේ office API එකෙන් වෙන වෙනම ලැ
 - Supplier Home එකේ **මුළු අඩුකිරීම්** card එක Office API `totalDeduction` අගයම පෙන්වයි. එය labour/fertilizer වතු වියදමක් නොව advances, fertilizer, loans, transport, previous debt සහ වෙනත් office deductions එකතුවකි.
 - Current account balance එක office API එකෙන් ලැබුණු අගයමයි; app එක එය නැවත ගණනය කර official confirmation එකක් ලෙස නම් නොකරයි.
 
-### පෙර මාසයේ ගිණුම් ප්‍රකාශය
+### 16.15 පෙර මාසයේ ගිණුම් ප්‍රකාශය
 
 Payments screen එකේ **Previous Month Statement** කොටස `get_current_balance.php` response එකේ `lm` object එකෙන්ම load වේ. මෙහි පෙර මාසයේ Normal/Super දලු ප්‍රමාණය, මුළු ආදායම, අඩුකිරීම් සහ Account Balance එක පෙන්වයි. Non-zero deduction fields වෙන වෙනම කියවිය හැක.
 
@@ -664,19 +827,19 @@ Payments screen එකේ **Previous Month Statement** කොටස `get_current
 
 **Download PDF** මගින් `lm` object එකේ පෙර මාසික summary සහ deduction breakdown එක PDF ගොනුවක් ලෙස ලබාගත හැක. මෙය previous month daily delivery list එකක් නොව account statement summary එකකි. මේ සඳහා Supabase archive table එකක් හෝ database write එකක් භාවිත නොවේ.
 
-### Light Mode සහ Dark Mode
+### 16.16 Light Mode සහ Dark Mode
 
 Login, Admin, Supplier සහ Collector interfaces වල header එකේ ඉර/සඳ icon button එකෙන් Light Mode සහ Dark Mode අතර මාරු විය හැක. Cards, text, forms, tables, charts, popup සහ map controls සියල්ල selected mode එකට ගැළපෙන readable colors භාවිත කරයි.
 
 App එක fresh open හෝ refresh කරන සෑම අවස්ථාවකදීම Light Mode භාවිත වේ. User කැමති නම් ඉර/සඳ button එකෙන් Dark Mode තෝරාගත හැකි අතර app session එක විවෘතව තිබෙන තුරු එය සියලු screens සඳහා පවතී. App එක නැවත open/refresh කළ විට නැවත Light Mode වෙයි. Phone එකේ system appearance එක Dark වුවත් හෝ කලින් Dark Mode තෝරා තිබුණත් startup එකේ app එක Dark Mode නොවේ. මෙය UI preference එකක් පමණි; user records, office API data හෝ Supabase database එක වෙනස් නොකරයි.
 
-### Admin header එක device අනුව පෙනෙන ආකාරය
+### 16.17 Admin header එක device අනුව පෙනෙන ආකාරය
 
 Phone සහ පටු tablet screens වල Admin header එකේ module name එක එක පේළියක පෙන්වන අතර Sync සහ Language controls icon ලෙස compact වේ. Screen එක පුළුල් වන විට ඒවායේ full labels නැවත පෙන්වයි. මෙය layout වෙනසක් පමණි; mobile සහ desktop දෙකම එකම account, module, sync state සහ live data භාවිත කරයි.
 
 Estate Dashboard එකේ weather-based alerts/recommendations දිගටම live estate weather භාවිත කරයි. Dashboard title එක අසල පළමු estate නම organization-wide weather එකක් ලෙස පෙන්වූ duplicate desktop card එක ඉවත් කර ඇත.
 
-### Office GPS response එක නොලැබුණොත්
+### 16.18 Office GPS response එක නොලැබුණොත්
 
 Supplierගේ ලොරි map එක මුලින් compact card එකක් ලෙස පෙන්වයි. Supplier **ලොරියේ ස්ථානය බලන්න** press කළ පසු පමණක් Office GPS snapshot එකක් ඉල්ලයි. Map එක open තබාගෙන සිටියත් automatic polling සිදු නොවේ. Manual refresh එකකට පසු නැවත refresh කිරීමට තත්පර 60ක් බලා සිටිය යුතුය.
 
@@ -685,6 +848,21 @@ Super Admin → Branding & Settings තුළ **Office Lorry GPS API** ON/OFF co
 Office GPS API එකෙන් පැරණි HTML `x/y` format එක හෝ JSON/latitude/longitude වැනි නව format එකක් ලැබුණත් ඒවා Sri Lanka GPS සීමාව තුළදැයි පරීක්ෂා කර පෙන්වයි. Office system එකේ අදාළ route එකට live location එකක් නොමැති නම් එම failure එක විනාඩි 5ක් cache කර repeated requests නවත්වයි. Timeout/network failures සඳහාද retry delay එකක් ඇත. Last successful location එක තිබේ නම් එහි updated time එක පෙන්වයි; නැත්නම් user-friendly unavailable message එක පෙන්වයි. Technical credentials හෝ raw error payload Supplierට පෙන්වන්නේ නැත.
 
 Office API snapshot එක fail වූ විට user විසින් map එක විවෘත කර තිබේ නම් පමණක් existing route-scoped live Broadcast channel එකෙන් GPS update එකක් බලා සිටිය හැක. Map එක close/background කළ විට pending request සහ Broadcast subscription නවතී. මෙම fallback එකෙන් Factory API හෝ database එකට කිසිදු location data write එකක් සිදු නොවේ.
+
+### 16.19 Future maintenance rule for this integration
+
+Office endpoint, response field, route mapping, request interval, cache duration හෝ Supplier UI meaning එකක් වෙනස් කරන සෑම update එකකදීම අවම වශයෙන් පහත files පරීක්ෂා/update කළ යුතුය:
+
+- `server/factoryProxy.ts`
+- `src/lib/officeApi.ts`
+- `src/lib/officeApiContracts.ts`
+- අදාළ `src/modules/Supplier*.tsx` හෝ `src/modules/LorryTracking.tsx`
+- `src/lib/__tests__/officeApiContracts.test.ts`
+- `src/lib/__tests__/officeRequestControl.test.ts`
+- `docs/WORKFLOW_DIAGRAM.md`
+- `docs/HOW_THINGS_WORK.md`
+
+Documentation එකේ current production behavior පමණක් ලියන්න. Future plan එක current feature එකක් ලෙස නොලියන්න. API secrets, tokens සහ passwords කිසිවිටක documentation/GitHub වෙත commit නොකරන්න.
 
 ## 17. ලේඛන නඩත්තු කිරීමේ නීතිය
 
