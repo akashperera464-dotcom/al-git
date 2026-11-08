@@ -185,3 +185,28 @@ The Vercel proxy verifies the Firebase ID token with Google, then reads mappings
 3. It also adds routes present in the official workbook but missing from the old EMS seed. Existing route IDs and supplier links are preserved.
 4. Supplier API requests now send the existing `users.supplier_no` value as the office API `id`. Preserve leading zeros when registering or editing suppliers.
 5. Verify the final SQL result lists five factories with mapped route counts: Galpadihenna 66, Peak view 24, Matuwagala 17, Kuttapitiya 17, Madampe 15.
+
+# Round 18 · GPS estate block maps
+
+1. Run `docs/migration_phase3_round18_estate_block_maps.sql` after the existing estate/estate-block migrations.
+2. This Free-plan-compatible migration adds only `estate_blocks.land_type` and `estate_blocks.boundary_geojson`. It creates no table and does not enable or change RLS/authentication.
+3. Open Admin → Estate Master, edit one estate, add/select a block, open **Map blocks**, draw at least three points, finish the boundary, and save.
+4. Reopen the estate and confirm **View GPS map** shows the same polygon. Then sign in as its Supplier and confirm the same block map appears in My Estates.
+5. Open Supplier → Farm Activities and confirm fertilizer/pruning/plucking selectors show the current estate/block names from Supabase.
+
+```sql
+select column_name,data_type
+from information_schema.columns
+where table_schema='public'
+  and table_name='estate_blocks'
+  and column_name in ('land_type','boundary_geojson')
+order by column_name;
+
+select e.name as estate,b.name as block,b.land_type,b.area_ha,
+       b.boundary_geojson->>'type' as geometry_type
+from public.estate_blocks b
+join public.estates e on e.id=b.estate_id
+order by e.name,b.name;
+```
+
+Expected column result: `boundary_geojson jsonb` and `land_type text`. Existing blocks remain valid with `land_type='tea'` and a null boundary until they are mapped.

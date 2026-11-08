@@ -4118,6 +4118,39 @@ that affects current behavior must keep the evergreen manual synchronized.
 
 *Evergreen system manual structure applied: 8 November 2026.*
 
+## 66. Unified GPS Estate Block Mapping
+
+Estate Master and Supplier My Estates now share one lazy-loaded Leaflet block
+map. An authorized user first records/selects the estate GPS point, adds named
+blocks, chooses a land type, and draws at least three boundary vertices on
+OpenStreetMap. The browser closes the GeoJSON polygon and calculates an
+operational hectare estimate. The canonical polygon is saved on the existing
+`estate_blocks` row rather than in a duplicate map table.
+
+```text
+Estate GPS reference
+  -> estate block selected
+  -> boundary drawn on demand
+  -> client area estimate
+  -> estate_blocks.boundary_geojson + land_type
+  -> shared Admin/Supplier read-only map
+  -> Farm Activities exact block selector
+```
+
+Farm Activities no longer builds its block selector from stale supplier-plot
+or registration-request localStorage records. It reads current estates and
+blocks from Supabase and stores `blockId`, block name, `estateId`, and estate
+name with fertilizer, pruning, and plucking details. This keeps field actions
+connected to the exact polygon-backed block.
+
+The map is dynamically imported only after the user opens it. The change uses
+the already installed Leaflet/React-Leaflet packages, OpenStreetMap tiles, two
+additive columns, no new table, no paid Supabase feature, no RLS/JWT change,
+and no authentication change. Polygon area is explicitly an operational
+estimate and not a legal survey.
+
+*Unified estate block GPS mapping added: 8 November 2026.*
+
 
 
 

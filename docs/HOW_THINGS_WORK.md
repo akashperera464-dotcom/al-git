@@ -101,6 +101,7 @@ Admin daily route assignment
 - Supplier කෙනෙකුට estates කිහිපයක් තිබිය හැක.
 - Estate එකකට blocks කිහිපයක් තිබිය හැක.
 - Estate record එක supplier, factory, route, acreage, bush count, address සහ GPS coordinates සමඟ සම්බන්ධ වේ.
+- Block එකකට land type, operational status සහ optional GPS polygon boundary එකක් තිබිය හැක. Polygon coordinates `estate_blocks.boundary_geojson` තුළ GeoJSON `[longitude, latitude]` order එකෙන් save වේ.
 - Delivery එකක් record කරන විට supplier පමණක් නොව exact estate එකද තෝරන නිසා estates අතර data මිශ්‍ර නොවේ.
 
 ### Collector සහ daily assignment
@@ -164,7 +165,7 @@ Supplierට තමන්ට අදාළ data පමණක් පෙන්වන
 | Module | System එකේ කාර්යය | සම්බන්ධ වන flow |
 |---|---|---|
 | **Estate Dashboard** | Estates, harvest, workforce, pending items සහ management indicators පෙන්වයි. | Supabase operational records එකතු කර overview එකක් සකස් කරයි. |
-| **Estate Master** | Estates/blocks create, edit, approve සහ route/factory mapping පාලනය කරයි. | Supplier estate, GPS, weather සහ collection filters සමඟ සම්බන්ධ වේ. |
+| **Estate Master** | Estates/blocks create, edit, approve, GPS point සහ block boundaries පාලනය කරයි. | Supplier estate, GPS, weather, farm activities සහ collection filters සමඟ සම්බන්ධ වේ. |
 | **Crop Management** | Crop/field production information පාලනය කරයි. | Estate සහ block records සමඟ සම්බන්ධ වේ. |
 | **Labor Management** | Worker roster, attendance, leave සහ labor costs පාලනය කරයි. | Estate operations සහ worker payments සමඟ සම්බන්ධ වේ. |
 | **Harvest Management** | Gross/net leaf, grade, deductions සහ weigh-in records පෙන්වයි. | Collector entry → Supplier receipt → finance flow එකේ source එකකි. |
@@ -189,8 +190,8 @@ Admin branding save කිරීමෙන් web/PWA interface logo සහ names
 | **My Calendar** | Farm/plucking activities දින අනුව පෙන්වයි. | Farm activity records. |
 | **My Leaf Deliveries** | Daily/monthly deliveries, receipt details සහ grade breakdown පෙන්වයි. | Office crop/monthly data සහ EMS harvest records. |
 | **Earnings & Deductions** | Current/previous month account summary සහ deduction breakdown පෙන්වයි. | Office balance response සහ available EMS finance records. |
-| **My Farm Activities** | Fertilizing, pruning, plucking සහ replanting records save කරයි. | Supplier estate/block සහ activity history. |
-| **My Plot / My Estates** | Estates/blocks register/edit කර approval status බලයි. | Supabase estates සහ estate blocks. |
+| **My Farm Activities** | Fertilizing, pruning, plucking සහ replanting records exact estate block එකට save කරයි. | Supabase `estates`/`estate_blocks` සහ activity history. |
+| **My Plot / My Estates** | Estates/blocks register/edit කර approval status බලයි; map එකෙන් GPS point සහ block boundary ලකුණු කරයි. | Supabase estates, estate blocks සහ OpenStreetMap. |
 | **My Weather** | Selected/linked estate GPS සඳහා forecast සහ warnings පෙන්වයි. | Estate coordinates → OpenWeather. |
 | **Request Resources** | Equipment, Fertilizer හෝ Agrochemical request යවයි. | Request record → Admin inbox → approval/rejection. |
 | **My Fertilizer** | Supplier fertilizer ledger සහ issued fertilizer history පෙන්වයි. | Supplier fertilizer ledger/inventory issues. |
@@ -246,6 +247,25 @@ Supplier/Admin enters estate details
 - Supplierට linked estate එකක් තිබේ නම් එය weather source එක ලෙස ප්‍රමුඛව භාවිත වේ.
 - Multiple estates තිබේ නම් selected estate අනුව weather වෙනස් විය හැක.
 - Admin සහ Supplier screens දෙකම එකම estate coordinates භාවිත කරන නිසා device එක වෙනස් වුවත් data source එක එකම වේ.
+
+### Estate block GPS map data flow
+
+```text
+Admin/Supplier selects estate GPS point
+  -> adds estate blocks
+  -> opens Block Map only when needed (lazy-loaded)
+  -> selects a block and marks at least three boundary points
+  -> browser calculates an operational hectare estimate
+  -> GeoJSON Polygon + land type saved in estate_blocks
+  -> Admin/Supplier read-only map renders the same boundary
+  -> Farm Activities loads those same block IDs from Supabase
+  -> fertilizer/pruning/plucking record keeps blockId + estateId
+```
+
+- Map tiles come from OpenStreetMap through the existing Leaflet stack; no paid map plan is required.
+- The map bundle is loaded only after **Map blocks / View GPS map** is opened, so ordinary estate screens do not pay the map startup cost.
+- Calculated area is an operational planning estimate. It is not a cadastral or legal land survey.
+- `docs/migration_phase3_round18_estate_block_maps.sql` adds only `land_type` and `boundary_geojson`; it does not add a table or change authentication/RLS.
 
 ---
 

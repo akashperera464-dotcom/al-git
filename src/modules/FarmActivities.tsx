@@ -8,6 +8,7 @@ import { recordFarmActivity, readFarmActivities } from "@/lib/repo";
 import { TODAY_ISO, type FarmActivity, type FarmActivityType } from "@/lib/data";
 import { weatherStatusText } from "@/lib/weather";
 import { useEstateWeather, useSupplierWeatherEstate } from "@/lib/useEstateWeather";
+import { readMyEstates } from "@/lib/estateRepo";
 
 const TAB_KEYS = [
   { id: "plucking", labelKey: "farm.plucking", icon: Package, tone: "sky" },
@@ -32,28 +33,7 @@ export function FarmActivities() {
   const { userUid, associatedEntityId, notify } = useApp();
   const weatherEstate = useSupplierWeatherEstate(userUid, associatedEntityId);
   const estateWeather = useEstateWeather(weatherEstate.estate?.latitude, weatherEstate.estate?.longitude);
-  // Dynamic blocks from supplier's plot sub-fields (B13 fix)
-  const plotBlocks: { id: string; name: string }[] = (() => {
-    try {
-      const raw = localStorage.getItem(`kdu.supplier_plot.${userUid}`);
-      if (raw) {
-        const plot = JSON.parse(raw);
-        if (plot.subFields && plot.subFields.length > 0) {
-          return plot.subFields.map((sf: { id: string; name: string }) => ({ id: sf.id, name: sf.name }));
-        }
-      }
-      // Fallback: check registration requests for blocks
-      const regsRaw = localStorage.getItem("kdu.estate_registration_requests");
-      if (regsRaw) {
-        const regs = JSON.parse(regsRaw) as { supplierId: string; status: string; blocks?: { id: string; name: string }[] }[];
-        const approvedReg = regs.find(r => r.supplierId === userUid && (r.status === "APPROVED" || r.status === "PENDING"));
-        if (approvedReg?.blocks && approvedReg.blocks.length > 0) {
-          return approvedReg.blocks.map(b => ({ id: b.id, name: b.name }));
-        }
-      }
-    } catch { /* ignore */ }
-    return [];
-  })();
+  const [plotBlocks, setPlotBlocks] = useState<Array<{ id: string; name: string; estateId: string; estateName: string }>>([]);
   const hasBlocks = plotBlocks.length > 0;
   const [tab, setTab] = useState<FarmActivityType>("plucking");
   const [busy, setBusy] = useState(false);
@@ -76,6 +56,18 @@ export function FarmActivities() {
       }
     } catch { /* ignore */ }
   }, []);
+
+  // Unified estate_blocks in Supabase are authoritative for all farm logs.
+  useEffect(() => {
+    let active = true;
+    void readMyEstates(userUid).then((estates) => {
+      if (!active) return;
+      setPlotBlocks(estates
+        .filter((estate) => estate.status !== "rejected")
+        .flatMap((estate) => estate.blocks.map((block) => ({ id: block.id, name: block.name, estateId: estate.id, estateName: estate.name }))));
+    }).catch(() => { if (active) setPlotBlocks([]); });
+    return () => { active = false; };
+  }, [userUid]);
 
   // fertilizer
   const [fertType, setFertType] = useState(0);  // index into FERT_TYPE_KEYS
@@ -100,13 +92,16 @@ export function FarmActivities() {
     setError(null);
     try {
       let details: Record<string, unknown> = {};
-      if (tab === "fertilizer") details = { type: t(FERT_TYPE_KEYS[fertType]), quantityKg: fertQty, block: fertBlock || "All blocks" };
-      else if (tab === "pruning") details = { type: pruneType, areaHa: pruneArea, block: pruneBlock || "All blocks" };
+      const selectedBlockId = tab === "fertilizer" ? fertBlock : tab === "pruning" ? pruneBlock : tab === "plucking" ? field : "";
+      const selectedBlock = plotBlocks.find((block) => block.id === selectedBlockId);
+      const blockDetails = selectedBlock ? { blockId: selectedBlock.id, block: selectedBlock.name, estateId: selectedBlock.estateId, estateName: selectedBlock.estateName } : { block: "All blocks" };
+      if (tab === "fertilizer") details = { type: t(FERT_TYPE_KEYS[fertType]), quantityKg: fertQty, ...blockDetails };
+      else if (tab === "pruning") details = { type: pruneType, areaHa: pruneArea, ...blockDetails };
       else if (tab === "replanting") details = { areaHa: replantArea, cultivar: replantCultivar, bushCount: replantBushCount };
-      else if (tab === "plucking") details = { field: field.trim() || "—", estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]), block: fertBlock || "All blocks" };
+      else if (tab === "plucking") details = { field: selectedBlock?.name ?? (field.trim() || "—"), estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]), ...blockDetails };
       else details = { field: field.trim() || "—", estimatedKg: kg, grade: t(GRADE_KEYS[gradeIdx]) };
 
-      if (weatherEstate.estate) {
+      if (weatherEstate.estate && !selectedBlock) {
         details = { ...details, estateId: weatherEstate.estate.id, estateName: weatherEstate.estate.name };
       }
 
@@ -229,7 +224,7 @@ export function FarmActivities() {
                 >
                   <option value="">— {hasBlocks ? "කොටසක් තෝරන්න / Select block" : "මුළු වත්ම / All blocks"} —</option>
                   {hasBlocks ? (
-                    plotBlocks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)
+                    plotBlocks.map(b => <option key={b.id} value={b.id}>{b.estateName} · {b.name}</option>)
                   ) : (
                     <>
                       <option value="Upper Block">උඩ කොටස · Upper Block</option>
@@ -261,10 +256,10 @@ export function FarmActivities() {
               {/* NEW (approved requirement): Block selector for pruning */}
               <div className="col-span-2">
                 <label className={labelCls}>🏞️ කොටස · Select Block/Division</label>
-                <select value={pruneBlock || ""} onChange={(e) => setPruneBlock(e.target.value)} className={inputCls}>
+                <select value={pruneBlock || ""} onChange={(e) => setPruneBlock(e.target.value)} className={inputCls} disabled={!hasBlocks}>
                   <option value="">— {hasBlocks ? "කොටසක් තෝරන්න / Select block" : "මුළු වත්ම / All blocks"} —</option>
                   {hasBlocks ? (
-                    plotBlocks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)
+                    plotBlocks.map(b => <option key={b.id} value={b.id}>{b.estateName} · {b.name}</option>)
                   ) : (
                     <>
                       <option value="Upper Block">උඩ කොටස · Upper Block</option>
@@ -296,7 +291,7 @@ export function FarmActivities() {
                 {hasBlocks ? (
                   <select value={field} onChange={(e) => setField(e.target.value)} className={inputCls}>
                     <option value="">— කොටසක් තෝරන්න —</option>
-                    {plotBlocks.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    {plotBlocks.map(b => <option key={b.id} value={b.id}>{b.estateName} · {b.name}</option>)}
                   </select>
                 ) : (
                   <input value={field} onChange={(e) => setField(e.target.value)} placeholder="e.g. Upper Block, Field 02" className={inputCls} />

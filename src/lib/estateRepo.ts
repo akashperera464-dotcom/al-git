@@ -6,6 +6,7 @@
  * Supabase owns estate data and workflow state.
  */
 import { getSupabase, supabaseConfigured } from "./supabase";
+import type { EstateBlockBoundary, EstateLandType } from "./estateMap";
 
 export type EstateStatus = "pending" | "approved" | "rejected";
 export type EstateSizeCategory = "small" | "medium" | "large";
@@ -20,6 +21,8 @@ export interface EstateBlock {
   soilType?: string;
   status: "plucking" | "pruned" | "young" | "nursery";
   plantingYear?: number;
+  landType?: EstateLandType;
+  boundaryGeojson?: EstateBlockBoundary;
 }
 
 export interface EstateOwner {
@@ -111,6 +114,8 @@ export interface CreateEstateInput {
     soilType?: string;
     status?: EstateBlock["status"];
     plantingYear?: number;
+    landType?: EstateLandType;
+    boundaryGeojson?: EstateBlockBoundary;
   }>;
   notes?: string;
   createdByAdmin: boolean;
@@ -183,6 +188,8 @@ function mapEstate(row: Record<string, any>): Estate {
       soilType: b.soil_type ?? undefined,
       status: (b.status ?? "plucking") as EstateBlock["status"],
       plantingYear: numberOrUndefined(b.planting_year),
+      landType: (b.land_type ?? "tea") as EstateLandType,
+      boundaryGeojson: b.boundary_geojson ?? undefined,
     })),
   };
 }
@@ -210,6 +217,10 @@ const ESTATE_SELECT_BASE = `
 `;
 
 const ESTATE_SELECT = `${ESTATE_SELECT_BASE},
+  estate_blocks(id, estate_id, name, area_ha, bush_count, cultivar, soil_type, status, planting_year, land_type, boundary_geojson)
+`;
+
+const ESTATE_SELECT_WITHOUT_MAP = `${ESTATE_SELECT_BASE},
   estate_blocks(id, estate_id, name, area_ha, bush_count, cultivar, soil_type, status, planting_year)
 `;
 
@@ -228,6 +239,14 @@ export function isMissingEstateBlockCompatibilityColumn(error: unknown): boolean
     message.includes("estate_blocks") &&
     (message.includes("status") || message.includes("planting_year")) &&
     message.includes("does not exist");
+}
+
+export function isMissingEstateBlockMapColumn(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  const message = String(candidate.message ?? "").toLowerCase();
+  return candidate.code === "42703" && message.includes("estate_blocks") &&
+    (message.includes("land_type") || message.includes("boundary_geojson")) && message.includes("does not exist");
 }
 
 export function sizeFromAcreage(acreage: number): EstateSizeCategory {
@@ -263,6 +282,9 @@ export async function readEstates(filters: {
     return query;
   };
   let { data, error } = await execute(ESTATE_SELECT);
+  if (isMissingEstateBlockMapColumn(error)) {
+    ({ data, error } = await execute(ESTATE_SELECT_WITHOUT_MAP));
+  }
   if (isMissingEstateBlockCompatibilityColumn(error)) {
     ({ data, error } = await execute(LEGACY_ESTATE_SELECT));
   }
@@ -278,6 +300,9 @@ export async function readMyEstates(supplierId: string): Promise<Estate[]> {
 export async function readEstate(estateId: string): Promise<Estate | null> {
   if (!supabaseConfigured) return readDemoEstates().find((e) => e.id === estateId) ?? null;
   let { data, error } = await getSupabase()!.from("estates").select(ESTATE_SELECT).eq("id", estateId).maybeSingle();
+  if (isMissingEstateBlockMapColumn(error)) {
+    ({ data, error } = await getSupabase()!.from("estates").select(ESTATE_SELECT_WITHOUT_MAP).eq("id", estateId).maybeSingle());
+  }
   if (isMissingEstateBlockCompatibilityColumn(error)) {
     ({ data, error } = await getSupabase()!.from("estates").select(LEGACY_ESTATE_SELECT).eq("id", estateId).maybeSingle());
   }
@@ -364,10 +389,26 @@ export async function createEstate(input: CreateEstateInput): Promise<{ success:
       soil_type: b.soilType || input.soilType || null,
       status: b.status ?? "plucking",
       planting_year: b.plantingYear ?? null,
+      land_type: b.landType ?? "tea",
+      boundary_geojson: b.boundaryGeojson ?? null,
     }));
+    let mapColumnsAvailable = true;
     let { error: blockError } = await sb.from("estate_blocks").insert(blockRows);
+    if (isMissingEstateBlockMapColumn(blockError)) {
+      mapColumnsAvailable = false;
+      if (input.blocks.some((block) => block.boundaryGeojson)) {
+        await sb.from("estates").delete().eq("id", estateId);
+        return { success: false, error: "Block map columns are not installed. Run docs/migration_phase3_round18_estate_block_maps.sql first." };
+      }
+      const compatibleRows = blockRows.map(({ land_type: _landType, boundary_geojson: _boundary, ...block }) => block);
+      ({ error: blockError } = await sb.from("estate_blocks").insert(compatibleRows));
+    }
     if (isMissingEstateBlockCompatibilityColumn(blockError)) {
-      const legacyBlockRows = blockRows.map(({ status: _status, planting_year: _plantingYear, ...block }) => block);
+      const legacyBlockRows = blockRows.map(({ status: _status, planting_year: _plantingYear, ...block }) => {
+        if (mapColumnsAvailable) return block;
+        const { land_type: _landType, boundary_geojson: _boundary, ...legacyBlock } = block;
+        return legacyBlock;
+      });
       ({ error: blockError } = await sb.from("estate_blocks").insert(legacyBlockRows));
     }
     if (blockError) {
@@ -447,6 +488,13 @@ export async function replaceEstateBlocks(
     return;
   }
   const sb = getSupabase()!;
+  if (blocks?.some((block) => block.boundaryGeojson)) {
+    const { error: schemaError } = await sb.from("estate_blocks").select("id,boundary_geojson").limit(1);
+    if (isMissingEstateBlockMapColumn(schemaError)) {
+      throw new Error("Block map columns are not installed. Run docs/migration_phase3_round18_estate_block_maps.sql first.");
+    }
+    if (schemaError) throw new Error(`Could not verify block map storage: ${schemaError.message}`);
+  }
   const { error: deleteError } = await sb.from("estate_blocks").delete().eq("estate_id", estateId);
   if (deleteError) throw new Error(`Could not update blocks: ${deleteError.message}`);
   if (!blocks?.length) return;
@@ -459,10 +507,22 @@ export async function replaceEstateBlocks(
     soil_type: block.soilType || null,
     status: block.status ?? "plucking",
     planting_year: block.plantingYear ?? null,
+    land_type: block.landType ?? "tea",
+    boundary_geojson: block.boundaryGeojson ?? null,
   }));
+  let mapColumnsAvailable = true;
   let { error } = await sb.from("estate_blocks").insert(blockRows);
+  if (isMissingEstateBlockMapColumn(error)) {
+    mapColumnsAvailable = false;
+    const compatibleRows = blockRows.map(({ land_type: _landType, boundary_geojson: _boundary, ...block }) => block);
+    ({ error } = await sb.from("estate_blocks").insert(compatibleRows));
+  }
   if (isMissingEstateBlockCompatibilityColumn(error)) {
-    const legacyBlockRows = blockRows.map(({ status: _status, planting_year: _plantingYear, ...block }) => block);
+    const legacyBlockRows = blockRows.map(({ status: _status, planting_year: _plantingYear, ...block }) => {
+      if (mapColumnsAvailable) return block;
+      const { land_type: _landType, boundary_geojson: _boundary, ...legacyBlock } = block;
+      return legacyBlock;
+    });
     ({ error } = await sb.from("estate_blocks").insert(legacyBlockRows));
   }
   if (error) throw new Error(`Could not save blocks: ${error.message}`);
