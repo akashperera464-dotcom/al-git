@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus } from "lucide-react";
+import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus, Sprout, UsersRound, BookOpen, ArrowRight } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { registerSupplier, signInWithEmail, signOutFirebase } from "@/lib/auth.hybrid";
 import { readFactories, readRoutes, readUserOperationalProfile, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
@@ -30,6 +30,7 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [portal, setPortal] = useState<"supplier" | "staff">("supplier");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
@@ -106,13 +107,128 @@ export function Login() {
   const accent = branding.accentColor || "#10b981";
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
 
+  const changePortal = (nextPortal: "supplier" | "staff") => {
+    if (busy || nextPortal === portal) return;
+    setPortal(nextPortal);
+    setRegistering(false);
+    setRegistrationDone(false);
+    setError(null);
+    setShowPw(false);
+  };
+
   // When a background image is set, text + card switch to a light-on-dark scheme
   // for guaranteed readability over the scrimmed background.
-  const textColor = hasBg ? "text-white" : "text-slate-900";
-  const subTextColor = hasBg ? "text-white/85" : "text-slate-500";
+  const textColor = hasBg ? "text-white" : "text-slate-900 dark:text-white";
+  const subTextColor = hasBg ? "text-white/85" : "text-slate-500 dark:text-slate-300";
+  const labelClass = hasBg ? "text-white/75" : "text-slate-500 dark:text-slate-300";
+  const inputClass = hasBg
+    ? "border-white/25 bg-white/10 text-white placeholder:text-white/45 focus:border-white/50 focus:ring-white/20"
+    : "border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-400 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-emerald-500 dark:focus:ring-emerald-950";
+
+  const renderError = () => error ? (
+    <div className={`flex items-start gap-2 rounded-xl border p-3 text-xs backdrop-blur ${hasBg ? "border-rose-300/60 bg-rose-500/20 text-rose-50" : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-200"}`} role="alert">
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{error}</span>
+    </div>
+  ) : null;
+
+  const renderSignInForm = (kind: "supplier" | "staff", active: boolean) => {
+    const staff = kind === "staff";
+    const pageAccent = staff ? "#4f46e5" : accent;
+    return (
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("auth.emailUsername")}</label>
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@kdu.com"
+              className={`w-full rounded-xl border py-3 pl-10 pr-3 text-sm outline-none transition focus:ring-2 ${inputClass}`}
+              disabled={busy}
+              tabIndex={active ? 0 : -1}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("common.password")}</label>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type={showPw ? "text" : "password"}
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="••••••••"
+              className={`w-full rounded-xl border py-3 pl-10 pr-10 text-sm outline-none transition focus:ring-2 ${inputClass}`}
+              disabled={busy}
+              tabIndex={active ? 0 : -1}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw((visible) => !visible)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-200"
+              tabIndex={active ? 0 : -1}
+              aria-label={showPw ? "Hide password" : "Show password"}
+            >
+              {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        {renderError()}
+
+        <button
+          type="submit"
+          disabled={busy}
+          tabIndex={active ? 0 : -1}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-lg transition enabled:hover:-translate-y-0.5 enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          style={{ background: pageAccent, boxShadow: `0 10px 30px -8px ${pageAccent}80` }}
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+          {busy ? t("auth.signingIn") : staff ? t("auth.staffSignIn") : t("auth.supplierSignIn")}
+          {!busy && <ArrowRight className="h-4 w-4" />}
+        </button>
+      </form>
+    );
+  };
+
+  const renderRegistrationForm = () => (
+    <form onSubmit={submitRegistration} className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("auth.supplierNo")}</label><input value={registration.supplierNo} onChange={event => setRegistration({ ...registration, supplierNo: event.target.value })} placeholder="e.g., 237" className={`w-full rounded-xl border px-3 py-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /></div>
+        <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("common.name")}</label><input value={registration.name} onChange={event => setRegistration({ ...registration, name: event.target.value })} className={`w-full rounded-xl border px-3 py-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /></div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("auth.factory")}</label><select value={registration.factoryId} onChange={event => setRegistration({ ...registration, factoryId: event.target.value, routeIds: [] })} className={`w-full rounded-xl border px-3 py-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy}><option value="">{t("auth.selectFactory")}</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+        <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("auth.routes")}</label><RouteMultiSelect routes={routes} selected={registration.routeIds} onChange={(routeIds) => setRegistration({ ...registration, routeIds })} disabled={!registration.factoryId || busy} emptyText={t("auth.selectFactoryFirst")} /></div>
+      </div>
+      <div>
+        <label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("auth.emailUsername")}</label>
+        <div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="email" autoComplete="email" value={registration.email} onChange={event => setRegistration({ ...registration, email: event.target.value })} placeholder="you@kdu.com" className={`w-full rounded-xl border py-3 pl-10 pr-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /></div>
+      </div>
+      <div>
+        <label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("common.password")}</label>
+        <div className="relative"><Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type={showPw ? "text" : "password"} autoComplete="new-password" value={registration.password} onChange={event => setRegistration({ ...registration, password: event.target.value })} placeholder="••••••••" className={`w-full rounded-xl border py-3 pl-10 pr-10 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /><button type="button" onClick={() => setShowPw((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" aria-label={showPw ? "Hide password" : "Show password"}>{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
+      </div>
+      <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("common.phone")}</label><input value={registration.phone} onChange={event => setRegistration({ ...registration, phone: event.target.value })} placeholder="+94 77 000 0000" className={`w-full rounded-xl border px-3 py-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /></div>
+
+      {registrationDone && <div className={`rounded-xl border p-3 text-xs ${hasBg ? "border-emerald-300/60 bg-emerald-500/20 text-emerald-50" : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200"}`}>{t("auth.registrationSuccess")}</div>}
+      {renderError()}
+
+      <button type="submit" disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-lg transition enabled:hover:-translate-y-0.5 enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60" style={{ background: accent, boxShadow: `0 10px 30px -8px ${accent}80` }}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+        {busy ? t("auth.registering") : t("auth.submitRegistration")}
+      </button>
+    </form>
+  );
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden p-5">
+    <div className="relative flex min-h-[100dvh] flex-col items-center justify-start overflow-x-hidden px-4 pb-8 pt-24 sm:min-h-screen sm:justify-center sm:p-5">
       {/* ---- Background layer ---- */}
       {hasBg ? (
         <>
@@ -159,11 +275,11 @@ export function Login() {
         <ThemeToggle darkSurface={hasBg} />
       </div>
 
-      <div className="relative z-10 w-full max-w-md animate-fade-up">
+      <div className="relative z-10 w-full max-w-lg animate-fade-up">
         {/* brand */}
-        <div className="mb-8 flex flex-col items-center text-center">
+        <div className="mb-5 flex flex-col items-center text-center sm:mb-7">
           <div
-            className="relative mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl shadow-2xl"
+            className="relative mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-2xl sm:mb-4 sm:h-20 sm:w-20 sm:rounded-3xl"
             style={{ background: hasBg ? "rgba(255,255,255,0.15)" : accent, backdropFilter: hasBg ? "blur(8px)" : undefined }}
           >
             {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
@@ -177,11 +293,11 @@ export function Login() {
                 }}
               />
             ) : (
-              <Leaf className="h-10 w-10 text-white" />
+              <Leaf className="h-8 w-8 text-white sm:h-10 sm:w-10" />
             )}
             <span className="absolute -right-1.5 -top-1.5 h-4 w-4 rounded-full bg-amber-400 ring-2 ring-white" />
           </div>
-          <h1 className={`font-display text-3xl font-extrabold tracking-tight drop-shadow-md ${textColor}`}>
+          <h1 className={`font-display text-2xl font-extrabold tracking-tight drop-shadow-md sm:text-3xl ${textColor}`}>
             {branding.loginTitle || t("common.appName")}
           </h1>
           <p className={`mt-1 text-sm drop-shadow ${subTextColor}`}>
@@ -189,110 +305,43 @@ export function Login() {
           </p>
         </div>
 
-        {/* card */}
-        <div
-          className={`rounded-2xl p-7 shadow-2xl backdrop-blur-xl transition ${
-            hasBg ? "border border-white/20 bg-white/10" : "card card-elev"
-          }`}
-        >
-          <div className="mb-5 flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5" style={{ color: hasBg ? "#fff" : accent }} />
-            <h2 className={`font-display text-lg font-bold ${hasBg ? "text-white" : "text-slate-800"}`}>
-              {t("auth.signInToAccount")}
-            </h2>
+        <div className={`auth-book rounded-[1.4rem] border p-2 shadow-2xl backdrop-blur-xl sm:p-3 ${hasBg ? "border-white/20 bg-black/15" : "border-slate-200/80 bg-white/60 dark:border-slate-700 dark:bg-slate-950/55"}`}>
+          <div className={`mb-2 grid grid-cols-2 gap-1 rounded-2xl p-1 ${hasBg ? "bg-black/25" : "bg-slate-100 dark:bg-slate-900"}`} role="tablist" aria-label={t("auth.choosePortal")}>
+            <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition sm:text-sm ${portal === "supplier" ? "bg-white text-emerald-700 shadow-md dark:bg-slate-800 dark:text-emerald-300" : hasBg ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"}`}>
+              <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
+            </button>
+            <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition sm:text-sm ${portal === "staff" ? "bg-white text-indigo-700 shadow-md dark:bg-slate-800 dark:text-indigo-300" : hasBg ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"}`}>
+              <UsersRound className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span>
+            </button>
           </div>
 
-          <form onSubmit={registering ? submitRegistration : submit} className="space-y-4">
-            {registering && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.supplierNo")}</label><input value={registration.supplierNo} onChange={e => setRegistration({ ...registration, supplierNo: e.target.value })} placeholder="e.g., 237" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800" disabled={busy} /></div>
-                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("common.name")}</label><input value={registration.name} onChange={e => setRegistration({ ...registration, name: e.target.value })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800" disabled={busy} /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.factory")}</label><select value={registration.factoryId} onChange={e => setRegistration({ ...registration, factoryId: e.target.value, routeIds: [] })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800"><option value="">{t("auth.selectFactory")}</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
-                  <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.routes")}</label><RouteMultiSelect routes={routes} selected={registration.routeIds} onChange={(routeIds) => setRegistration({ ...registration, routeIds })} disabled={!registration.factoryId || busy} emptyText={t("auth.selectFactoryFirst")} /></div>
-                </div>
-              </>
-            )}
-            {/* email */}
-            <div>
-              <label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("auth.emailUsername")}</label>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="email"
-                  autoComplete="email"
-                  value={registering ? registration.email : email}
-                  onChange={(e) => registering ? setRegistration({ ...registration, email: e.target.value }) : setEmail(e.target.value)}
-                  placeholder="you@kdu.com"
-                  className={`w-full rounded-xl border py-3 pl-10 pr-3 text-sm outline-none transition focus:ring-2 ${
-                    hasBg
-                      ? "border-white/20 bg-white/10 text-white placeholder:text-white/40 focus:border-white/40 focus:ring-white/20"
-                      : "border-slate-200 bg-white text-slate-800 focus:border-emerald-400 focus:ring-emerald-100"
-                  }`}
-                  disabled={busy}
-                />
+          <div className={`auth-book__pages ${portal === "staff" ? "is-flipped" : ""}`}>
+            <section className={`auth-book__page auth-book__page--front rounded-2xl border p-5 shadow-xl sm:p-7 ${hasBg ? "border-white/20 bg-white/10" : "border-emerald-100 bg-white dark:border-emerald-950 dark:bg-slate-900"}`} aria-hidden={portal !== "supplier"}>
+              <div className="mb-5 flex items-start gap-3">
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${hasBg ? "bg-white/15 text-white" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"}`}><Sprout className="h-5 w-5" /></span>
+                <div className="min-w-0"><p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${hasBg ? "text-emerald-200" : "text-emerald-600 dark:text-emerald-300"}`}>{t("auth.supplierPortal")}</p><h2 className={`font-display text-lg font-bold ${hasBg ? "text-white" : "text-slate-800 dark:text-slate-100"}`}>{registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}</h2><p className={`mt-1 text-xs leading-relaxed ${subTextColor}`}>{registering ? t("auth.supplierRegistrationHint") : t("auth.supplierPortalHint")}</p></div>
               </div>
-            </div>
 
-            {/* password */}
-            <div>
-              <label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("common.password")}</label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type={showPw ? "text" : "password"}
-                  autoComplete={registering ? "new-password" : "current-password"}
-                  value={registering ? registration.password : password}
-                  onChange={(e) => registering ? setRegistration({ ...registration, password: e.target.value }) : setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className={`w-full rounded-xl border py-3 pl-10 pr-10 text-sm outline-none transition focus:ring-2 ${
-                    hasBg
-                      ? "border-white/20 bg-white/10 text-white placeholder:text-white/40 focus:border-white/40 focus:ring-white/20"
-                      : "border-slate-200 bg-white text-slate-800 focus:border-emerald-400 focus:ring-emerald-100"
-                  }`}
-                  disabled={busy}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
-                  tabIndex={-1}
-                >
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+              {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
+
+              <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${hasBg ? "text-white hover:bg-white/10" : "text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/50"}`}>
+                {registering ? <BookOpen className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
+              </button>
+            </section>
+
+            <section className={`auth-book__page auth-book__page--back rounded-2xl border p-5 shadow-xl sm:p-7 ${hasBg ? "border-white/20 bg-white/10" : "border-indigo-100 bg-white dark:border-indigo-950 dark:bg-slate-900"}`} aria-hidden={portal !== "staff"}>
+              <div className="mb-5 flex items-start gap-3">
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${hasBg ? "bg-white/15 text-white" : "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"}`}><ShieldCheck className="h-5 w-5" /></span>
+                <div className="min-w-0"><p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${hasBg ? "text-indigo-200" : "text-indigo-600 dark:text-indigo-300"}`}>{t("auth.staffPortal")}</p><h2 className={`font-display text-lg font-bold ${hasBg ? "text-white" : "text-slate-800 dark:text-slate-100"}`}>{t("auth.signInToAccount")}</h2><p className={`mt-1 text-xs leading-relaxed ${subTextColor}`}>{t("auth.staffPortalHint")}</p></div>
               </div>
-            </div>
 
-            {registering && <div><label className={`mb-1.5 block text-xs font-semibold ${hasBg ? "text-white/70" : "text-slate-500"}`}>{t("common.phone")}</label><input value={registration.phone} onChange={e => setRegistration({ ...registration, phone: e.target.value })} placeholder="+94 77 000 0000" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-800" disabled={busy} /></div>}
+              {renderSignInForm("staff", portal === "staff")}
 
-            {registrationDone && <div className="rounded-xl border border-emerald-300 bg-emerald-500/20 p-3 text-xs text-emerald-100">{t("auth.registrationSuccess")}</div>}
+              <div className={`mt-4 flex items-start gap-2 rounded-xl border p-3 text-[11px] leading-relaxed ${hasBg ? "border-white/15 bg-black/15 text-white/75" : "border-indigo-100 bg-indigo-50/70 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-200"}`}><UsersRound className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.staffRolesHint")}</span></div>
+            </section>
+          </div>
 
-            {/* error */}
-            {error && (
-              <div className="flex items-start gap-2 rounded-xl border border-rose-300/60 bg-rose-500/20 p-3 text-xs text-rose-100 backdrop-blur">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* submit */}
-            <button
-              type="submit"
-              disabled={busy}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-lg transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: accent, boxShadow: `0 10px 30px -8px ${accent}80` }}
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-              {busy ? (registering ? t("auth.registering") : t("auth.signingIn")) : (registering ? t("auth.submitRegistration") : t("auth.signIn"))}
-            </button>
-          </form>
-
-          <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); }} className={`mt-4 inline-flex w-full items-center justify-center gap-2 text-sm font-semibold ${hasBg ? "text-white" : "text-emerald-700"}`}>
-            <UserPlus className="h-4 w-4" /> {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
-          </button>
-
+          <div className={`mt-2 flex items-center justify-center gap-2 py-1 text-[10px] font-medium ${hasBg ? "text-white/60" : "text-slate-400 dark:text-slate-500"}`}><BookOpen className="h-3.5 w-3.5" /><span>{t("auth.secureRoleRouting")}</span></div>
         </div>
       </div>
     </div>

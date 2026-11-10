@@ -50,8 +50,17 @@ Firebase authentication සඳහා පමණක් භාවිත වේ. Bus
 
 ## Login සහ user access වැඩ කරන ආකාරය
 
+Login screen එක mobile-responsive **book page** එකක් ලෙස Supplier Login සහ Staff Login යන පැති දෙක පෙන්වයි. මේ වෙන් කිරීම UI guidance එකක් පමණි; authentication systems දෙකක් නොවේ.
+
+- **Supplier Login** පැත්තෙන් existing supplier account එකට පිවිසිය හැකි අතර නව supplier registration request එකක්ද ඉදිරිපත් කළ හැක.
+- **Staff Login** පැත්ත Super Admin, Admin, Collector සහ Extension Officer accounts සඳහා පැහැදිලි පිවිසුම් මුහුණතක් ලබාදෙයි. Staff registration මෙහි නොමැත.
+- පැති දෙකම එකම Firebase email/password authentication function එක භාවිත කරයි.
+- User තෝරන page එකෙන් role එක තීරණය නොවේ. Firebase login පසු Supabase `users` profile එකේ approved role/status අනුව නිවැරදි interface එක ස්වයංක්‍රීයව විවෘත වේ.
+- Reduced-motion setting සක්‍රීය device එකක 3D animation වෙනුවට motion-free page switch එකක් භාවිත වේ.
+
 ```text
-Email + Password
+Supplier Login page OR Staff Login page
+  -> same Email + Password authentication
   -> Firebase Authentication
   -> Firebase UID
   -> Supabase users profile lookup

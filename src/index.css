@@ -232,6 +232,46 @@ body {
   animation: pulseRing 2.2s infinite;
 }
 
+/* Login portal book: the two authentication surfaces occupy the same grid
+   cell, while the page stack turns around a vertical book spine. */
+.auth-book {
+  perspective: 1500px;
+  -webkit-perspective: 1500px;
+}
+.auth-book__pages {
+  display: grid;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  transform-origin: 50% 50%;
+  transition: transform 720ms cubic-bezier(0.2, 0.78, 0.24, 1);
+  will-change: transform;
+}
+.auth-book__pages.is-flipped {
+  transform: rotateY(-180deg);
+}
+.auth-book__page {
+  grid-area: 1 / 1;
+  min-width: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+}
+.auth-book__page--front {
+  pointer-events: auto;
+  transform: rotateY(0deg);
+}
+.auth-book__page--back {
+  pointer-events: none;
+  transform: rotateY(180deg);
+}
+.auth-book__pages.is-flipped .auth-book__page--front {
+  pointer-events: none;
+}
+.auth-book__pages.is-flipped .auth-book__page--back {
+  pointer-events: auto;
+}
+
 .shimmer {
   position: relative;
   overflow: hidden;
@@ -462,6 +502,22 @@ textarea {
   input,
   select,
   textarea { transition: none; }
+
+  .auth-book__pages,
+  .auth-book__pages.is-flipped {
+    transform: none;
+    transition: none;
+  }
+  .auth-book__page--back {
+    display: none;
+    transform: none;
+  }
+  .auth-book__pages.is-flipped .auth-book__page--front {
+    display: none;
+  }
+  .auth-book__pages.is-flipped .auth-book__page--back {
+    display: block;
+  }
 }
 
 /* ============================================================================

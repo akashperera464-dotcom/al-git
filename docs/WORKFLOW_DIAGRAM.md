@@ -4151,6 +4151,32 @@ estimate and not a legal survey.
 
 *Unified estate block GPS mapping added: 8 November 2026.*
 
+## 67. Supplier and Staff Book-Page Login
+
+The unified Firebase login screen now presents two clearly labelled, responsive
+book pages: Supplier Login on the front and Staff Login on the reverse. The
+page-turn animation is visual only; both pages continue to call the same
+existing Firebase email/password sign-in function, and the persisted Supabase
+profile role/status remains the sole source for routing and access decisions.
+
+```text
+Supplier Login ─┐
+                ├─ Firebase sign-in -> Supabase profile -> approved role UI
+Staff Login ────┘
+```
+
+Supplier self-registration remains available only on the Supplier page. The
+Staff page explicitly covers Super Admin, Admin, Collector and Extension
+Officer accounts without offering public staff registration. The implementation
+keeps the current branding background, logo, language and theme controls,
+supports narrow mobile screens and long registration forms, prevents keyboard
+focus from entering the hidden page, and provides a motion-free fallback for
+devices requesting reduced motion. English, Sinhala and Tamil locale files use
+the same new authentication keys. No authentication function, role model,
+database schema, RLS policy or environment variable was changed.
+
+*Supplier/Staff book-page login added: 10 November 2026.*
+
 
 
 
