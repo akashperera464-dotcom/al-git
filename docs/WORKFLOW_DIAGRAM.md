@@ -4177,6 +4177,43 @@ database schema, RLS policy or environment variable was changed.
 
 *Supplier/Staff book-page login added: 10 November 2026.*
 
+## 68. Walk-the-Boundary GPS Recording
+
+The shared Admin/Supplier estate block map now supports a second boundary input
+method in addition to manual map clicks. An authorized user selects a block,
+starts **Walk boundary with GPS**, and physically walks around the operational
+field edge with the app open. The browser requests high-accuracy phone GPS and
+builds the same GeoJSON polygon already used by Round 18.
+
+```text
+Select estate block
+  -> Walk boundary with GPS
+  -> browser geolocation.watchPosition (high accuracy)
+  -> reject accuracy worse than 35 m
+  -> reject movement under 5 m from the last accepted point
+  -> local path + distance + accuracy + estimated hectares
+  -> Finish boundary
+  -> existing estate Save changes / Submit request
+  -> one final estate_blocks.boundary_geojson update
+```
+
+Recording has Pause, Resume, Finish and Cancel controls. Going to the background
+automatically pauses the GPS watcher to avoid hidden battery use. A screen wake
+lock is requested where the browser supports it, and is released on pause,
+finish, cancel, errors and component unmount. Accepted but unfinished samples
+are stored only in per-tab `sessionStorage`, allowing the user to recover an
+interrupted walk without continuously writing location rows to Supabase.
+
+The implementation reuses the existing `estate_blocks.boundary_geojson` and
+`land_type` columns, React-Leaflet/OpenStreetMap bundle and Admin/Supplier save
+flows. It adds no table, migration, paid map service, background tracker,
+authentication change, RLS/JWT bridge or Office API request. Phone GPS polygons
+and hectare values remain operational estimates, not legal/cadastral surveys.
+
+Pure distance, GPS-accuracy and duplicate-packet filters are covered by Vitest.
+
+*Walk-the-boundary GPS recording added: 10 November 2026.*
+
 
 
 

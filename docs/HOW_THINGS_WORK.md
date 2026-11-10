@@ -111,6 +111,7 @@ Admin daily route assignment
 - Estate එකකට blocks කිහිපයක් තිබිය හැක.
 - Estate record එක supplier, factory, route, acreage, bush count, address සහ GPS coordinates සමඟ සම්බන්ධ වේ.
 - Block එකකට land type, operational status සහ optional GPS polygon boundary එකක් තිබිය හැක. Polygon coordinates `estate_blocks.boundary_geojson` තුළ GeoJSON `[longitude, latitude]` order එකෙන් save වේ.
+- Block boundary එක map එක මත manually mark කළ හැකි අතර, phone එක රැගෙන boundary එක වටා ඇවිදීමෙන් GPS points auto-record කිරීමටද හැක. මේ දෙකම අවසානයේ එකම `boundary_geojson` field එක භාවිත කරයි.
 - Delivery එකක් record කරන විට supplier පමණක් නොව exact estate එකද තෝරන නිසා estates අතර data මිශ්‍ර නොවේ.
 
 ### Collector සහ daily assignment
@@ -263,8 +264,14 @@ Supplier/Admin enters estate details
 Admin/Supplier selects estate GPS point
   -> adds estate blocks
   -> opens Block Map only when needed (lazy-loaded)
-  -> selects a block and marks at least three boundary points
+  -> selects a block
+      -> Draw on map: manually marks at least three boundary points
+      OR
+      -> Walk boundary with GPS: records filtered phone GPS points while walking
+          -> poor-accuracy and near-duplicate packets are ignored
+          -> Pause/Resume/Cancel/Finish controls the local recording
   -> browser calculates an operational hectare estimate
+  -> user presses Save changes / Submit request
   -> GeoJSON Polygon + land type saved in estate_blocks
   -> Admin/Supplier read-only map renders the same boundary
   -> Farm Activities loads those same block IDs from Supabase
@@ -273,6 +280,9 @@ Admin/Supplier selects estate GPS point
 
 - Map tiles come from OpenStreetMap through the existing Leaflet stack; no paid map plan is required.
 - The map bundle is loaded only after **Map blocks / View GPS map** is opened, so ordinary estate screens do not pay the map startup cost.
+- Walk recording uses the phone browser's high-accuracy Geolocation API. A point is accepted only when reported accuracy is within 35 m and it is at least 5 m from the previous accepted point.
+- While walking, points, distance, current GPS accuracy and estimated area are calculated on the device. The unfinished walk is kept only in that tab's `sessionStorage`; it does not write every GPS packet to Supabase.
+- If the app goes into the background, GPS recording auto-pauses. The user must reopen the app and press **Resume**. **Finish boundary** prepares the polygon, but the estate form's **Save changes / Submit request** is still required for the one final database save.
 - Calculated area is an operational planning estimate. It is not a cadastral or legal land survey.
 - `docs/migration_phase3_round18_estate_block_maps.sql` adds only `land_type` and `boundary_geojson`; it does not add a table or change authentication/RLS.
 
