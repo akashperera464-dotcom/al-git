@@ -4233,7 +4233,8 @@ Linked/selected estate GPS
   -> responsive Supplier Home and My Weather UI
 ```
 
-Rain produces a rain atmosphere and leaf-moisture/fertilizer caution; cloud,
+Rain produces layered, discrete CSS raindrops (not a repeating stripe pattern)
+and leaf-moisture/fertilizer caution; cloud,
 sun, mist and storm conditions produce their own palette and appropriate field
 guidance. This visual layer does not change the weather source, ten-minute
 weather cache, alert reliability rule or API request frequency. It introduces

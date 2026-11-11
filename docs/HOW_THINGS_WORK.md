@@ -260,6 +260,7 @@ Supplier/Admin enters estate details
 - Multiple estates තිබේ නම් selected estate අනුව weather වෙනස් විය හැක.
 - Admin සහ Supplier screens දෙකම එකම estate coordinates භාවිත කරන නිසා device එක වෙනස් වුවත් data source එක එකම වේ.
 - Weather visual classification සහ CSS atmosphere browser එක තුළම ක්‍රියා කරයි. ඒ සඳහා අමතර OpenWeather request, image download, database row හෝ paid service එකක් භාවිත නොවේ.
+- Rain scene එක දිග stripe pattern එකක් නොව, වෙනස් ප්‍රමාණ සහ වේග සහිත CSS raindrop layers ලෙස පෙන්වයි; මෙයද browser-only visual effect එකකි.
 - Live data නොලැබෙන විට UI එක demo weather ලෙස පැහැදිලිව ලකුණු කරයි; demo condition එක operational warning එකක් සෑදීමට භාවිත නොවේ.
 
 ### Estate block GPS map data flow

@@ -351,11 +351,29 @@ body {
 .weather-atmosphere--storm .weather-atmosphere__cloud { background: rgba(15, 23, 42, 0.22); }
 .weather-atmosphere__rain {
   position: absolute;
-  inset: -35% 0 0;
-  opacity: .38;
-  background-image: repeating-linear-gradient(112deg, transparent 0 17px, rgba(255,255,255,.72) 18px 19px, transparent 20px 34px);
-  background-size: 44px 70px;
-  animation: weatherRain 1.2s linear infinite;
+  inset: -6rem -8% -1rem;
+  opacity: .72;
+  background-image:
+    radial-gradient(ellipse 1.2px 7px at center, rgba(255,255,255,.82) 0 48%, rgba(186,230,253,.42) 58%, transparent 72%),
+    radial-gradient(ellipse 1px 5px at center, rgba(224,242,254,.68) 0 48%, transparent 72%),
+    radial-gradient(ellipse 1.4px 9px at center, rgba(255,255,255,.58) 0 46%, transparent 70%);
+  background-position: 0 0, 19px 24px, 51px 11px;
+  background-size: 47px 71px, 73px 97px, 109px 131px;
+  animation: weatherRainNear .82s linear infinite;
+  transform: rotate(2deg);
+  transform-origin: center;
+}
+.weather-atmosphere__rain::after {
+  content: "";
+  position: absolute;
+  inset: -12% 0;
+  opacity: .44;
+  background-image:
+    radial-gradient(ellipse 1px 4px at center, rgba(219,234,254,.72) 0 50%, transparent 73%),
+    radial-gradient(ellipse .8px 3px at center, rgba(255,255,255,.58) 0 48%, transparent 72%);
+  background-position: 13px 9px, 37px 31px;
+  background-size: 59px 83px, 89px 113px;
+  animation: weatherRainFar 1.18s linear infinite;
 }
 .weather-atmosphere__lightning {
   position: absolute;
@@ -378,7 +396,8 @@ body {
   -webkit-backdrop-filter: blur(22px) saturate(145%);
 }
 @keyframes weatherCloudDrift { to { transform: translateX(2.4rem) translateY(-.6rem) scale(.94); } }
-@keyframes weatherRain { to { transform: translate3d(-24px, 70px, 0); } }
+@keyframes weatherRainNear { to { background-position: -5px 71px, 14px 121px, 46px 142px; } }
+@keyframes weatherRainFar { to { background-position: 10px 92px, 34px 144px; } }
 @keyframes weatherLightning { 0%, 92%, 96%, 100% { opacity: 0; } 93%, 95% { opacity: 1; } }
 @keyframes weatherMist { to { transform: translateX(12%); opacity: .62; } }
 
