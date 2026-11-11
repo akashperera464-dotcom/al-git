@@ -4243,7 +4243,9 @@ Office API request or admin-interface change. All animation has a
 weather mood and guidance keys.
 
 The login page retains the existing Supplier/Staff book-page authentication
-flow while receiving lighter glass depth and decorative CSS-only atmosphere.
+flow while the logo/title remains transparent over the branding media and the
+glass surface is limited to the interactive login book. This keeps configured
+background images and videos visible on mobile.
 Firebase sign-in, role lookup, supplier registration and authorization logic
 remain unchanged.
 

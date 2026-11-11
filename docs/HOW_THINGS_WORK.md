@@ -50,7 +50,7 @@ Firebase authentication සඳහා පමණක් භාවිත වේ. Bus
 
 ## Login සහ user access වැඩ කරන ආකාරය
 
-Login screen එක mobile-responsive **book page** එකක් ලෙස Supplier Login සහ Staff Login යන පැති දෙක පෙන්වයි. Liquid-glass surfaces, branding background/logo, language සහ light/dark controls භාවිත කළත් මේ වෙන් කිරීම UI guidance එකක් පමණි; authentication systems දෙකක් නොවේ.
+Login screen එක mobile-responsive **book page** එකක් ලෙස Supplier Login සහ Staff Login යන පැති දෙක පෙන්වයි. Branding logo/title එක background image හෝ video එක වසා නොදමන transparent header එකක පෙන්වන අතර login book එකට පමණක් liquid-glass surface එක භාවිත වේ. මේ වෙන් කිරීම UI guidance එකක් පමණි; authentication systems දෙකක් නොවේ.
 
 - **Supplier Login** පැත්තෙන් existing supplier account එකට පිවිසිය හැකි අතර නව supplier registration request එකක්ද ඉදිරිපත් කළ හැක.
 - **Staff Login** පැත්ත Super Admin, Admin, Collector සහ Extension Officer accounts සඳහා පැහැදිලි පිවිසුම් මුහුණතක් ලබාදෙයි. Staff registration මෙහි නොමැත.

@@ -377,16 +377,6 @@ body {
   backdrop-filter: blur(22px) saturate(145%);
   -webkit-backdrop-filter: blur(22px) saturate(145%);
 }
-.login-liquid-orb {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(4px);
-  opacity: .42;
-  animation: floaty 9s ease-in-out infinite;
-}
-.login-liquid-orb--one { width: 18rem; height: 18rem; left: -6rem; top: 7%; background: radial-gradient(circle at 35% 30%, #67e8f9, #10b981 58%, transparent 72%); }
-.login-liquid-orb--two { width: 24rem; height: 24rem; right: -8rem; bottom: -5rem; background: radial-gradient(circle at 40% 35%, #fde68a, #38bdf8 54%, transparent 72%); animation-delay: -4s; }
-
 @keyframes weatherCloudDrift { to { transform: translateX(2.4rem) translateY(-.6rem) scale(.94); } }
 @keyframes weatherRain { to { transform: translate3d(-24px, 70px, 0); } }
 @keyframes weatherLightning { 0%, 92%, 96%, 100% { opacity: 0; } 93%, 95% { opacity: 1; } }
@@ -628,8 +618,7 @@ textarea {
   .weather-atmosphere__cloud,
   .weather-atmosphere__rain,
   .weather-atmosphere__lightning,
-  .weather-atmosphere__mist,
-  .login-liquid-orb {
+  .weather-atmosphere__mist {
     animation: none !important;
   }
 }

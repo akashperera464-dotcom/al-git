@@ -268,12 +268,6 @@ export function Login() {
         </>
       )}
 
-      {/* Liquid-glass depth inspired by modern mobile weather surfaces. */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <span className="login-liquid-orb login-liquid-orb--one" />
-        <span className="login-liquid-orb login-liquid-orb--two" />
-      </div>
-
       {/* Keep the selector in the viewport's top-right corner on every screen size.
           safe-top-absolute moves it below a mobile display notch when necessary. */}
       <div className="safe-top-absolute absolute right-4 top-4 z-20 flex items-center gap-2">
@@ -283,7 +277,7 @@ export function Login() {
 
       <div className="relative z-10 w-full max-w-xl animate-fade-up">
         {/* brand */}
-        <div className={`mx-auto mb-5 flex max-w-sm flex-col items-center rounded-[2rem] border px-6 py-4 text-center backdrop-blur-xl sm:mb-6 ${hasBg ? "border-white/15 bg-black/10" : "border-white/80 bg-white/45 shadow-xl shadow-emerald-950/5 dark:border-white/10 dark:bg-slate-950/35"}`}>
+        <div className="mx-auto mb-5 flex max-w-sm flex-col items-center px-6 py-2 text-center sm:mb-6">
           <div
             className="relative mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-2xl sm:mb-4 sm:h-20 sm:w-20 sm:rounded-3xl"
             style={{ background: hasBg ? "rgba(255,255,255,0.15)" : accent, backdropFilter: hasBg ? "blur(8px)" : undefined }}
