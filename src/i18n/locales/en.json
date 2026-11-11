@@ -663,7 +663,16 @@
     "rainAlertBody": "⚠ Avoid applying fertilizer now — rainfall can wash it away before plants absorb it. Wait for a dry window (rain probability < 30%).",
     "todayLabel": "Today",
     "forecastTitle": "5-Day Forecast",
-    "tomorrow": "Tomorrow"
+    "tomorrow": "Tomorrow",
+    "fieldGuidance": "Field guidance",
+    "mood": { "sunny": "Sunny", "cloudy": "Cloudy", "rain": "Rainy", "storm": "Storm risk", "mist": "Misty" },
+    "guidance": {
+      "sunny": "A suitable window for field work. Protect workers from heat and keep harvested leaf shaded.",
+      "cloudy": "Good working conditions, but monitor the forecast before fertilizer or spraying activities.",
+      "rain": "Protect harvested leaf from moisture and postpone fertilizer application until a dry window.",
+      "storm": "Avoid exposed field work. Secure equipment and wait until strong wind or lightning has passed.",
+      "mist": "Visibility may be reduced. Use care on estate roads and inspect leaf moisture before collection."
+    }
   },
   "equipment": {
     "eyebrow": "Operations",

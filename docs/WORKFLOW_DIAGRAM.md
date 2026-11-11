@@ -4214,6 +4214,44 @@ Pure distance, GPS-accuracy and duplicate-packet filters are covered by Vitest.
 
 *Walk-the-boundary GPS recording added: 10 November 2026.*
 
+## 69. Supplier Weather-Adaptive Visual Experience
+
+The Supplier mobile shell, Home dashboard, My Weather screen and unified login
+were visually refined with responsive liquid-glass surfaces, clearer depth and
+mobile-safe spacing. Admin modules were deliberately left unchanged for this
+supplier-first pass.
+
+Supplier Home and My Weather now share one deterministic presentation helper:
+
+```text
+Linked/selected estate GPS
+  -> existing cached OpenWeather forecast
+  -> current condition + rain probability + rain amount + wind speed
+  -> client-only weather mood classifier
+      -> sunny / cloudy / rain / storm / mist
+  -> matching gradient + CSS atmosphere + icon + field guidance
+  -> responsive Supplier Home and My Weather UI
+```
+
+Rain produces a rain atmosphere and leaf-moisture/fertilizer caution; cloud,
+sun, mist and storm conditions produce their own palette and appropriate field
+guidance. This visual layer does not change the weather source, ten-minute
+weather cache, alert reliability rule or API request frequency. It introduces
+no image API, database write, migration, paid plan, authentication change,
+Office API request or admin-interface change. All animation has a
+`prefers-reduced-motion` fallback, and English/Sinhala/Tamil contain the same
+weather mood and guidance keys.
+
+The login page retains the existing Supplier/Staff book-page authentication
+flow while receiving lighter glass depth and decorative CSS-only atmosphere.
+Firebase sign-in, role lookup, supplier registration and authorization logic
+remain unchanged.
+
+Weather mood mapping is covered by automated tests for sunny, cloudy, rain,
+storm, mist and dangerous-wind cases.
+
+*Supplier weather-adaptive visual experience added: 11 November 2026.*
+
 
 
 

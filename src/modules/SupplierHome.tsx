@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { Leaf, Bell, Wallet, Package, ReceiptText, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Leaf, Bell, Wallet, Package, ReceiptText, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2, Droplets, Wind } from "lucide-react";
 import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum, fmtLKRShort } from "@/lib/data";
@@ -13,6 +13,9 @@ import { fetchOfficeBalanceWithMeta, fetchOfficeCropWithMeta, fetchOfficeMonthly
 import type { OfficeBalanceResponse, OfficeLeafResponse } from "@/lib/officeApiContracts";
 import { findOfficeDeliveryForDate, getOfficeCropComparison, sumOfficeDeductionsByGroup, yesterdaySriLankaIso } from "@/lib/officeSupplierSummary";
 import { OfficeDataStatus } from "@/components/OfficeDataStatus";
+import { Icon } from "@/components/Icon";
+import { WeatherAtmosphere } from "@/components/WeatherAtmosphere";
+import { getWeatherPresentation } from "@/lib/weatherPresentation";
 
 const LorryTracking = lazy(() => import("@/modules/LorryTracking"));
 
@@ -139,28 +142,46 @@ export function SupplierHome() {
   const pruneDue = lastPrune ? Math.floor((now - new Date(lastPrune.loggedDate).getTime()) / DAY) >= 40 : false;
 
   const weatherToday = weather.today;
+  const weatherVisual = useMemo(() => getWeatherPresentation(weatherToday), [weatherToday]);
 
   return (
-    <div>
-      {/* Hero greeting */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-pine-800 p-5 text-white mb-4">
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/5" />
-        <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/5" />
-        <div className="relative">
-          <p className="mb-0.5 text-xs font-semibold text-emerald-200">
-            {currentTime.toLocaleDateString(i18n.language === "si" ? "si-LK" : i18n.language === "ta" ? "ta-LK" : "en-LK", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Colombo" })}
-          </p>
-          <h1 className="font-display text-xl font-extrabold tracking-tight">
-            {t("supplierHome.greetingWithName", { greeting: t(`supplierHome.greeting.${greeting}`), name: firstName })}
-          </h1>
-          <p className="text-sm text-emerald-100 mt-0.5 opacity-90">
-            {estate ? t("supplierHome.linkedEstate", { estate: estate.name }) : t("supplierHome.interface")}
-          </p>
+    <div className="supplier-weather-surface -m-4 min-h-full p-4" style={{ background: weatherVisual.pageGradient }}>
+      {/* Weather-aware greeting hero */}
+      <div className="weather-hero relative mb-4 overflow-hidden rounded-[1.75rem] p-5 text-white" style={{ background: weatherVisual.gradient }}>
+        <WeatherAtmosphere mood={weatherVisual.mood} />
+        <div className="relative z-10 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="mb-1 text-[11px] font-semibold text-white/75">
+              {currentTime.toLocaleDateString(i18n.language === "si" ? "si-LK" : i18n.language === "ta" ? "ta-LK" : "en-LK", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Colombo" })}
+            </p>
+            <h1 className="font-display text-xl font-extrabold tracking-tight sm:text-2xl">
+              {t("supplierHome.greetingWithName", { greeting: t(`supplierHome.greeting.${greeting}`), name: firstName })}
+            </h1>
+            <p className="mt-1 truncate text-xs font-medium text-white/80">
+              {estate ? t("supplierHome.linkedEstate", { estate: estate.name }) : t("supplierHome.interface")}
+            </p>
+          </div>
+          <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-left transition hover:bg-white/20">
+            {weatherToday && <Icon name={weatherToday.icon} className="h-8 w-8 text-white" />}
+            <span><b className="block text-xl leading-none">{weatherToday ? `${weatherToday.tempMax}°` : "—°"}</b><span className="mt-1 block max-w-20 truncate text-[9px] font-semibold text-white/75">{t(weatherVisual.labelKey)}</span></span>
+          </button>
         </div>
+
+        <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
+          <div className="weather-glass rounded-xl p-2.5"><Droplets className="h-3.5 w-3.5 text-sky-100" /><p className="mt-1 text-sm font-extrabold">{weatherToday?.rainProb ?? "—"}%</p><p className="text-[9px] text-white/65">Rain</p></div>
+          <div className="weather-glass rounded-xl p-2.5"><Wind className="h-3.5 w-3.5 text-sky-100" /><p className="mt-1 text-sm font-extrabold">{weatherToday?.windKph ?? "—"} km/h</p><p className="text-[9px] text-white/65">Wind</p></div>
+          <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass rounded-xl p-2.5 text-left"><span className="text-[11px] font-bold">{weatherToday?.condition ?? "Weather"}</span><span className="mt-1 flex items-center text-[9px] text-white/70">Forecast <ChevronRight className="ml-0.5 h-3 w-3" /></span></button>
+        </div>
+
+        <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass relative z-10 mt-3 flex w-full items-center justify-between gap-3 rounded-2xl px-3.5 py-3 text-left">
+          <span className="text-[11px] font-semibold leading-relaxed text-white/90">{t(weatherVisual.guidanceKey)}</span>
+          <ChevronRight className="h-4 w-4 shrink-0 text-white/75" />
+        </button>
+
         {/* Connectivity badge */}
-        <div className="mt-3 flex items-center gap-2">
+        <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2">
           {online ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/30 px-2.5 py-1 text-[10px] font-bold text-emerald-100">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold text-white/90 backdrop-blur-md">
               <CheckCircle2 className="h-3 w-3" /> {t("common.online")}
             </span>
           ) : (
@@ -173,27 +194,9 @@ export function SupplierHome() {
               ⏳ {t("supplierHome.pendingSync", { count: pendingSync })}
             </span>
           )}
+          <span className="ml-auto text-[9px] font-semibold text-white/60">{weather.status === "live" ? "Live estate weather" : "Demo weather"}</span>
         </div>
       </div>
-
-      {/* Today's weather snap */}
-      {weatherToday && (
-        <Card className="mb-4 p-3.5 flex items-center gap-3 border-sky-200 bg-sky-50">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500 text-white text-xl">
-            {weatherToday.rainProb > 60 ? "🌧" : weatherToday.rainProb > 30 ? "⛅" : "☀️"}
-          </span>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-sky-800">{t("supplierHome.weather")}</p>
-            <p className="text-xs text-sky-600">
-              {t("supplierHome.weatherDetail", { temperature: weatherToday.tempMax, rain: weatherToday.rainProb, wind: weatherToday.windKph })}
-            </p>
-            {weather.status !== "live" && <p className="mt-0.5 text-[10px] font-semibold text-amber-600">Demo · live estate weather unavailable</p>}
-          </div>
-          <button onClick={() => setActiveModule("supplier-weather")} className="text-sky-600">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </Card>
-      )}
 
       {prices.length > 0 && (
         <div className="mb-4">

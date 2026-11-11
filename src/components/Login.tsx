@@ -268,6 +268,12 @@ export function Login() {
         </>
       )}
 
+      {/* Liquid-glass depth inspired by modern mobile weather surfaces. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <span className="login-liquid-orb login-liquid-orb--one" />
+        <span className="login-liquid-orb login-liquid-orb--two" />
+      </div>
+
       {/* Keep the selector in the viewport's top-right corner on every screen size.
           safe-top-absolute moves it below a mobile display notch when necessary. */}
       <div className="safe-top-absolute absolute right-4 top-4 z-20 flex items-center gap-2">
@@ -275,9 +281,9 @@ export function Login() {
         <ThemeToggle darkSurface={hasBg} />
       </div>
 
-      <div className="relative z-10 w-full max-w-lg animate-fade-up">
+      <div className="relative z-10 w-full max-w-xl animate-fade-up">
         {/* brand */}
-        <div className="mb-5 flex flex-col items-center text-center sm:mb-7">
+        <div className={`mx-auto mb-5 flex max-w-sm flex-col items-center rounded-[2rem] border px-6 py-4 text-center backdrop-blur-xl sm:mb-6 ${hasBg ? "border-white/15 bg-black/10" : "border-white/80 bg-white/45 shadow-xl shadow-emerald-950/5 dark:border-white/10 dark:bg-slate-950/35"}`}>
           <div
             className="relative mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-2xl sm:mb-4 sm:h-20 sm:w-20 sm:rounded-3xl"
             style={{ background: hasBg ? "rgba(255,255,255,0.15)" : accent, backdropFilter: hasBg ? "blur(8px)" : undefined }}
@@ -305,8 +311,8 @@ export function Login() {
           </p>
         </div>
 
-        <div className={`auth-book rounded-[1.4rem] border p-2 shadow-2xl backdrop-blur-xl sm:p-3 ${hasBg ? "border-white/20 bg-black/15" : "border-slate-200/80 bg-white/60 dark:border-slate-700 dark:bg-slate-950/55"}`}>
-          <div className={`mb-2 grid grid-cols-2 gap-1 rounded-2xl p-1 ${hasBg ? "bg-black/25" : "bg-slate-100 dark:bg-slate-900"}`} role="tablist" aria-label={t("auth.choosePortal")}>
+        <div className={`auth-book rounded-[2rem] border p-2 shadow-2xl backdrop-blur-2xl sm:p-3 ${hasBg ? "border-white/25 bg-black/15" : "border-white/90 bg-white/60 shadow-emerald-950/10 dark:border-slate-700 dark:bg-slate-950/60"}`}>
+          <div className={`mb-2 grid grid-cols-2 gap-1 rounded-[1.35rem] border p-1 ${hasBg ? "border-white/10 bg-black/25" : "border-white/80 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-900"}`} role="tablist" aria-label={t("auth.choosePortal")}>
             <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition sm:text-sm ${portal === "supplier" ? "bg-white text-emerald-700 shadow-md dark:bg-slate-800 dark:text-emerald-300" : hasBg ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"}`}>
               <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
             </button>
@@ -316,7 +322,7 @@ export function Login() {
           </div>
 
           <div className={`auth-book__pages ${portal === "staff" ? "is-flipped" : ""}`}>
-            <section className={`auth-book__page auth-book__page--front rounded-2xl border p-5 shadow-xl sm:p-7 ${hasBg ? "border-white/20 bg-white/10" : "border-emerald-100 bg-white dark:border-emerald-950 dark:bg-slate-900"}`} aria-hidden={portal !== "supplier"}>
+            <section className={`auth-book__page auth-book__page--front rounded-[1.55rem] border p-5 shadow-xl sm:p-7 ${hasBg ? "border-white/25 bg-white/10 backdrop-blur-xl" : "border-emerald-100/80 bg-white/90 backdrop-blur-xl dark:border-emerald-950 dark:bg-slate-900/95"}`} aria-hidden={portal !== "supplier"}>
               <div className="mb-5 flex items-start gap-3">
                 <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${hasBg ? "bg-white/15 text-white" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"}`}><Sprout className="h-5 w-5" /></span>
                 <div className="min-w-0"><p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${hasBg ? "text-emerald-200" : "text-emerald-600 dark:text-emerald-300"}`}>{t("auth.supplierPortal")}</p><h2 className={`font-display text-lg font-bold ${hasBg ? "text-white" : "text-slate-800 dark:text-slate-100"}`}>{registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}</h2><p className={`mt-1 text-xs leading-relaxed ${subTextColor}`}>{registering ? t("auth.supplierRegistrationHint") : t("auth.supplierPortalHint")}</p></div>
@@ -329,7 +335,7 @@ export function Login() {
               </button>
             </section>
 
-            <section className={`auth-book__page auth-book__page--back rounded-2xl border p-5 shadow-xl sm:p-7 ${hasBg ? "border-white/20 bg-white/10" : "border-indigo-100 bg-white dark:border-indigo-950 dark:bg-slate-900"}`} aria-hidden={portal !== "staff"}>
+            <section className={`auth-book__page auth-book__page--back rounded-[1.55rem] border p-5 shadow-xl sm:p-7 ${hasBg ? "border-white/25 bg-white/10 backdrop-blur-xl" : "border-indigo-100/80 bg-white/90 backdrop-blur-xl dark:border-indigo-950 dark:bg-slate-900/95"}`} aria-hidden={portal !== "staff"}>
               <div className="mb-5 flex items-start gap-3">
                 <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${hasBg ? "bg-white/15 text-white" : "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"}`}><ShieldCheck className="h-5 w-5" /></span>
                 <div className="min-w-0"><p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${hasBg ? "text-indigo-200" : "text-indigo-600 dark:text-indigo-300"}`}>{t("auth.staffPortal")}</p><h2 className={`font-display text-lg font-bold ${hasBg ? "text-white" : "text-slate-800 dark:text-slate-100"}`}>{t("auth.signInToAccount")}</h2><p className={`mt-1 text-xs leading-relaxed ${subTextColor}`}>{t("auth.staffPortalHint")}</p></div>

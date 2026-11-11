@@ -398,13 +398,13 @@ function BottomNav({ onMore }: { onMore: () => void }) {
   const visible = tabs.slice(0, 4);
   const hasMore = allTabs.length > visible.length;
   return (
-    <nav className="safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around border-t border-slate-200 bg-white/95 px-2 py-1.5 backdrop-blur-xl">
+    <nav className={cn("safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around px-2 py-1.5", role === "supplier" ? "supplier-liquid-nav mx-2 mb-2 rounded-2xl" : "border-t border-slate-200 bg-white/95 backdrop-blur-xl")}>
       {visible.map((tab) => {
         const Icon = tab.icon;
         const active = activeModule === tab.key;
         return (
-          <button key={tab.key} onClick={() => setActiveModule(tab.key)} className={cn("flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 transition", active ? "text-emerald-600" : "text-slate-400")}>
-            <span className={cn("flex h-7 w-7 items-center justify-center rounded-lg transition", active && "bg-emerald-100")}>
+          <button key={tab.key} onClick={() => setActiveModule(tab.key)} className={cn("flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5 transition", active ? "text-emerald-700" : "text-slate-400")}>
+            <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition", active && (role === "supplier" ? "bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-md shadow-emerald-500/25" : "bg-emerald-100"))}>
               <Icon className="h-[18px] w-[18px]" />
             </span>
             <span className="w-full truncate px-1 text-center text-[10px] font-semibold">{moduleShort(t, tab.key)}</span>
@@ -469,13 +469,14 @@ function MobileShell({ children }: { children: ReactNode }) {
   const { isAuthenticated, signOut, setActiveModule, role } = useApp();
   const [more, setMore] = useState(false);
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
+  const supplierMode = role === "supplier";
   return (
-    <div className="app-aurora min-h-screen">
+    <div className={cn("min-h-screen", supplierMode ? "bg-gradient-to-br from-emerald-50 via-sky-50 to-slate-100" : "app-aurora")}>
       {isAuthenticated && role === "supplier" && <SupplierWeatherMonitor />}
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-slate-900 md:shadow-2xl">
         {/* Header — safe-top pushes brand/buttons below iPhone notch on mobile.
             On desktop the md:py-3 resets to normal padding inside the phone frame. */}
-        <header className="safe-top md:!pt-3 flex items-center justify-between gap-2 bg-gradient-to-r from-pine-900 to-pine-800 px-4 py-3 text-white">
+        <header className={cn("safe-top md:!pt-3 relative z-20 flex items-center justify-between gap-2 px-4 py-3 text-white", supplierMode ? "border-b border-white/10 bg-gradient-to-r from-emerald-950/95 via-pine-900/95 to-teal-900/95 shadow-lg shadow-emerald-950/10 backdrop-blur-xl" : "bg-gradient-to-r from-pine-900 to-pine-800")}>
           <Brand />
           <div className="flex items-center gap-1.5">
             {!embeddedAndroidApp && <LanguageSwitcher dark prominent />}
@@ -501,7 +502,7 @@ function MobileShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         {/* Content */}
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-4 no-scrollbar">
+        <main className={cn("flex-1 overflow-y-auto p-4 no-scrollbar", supplierMode ? "bg-gradient-to-b from-slate-50 via-white to-emerald-50/40" : "bg-slate-50")}>
           {children}
           {/* Full-width logout button at the bottom — always visible & accessible */}
           {isAuthenticated && (

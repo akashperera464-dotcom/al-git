@@ -50,7 +50,7 @@ Firebase authentication සඳහා පමණක් භාවිත වේ. Bus
 
 ## Login සහ user access වැඩ කරන ආකාරය
 
-Login screen එක mobile-responsive **book page** එකක් ලෙස Supplier Login සහ Staff Login යන පැති දෙක පෙන්වයි. මේ වෙන් කිරීම UI guidance එකක් පමණි; authentication systems දෙකක් නොවේ.
+Login screen එක mobile-responsive **book page** එකක් ලෙස Supplier Login සහ Staff Login යන පැති දෙක පෙන්වයි. Liquid-glass surfaces, branding background/logo, language සහ light/dark controls භාවිත කළත් මේ වෙන් කිරීම UI guidance එකක් පමණි; authentication systems දෙකක් නොවේ.
 
 - **Supplier Login** පැත්තෙන් existing supplier account එකට පිවිසිය හැකි අතර නව supplier registration request එකක්ද ඉදිරිපත් කළ හැක.
 - **Staff Login** පැත්ත Super Admin, Admin, Collector සහ Extension Officer accounts සඳහා පැහැදිලි පිවිසුම් මුහුණතක් ලබාදෙයි. Staff registration මෙහි නොමැත.
@@ -196,13 +196,13 @@ Admin branding save කිරීමෙන් web/PWA interface logo සහ names
 
 | Feature | System එකේ කාර්යය | Data source / connection |
 |---|---|---|
-| **Home** | Greeting, weather, tea rates, lorry card, monthly supply, deliveries, earnings සහ deductions පෙන්වයි. | User profile, linked estate, Office APIs සහ EMS records. |
+| **Home** | Greeting, weather-aware visual scene සහ field guidance, tea rates, lorry card, monthly supply, deliveries, earnings සහ deductions පෙන්වයි. | User profile, linked estate, OpenWeather, Office APIs සහ EMS records. |
 | **My Calendar** | Farm/plucking activities දින අනුව පෙන්වයි. | Farm activity records. |
 | **My Leaf Deliveries** | Daily/monthly deliveries, receipt details සහ grade breakdown පෙන්වයි. | Office crop/monthly data සහ EMS harvest records. |
 | **Earnings & Deductions** | Current/previous month account summary සහ deduction breakdown පෙන්වයි. | Office balance response සහ available EMS finance records. |
 | **My Farm Activities** | Fertilizing, pruning, plucking සහ replanting records exact estate block එකට save කරයි. | Supabase `estates`/`estate_blocks` සහ activity history. |
 | **My Plot / My Estates** | Estates/blocks register/edit කර approval status බලයි; map එකෙන් GPS point සහ block boundary ලකුණු කරයි. | Supabase estates, estate blocks සහ OpenStreetMap. |
-| **My Weather** | Selected/linked estate GPS සඳහා forecast සහ warnings පෙන්වයි. | Estate coordinates → OpenWeather. |
+| **My Weather** | Selected/linked estate GPS සඳහා condition-aware forecast, animated weather scene, field guidance සහ verified warnings පෙන්වයි. | Estate coordinates → OpenWeather. |
 | **Request Resources** | Equipment, Fertilizer හෝ Agrochemical request යවයි. | Request record → Admin inbox → approval/rejection. |
 | **My Fertilizer** | Supplier fertilizer ledger සහ issued fertilizer history පෙන්වයි. | Supplier fertilizer ledger/inventory issues. |
 | **My Labor** | Supplierගේ daily worker cost records ගණනය කර save කරයි. | Supplier labor records. |
@@ -251,12 +251,16 @@ Supplier/Admin enters estate details
   -> Supplier Weather resolves linked/owned estate
   -> Estate GPS sent to OpenWeather
   -> Current weather + forecast + farm warnings displayed
+  -> condition/rain/wind classified locally as sunny/cloudy/rain/storm/mist
+  -> Supplier Home + My Weather colors, atmosphere and guidance update
 ```
 
 - Estate GPS නැත්නම් system එක live estate weather ලෙස ව්‍යාජ data claim නොකරයි.
 - Supplierට linked estate එකක් තිබේ නම් එය weather source එක ලෙස ප්‍රමුඛව භාවිත වේ.
 - Multiple estates තිබේ නම් selected estate අනුව weather වෙනස් විය හැක.
 - Admin සහ Supplier screens දෙකම එකම estate coordinates භාවිත කරන නිසා device එක වෙනස් වුවත් data source එක එකම වේ.
+- Weather visual classification සහ CSS atmosphere browser එක තුළම ක්‍රියා කරයි. ඒ සඳහා අමතර OpenWeather request, image download, database row හෝ paid service එකක් භාවිත නොවේ.
+- Live data නොලැබෙන විට UI එක demo weather ලෙස පැහැදිලිව ලකුණු කරයි; demo condition එක operational warning එකක් සෑදීමට භාවිත නොවේ.
 
 ### Estate block GPS map data flow
 
