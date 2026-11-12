@@ -4253,6 +4253,12 @@ background images and videos visible on mobile.
 Firebase sign-in, role lookup, supplier registration and authorization logic
 remain unchanged.
 
+Portal intent is now validated against the resolved profile before an app
+session is accepted. Supplier Login accepts only `supplier`; Staff Login accepts
+approved non-supplier roles. A mismatch is signed out immediately and receives
+a correct-portal message. The guard is also applied in the reactive Firebase
+session lifecycle so an auth-state callback cannot bypass the selected portal.
+
 Weather mood mapping is covered by automated tests for sunny, cloudy, rain,
 storm, mist and dangerous-wind cases.
 

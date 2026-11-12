@@ -52,8 +52,12 @@ Firebase authentication සඳහා පමණක් භාවිත වේ. Bus
 
 Login screen එක mobile-responsive **book page** එකක් ලෙස Supplier Login සහ Staff Login යන පැති දෙක පෙන්වයි. Branding logo/title එක background image හෝ video එක වසා නොදමන transparent header එකක පෙන්වන අතර login book එකට පමණක් liquid-glass surface එක භාවිත වේ. මේ වෙන් කිරීම UI guidance එකක් පමණි; authentication systems දෙකක් නොවේ.
 
+- **Supplier Login** `supplier` role account සඳහා පමණි. වෙනත් approved role credentials මෙහි භාවිත කළොත් Firebase session එක වහාම close කර Staff Login භාවිත කිරීමට message එකක් පෙන්වයි.
+- **Staff Login** approved non-supplier accounts සඳහා පමණි. Supplier credentials මෙහි භාවිත කළොත් session එක close කර Supplier Login භාවිත කිරීමට message එකක් පෙන්වයි.
+- Portals දෙකම Firebase Email/Password සහ එකම Supabase profile lookup භාවිත කරයි; portal-role validation එක authentication වෙනස් කිරීමක් නොව වැරදි interface එකෙන් session එකක් පිහිටීම නවත්වන gate එකකි.
+
 - **Supplier Login** පැත්තෙන් existing supplier account එකට පිවිසිය හැකි අතර නව supplier registration request එකක්ද ඉදිරිපත් කළ හැක.
-- **Staff Login** පැත්ත Super Admin, Admin, Collector සහ Extension Officer accounts සඳහා පැහැදිලි පිවිසුම් මුහුණතක් ලබාදෙයි. Staff registration මෙහි නොමැත.
+- **Staff Login** පැත්ත approved operational සහ administrative staff accounts සඳහා පැහැදිලි පිවිසුම් මුහුණතක් ලබාදෙයි. Staff registration මෙහි නොමැත.
 - පැති දෙකම එකම Firebase email/password authentication function එක භාවිත කරයි.
 - User තෝරන page එකෙන් role එක තීරණය නොවේ. Firebase login පසු Supabase `users` profile එකේ approved role/status අනුව නිවැරදි interface එක ස්වයංක්‍රීයව විවෘත වේ.
 - Reduced-motion setting සක්‍රීය device එකක 3D animation වෙනුවට motion-free page switch එකක් භාවිත වේ.

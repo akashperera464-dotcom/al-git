@@ -13,12 +13,14 @@ import { validateRegistration } from "@/lib/registrationHardening";
 import { RouteMultiSelect } from "@/components/RouteMultiSelect";
 import { assertMultiRouteSchemaReady, replaceUserRoutes } from "@/lib/userRoutes";
 import { isAndroidEmbeddedWebView } from "@/lib/platform";
+import { isRoleAllowedForPortal, LOGIN_PORTAL_BLOCKED_UID_KEY, LOGIN_PORTAL_INTENT_KEY, type LoginPortal } from "@/lib/loginPortal";
 
 /**
  * Unified Login Screen — Email + Password (Firebase Auth).
  * ------------------------------------------------------------------
- * ALL roles log in here. Branding (logo, background image/video, texts) is
- * controlled by the Super Admin via the Branding & Settings screen.
+ * Supplier and staff portals share Firebase authentication, but each portal
+ * accepts only the matching approved account role. Branding (logo, background
+ * image/video, texts) is controlled by Branding & Settings.
  *
  * When a background image/video is set, a dark scrim auto-applies so all text
  * and the login card stay fully readable.
@@ -30,7 +32,7 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [portal, setPortal] = useState<"supplier" | "staff">("supplier");
+  const [portal, setPortal] = useState<LoginPortal>("supplier");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
@@ -59,7 +61,19 @@ export function Login() {
     }
     setBusy(true);
     try {
+      try {
+        sessionStorage.removeItem(LOGIN_PORTAL_BLOCKED_UID_KEY);
+        sessionStorage.setItem(LOGIN_PORTAL_INTENT_KEY, portal);
+      } catch { /* Session storage can be unavailable in restricted browsers. */ }
       const session = await signInWithEmail(email.trim(), password);
+      if (!isRoleAllowedForPortal(portal, session.role)) {
+        try {
+          sessionStorage.setItem(LOGIN_PORTAL_BLOCKED_UID_KEY, session.uid);
+          sessionStorage.removeItem(LOGIN_PORTAL_INTENT_KEY);
+        } catch { /* Session storage can be unavailable in restricted browsers. */ }
+        await signOutFirebase().catch(() => {});
+        throw new Error(t(portal === "supplier" ? "auth.supplierPortalOnly" : "auth.staffPortalOnly"));
+      }
       const access = await readUserOperationalProfile(session.uid);
       if (access?.deactivatedAt) {
         await signOutFirebase();
@@ -69,8 +83,10 @@ export function Login() {
         await signOutFirebase();
         throw new Error(t("auth.pendingApprovalMessage"));
       }
+      try { sessionStorage.removeItem(LOGIN_PORTAL_INTENT_KEY); } catch { /* ignore */ }
       setSession(session);
     } catch (err: unknown) {
+      try { sessionStorage.removeItem(LOGIN_PORTAL_INTENT_KEY); } catch { /* ignore */ }
       setError(err instanceof Error ? err.message : t("auth.signInFailed"));
     } finally {
       setBusy(false);
@@ -107,7 +123,7 @@ export function Login() {
   const accent = branding.accentColor || "#10b981";
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
 
-  const changePortal = (nextPortal: "supplier" | "staff") => {
+  const changePortal = (nextPortal: LoginPortal) => {
     if (busy || nextPortal === portal) return;
     setPortal(nextPortal);
     setRegistering(false);

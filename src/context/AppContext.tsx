@@ -8,6 +8,7 @@ import { sendFcmToSupplier } from "@/lib/fcm";
 import { createAlert, readAlerts } from "@/lib/notifications";
 import { createEstate as repoCreateEstate, createDivision as repoCreateDivision, createField as repoCreateField } from "@/lib/repo";
 import { signOutFirebase, watchHybridSession, type AuthState } from "@/lib/auth.hybrid";
+import { isRoleAllowedForPortal, LOGIN_PORTAL_BLOCKED_UID_KEY, LOGIN_PORTAL_INTENT_KEY, portalMismatchMessage, readLoginPortalIntent } from "@/lib/loginPortal";
 import { flushQueue, getQueueLength, getQueuedItems, clearQueue, type QueuedMutation } from "@/lib/offlineQueue";
 import { isUserDeactivated } from "@/lib/estateRepo";
 import { refreshSupabaseFirebaseAuth, supabaseConfigured } from "@/lib/supabase";
@@ -274,6 +275,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ---- session lifecycle ----
   const setSession = useCallback((s: AuthState | null) => {
     if (!s) { void refreshSupabaseFirebaseAuth(); setSessionState(null); return; }
+    let blockedUid: string | null = null;
+    try { blockedUid = sessionStorage.getItem(LOGIN_PORTAL_BLOCKED_UID_KEY); } catch { /* ignore */ }
+    if (blockedUid === s.uid) {
+      void signOutFirebase().catch(() => {});
+      setSessionState(null);
+      return;
+    }
+    const portalIntent = readLoginPortalIntent();
+    if (portalIntent && !isRoleAllowedForPortal(portalIntent, s.role)) {
+      const message = portalMismatchMessage(portalIntent);
+      try {
+        sessionStorage.setItem(LOGIN_PORTAL_BLOCKED_UID_KEY, s.uid);
+        sessionStorage.setItem("verda.auth.blocked", message);
+        sessionStorage.removeItem(LOGIN_PORTAL_INTENT_KEY);
+      } catch { /* ignore */ }
+      void signOutFirebase().catch(() => {});
+      setSessionState(null);
+      return;
+    }
     void refreshSupabaseFirebaseAuth().catch(() => {});
     // Round 11: reject the resolved Firebase session when users.deactivated_at is set.
     void isUserDeactivated(s.uid).then(async (deactivated) => {
@@ -311,6 +331,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const unsub = watchHybridSession((s) => {
       setAuthReady(true);
       if (s) setSession(s);
+      else setSessionState(null);
     });
     // If Firebase isn't configured (demo mode), resolve after a brief check.
     const fallback = window.setTimeout(() => setAuthReady(true), 1500);
