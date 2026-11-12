@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { collectorWeatherAdvisory, fetchForecast, totalRainfallMm, weatherStatusText } from "../weather";
+import { aggregateForecastItems, collectorWeatherAdvisory, fetchForecast, totalRainfallMm, weatherStatusText, type OwmListItem } from "../weather";
 import { chooseSupplierWeatherEstate, chooseWeatherEstate, mergeSupplierWeatherEstates } from "../useEstateWeather";
 import type { Estate } from "../estateRepo";
 import type { WeatherDay } from "../data";
@@ -16,6 +16,35 @@ describe("estate weather integration", () => {
   it("totals observed rain without adding a phantom millimetre", () => {
     expect(totalRainfallMm([{ rain: { "3h": 1.4 } }, {}, { rain: { "3h": 2.4 } }])).toBe(4);
     expect(totalRainfallMm([{}, {}])).toBe(0);
+  });
+
+  it("uses the nearest local forecast for today's visual condition while preserving daily rain risk", () => {
+    const item = (iso: string, code: number, pop: number, rain = 0): OwmListItem => ({
+      dt: Math.floor(new Date(iso).getTime() / 1000),
+      main: { temp: 22, temp_max: 23, temp_min: 19 },
+      weather: [{ id: code, description: "" }],
+      wind: { speed: 3 },
+      pop,
+      ...(rain ? { rain: { "3h": rain } } : {}),
+    });
+    const days = aggregateForecastItems([
+      item("2026-11-12T03:00:00Z", 800, 0.1),
+      item("2026-11-12T12:00:00Z", 501, 0.9, 15),
+    ], 19_800);
+
+    expect(days[0].date).toBe("2026-11-12");
+    expect(days[0].condition).toBe("Sunny");
+    expect(days[0].rainProb).toBe(90);
+    expect(days[0].rainMm).toBe(15);
+  });
+
+  it("groups forecast intervals by the estate's local date rather than UTC", () => {
+    const lateUtc: OwmListItem = {
+      dt: Math.floor(new Date("2026-11-12T20:00:00Z").getTime() / 1000),
+      main: { temp: 20, temp_max: 21, temp_min: 18 },
+      weather: [{ id: 801, description: "" }], wind: { speed: 2 }, pop: 0.1,
+    };
+    expect(aggregateForecastItems([lateUtc], 19_800)[0].date).toBe("2026-11-13");
   });
 
   it("does not silently use another location when estate GPS is missing", async () => {

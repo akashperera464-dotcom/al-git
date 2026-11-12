@@ -16,8 +16,9 @@ describe("supplier weather presentation", () => {
     expect(weatherMood(day("Misty"))).toBe("mist");
   });
 
-  it("treats dangerous wind as storm conditions", () => {
-    expect(weatherMood(day("Sunny", 0, 0, 38))).toBe("storm");
+  it("does not turn a dry current condition into rain because of later daily risk", () => {
+    expect(weatherMood(day("Sunny", 90, 30, 38))).toBe("sunny");
+    expect(weatherMood(day("Partly Cloudy", 80, 22))).toBe("cloudy");
   });
 
   it("returns a complete visual palette", () => {

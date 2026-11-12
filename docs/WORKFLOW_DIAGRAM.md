@@ -4236,7 +4236,10 @@ Linked/selected estate GPS
 Rain produces layered, discrete CSS raindrops (not a repeating stripe pattern)
 and leaf-moisture/fertilizer caution; cloud,
 sun, mist and storm conditions produce their own palette and appropriate field
-guidance. This visual layer does not change the weather source, ten-minute
+guidance. Today's visual condition comes from the nearest three-hour forecast,
+while daily maximum rain probability and accumulated rain remain separate risk
+metrics. OpenWeather intervals are grouped by the location timezone rather than
+UTC, preventing Sri Lanka day-boundary drift. This visual layer does not change the weather source, ten-minute
 weather cache, alert reliability rule or API request frequency. It introduces
 no image API, database write, migration, paid plan, authentication change,
 Office API request or admin-interface change. All animation has a

@@ -261,6 +261,7 @@ Supplier/Admin enters estate details
 - Admin සහ Supplier screens දෙකම එකම estate coordinates භාවිත කරන නිසා device එක වෙනස් වුවත් data source එක එකම වේ.
 - Weather visual classification සහ CSS atmosphere browser එක තුළම ක්‍රියා කරයි. ඒ සඳහා අමතර OpenWeather request, image download, database row හෝ paid service එකක් භාවිත නොවේ.
 - Rain scene එක දිග stripe pattern එකක් නොව, වෙනස් ප්‍රමාණ සහ වේග සහිත CSS raindrop layers ලෙස පෙන්වයි; මෙයද browser-only visual effect එකකි.
+- අද දවසේ පසුව ඇති rain probability හෝ මුළු rain amount එක background එක වහින ලෙස නොමඟ යවන්නේ නැහැ. Home/My Weather visual condition එක nearest 3-hour forecast එකෙන් පාලනය වන අතර daily rain totals සහ maximum probability වෙනම risk metrics ලෙස පෙන්වයි. Forecast dates OpenWeather location timezone එකෙන් group කරයි.
 - Live data නොලැබෙන විට UI එක demo weather ලෙස පැහැදිලිව ලකුණු කරයි; demo condition එක operational warning එකක් සෑදීමට භාවිත නොවේ.
 
 ### Estate block GPS map data flow

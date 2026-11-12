@@ -39,7 +39,7 @@ function describe(code: number, rainMm: number): { condition: string; icon: stri
   return { condition: "Cloudy", icon: "Cloud" };
 }
 
-interface OwmListItem {
+export interface OwmListItem {
   dt: number;
   main: { temp: number; temp_max: number; temp_min: number };
   weather: { id: number; description: string }[];
@@ -50,7 +50,7 @@ interface OwmListItem {
 
 interface OwmForecastResponse {
   list: OwmListItem[];
-  city?: { name?: string };
+  city?: { name?: string; timezone?: number };
   cod?: string | number;
   message?: string;
 }
@@ -62,6 +62,62 @@ export function hasWeatherCoordinates(lat?: number, lon?: number): lat is number
 
 export function totalRainfallMm(items: Array<{ rain?: { "3h"?: number } }>): number {
   return Math.round(items.reduce((sum, item) => sum + (item.rain?.["3h"] ?? 0), 0));
+}
+
+function localDateKey(unixSeconds: number, timezoneOffsetSeconds: number): string {
+  return new Date((unixSeconds + timezoneOffsetSeconds) * 1000).toISOString().slice(0, 10);
+}
+
+function localHour(unixSeconds: number, timezoneOffsetSeconds: number): number {
+  return new Date((unixSeconds + timezoneOffsetSeconds) * 1000).getUTCHours();
+}
+
+/**
+ * Convert OpenWeather's 3-hour intervals into daily cards without confusing
+ * a later daily rain risk with the condition shown right now.
+ *
+ * Daily rain probability/amount remain conservative daily summaries. The
+ * condition and icon for today use the nearest forecast interval; future days
+ * use the interval nearest local noon.
+ */
+export function aggregateForecastItems(items: OwmListItem[], timezoneOffsetSeconds = 19_800): WeatherDay[] {
+  const byDay = new Map<string, OwmListItem[]>();
+  for (const item of items) {
+    const date = localDateKey(item.dt, timezoneOffsetSeconds);
+    const rows = byDay.get(date) ?? [];
+    rows.push(item);
+    byDay.set(date, rows);
+  }
+
+  return [...byDay.entries()].slice(0, 7).map(([date, dayItems], dayIndex) => {
+    const tempMax = Math.max(...dayItems.map((item) => item.main.temp_max));
+    const tempMin = Math.min(...dayItems.map((item) => item.main.temp_min));
+    const rainMm = totalRainfallMm(dayItems);
+    const rainProb = Math.round(Math.max(...dayItems.map((item) => item.pop ?? 0)) * 100);
+    const windKph = Math.round(Math.max(...dayItems.map((item) => item.wind.speed)) * 3.6);
+    const representative = dayIndex === 0
+      ? dayItems[0]
+      : dayItems.reduce((best, item) => (
+          Math.abs(localHour(item.dt, timezoneOffsetSeconds) - 12) < Math.abs(localHour(best.dt, timezoneOffsetSeconds) - 12)
+            ? item
+            : best
+        ));
+    const code = representative.weather[0]?.id ?? 800;
+    const representativeRainMm = representative.rain?.["3h"] ?? 0;
+    const { condition, icon } = describe(code, representativeRainMm);
+    const dayDate = new Date(`${date}T00:00:00Z`);
+    return {
+      date,
+      dayName: dayNames[dayDate.getUTCDay()],
+      tempMax: Math.round(tempMax),
+      tempMin: Math.round(tempMin),
+      rainMm,
+      rainProb,
+      windKph,
+      condition,
+      icon,
+    };
+  });
 }
 
 export function weatherStatusText(status: WeatherStatus, dayCount: number): string {
@@ -115,28 +171,7 @@ export async function fetchForecast(
     const data = (await res.json()) as OwmForecastResponse;
     if (!data?.list?.length) throw new Error("OWM empty list");
 
-    // Group 3-hour items by local date string (yyyy-mm-dd).
-    const byDay = new Map<string, OwmListItem[]>();
-    for (const item of data.list) {
-      const date = new Date(item.dt * 1000).toISOString().slice(0, 10);
-      const arr = byDay.get(date) ?? [];
-      arr.push(item);
-      byDay.set(date, arr);
-    }
-
-    const days: WeatherDay[] = [...byDay.entries()].slice(0, 7).map(([date, items]) => {
-      const tempMax = Math.max(...items.map((i) => i.main.temp_max));
-      const tempMin = Math.min(...items.map((i) => i.main.temp_min));
-      const rainMm = totalRainfallMm(items);
-      const rainProb = Math.round(Math.max(...items.map((i) => i.pop ?? 0)) * 100);
-      const windKph = Math.round(Math.max(...items.map((i) => i.wind.speed)) * 3.6); // m/s → kph
-      // Use the midday-ish item for the representative condition.
-      const mid = items[Math.floor(items.length / 2)];
-      const code = mid.weather[0]?.id ?? 800;
-      const { condition, icon } = describe(code, rainMm);
-      const dt = new Date(date);
-      return { date, dayName: dayNames[dt.getDay()], tempMax: Math.round(tempMax), tempMin: Math.round(tempMin), rainMm, rainProb, windKph, condition, icon };
-    });
+    const days = aggregateForecastItems(data.list, data.city?.timezone ?? 19_800);
 
     const result: ForecastResult = { days: days.length ? days : weather7, source: "live", status: "live" };
     // Cache the fresh result for this location.

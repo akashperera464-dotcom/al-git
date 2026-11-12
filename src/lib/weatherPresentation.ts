@@ -52,10 +52,13 @@ const PRESENTATIONS: Record<WeatherMood, Omit<WeatherPresentation, "mood">> = {
 export function weatherMood(day?: WeatherDay): WeatherMood {
   if (!day) return "cloudy";
   const condition = day.condition.toLowerCase();
-  if (condition.includes("thunder") || condition.includes("lightning") || day.windKph >= 35) return "storm";
+  // The visual scene describes the representative current condition. Daily
+  // max probability, accumulated rain and peak wind remain visible as risk
+  // metrics, but must not make the UI look rainy/stormy all day.
+  if (condition.includes("thunder") || condition.includes("lightning")) return "storm";
   if (condition.includes("mist") || condition.includes("fog")) return "mist";
-  if (condition.includes("rain") || condition.includes("shower") || condition.includes("drizzle") || day.rainProb >= 60 || day.rainMm >= 8) return "rain";
-  if (condition.includes("cloud") || condition.includes("overcast") || day.rainProb >= 30) return "cloudy";
+  if (condition.includes("rain") || condition.includes("shower") || condition.includes("drizzle")) return "rain";
+  if (condition.includes("cloud") || condition.includes("overcast")) return "cloudy";
   return "sunny";
 }
 
