@@ -9,7 +9,7 @@ import {
 } from "@/lib/estateMap";
 import {
   boundaryWalkDistanceM, DEFAULT_BOUNDARY_WALK_OPTIONS, samplesToEstatePoints,
-  shouldRecordBoundarySample, type BoundaryGpsSample,
+  isUsableBoundarySample, shouldRecordBoundarySample, type BoundaryGpsSample,
 } from "@/lib/estateBoundaryWalk";
 
 export interface EstateBlockMapItem {
@@ -85,6 +85,8 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
   const [walkState, setWalkState] = useState<WalkState>("idle");
   const [walkSamples, setWalkSamples] = useState<BoundaryGpsSample[]>([]);
   const [gpsAccuracyM, setGpsAccuracyM] = useState<number>();
+  const [liveGpsPoint, setLiveGpsPoint] = useState<BoundaryGpsSample>();
+  const [gpsStarting, setGpsStarting] = useState(false);
   const [walkMessage, setWalkMessage] = useState("");
   const watchIdRef = useRef<number | undefined>(undefined);
   const wakeLockRef = useRef<WakeLockHandle | undefined>(undefined);
@@ -124,7 +126,9 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
     }
     stopGpsWatch();
     void requestWakeLock();
-    setWalkMessage("GPS signal එක ලැබෙන තුරු එළිමහනේ මඳක් රැඳී සිටින්න…");
+    setWalkMessage(walkSamplesRef.current.length
+      ? `${walkSamplesRef.current.length} GPS point recorded · boundary එක වටා අවම මීටර් ${DEFAULT_BOUNDARY_WALK_OPTIONS.minDistanceM} බැගින් ඇවිදින්න.`
+      : "GPS signal එක ලැබෙන තුරු එළිමහනේ මඳක් රැඳී සිටින්න…");
     watchIdRef.current = navigator.geolocation.watchPosition((position) => {
       const sample: BoundaryGpsSample = {
         latitude: position.coords.latitude,
@@ -132,6 +136,7 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
         accuracyM: position.coords.accuracy,
         recordedAt: position.timestamp || Date.now(),
       };
+      setLiveGpsPoint(sample);
       setGpsAccuracyM(sample.accuracyM);
       const previous = walkSamplesRef.current.at(-1);
       if (!shouldRecordBoundarySample(previous, sample)) {
@@ -148,9 +153,13 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
       setWalkMessage(`${next.length} GPS points recorded · minimum spacing ${DEFAULT_BOUNDARY_WALK_OPTIONS.minDistanceM} m`);
     }, (error) => {
       stopGpsWatch();
-      setWalkState("paused");
+      const hasRecordedPoints = walkSamplesRef.current.length > 0;
+      setWalkState(error.code === error.PERMISSION_DENIED && !hasRecordedPoints ? "idle" : "paused");
+      if (error.code === error.PERMISSION_DENIED && !hasRecordedPoints) {
+        setDraft(walkOriginalRef.current);
+      }
       const message = error.code === error.PERMISSION_DENIED
-        ? "Location permission denied. Phone Settings වලින් location access allow කර Resume කරන්න."
+        ? "Location permission denied. Phone/website Settings වලින් location access allow කරන්න. Manual Draw on map තවම භාවිත කළ හැක."
         : error.code === error.POSITION_UNAVAILABLE
           ? "GPS location unavailable. එළිමහනකට ගොස් Resume කරන්න."
           : "GPS response timed out. Resume කර නැවත උත්සාහ කරන්න.";
@@ -173,6 +182,8 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
     setDraft(recovered.length ? samplesToEstatePoints(recovered) : savedBoundary);
     setWalkState(recovered.length ? "paused" : "idle");
     setWalkMessage(recovered.length ? `Recovered ${recovered.length} unsaved GPS points. Resume or cancel the walk.` : "");
+    setLiveGpsPoint(undefined);
+    setGpsStarting(false);
     setDrawing(false);
   }, [activeBlock?.boundaryGeojson, activeBlockId, stopGpsWatch, walkStorageKey]);
 
@@ -198,14 +209,48 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
   };
   const beginWalk = () => {
     if (!activeBlock) return;
-    walkOriginalRef.current = boundaryToPoints(activeBlock.boundaryGeojson);
-    walkSamplesRef.current = [];
-    setWalkSamples([]);
-    setDraft([]);
-    storeWalkDraft(walkStorageKey, []);
-    setDrawing(false);
-    setWalkState("recording");
-    startGpsWatch();
+    if (!window.isSecureContext) {
+      setWalkMessage("GPS walking requires the secure HTTPS app. Manual Draw on map can still be used anywhere.");
+      return;
+    }
+    if (!("geolocation" in navigator)) {
+      setWalkMessage("This browser does not provide GPS. Manual Draw on map can still be used anywhere.");
+      return;
+    }
+    setGpsStarting(true);
+    setWalkMessage("Checking current phone GPS and location permission…");
+    navigator.geolocation.getCurrentPosition((position) => {
+      const firstSample: BoundaryGpsSample = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracyM: position.coords.accuracy,
+        recordedAt: position.timestamp || Date.now(),
+      };
+      const initialSamples = isUsableBoundarySample(firstSample) ? [firstSample] : [];
+      walkOriginalRef.current = boundaryToPoints(activeBlock.boundaryGeojson);
+      walkSamplesRef.current = initialSamples;
+      setWalkSamples(initialSamples);
+      setDraft(samplesToEstatePoints(initialSamples));
+      setLiveGpsPoint(firstSample);
+      setGpsAccuracyM(firstSample.accuracyM);
+      storeWalkDraft(walkStorageKey, initialSamples);
+      setDrawing(false);
+      setGpsStarting(false);
+      setWalkState("recording");
+      setWalkMessage(initialSamples.length
+        ? "Current location found · 1 GPS point recorded. දැන් boundary එක වටා ඇවිදින්න."
+        : `Current location found, but accuracy is ±${Math.round(firstSample.accuracyM)} m. Better signal එකක් ලැබෙන තුරු රැඳී සිටින්න.`);
+      startGpsWatch();
+    }, (error) => {
+      setGpsStarting(false);
+      setWalkState("idle");
+      const message = error.code === error.PERMISSION_DENIED
+        ? "Location permission denied for this website/app. Permission allow කර නැවත උත්සාහ කරන්න. Manual Draw on map තවම වැඩ කරයි."
+        : error.code === error.POSITION_UNAVAILABLE
+          ? "Current GPS location unavailable. එළිමහනකට ගොස් නැවත උත්සාහ කරන්න, නැත්නම් Manual Draw on map භාවිත කරන්න."
+          : "GPS request timed out. නැවත උත්සාහ කරන්න, නැත්නම් Manual Draw on map භාවිත කරන්න.";
+      setWalkMessage(message);
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 });
   };
   const pauseWalk = () => {
     stopGpsWatch();
@@ -222,6 +267,8 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
     setWalkState("idle");
     setWalkMessage("");
     setGpsAccuracyM(undefined);
+    setLiveGpsPoint(undefined);
+    setGpsStarting(false);
   };
   const finishWalk = () => {
     if (!activeBlock || !onBoundaryChange) return;
@@ -236,6 +283,7 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
     storeWalkDraft(walkStorageKey, []);
     setWalkState("idle");
     setWalkMessage("Boundary prepared. දැන් estate form එකේ Save changes / Submit request ඔබන්න.");
+    setLiveGpsPoint(undefined);
   };
   const clear = () => {
     if (!activeBlock || !onBoundaryChange) return;
@@ -248,9 +296,10 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
     setDrawing(false);
     setWalkState("idle");
     setWalkMessage("");
+    setLiveGpsPoint(undefined);
+    setGpsStarting(false);
   };
 
-  const currentWalkPoint = walkSamples.at(-1);
   const walkAreaHa = calculatePolygonAreaHa(samplesToEstatePoints(walkSamples));
   const walkDistanceM = boundaryWalkDistanceM(walkSamples);
 
@@ -259,12 +308,13 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
       <div>
         <div className="flex items-center gap-2 text-sm font-bold text-slate-800"><MapPinned className="h-4 w-4 text-emerald-600" />Estate block GPS map</div>
         <p className="mt-1 text-xs leading-5 text-slate-500">Operational field map only — phone GPS is not a legal land survey.</p>
+        {editable && <p className="mt-1 text-[11px] leading-5 text-sky-700"><b>Not at the estate?</b> Select the place and use Draw on map. <b>At the estate?</b> Walk boundary uses your live phone GPS.</p>}
       </div>
-      {editable && <select disabled={walkState !== "idle"} value={activeBlockId} onChange={(event) => setActiveBlockId(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"><option value="">— Select block —</option>{blocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select>}
+      {editable && <select disabled={walkState !== "idle" || gpsStarting} value={activeBlockId} onChange={(event) => setActiveBlockId(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"><option value="">— Select block —</option>{blocks.map((block) => <option key={block.id} value={block.id}>{block.name}</option>)}</select>}
     </div>
     {editable && <div className="mt-3 flex flex-wrap gap-2">
-      <button type="button" disabled={!activeBlock || walkState !== "idle"} onClick={() => { setDraft(boundaryToPoints(activeBlock?.boundaryGeojson)); setDrawing(true); }} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"><MapPinned className="h-3.5 w-3.5" />{draft.length ? "Edit on map" : "Draw on map"}</button>
-      <button type="button" disabled={!activeBlock || drawing || walkState !== "idle"} onClick={beginWalk} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"><Footprints className="h-3.5 w-3.5" />Walk boundary with GPS</button>
+      <button type="button" disabled={!activeBlock || walkState !== "idle" || gpsStarting} onClick={() => { setDraft(boundaryToPoints(activeBlock?.boundaryGeojson)); setDrawing(true); }} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"><MapPinned className="h-3.5 w-3.5" />{draft.length ? "Edit on map" : "Draw on map"}</button>
+      <button type="button" disabled={!activeBlock || drawing || walkState !== "idle" || gpsStarting} onClick={beginWalk} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"><Footprints className={`h-3.5 w-3.5 ${gpsStarting ? "animate-pulse" : ""}`} />{gpsStarting ? "Starting current GPS…" : "Walk boundary with current GPS"}</button>
       <button type="button" disabled={!drawing || !draft.length} onClick={() => setDraft((points) => points.slice(0, -1))} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold text-slate-600 disabled:opacity-40"><Undo2 className="h-3.5 w-3.5" />Undo point</button>
       <button type="button" disabled={!drawing || draft.length < 3} onClick={saveDraft} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 disabled:opacity-40"><LocateFixed className="h-3.5 w-3.5" />Finish · {calculatePolygonAreaHa(draft).toFixed(3)} ha</button>
       <button type="button" disabled={!activeBlock || (!draft.length && !activeBlock.boundaryGeojson)} onClick={clear} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-600 disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" />Clear</button>
@@ -295,11 +345,11 @@ export default function EstateBlockMap({ estatePoint, blocks, editable = false, 
       <MapContainer center={center} zoom={17} scrollWheelZoom className="h-full w-full">
         <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <FitMap estatePoint={estatePoint} blocks={blocks} />
-        <FollowWalkPoint point={currentWalkPoint} enabled={walkState === "recording"} />
+        <FollowWalkPoint point={liveGpsPoint} enabled={walkState === "recording"} />
         <ClickCapture enabled={editable && drawing && walkState === "idle" && Boolean(activeBlock)} onPoint={(point) => setDraft((points) => [...points, point])} />
         {estatePoint && <CircleMarker center={[estatePoint.latitude, estatePoint.longitude]} radius={7} pathOptions={{ color: "#0f172a", fillColor: "#f8fafc", fillOpacity: 1 }}><Popup>Estate GPS reference point</Popup></CircleMarker>}
         {walkSamples.length > 1 && <Polyline positions={walkSamples.map((point) => [point.latitude, point.longitude] as LatLngExpression)} pathOptions={{ color: "#0284c7", weight: 4, dashArray: "8 6" }} />}
-        {currentWalkPoint && walkState !== "idle" && <CircleMarker center={[currentWalkPoint.latitude, currentWalkPoint.longitude]} radius={8} pathOptions={{ color: "#0369a1", fillColor: "#38bdf8", fillOpacity: 1 }}><Popup>Current GPS point · ±{Math.round(currentWalkPoint.accuracyM)} m</Popup></CircleMarker>}
+        {liveGpsPoint && walkState !== "idle" && <CircleMarker center={[liveGpsPoint.latitude, liveGpsPoint.longitude]} radius={8} pathOptions={{ color: "#0369a1", fillColor: "#38bdf8", fillOpacity: 1 }}><Popup>Current GPS point · ±{Math.round(liveGpsPoint.accuracyM)} m</Popup></CircleMarker>}
         {blocks.map((block) => {
           const showDraft = block.id === activeBlockId && (drawing || walkState !== "idle");
           const points = showDraft ? draft : boundaryToPoints(block.boundaryGeojson);

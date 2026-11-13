@@ -8,6 +8,7 @@ import { readFactories, readUserOperationalProfile, type FactoryOption } from "@
 import { readUserRouteAssignments, type UserRouteAssignment } from "@/lib/userRoutes";
 import { EstateLocationPicker } from "@/components/EstateLocationPicker";
 import type { EstateBlockBoundary, EstateLandType } from "@/lib/estateMap";
+import { geolocationErrorMessage } from "@/lib/estateLocation";
 
 const EstateBlockMap = lazy(() => import("@/components/EstateBlockMap"));
 
@@ -80,10 +81,22 @@ export default function SupplierEstates() {
   const startEdit = (estate: Estate) => { setEditingEstateId(estate.id); setForm(toForm(estate)); setShowRegisterForm(true); setError(null); };
   const addBlock = () => setForm((value) => ({ ...value, blocks: [...value.blocks, { name: `Block ${value.blocks.length + 1}`, areaHa: 0, bushCount: 0, cultivar: value.cultivar, soilType: value.soilType, status: "plucking", plantingYear: new Date().getFullYear(), landType: "tea" }] }));
   const updateBlock = (index: number, patch: Partial<FormBlock>) => setForm((value) => ({ ...value, blocks: value.blocks.map((block, i) => i === index ? { ...block, ...patch } : block) }));
-  const useCurrentLocation = () => navigator.geolocation?.getCurrentPosition(
-    (p) => setForm((value) => ({ ...value, latitude: p.coords.latitude.toFixed(6), longitude: p.coords.longitude.toFixed(6) })),
-    () => setError("Location permission was denied. Enter GPS coordinates manually."), { enableHighAccuracy: true, timeout: 10000 },
-  );
+  const useCurrentLocation = () => {
+    if (!window.isSecureContext) {
+      setError("Current GPS requires the secure HTTPS app. You can still select the estate manually on the map.");
+      return;
+    }
+    if (!navigator.geolocation) {
+      setError("This browser does not provide GPS. You can still select the estate manually on the map.");
+      return;
+    }
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => setForm((value) => ({ ...value, latitude: p.coords.latitude.toFixed(6), longitude: p.coords.longitude.toFixed(6) })),
+      (reason) => setError(`${geolocationErrorMessage(reason)} You can still tap the estate location manually on the map.`),
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+    );
+  };
 
   const submit = async () => {
     if (!form.name.trim() || form.acreage <= 0) { setError("Estate name and acreage are required."); return; }

@@ -115,7 +115,7 @@ Admin daily route assignment
 - Estate එකකට blocks කිහිපයක් තිබිය හැක.
 - Estate record එක supplier, factory, route, acreage, bush count, address සහ GPS coordinates සමඟ සම්බන්ධ වේ.
 - Block එකකට land type, operational status සහ optional GPS polygon boundary එකක් තිබිය හැක. Polygon coordinates `estate_blocks.boundary_geojson` තුළ GeoJSON `[longitude, latitude]` order එකෙන් save වේ.
-- Block boundary එක map එක මත manually mark කළ හැකි අතර, phone එක රැගෙන boundary එක වටා ඇවිදීමෙන් GPS points auto-record කිරීමටද හැක. මේ දෙකම අවසානයේ එකම `boundary_geojson` field එක භාවිත කරයි.
+- Block boundary එක ක්‍රම දෙකකින් සකස් කළ හැක: වත්තේ නොසිටින විට map එකෙන් ස්ථානය තෝරා **Draw on map** කිරීම, හෝ වත්තේ සිටින විට **Walk boundary with current GPS** ආරම්භ කර phone එක රැගෙන boundary එක වටා ඇවිදීම. GPS permission check එක සාර්ථක වූ පසුව පමණක් walk recording ආරම්භ වන අතර permission නොලැබුණත් manual drawing controls ක්‍රියාකාරීව පවතී. මේ දෙකම අවසානයේ එකම `boundary_geojson` field එක භාවිත කරයි.
 - Delivery එකක් record කරන විට supplier පමණක් නොව exact estate එකද තෝරන නිසා estates අතර data මිශ්‍ර නොවේ.
 
 ### Collector සහ daily assignment

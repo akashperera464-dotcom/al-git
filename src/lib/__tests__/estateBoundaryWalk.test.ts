@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   boundaryDistanceM,
@@ -32,5 +34,23 @@ describe("walk-the-boundary GPS filtering", () => {
     const samples = [sample(6.9, 80.4), sample(6.9001, 80.4), sample(6.9002, 80.4)];
     expect(boundaryWalkDistanceM(samples)).toBeGreaterThan(21);
     expect(boundaryWalkDistanceM(samples)).toBeLessThan(23);
+  });
+
+  it("preflights current GPS before recording and preserves the manual fallback", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/components/EstateBlockMap.tsx"), "utf8");
+    const beginWalk = source.slice(source.indexOf("const beginWalk"), source.indexOf("const pauseWalk"));
+    expect(beginWalk.indexOf("getCurrentPosition")).toBeGreaterThan(-1);
+    expect(beginWalk.indexOf("getCurrentPosition")).toBeLessThan(beginWalk.indexOf('setWalkState("recording")'));
+    expect(beginWalk).toContain('setWalkState("idle")');
+    expect(beginWalk).toContain("Manual Draw on map");
+    expect(source).toContain("FollowWalkPoint point={liveGpsPoint}");
+  });
+
+  it("allows same-origin browser geolocation in production", () => {
+    const config = JSON.parse(readFileSync(resolve(process.cwd(), "vercel.json"), "utf8")) as {
+      headers: Array<{ headers?: Array<{ key: string; value: string }> }>;
+    };
+    const headers = config.headers.flatMap((entry) => entry.headers ?? []);
+    expect(headers).toContainEqual({ key: "Permissions-Policy", value: "geolocation=(self)" });
   });
 });

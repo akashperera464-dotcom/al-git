@@ -4214,6 +4214,28 @@ Pure distance, GPS-accuracy and duplicate-packet filters are covered by Vitest.
 
 *Walk-the-boundary GPS recording added: 10 November 2026.*
 
+### GPS start and manual fallback hardening
+
+The walk flow now performs a foreground current-position permission check before
+clearing any existing draft or entering recording mode. A successful check
+centres/follows the phone's live position and then starts the filtered GPS
+watcher. A denied, unavailable or timed-out request returns to idle mode and
+leaves **Draw on map** available, preventing a permission failure from locking
+the map controls. The Vercel response explicitly permits same-origin
+geolocation with `Permissions-Policy: geolocation=(self)`.
+
+```text
+Not physically at estate -> select estate point -> Draw on map -> Finish
+Physically at estate     -> Walk boundary with current GPS
+                           -> permission preflight
+                           -> live location follow + accepted GPS points
+Permission fails         -> remain idle -> manual drawing still available
+```
+
+No Office API, background GPS, new database table or paid map service is used.
+
+*GPS start and manual fallback hardened: 13 November 2026.*
+
 ## 69. Supplier Weather-Adaptive Visual Experience
 
 The Supplier mobile shell, Home dashboard, My Weather screen and unified login
