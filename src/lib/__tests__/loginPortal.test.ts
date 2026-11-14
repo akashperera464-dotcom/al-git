@@ -32,7 +32,6 @@ describe("Supplier and staff book-page login", () => {
       const messages = JSON.parse(read(`src/i18n/locales/${locale}.json`)) as { auth: Record<string, string> };
       expect(messages.auth.supplierPortal).toBeTruthy();
       expect(messages.auth.staffPortal).toBeTruthy();
-      expect(messages.auth.secureRoleRouting).toBeTruthy();
       expect(messages.auth.supplierPortalOnly).toBeTruthy();
       expect(messages.auth.staffPortalOnly).toBeTruthy();
     }

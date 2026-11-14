@@ -378,7 +378,6 @@ export function Login() {
             </section>
           </div>
 
-          <div className={`mt-2 flex items-center justify-center gap-2 py-1 text-[10px] font-medium ${hasBg ? "text-white/60" : "text-slate-400 dark:text-slate-500"}`}><BookOpen className="h-3.5 w-3.5" /><span>{t("auth.secureRoleRouting")}</span></div>
         </div>
       </div>
     </div>
