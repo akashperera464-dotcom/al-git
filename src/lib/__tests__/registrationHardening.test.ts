@@ -13,7 +13,12 @@ vi.mock("../supabase", () => ({
   }),
 }));
 
-import { validateRegistration } from "../registrationHardening";
+import {
+  REGISTRATION_DUPLICATE_CHECK_TIMEOUT_MS,
+  REGISTRATION_GUARD_TIMEOUT_MS,
+  validateRegistration,
+  withTimeout,
+} from "../registrationHardening";
 
 function noDuplicates() {
   mocks.or.mockReturnValue({ limit: () => Promise.resolve({ data: [], error: null }) });
@@ -23,6 +28,21 @@ beforeEach(() => {
   mocks.or.mockReset();
   mocks.invoke.mockReset();
   noDuplicates();
+});
+
+describe("withTimeout", () => {
+  it("resolves a fast promise unchanged", async () => {
+    await expect(withTimeout(Promise.resolve("value"), 1000, "Step")).resolves.toBe("value");
+  });
+
+  it("rejects a stalled promise with a labelled error", async () => {
+    vi.useFakeTimers();
+    const pending = withTimeout(new Promise(() => {}), 500, "Test step");
+    const expectation = expect(pending).rejects.toThrow("Test step timed out after 1s");
+    await vi.advanceTimersByTimeAsync(600);
+    await expectation;
+    vi.useRealTimers();
+  });
 });
 
 describe("supplier registration hardening", () => {
@@ -68,5 +88,28 @@ describe("supplier registration hardening", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(validateRegistration({ email: "new@kdu.com" })).resolves.toBeUndefined();
     warn.mockRestore();
+  });
+
+  it("never spins forever when the rate-limit guard hangs (connection never settles)", async () => {
+    mocks.invoke.mockReturnValue(new Promise(() => {}));
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const pending = validateRegistration({ email: "new@kdu.com" });
+    const expectation = expect(pending).resolves.toBeUndefined();
+    await vi.advanceTimersByTimeAsync(REGISTRATION_GUARD_TIMEOUT_MS + 100);
+    await expectation;
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("fails fast with a clear message when the duplicate check hangs", async () => {
+    mocks.or.mockReturnValue({ limit: () => new Promise(() => {}) });
+    vi.useFakeTimers();
+    const pending = validateRegistration({ email: "new@kdu.com" });
+    const expectation = expect(pending).rejects.toThrow("Account duplicate check timed out");
+    await vi.advanceTimersByTimeAsync(REGISTRATION_DUPLICATE_CHECK_TIMEOUT_MS + 100);
+    await expectation;
+    vi.useRealTimers();
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus, Sprout, UsersRound, BookOpen, ArrowRight } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { registerSupplier, signInWithEmail, signOutFirebase } from "@/lib/auth.hybrid";
@@ -9,7 +9,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useBranding, isMediaUrl, isVideoUrl } from "@/lib/branding";
 import { useTranslation } from "react-i18next";
-import { validateRegistration } from "@/lib/registrationHardening";
+import { validateRegistration, withTimeout, REGISTRATION_FIREBASE_TIMEOUT_MS, REGISTRATION_STEP_TIMEOUT_MS, REGISTRATION_UI_STUCK_TIMEOUT_MS } from "@/lib/registrationHardening";
 import { RouteMultiSelect } from "@/components/RouteMultiSelect";
 import { assertMultiRouteSchemaReady, replaceUserRoutesBestEffort } from "@/lib/userRoutes";
 import { isAndroidEmbeddedWebView } from "@/lib/platform";
@@ -38,6 +38,7 @@ export function Login() {
   const [registering, setRegistering] = useState(false);
   const [registrationDone, setRegistrationDone] = useState(false);
   const [registrationWarning, setRegistrationWarning] = useState<string | null>(null);
+  const registrationInFlightRef = useRef(false);
   const [factories, setFactories] = useState<FactoryOption[]>([]);
   const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [registration, setRegistration] = useState({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeIds: [] as string[] });
@@ -96,6 +97,9 @@ export function Login() {
 
   const submitRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
+    // A previous submission may still be finishing in the background after
+    // the UI safety net released the spinner: never start a second pipeline.
+    if (registrationInFlightRef.current) return;
     setError(null);
     if (!registration.supplierNo.trim() || !registration.name.trim() || !registration.email.trim() || !registration.password || !registration.factoryId || !registration.routeIds.length) {
       setError(t("auth.registrationRequired"));
@@ -106,21 +110,31 @@ export function Login() {
       return;
     }
     setBusy(true);
+    registrationInFlightRef.current = true;
+    // Hard UI safety net: even if some awaited step never settles, the
+    // spinner can never spin forever.
+    const stuckTimer = window.setTimeout(() => {
+      setBusy(false);
+      setError(current => current ?? t("auth.registrationTimeout"));
+    }, REGISTRATION_UI_STUCK_TIMEOUT_MS);
     try {
-      await assertMultiRouteSchemaReady();
+      await withTimeout(assertMultiRouteSchemaReady(), REGISTRATION_STEP_TIMEOUT_MS, "Database schema check");
       await validateRegistration({ email: registration.email, phone: registration.phone });
-      const userId = await registerSupplier({ ...registration, routeId: registration.routeIds[0] });
+      const userId = await withTimeout(registerSupplier({ ...registration, routeId: registration.routeIds[0] }), REGISTRATION_FIREBASE_TIMEOUT_MS, "Firebase account creation");
       // The users row already carries factory_id + primary route_id, so a
       // failing set_user_routes RPC must not orphan the account: degrade to
       // an admin follow-up warning instead of blocking the registration.
       const routeOutcome = await replaceUserRoutesBestEffort({ userId, factoryId: registration.factoryId, routeIds: registration.routeIds, primaryRouteId: registration.routeIds[0], registrationEmail: registration.email });
+      setError(null);
       setRegistrationDone(true);
       setRegistrationWarning(routeOutcome.ok ? null : t("auth.registrationRoutesWarning"));
       setRegistration({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeIds: [] });
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.registrationFailed"));
     } finally {
+      window.clearTimeout(stuckTimer);
       setBusy(false);
+      registrationInFlightRef.current = false;
     }
   };
 

@@ -12,6 +12,7 @@ vi.mock("../supabase", () => ({
 }));
 
 import { normalizeRouteSelection, replaceUserRoutesBestEffort } from "../userRoutes";
+import { REGISTRATION_ROUTE_STEP_TIMEOUT_MS } from "../registrationHardening";
 
 beforeEach(() => {
   mocks.rpc.mockReset();
@@ -93,5 +94,18 @@ describe("replaceUserRoutesBestEffort (supplier self-registration)", () => {
     expect(outcome.error).toContain("Could not save route assignments");
     expect(mocks.rpc).toHaveBeenCalledTimes(2);
     warn.mockRestore();
+  });
+
+  it("bounds a hung RPC connection instead of freezing the registration spinner", async () => {
+    mocks.rpc.mockReturnValue(new Promise(() => {}));
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const pending = replaceUserRoutesBestEffort(input);
+    const expectation = expect(pending).resolves.toEqual(expect.objectContaining({ ok: false }));
+    await vi.advanceTimersByTimeAsync(REGISTRATION_ROUTE_STEP_TIMEOUT_MS * 2 + 200);
+    await expectation;
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+    vi.useRealTimers();
   });
 });

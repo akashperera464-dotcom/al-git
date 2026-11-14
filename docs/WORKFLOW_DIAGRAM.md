@@ -4348,3 +4348,39 @@ must be redeployed (`supabase functions deploy rate-limit`) for the
 server-side lockout fix to take effect.
 
 *Supplier registration submission resilience added: 14 November 2026.*
+
+## 71. Registration Pipeline Bounded Waits
+
+"Submit registration" could leave the spinner spinning forever when an
+awaited step never settled — a stalled reCAPTCHA `execute()` (site-key/domain
+mismatch or a blocked Google endpoint), a functions-relay connection held
+open without a response, or an unresponsive RPC:
+
+```text
+old behaviour
+  -> an awaited step never settled
+  -> spinner spun forever; no error, no retry possible
+```
+
+Every registration step now has a bounded wait (`withTimeout` helper in
+`registrationHardening.ts`):
+
+- duplicate check: 20s — timeout surfaces as a clear error (integrity step;
+  blocking beats skipping the duplicate check)
+- verify-recaptcha / rate-limit guards: 15s — timeout degrades like
+  infrastructure absence (warn + continue)
+- reCAPTCHA load 6s / execute 8s — a stall degrades instead of freezing
+- multi-route schema check 15s, Firebase account creation 45s, each
+  `set_user_routes` attempt 15s (best-effort path)
+- hard UI safety net in `Login.tsx`: after 180s the spinner releases with
+  `auth.registrationTimeout` (en/si/ta parity); a `useRef` guard prevents a
+  second submission pipeline from starting while the first still runs
+
+No `auth.hybrid.ts` function, authentication flow, RLS policy, JWT bridge or
+environment variable was changed. Admin modules keep their strict, unwrapped
+calls so configuration errors remain visible to staff.
+
+Vitest covers `withTimeout`, a hanging rate-limit guard, a hanging duplicate
+check and a hanging `set_user_routes` RPC using fake timers.
+
+*Registration pipeline bounded waits added: 14 November 2026.*

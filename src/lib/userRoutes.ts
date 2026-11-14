@@ -1,5 +1,6 @@
 import { getSupabase, supabaseConfigured } from "./supabase";
 import { formatRouteLabel, type RouteOption } from "./supplierOperations";
+import { REGISTRATION_ROUTE_STEP_TIMEOUT_MS, withTimeout } from "./registrationHardening";
 
 export interface UserRouteAssignment extends RouteOption {
   isPrimary: boolean;
@@ -100,7 +101,8 @@ export async function replaceUserRoutesBestEffort(input: {
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      await replaceUserRoutes(input);
+      // A hung RPC connection must not freeze the registration spinner.
+      await withTimeout(replaceUserRoutes(input), REGISTRATION_ROUTE_STEP_TIMEOUT_MS, "Route assignment");
       return { ok: true };
     } catch (error) {
       lastError = error;
