@@ -20,6 +20,23 @@ async function recaptchaToken(): Promise<string | null> {
   return new Promise((resolve, reject) => window.grecaptcha!.ready(() => window.grecaptcha!.execute(SITE_KEY, { action: "supplier_registration" }).then(resolve).catch(reject)));
 }
 
+/**
+ * Edge-function guards can fail for infrastructure reasons: the function is
+ * not deployed on this Supabase project, the functions relay is down, the
+ * device is offline, or the function itself crashed (any non-2xx reply makes
+ * `functions.invoke` return an error with no data). None of those outcomes is
+ * an abuse verdict — a real verdict is always an HTTP 200 JSON body, which
+ * `functions.invoke` surfaces as `data` with `error: null`.
+ *
+ * Blocking every registration on an infrastructure failure made supplier
+ * self-registration unusable, so an unavailable guard degrades gracefully
+ * (warn + continue) while real verdicts are still enforced below.
+ */
+function warnGuardUnavailable(guard: string, error: unknown): void {
+  // eslint-disable-next-line no-console
+  console.warn(`[registration] "${guard}" guard is unavailable; continuing without it.`, error instanceof Error ? error.message : error);
+}
+
 export async function validateRegistration(input: { email: string; phone?: string }): Promise<void> {
   if (!supabaseConfigured) return;
   const sb = getSupabase()!;
@@ -33,9 +50,14 @@ export async function validateRegistration(input: { email: string; phone?: strin
   if (SITE_KEY && !token) throw new Error("Suspicious activity detected. Please try again later.");
   if (token) {
     const { data, error: verifyError } = await sb.functions.invoke("verify-recaptcha", { body: { token, action: "supplier_registration" } });
-    if (verifyError || !data?.ok) throw new Error("Suspicious activity detected. Please try again later.");
+    if (verifyError) warnGuardUnavailable("verify-recaptcha", verifyError);
+    else if (data && data.ok === false) throw new Error("Suspicious activity detected. Please try again later.");
   }
   const { data: rate, error: rateError } = await sb.functions.invoke("rate-limit", { body: { email, phone } });
+  if (rateError) {
+    warnGuardUnavailable("rate-limit", rateError);
+    return;
+  }
   if (rate?.reason === "account_exists") throw new Error("An account with this phone/email already exists");
-  if (rateError || !rate?.allowed) throw new Error("Too many registration attempts. Try again later.");
+  if (rate && rate.allowed === false) throw new Error("Too many registration attempts from this connection. Please try again later.");
 }

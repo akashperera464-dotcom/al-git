@@ -1,7 +1,21 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
-import { normalizeRouteSelection } from "../userRoutes";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  rpc: vi.fn(),
+}));
+
+vi.mock("../supabase", () => ({
+  supabaseConfigured: true,
+  getSupabase: () => ({ rpc: mocks.rpc }),
+}));
+
+import { normalizeRouteSelection, replaceUserRoutesBestEffort } from "../userRoutes";
+
+beforeEach(() => {
+  mocks.rpc.mockReset();
+});
 
 describe("multi-route user assignments", () => {
   it("deduplicates routes while retaining the first selected route as primary", () => {
@@ -39,5 +53,45 @@ describe("multi-route user assignments", () => {
     expect(sql).toContain("pg_advisory_xact_lock");
     expect(sql).not.toContain("public.app_role()");
     expect(sql).not.toContain("public.app_uid()");
+  });
+});
+
+describe("replaceUserRoutesBestEffort (supplier self-registration)", () => {
+  const input = {
+    userId: "uid-1",
+    factoryId: "factory-1",
+    routeIds: ["route-a", "route-b"],
+    primaryRouteId: "route-a",
+    registrationEmail: "New@KDU.com",
+  };
+
+  it("succeeds on the first RPC call", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: null });
+    await expect(replaceUserRoutesBestEffort(input)).resolves.toEqual({ ok: true });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledWith("set_user_routes", expect.objectContaining({
+      p_user_id: "uid-1",
+      p_route_ids: ["route-a", "route-b"],
+      p_primary_route_id: "route-a",
+      p_registration_email: "new@kdu.com",
+    }));
+  });
+
+  it("recovers when the first RPC call hits a transient fault", async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({ data: null, error: { message: "network hiccup" } })
+      .mockResolvedValueOnce({ data: null, error: null });
+    await expect(replaceUserRoutesBestEffort(input)).resolves.toEqual({ ok: true });
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it("degrades to an admin follow-up outcome instead of orphaning the account", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: "function set_user_routes does not exist" } });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const outcome = await replaceUserRoutesBestEffort(input);
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain("Could not save route assignments");
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
   });
 });

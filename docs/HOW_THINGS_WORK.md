@@ -77,6 +77,24 @@ Supplier Login page OR Staff Login page
 - `supplier` role එක Supplier mobile-first interface එකට යයි.
 - `pending_approval`, `suspended` හෝ `rejected` account එකකට active account access නොලැබේ.
 
+### Supplier self-registration (Submit registration) වැඩ කරන ආකාරය
+
+```text
+Supplier Login -> "New supplier? Register here"
+  -> Supplier No, name, email, password, phone, factory + authorized routes select
+  -> users table duplicate email/phone check
+  -> rate-limit / verify-recaptcha edge-function guards (available විට පමණක් enforce වේ)
+  -> secondary in-memory Firebase app එකෙන් identity create වේ
+  -> Supabase users row pending_approval ලෙස save වේ (factory_id + primary route_id සමඟ)
+  -> set_user_routes RPC multi-route assignments save කරයි (best-effort)
+  -> success message: administrator approval එකෙන් පසු sign in කළ හැක
+```
+
+- rate-limit හෝ verify-recaptcha guard එක deploy කර නොතිබීම, crash වීම හෝ network unavailable වීම infrastructure failure එකක් ලෙස සලකා warning එකක් log කර registration එක ඉදිරියට ගෙනයයි. Guard එකෙන් HTTP 200 `{ allowed: false }` වැනි සැබෑ verdict එකක් ලැබුණොත් පමණක් අදාළ error message එක (`account_exists` හෝ rate limit) පෙන්වයි.
+- rate-limit edge function එක connection එකකට (IP hash) පැයකට attempts 6කට සීමා කරයි. Email/phone attempt history එකෙන් lockout නොකරයි — duplicate account වැළැක්වීම users table check එකෙන් (`account_exists`) සිදු වේ. Allowed සහ blocked attempts දෙකම `admin_audit_log` වෙත audit වේ.
+- Account එක සෑදූ පසු `set_user_routes` RPC එක fail වුවත් registration එක orphan නොවේ: users row එකේ දැනටමත් `factory_id` සහ primary `route_id` save වී ඇති නිසා UI එක amber admin follow-up warning එකක් පෙන්වා registration එක සාර්ථක ලෙස සලකුණු කරයි. Admin modules භාවිත කරන්නේ strict `replaceUserRoutes` එකමය.
+- Registration එක සාර්ථක වුවත් account එක `pending_approval` status එකේ පවතී; administrator approve කරන තුරු login එකේ approval බලාපොරොත්තු message එක පෙන්වයි.
+
 Current Free-plan architecture එක Firebase → Supabase JWT bridge එකක් භාවිත නොකරයි. Frontend Supabase client එක anon key භාවිත කරයි. Interface access `RouteGuard` සහ centralized RBAC capabilities මගින් පාලනය වේ. Office API access එක වෙනම Vercel server proxy එක Firebase token verify කර පාලනය කරයි.
 
 ---

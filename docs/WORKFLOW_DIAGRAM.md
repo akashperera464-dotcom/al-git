@@ -4292,3 +4292,59 @@ storm, mist and dangerous-wind cases.
 
 
 
+
+## 70. Supplier Registration Submission Resilience
+
+Supplier self-registration ("Submit registration") could fail permanently for
+reasons unrelated to the submitted data:
+
+```text
+old behaviour
+  -> rate-limit edge function missing / crashed / offline
+  -> every attempt rejected as "Too many registration attempts"
+  -> OR first attempt failed after account creation (e.g. set_user_routes RPC)
+  -> every retry rejected as "supplier number already registered"
+  -> user permanently locked out of registering
+```
+
+The login registration path now degrades gracefully instead of locking users
+out, while abuse protection remains in force whenever the guards answer:
+
+```text
+Submit registration
+  -> users duplicate check (account_exists verdict, unchanged)
+  -> rate-limit / verify-recaptcha guards
+      -> infrastructure failure (not deployed, relay down, non-2xx crash)
+          -> warn + continue (guard degraded, not blocked)
+      -> HTTP 200 { allowed: false } verdict
+          -> block with accurate message per reason
+  -> secondary Firebase app account + users insert (pending_approval)
+  -> replaceUserRoutesBestEffort (set_user_routes RPC)
+      -> ok        -> success banner
+      -> fails x2  -> success banner + amber admin follow-up warning
+                      (account already holds factory_id + primary route_id)
+```
+
+- `validateRegistration` distinguishes infrastructure failures from real
+  verdicts. Only an HTTP 200 `{ allowed: false }` body blocks a submission.
+- The `rate-limit` edge function no longer blocks an email/phone that merely
+  has an attempt row in the last 24 hours; duplicate accounts are still
+  prevented by the users-table check. The per-IP cap is relaxed from 3 to 6
+  attempts per hour and remains the only attempt-history limit. Audit logging
+  of allowed and blocked attempts is unchanged.
+- `replaceUserRoutesBestEffort` is used only by the supplier registration
+  form. Admin modules keep the strict `replaceUserRoutes` so configuration
+  errors stay visible to staff.
+- New key `auth.registrationRoutesWarning` added with English, Sinhala and
+  Tamil parity.
+
+No `auth.hybrid.ts` function, authentication flow, role model, RLS policy,
+JWT bridge or environment variable was changed. Accounts still register as
+`pending_approval` and require administrator approval before sign-in.
+
+Vitest covers guard tolerance, verdict enforcement, the best-effort RPC
+outcome and the rate-limit function contract. The `rate-limit` edge function
+must be redeployed (`supabase functions deploy rate-limit`) for the
+server-side lockout fix to take effect.
+
+*Supplier registration submission resilience added: 14 November 2026.*

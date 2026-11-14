@@ -13,7 +13,7 @@ Deno.serve(async (request) => {
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const normalizedEmail = String(email || "").trim().toLowerCase();
     const normalizedPhone = String(phone || "").replace(/\s+/g, "");
-    const [ipHash, emailHash, phoneHash] = await Promise.all([hash(ip), hash(normalizedEmail), hash(normalizedPhone)]);
+    const [ipHash, emailHash, phoneHash] = await Promise.all([hash(ip), hash(normalizedEmail), normalizedPhone ? hash(normalizedPhone) : Promise.resolve("")]);
     const duplicateFilters = [`email.eq.${normalizedEmail}`];
     if (normalizedPhone) duplicateFilters.push(`phone.eq.${normalizedPhone}`);
     const { data: existing, error: duplicateError } = await db.from("users").select("id").or(duplicateFilters.join(",")).limit(1);
@@ -25,15 +25,16 @@ Deno.serve(async (request) => {
       });
       return Response.json({ allowed: false, reason: "account_exists" }, { status: 200, headers: cors });
     }
+    // Attempt history limits the CONNECTION (per IP), never the identity:
+    // a first attempt that failed later in the flow (password rule, RPC
+    // hiccup, etc.) must not lock the same email/phone out for 24 hours.
+    // Duplicate accounts are already prevented by the users-table check
+    // above, which returns reason "account_exists".
     const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
-    const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
-    const { data, error } = await db.from("admin_audit_log").select("created_at,details").eq("action", "registration_attempt").gte("created_at", dayAgo).limit(500);
+    const { data, error } = await db.from("admin_audit_log").select("created_at,details").eq("action", "registration_attempt").gte("created_at", hourAgo).limit(500);
     if (error) throw error;
-    const rows = data ?? [];
-    const ipCount = rows.filter((row) => row.created_at >= hourAgo && row.details?.ip_hash === ipHash).length;
-    const duplicateEmail = rows.some((row) => row.details?.email_hash === emailHash);
-    const duplicatePhone = normalizedPhone && rows.some((row) => row.details?.phone_hash === phoneHash);
-    const allowed = ipCount < 3 && !duplicateEmail && !duplicatePhone;
+    const ipCount = (data ?? []).filter((row) => row.details?.ip_hash === ipHash).length;
+    const allowed = ipCount < 6;
     await db.from("admin_audit_log").insert({
       admin_id: "edge:rate-limit", action: allowed ? "registration_attempt" : "registration_blocked",
       entity_type: "registration_attempt", entity_id: crypto.randomUUID(),

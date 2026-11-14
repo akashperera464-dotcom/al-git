@@ -70,3 +70,46 @@ export async function replaceUserRoutes(input: {
     throw new Error(`Could not save route assignments: ${error.message}.${hint}`);
   }
 }
+
+export interface RouteAssignmentOutcome {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Best-effort route assignment for supplier SELF-REGISTRATION only.
+ *
+ * `registerSupplier` already persists `factory_id` and the primary `route_id`
+ * on the new `users` row, so a failing `set_user_routes` RPC (missing/old
+ * function version, transient network fault) must not orphan the account:
+ * retrying would then be rejected with "supplier number already registered",
+ * leaving the user permanently stuck.
+ *
+ * Tries twice for transient faults, then degrades to a non-blocking outcome
+ * that the login screen surfaces as an admin follow-up warning. Admin flows
+ * keep using the strict `replaceUserRoutes` so configuration errors stay
+ * visible to staff.
+ */
+export async function replaceUserRoutesBestEffort(input: {
+  userId: string;
+  factoryId: string;
+  routeIds: string[];
+  primaryRouteId?: string;
+  registrationEmail?: string;
+}): Promise<RouteAssignmentOutcome> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await replaceUserRoutes(input);
+      return { ok: true };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  // eslint-disable-next-line no-console
+  console.warn("[userRoutes] registration route assignment deferred to admin review", lastError);
+  return {
+    ok: false,
+    error: lastError instanceof Error ? lastError.message : "Could not save route assignments.",
+  };
+}

@@ -11,7 +11,7 @@ import { useBranding, isMediaUrl, isVideoUrl } from "@/lib/branding";
 import { useTranslation } from "react-i18next";
 import { validateRegistration } from "@/lib/registrationHardening";
 import { RouteMultiSelect } from "@/components/RouteMultiSelect";
-import { assertMultiRouteSchemaReady, replaceUserRoutes } from "@/lib/userRoutes";
+import { assertMultiRouteSchemaReady, replaceUserRoutesBestEffort } from "@/lib/userRoutes";
 import { isAndroidEmbeddedWebView } from "@/lib/platform";
 import { isRoleAllowedForPortal, LOGIN_PORTAL_BLOCKED_UID_KEY, LOGIN_PORTAL_INTENT_KEY, type LoginPortal } from "@/lib/loginPortal";
 
@@ -37,6 +37,7 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
   const [registrationDone, setRegistrationDone] = useState(false);
+  const [registrationWarning, setRegistrationWarning] = useState<string | null>(null);
   const [factories, setFactories] = useState<FactoryOption[]>([]);
   const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [registration, setRegistration] = useState({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeIds: [] as string[] });
@@ -109,8 +110,12 @@ export function Login() {
       await assertMultiRouteSchemaReady();
       await validateRegistration({ email: registration.email, phone: registration.phone });
       const userId = await registerSupplier({ ...registration, routeId: registration.routeIds[0] });
-      await replaceUserRoutes({ userId, factoryId: registration.factoryId, routeIds: registration.routeIds, primaryRouteId: registration.routeIds[0], registrationEmail: registration.email });
+      // The users row already carries factory_id + primary route_id, so a
+      // failing set_user_routes RPC must not orphan the account: degrade to
+      // an admin follow-up warning instead of blocking the registration.
+      const routeOutcome = await replaceUserRoutesBestEffort({ userId, factoryId: registration.factoryId, routeIds: registration.routeIds, primaryRouteId: registration.routeIds[0], registrationEmail: registration.email });
       setRegistrationDone(true);
+      setRegistrationWarning(routeOutcome.ok ? null : t("auth.registrationRoutesWarning"));
       setRegistration({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeIds: [] });
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.registrationFailed"));
@@ -128,6 +133,7 @@ export function Login() {
     setPortal(nextPortal);
     setRegistering(false);
     setRegistrationDone(false);
+    setRegistrationWarning(null);
     setError(null);
     setShowPw(false);
   };
@@ -234,6 +240,7 @@ export function Login() {
       <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("common.phone")}</label><input value={registration.phone} onChange={event => setRegistration({ ...registration, phone: event.target.value })} placeholder="+94 77 000 0000" className={`w-full rounded-xl border px-3 py-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /></div>
 
       {registrationDone && <div className={`rounded-xl border p-3 text-xs ${hasBg ? "border-emerald-300/60 bg-emerald-500/20 text-emerald-50" : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200"}`}>{t("auth.registrationSuccess")}</div>}
+      {registrationWarning && <div className={`rounded-xl border p-3 text-xs ${hasBg ? "border-amber-300/60 bg-amber-500/20 text-amber-50" : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/60 dark:text-amber-200"}`}>{registrationWarning}</div>}
       {renderError()}
 
       <button type="submit" disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-lg transition enabled:hover:-translate-y-0.5 enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60" style={{ background: accent, boxShadow: `0 10px 30px -8px ${accent}80` }}>
@@ -340,7 +347,7 @@ export function Login() {
 
               {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
 
-              <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${hasBg ? "text-white hover:bg-white/10" : "text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/50"}`}>
+              <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${hasBg ? "text-white hover:bg-white/10" : "text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/50"}`}>
                 {registering ? <BookOpen className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
               </button>
             </section>
