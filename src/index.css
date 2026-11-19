@@ -1837,9 +1837,9 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   color-scheme: light !important;
 }
 
-/* Override dark mode card backgrounds inside supplier shell */
-.dark .sp-main .card,
-.dark .sp-main .weather-hero {
+/* Override dark mode card backgrounds inside supplier shell
+   — BUT NOT the weather-hero (it uses an inline gradient + white text). */
+.dark .sp-main .card {
   background: #ffffff !important;
   border-color: rgba(108, 158, 75, 0.15) !important;
   color: #0f172a !important;
@@ -1884,14 +1884,6 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   background: #f8fafc !important;
   color: #0f172a !important;
 }
-.dark .sp-main * {
-  color: inherit;
-}
-.dark .sp-main .text-white,
-.dark .sp-main .text-white\/80,
-.dark .sp-main .text-white\/90 {
-  color: #0f172a !important;
-}
 
 /* Dock items — always light for supplier */
 .dark .sp-dock {
@@ -1908,3 +1900,6 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   background: linear-gradient(135deg, #3e8c48, #6e9e4b) !important;
   color: #ffffff !important;
 }
+
+/* IMPORTANT: Do NOT override text-white inside weather-hero — it needs
+   white text on the colored gradient background. */
