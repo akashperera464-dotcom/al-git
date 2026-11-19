@@ -399,7 +399,7 @@ function BottomNav({ onMore }: { onMore: () => void }) {
   const visible = tabs.slice(0, 4);
   const hasMore = allTabs.length > visible.length;
   return (
-    <nav className={cn("safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around px-2 py-1.5", role === "supplier" ? "mx-2 mb-2 rounded-2xl border border-slate-200 bg-white shadow-[0_-1px_0_rgba(15,32,26,0.04),0_14px_28px_-20px_rgba(15,32,26,0.45)] dark:border-slate-800 dark:bg-slate-900" : "border-t border-slate-200 bg-white/95 backdrop-blur-xl")}>
+    <nav className={cn("safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around px-2 py-1.5", role === "supplier" ? "mx-2 mb-2 rounded-2xl border border-slate-200 bg-white shadow-[0_-1px_0_rgba(15,32,26,0.04),0_14px_28px_-20px_rgba(62,140,72,0.35)]" : "border-t border-slate-200 bg-white/95 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900")}>
       {visible.map((tab) => {
         const Icon = tab.icon;
         const active = activeModule === tab.key;

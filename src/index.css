@@ -1815,3 +1815,96 @@ body, .font-display, .font-sans { letter-spacing: normal; }
     radial-gradient(42rem 28rem at 72% 100%, rgba(26, 36, 21, 0.6), transparent 66%),
     linear-gradient(145deg, #1a2415 0%, #161e12 48%, #121810 100%);
 }
+
+/* ============================================================================
+ * ROUND 81 — FORCE LIGHT MODE FOR SUPPLIER INTERFACE
+ * The supplier app is designed to be bright and airy. Dark mode makes it
+ * look muddy (ගොම පාට). These overrides force light colors even when
+ * the browser/phone is in dark mode.
+ * ========================================================================== */
+
+/* Supplier shell — always light, ignore dark mode */
+.supplier-device-stage .dark,
+.supplier-device-stage.dark,
+.dark .supplier-device-stage {
+  background: linear-gradient(145deg, #f4f7e8 0%, #e8efd8 48%, #d8e4c2 100%) !important;
+}
+
+/* Force the phone frame content to light mode */
+.supplier-device-stage .sp-main,
+.supplier-device-stage .sp-header,
+.supplier-device-stage .sp-dock {
+  color-scheme: light !important;
+}
+
+/* Override dark mode card backgrounds inside supplier shell */
+.dark .sp-main .card,
+.dark .sp-main .weather-hero {
+  background: #ffffff !important;
+  border-color: rgba(108, 158, 75, 0.15) !important;
+  color: #0f172a !important;
+}
+.dark .sp-main .card * {
+  color: inherit;
+}
+.dark .sp-main .stat-value,
+.dark .sp-main .tnum {
+  color: #0f172a !important;
+}
+
+/* Bottom nav — always white for supplier, even in dark mode */
+.dark .supplier-device-stage nav.safe-bottom-nav {
+  background: #ffffff !important;
+  border-color: rgba(108, 158, 75, 0.15) !important;
+}
+.dark .supplier-device-stage nav.safe-bottom-nav * {
+  color: #64748b;
+}
+
+/* Header — always light for supplier */
+.dark .sp-header {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(244, 247, 232, 0.85) 60%, rgba(216, 228, 194, 0.75)) !important;
+  color: #0f172a !important;
+}
+.dark .sp-header * {
+  color: inherit;
+}
+
+/* Weather atmosphere clouds — lighter, no dark blobs */
+.weather-atmosphere__cloud {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+.weather-atmosphere--rain .weather-atmosphere__cloud,
+.weather-atmosphere--storm .weather-atmosphere__cloud {
+  background: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Supplier content background — always light */
+.dark .sp-main {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+.dark .sp-main * {
+  color: inherit;
+}
+.dark .sp-main .text-white,
+.dark .sp-main .text-white\/80,
+.dark .sp-main .text-white\/90 {
+  color: #0f172a !important;
+}
+
+/* Dock items — always light for supplier */
+.dark .sp-dock {
+  background: #ffffff !important;
+  border-color: rgba(108, 158, 75, 0.15) !important;
+}
+.dark .sp-dockitem {
+  color: #64748b !important;
+}
+.dark .sp-dockitem--on {
+  color: #3e8c48 !important;
+}
+.dark .sp-dockitem--on .sp-dockpill {
+  background: linear-gradient(135deg, #3e8c48, #6e9e4b) !important;
+  color: #ffffff !important;
+}
