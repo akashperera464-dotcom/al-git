@@ -1500,8 +1500,9 @@ body, .font-display, .font-sans { letter-spacing: normal; }
 }
 
 /* ---- Supplier content: pure white cards, fresh green accents ------------- */
-.sp-main .card,
-.sp-main .weather-hero {
+/* NOTE: weather-hero is EXCLUDED from background override — it uses an inline
+   gradient from weatherPresentation.ts (sunny=blue/orange, rain=dark blue, etc.) */
+.sp-main .card {
   background: #ffffff !important;
   border: 1px solid rgba(108, 158, 75, 0.15) !important;
   border-radius: 1.25rem !important;
@@ -1514,17 +1515,23 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   border-color: rgba(62, 140, 72, 0.35) !important;
   box-shadow: 0 18px 36px -24px rgba(62, 140, 72, 0.3) !important;
 }
-.dark .sp-main .card,
-.dark .sp-main .weather-hero {
-  background: #1a2415 !important;
-  border-color: rgba(108, 158, 75, 0.2) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 32px -26px rgba(0, 0, 0, 0.9) !important;
+.dark .sp-main .card {
+  background: #ffffff !important;
+  border-color: rgba(108, 158, 75, 0.15) !important;
+  box-shadow: 0 1px 2px rgba(15, 32, 26, 0.04), 0 12px 28px -24px rgba(62, 140, 72, 0.2) !important;
 }
-.dark .sp-main .card-hover:hover { border-color: #35564a !important; }
-/* Weather hero: let the inline weather-based gradient (weatherPresentation.ts) show through.
-   Only set border-radius + shadow here; background comes from the JS mood logic. */
+.dark .sp-main .card-hover:hover { border-color: rgba(62, 140, 72, 0.35) !important; }
+
+/* Weather hero: NO background override — inline gradient must show through.
+   Only set border + text color here. */
 .sp-main .weather-hero {
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  border-radius: 1.75rem !important;
+  box-shadow: 0 12px 28px -20px rgba(0, 0, 0, 0.3) !important;
+}
+.dark .sp-main .weather-hero {
+  /* NO background override — let the inline gradient show */
   color: #ffffff !important;
 }
 .sp-main .weather-glass {
