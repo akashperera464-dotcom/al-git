@@ -259,7 +259,7 @@ export function Login() {
   );
 
   return (
-    <div className="login-stage relative min-h-[100dvh] overflow-hidden bg-[#04231a] px-4 py-8 sm:px-6">
+    <div className="login-stage relative min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-[#04231a] px-4 py-8 sm:px-6 lg:px-10">
       {/* ---- Background layer ----------------------------------------------
           Admin-configured branding media (image OR video) always wins when it
           is set: it renders full-bleed underneath everything, followed by the
@@ -312,26 +312,26 @@ export function Login() {
         <ThemeToggle darkSurface />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-[26.5rem] flex-col justify-center">
+      <div className="relative z-10 mx-auto grid min-h-[calc(100dvh-4rem)] w-full max-w-[68rem] items-center gap-7 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
         {/* Brand lockup on the emerald canvas */}
-        <div className="login-rise mb-6 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/10 ring-1 ring-white/25 backdrop-blur-sm">
+        <div className="login-rise text-center lg:text-left">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white/10 ring-1 ring-white/25 backdrop-blur-sm lg:mx-0 lg:h-20 lg:w-20 lg:rounded-3xl">
             {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
               <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             ) : (
               <Leaf className="h-7 w-7 text-emerald-200" />
             )}
           </span>
-          <h1 className="mt-3 font-display text-xl font-bold tracking-tight text-white sm:text-[22px]">
+          <h1 className="mt-4 font-display text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-[2.6rem] lg:leading-tight">
             {branding.loginTitle || t("common.appName")}
           </h1>
-          <p className="mx-auto mt-1.5 max-w-[19rem] text-[12.5px] leading-relaxed text-emerald-100/60">
+          <p className="mx-auto mt-2 max-w-[23rem] text-sm leading-relaxed text-emerald-50/75 lg:mx-0 lg:text-base">
             {branding.loginSubtitle || t("auth.platformSubtitle")}
           </p>
         </div>
 
         {/* Form card */}
-        <div className="login-rise login-card auth-book relative overflow-hidden rounded-2xl bg-white p-1.5" style={{ animationDelay: "80ms" }}>
+        <div className="login-rise login-card auth-book relative mx-auto w-full max-w-[34rem] overflow-hidden rounded-3xl bg-white p-2" style={{ animationDelay: "80ms" }}>
           <span className="login-card__edge" aria-hidden="true" />
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label={t("auth.choosePortal")}>
             <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "supplier" ? "bg-white text-teal-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
@@ -343,7 +343,7 @@ export function Login() {
           </div>
 
           <div className={`auth-book__pages ${portal === "staff" ? "is-flipped" : ""}`}>
-            <section className="auth-book__page auth-book__page--front p-4 sm:p-5" aria-hidden={portal !== "supplier"}>
+            <section className="auth-book__page auth-book__page--front p-4 sm:p-6" aria-hidden={portal !== "supplier"}>
               <div className="mb-4 flex items-center gap-2.5">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Sprout className="h-[18px] w-[18px]" /></span>
                 <div className="min-w-0">
@@ -359,7 +359,7 @@ export function Login() {
               </button>
             </section>
 
-            <section className="auth-book__page auth-book__page--back p-4 sm:p-5" aria-hidden={portal !== "staff"}>
+            <section className="auth-book__page auth-book__page--back p-4 sm:p-6" aria-hidden={portal !== "staff"}>
               <div className="mb-4 flex items-center gap-2.5">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><ShieldCheck className="h-[18px] w-[18px]" /></span>
                 <div className="min-w-0">
@@ -377,9 +377,6 @@ export function Login() {
           </div>
         </div>
 
-        <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-[11px] text-emerald-100/45">
-          <ShieldCheck className="h-3.5 w-3.5" /> Firebase protected · Access follows your approved role
-        </p>
       </div>
     </div>
   );

@@ -567,6 +567,16 @@ Screen එකක data sources දෙකක් තිබේ නම් source labe
 
 ---
 
+## Responsive interface behaviour
+
+- Supplier portal එක phone එකකදී full-width mobile app එකක් ලෙස ක්‍රියා කරයි.
+- Tablet/desktop එකකදී එය 430px phone mock-up එකකට සීමා නොවී, readable multi-column workspace එකක් ලෙස පුළුල් වේ.
+- Supplier Home summary cards desktop එකේ columns හතරක් දක්වා පුළුල් වන අතර mobile එකේ columns දෙකක් ලෙස පවතී.
+- Login page එක mobile එකේ single-column form එකක් ලෙසත් desktop එකේ brand panel + authentication panel layout එකක් ලෙසත් පෙන්වයි.
+- මේ responsive වෙනස්කම් authentication, role validation, Supabase/Firebase data flow හෝ Office API behaviour වෙනස් නොකරයි.
+
+---
+
 ## Documentation maintenance rule
 
 Feature එකක් add/remove/rename කරන විට හෝ data flow, API endpoint, mapping, cache duration, status meaning හෝ user behavior වෙනස් කරන විට:
