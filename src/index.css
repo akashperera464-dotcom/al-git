@@ -1669,3 +1669,21 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   .login-card__edge { animation: none !important; }
   .login-cta:hover:not(:disabled) { transform: none; }
 }
+
+/* Desktop canvas around the supplier phone preview. Keep this calm and light
+   in both themes: dark mode belongs to the app inside the device, not to a
+   large empty black area around it. On phones the frame fills the viewport. */
+.supplier-device-stage {
+  background:
+    radial-gradient(54rem 32rem at 12% 8%, rgba(167, 243, 208, 0.58), transparent 62%),
+    radial-gradient(50rem 30rem at 90% 14%, rgba(186, 230, 253, 0.58), transparent 64%),
+    radial-gradient(42rem 28rem at 72% 100%, rgba(254, 240, 138, 0.2), transparent 66%),
+    linear-gradient(145deg, #f4fbf7 0%, #edf7f5 48%, #eff6fb 100%);
+}
+.dark .supplier-device-stage {
+  background:
+    radial-gradient(54rem 32rem at 12% 8%, rgba(167, 243, 208, 0.54), transparent 62%),
+    radial-gradient(50rem 30rem at 90% 14%, rgba(186, 230, 253, 0.52), transparent 64%),
+    radial-gradient(42rem 28rem at 72% 100%, rgba(254, 240, 138, 0.18), transparent 66%),
+    linear-gradient(145deg, #eef9f3 0%, #e8f4f1 48%, #edf5fa 100%);
+}

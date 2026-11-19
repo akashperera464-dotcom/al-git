@@ -24,6 +24,12 @@ describe("trilingual typography", () => {
 });
 
 describe("container-safe supplier layout", () => {
+  it("keeps a light branded canvas around the desktop phone preview", () => {
+    expect(shell).toContain("supplier-device-stage");
+    expect(css).toContain(".supplier-device-stage");
+    expect(css).toContain(".dark .supplier-device-stage");
+  });
+
   it("never uses viewport 4-column grids inside the ~430px supplier shell", () => {
     const supplierModules = ["Home", "Fertilizer", "Labor", "Loans", "Plot", "Insights", "Estates", "Deliveries"]
       .map((name) => readFileSync(resolve(process.cwd(), `src/modules/Supplier${name}.tsx`), "utf8"));

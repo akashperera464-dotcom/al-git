@@ -471,7 +471,7 @@ function MobileShell({ children }: { children: ReactNode }) {
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
   const supplierMode = role === "supplier";
   return (
-    <div className={cn("min-h-screen", supplierMode ? "min-h-screen bg-[#f2f5f2] dark:bg-[#070f0c]" : "app-aurora")}>
+    <div className={cn("min-h-screen", supplierMode ? "supplier-device-stage min-h-screen" : "app-aurora")}>
       {isAuthenticated && role === "supplier" && <SupplierWeatherMonitor />}
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-[#0b211a] md:shadow-2xl">
         {/* Header — safe-top pushes brand/buttons below iPhone notch on mobile.

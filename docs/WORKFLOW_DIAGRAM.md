@@ -4658,4 +4658,5 @@ key change. Verified: typecheck clean, 144/144 tests, production build OK.
 - Restored the centered login composition: branding above the authentication card over the configured background media.
 - Kept the visible Firebase trust tagline removed from the login page.
 - Restored narrow-container card grids so supplier content does not stretch or lose its mobile-app proportions.
+- Replaced the dark empty desktop canvas around the supplier phone preview with a light tea-green/sky gradient in both application themes.
 - Authentication, registration, role validation, database access and Office API request behaviour were not changed.

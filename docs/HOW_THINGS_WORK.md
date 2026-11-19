@@ -571,6 +571,7 @@ Screen එකක data sources දෙකක් තිබේ නම් source labe
 
 - Supplier portal එක mobile-first interface එකකි. Phone එකකදී screen width එක පුරා පෙන්වයි.
 - Desktop එකකදී supplier portal එක phone-shaped preview frame එකක් තුළ පෙන්වයි. එමඟින් mobile app එක සහ web preview එකේ layout එක එකම ආකාරයෙන් පවතී.
+- Desktop phone preview එක වටා light tea-green/sky background canvas එකක් පෙන්වන අතර app dark mode එක එම පිටත canvas එක කළු නොකරයි.
 - Supplier cards සහ forms narrow mobile width එක තුළ overflow නොවන ලෙස columns දෙකකට හෝ අවශ්‍ය විට single column එකකට සකස් වේ.
 - Login page එක configured background image/video එක මත logo, company name සහ centered authentication card එකක් ලෙස පෙන්වයි.
 - Supplier සහ Staff portal tabs එකම Firebase sign-in flow එක භාවිත කළත්, role validation එකෙන් වැරදි portal access එක ප්‍රතික්ෂේප කරයි.
