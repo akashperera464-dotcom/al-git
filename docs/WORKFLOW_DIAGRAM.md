@@ -4537,3 +4537,40 @@ AppInfo usage, the login stage and the reduced-motion fallback.
 Verified: 133/133 tests, clean production build.
 
 *Container-safe layouts and new login stage added: 19 November 2026.*
+
+## 76. Branding Background Restored on Login
+
+**Regression:** rounds 74–75 rebuilt the login return tree and the
+admin-configured branding media block was lost with it — `loginBackgroundUrl`
+was still read into `hasBg`, but nothing rendered it. A background video set
+in Branding & Settings therefore never appeared.
+
+Restored and hardened:
+
+```text
+branding.loginBackgroundUrl set?
+  yes -> video? autoplay + loop + muted + playsInline + onCanPlay force-play
+         else   <img object-cover>
+       -> Super Admin loginScrimOpacity scrim
+       -> bottom-up depth gradient
+       -> white form card on top (text never sits on blur/photo)
+  no  -> generated CSS mesh stage (drifting orbs + grain)
+```
+
+Additional polish found in the same screenshot: brand-supplied credentials
+were painted grey by Chrome/Safari autofill. `.login-input:-webkit-autofill`
+now pins the field to white with dark text; inputs also switched from a grey
+tint to crisp white with an inset shadow, the primary CTA gained a gradient
+with depth, and the card gained an animated gradient top edge.
+
+A dedicated `describe("admin branding media (regression guard)")` test block
+now asserts that the video/image element, its autoplay attributes, the scrim
+opacity and the no-media fallback all remain in `Login.tsx`, so this cannot
+silently regress again.
+
+No authentication, registration, role, RLS, Office API, environment or i18n
+key change.
+
+Verified: 138/138 tests, clean production build.
+
+*Branding background restored: 19 November 2026.*

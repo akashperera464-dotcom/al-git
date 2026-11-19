@@ -89,3 +89,36 @@ describe("shared surfaces", () => {
     expect(css).not.toContain("user-scalable=no");
   });
 });
+
+describe("admin branding media (regression guard)", () => {
+  it("renders the configured background video OR image on the login page", () => {
+    // Rounds 74–75 accidentally dropped this block; the guard keeps it here.
+    expect(login).toContain("branding.loginBackgroundUrl");
+    expect(login).toContain("isVideoUrl(branding.loginBackgroundUrl)");
+    expect(login).toMatch(/<video[\s\S]{0,600}src=\{branding\.loginBackgroundUrl\}/);
+    expect(login).toMatch(/<img[\s\S]{0,300}src=\{branding\.loginBackgroundUrl\}/);
+    expect(login).toContain("hasBg");
+  });
+
+  it("keeps the video autoplay-safe and mute-compliant", () => {
+    expect(login).toMatch(/<video[\s\S]{0,260}autoPlay/);
+    expect(login).toMatch(/<video[\s\S]{0,300}loop/);
+    expect(login).toMatch(/<video[\s\S]{0,300}muted/);
+    expect(login).toMatch(/<video[\s\S]{0,300}playsInline/);
+    expect(login).toContain("onCanPlay");
+  });
+
+  it("honours the Super Admin scrim opacity over branding media", () => {
+    expect(login).toContain("branding.loginScrimOpacity");
+  });
+
+  it("shows the generated CSS stage only when no branding media exists", () => {
+    expect(login).toMatch(/\{hasBg \? \(/);
+    expect(login).toMatch(/\) : \(\s*<>\s*\{?\/?\*?[\s\S]{0,200}login-mesh/);
+  });
+
+  it("keeps autofilled credentials visually clean", () => {
+    expect(css).toContain(".login-input:-webkit-autofill");
+    expect(css).toContain("-webkit-box-shadow: 0 0 0 1000px #ffffff inset");
+  });
+});

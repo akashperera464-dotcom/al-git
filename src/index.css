@@ -1626,3 +1626,46 @@ body, .font-display, .font-sans { letter-spacing: normal; }
 @media (prefers-reduced-motion: reduce) {
   .login-orb--one, .login-orb--two, .login-rise { animation: none !important; }
 }
+
+/* ---------- Round 76 login finish: autofill-safe fields, premium card ----- */
+.login-card { box-shadow: 0 40px 90px -34px rgba(0, 0, 0, 0.72), 0 2px 0 rgba(255, 255, 255, 0.65) inset; }
+.login-card__edge {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0f766e, #10b981 42%, #f5b840 78%, #0f766e);
+  background-size: 220% 100%;
+  animation: loginEdge 9s linear infinite;
+  pointer-events: none;
+}
+@keyframes loginEdge { to { background-position: 220% 0; } }
+
+/* Chrome/Safari autofill painted supplied fields grey — keep them white. */
+.login-input:-webkit-autofill,
+.login-input:-webkit-autofill:hover,
+.login-input:-webkit-autofill:focus,
+.login-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #0f172a;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset, inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 0 0 1000px #ffffff inset, inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  caret-color: #0f766e;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.login-cta {
+  box-shadow: 0 12px 26px -12px rgba(15, 118, 110, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.login-cta:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 18px 34px -12px rgba(15, 118, 110, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.login-cta:active:not(:disabled) { transform: translateY(0); }
+
+/* Brand lockup: gentle halo behind the configured logo */
+.login-stage .login-rise > span:first-child { box-shadow: 0 10px 30px -12px rgba(16, 185, 129, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.22) inset; }
+
+@media (prefers-reduced-motion: reduce) {
+  .login-card__edge { animation: none !important; }
+  .login-cta:hover:not(:disabled) { transform: none; }
+}
