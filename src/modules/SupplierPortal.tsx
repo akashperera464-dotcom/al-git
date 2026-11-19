@@ -76,9 +76,13 @@ function LinkedEstateBanner() {
   const { associatedEntityId, estates } = useApp();
   const estate = estates.find((e) => e.id === associatedEntityId);
   return (
-    <div className="mb-4 flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2.5 text-xs text-violet-700">
-      <Building2 className="h-4 w-4 shrink-0" />
-      {t("supplier.scopedTo")} <strong>{estate?.name ?? associatedEntityId}</strong> {t("supplier.scopedDesc")}
+    <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-3">
+      <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
+      <p className="min-w-0 break-words text-[12px] leading-relaxed text-violet-800">
+        <span className="font-semibold">{t("supplier.scopedTo")}</span>{" "}
+        <strong className="font-semibold">{estate?.name ?? associatedEntityId}</strong>{" "}
+        <span className="text-violet-600">{t("supplier.scopedDesc")}</span>
+      </p>
     </div>
   );
 }

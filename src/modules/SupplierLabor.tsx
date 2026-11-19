@@ -162,7 +162,7 @@ export function SupplierLabor() {
       />
 
       {/* Stats */}
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
         <StatCard icon={TrendingDown} label={t("supplierLabor.todayCost")} value={fmtLKRShort(totalCost)} sub={t("supplierLabor.workerCount", { count: totalHeadcount })} tone="amber" />
         <StatCard icon={Calendar} label={t("supplierLabor.thisMonth")} value={fmtLKRShort(monthTotal)} sub={t("supplierLabor.daysRecorded", { count: history.filter(h => h.date.slice(0, 7) === thisMonth).length })} tone="rose" />
         <StatCard icon={Clock} label={t("supplierLabor.recordedDays")} value={String(history.length)} sub={t("supplierLabor.total")} tone="sky" />

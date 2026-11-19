@@ -87,7 +87,7 @@ export default function SupplierLoans() {
       {error && <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</div>}
       {success && <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{success}</div>}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5">
         <StatCard icon={Sprout} label="Active Loans" value={String(activeLoans.length)} tone="amber" />
         <StatCard icon={TrendingDown} label="Total Balance" value={fmtLKRShort(totalBalance)} tone="rose" />
         <StatCard icon={TrendingDown} label="Monthly Deductions" value={fmtLKRShort(totalMonthly)} tone="amber" />

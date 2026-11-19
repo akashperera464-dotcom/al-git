@@ -735,7 +735,7 @@ export function SupplierPlot() {
 
       {/* Stats overview */}
       {plot.acreage > 0 && !editing && (
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
           <StatCard icon={Sprout} label="Acreage" value={`${plot.acreage}`} sub="acres" tone="emerald" />
           <StatCard icon={Trees} label="Bush Count" value={fmtNum(plot.bushCount)} sub="bushes" tone="sky" />
           <StatCard icon={TrendingUp} label="Bushes / Acre" value={fmtNum(bushesPerAcre)} sub="density" tone="violet" />

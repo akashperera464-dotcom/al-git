@@ -190,16 +190,19 @@ export function StatCard({
   spark?: number[];
   delay?: number;
 }) {
+  // Container-safe by design: the supplier shell is only ~430px wide even on
+  // a desktop viewport, so every element must survive a narrow card without
+  // wrapping per word. No fixed widths, no uppercase tracking on the label.
   return (
-    <Card hover className="p-5 animate-fade-up" >
-      <div style={{ animationDelay: `${delay}ms` }} className="animate-fade-up">
-        <div className="flex items-start justify-between">
-          <IconChip icon={icon} tone={tone} className="h-11 w-11" />
+    <Card hover className="min-w-0 overflow-hidden p-3.5 animate-fade-up sm:p-4">
+      <div style={{ animationDelay: `${delay}ms` }} className="min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <IconChip icon={icon} tone={tone} className="h-9 w-9 rounded-lg" />
           {delta && (
             <span
               className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
-                trend === "down" ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"
+                "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                trend === "down" ? "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300" : "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300"
               )}
             >
               {trend === "down" ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
@@ -207,12 +210,14 @@ export function StatCard({
             </span>
           )}
         </div>
-        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-        <div className="mt-1 flex items-end justify-between gap-2">
-          <p className="font-display text-2xl font-bold tracking-tight text-slate-900 tnum">{value}</p>
-          {spark && <Sparkline data={spark} color={tone === "amber" ? "#f59e0b" : tone === "rose" ? "#f43f5e" : tone === "sky" ? "#0ea5e9" : tone === "violet" ? "#8b5cf6" : "#10b981"} />}
-        </div>
-        {sub && <p className="mt-1 text-xs text-slate-400">{sub}</p>}
+        <p className="mt-3 break-words text-[11px] font-medium leading-snug text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="mt-1 break-words font-display text-lg font-bold leading-tight text-slate-900 tnum dark:text-white sm:text-xl">{value}</p>
+        {sub && <p className="mt-1 break-words text-[10px] font-medium leading-snug text-slate-400 dark:text-slate-500">{sub}</p>}
+        {spark && (
+          <div className="mt-2">
+            <Sparkline data={spark} color={tone === "amber" ? "#f59e0b" : tone === "rose" ? "#f43f5e" : tone === "sky" ? "#0ea5e9" : tone === "violet" ? "#8b5cf6" : "#10b981"} />
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -448,17 +453,57 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-start gap-4">
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
         {icon}
-        <div>
-          {eyebrow && <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-600">{eyebrow}</p>}
-          <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">{title}</h1>
-          {desc && <p className="mt-1 max-w-2xl text-sm text-slate-500">{desc}</p>}
+        <div className="min-w-0">
+          {eyebrow && <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-teal-700 dark:text-teal-400">{eyebrow}</p>}
+          <h1 className="mt-0.5 break-words font-display text-[22px] font-bold leading-tight tracking-tight text-slate-900 dark:text-white">{title}</h1>
+          {desc && <p className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">{desc}</p>}
         </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
+  );
+}
+
+/* ----------------------------- AppInfo ----------------------------- */
+/**
+ * Readable explanation panel: a calm neutral surface, comfortable measure
+ * (max ~62ch), generous line-height and numbered steps instead of a dense
+ * bullet wall. Collapsible so long help text never dominates a mobile page.
+ */
+export function AppInfo({
+  title,
+  steps,
+  note,
+  defaultOpen = false,
+}: {
+  title: ReactNode;
+  steps: ReactNode[];
+  note?: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details open={defaultOpen} className="group mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-700 marker:hidden dark:text-slate-200">
+        <span className="min-w-0">{title}</span>
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition group-open:rotate-45 dark:bg-slate-800 dark:text-slate-400">
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 3v10M3 8h10" /></svg>
+        </span>
+      </summary>
+      <div className="border-t border-slate-100 px-4 pb-4 pt-3 dark:border-slate-800">
+        <ol className="space-y-2.5">
+          {steps.map((step, index) => (
+            <li key={index} className="flex gap-2.5 text-[12.5px] leading-relaxed text-slate-600 dark:text-slate-300">
+              <span className="mt-[3px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-50 text-[10px] font-bold text-teal-700 dark:bg-teal-950/60 dark:text-teal-300">{index + 1}</span>
+              <span className="min-w-0 break-words">{step}</span>
+            </li>
+          ))}
+        </ol>
+        {note && <p className="mt-3 break-words border-t border-slate-100 pt-3 text-[11px] leading-relaxed text-slate-500 dark:border-slate-800 dark:text-slate-400">{note}</p>}
+      </div>
+    </details>
   );
 }
 

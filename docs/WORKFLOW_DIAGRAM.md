@@ -4493,3 +4493,47 @@ change. Tests: `designSystem.test.ts` rewritten to guard the new typography
 coverage and the regression fixes above.
 
 *Clarity pass and split-screen login added: 19 November 2026.*
+
+## 75. Container-Safe Layouts, Readable Prose and a New Login Stage
+
+Screenshots showed supplier cards squeezed into unusable columns and help
+text appearing as an unreadable wall. Root cause was layout, not styling:
+
+```text
+grid grid-cols-2 sm:grid-cols-4   inside a ~430px supplier shell
+  -> `sm:` is a VIEWPORT breakpoint
+  -> desktop viewport (>=640px) switched to 4 columns inside 430px
+  -> ~95px per card: labels wrapped per word, 4th card clipped off-screen
+```
+
+Fixes:
+
+1. **Container-safe grids** — every supplier module uses two columns at all
+   viewport sizes; no `sm:grid-cols-4` remains inside the shell.
+2. **StatCard rewritten** — compact padding, 36px icon chip, non-uppercase
+   11px label with `leading-snug`, `break-words`, `min-w-0 overflow-hidden`,
+   and a sparkline below the value instead of beside it.
+3. **PageHeader refined** — tighter eyebrow, 22px title, 13px description
+   with `max-w-prose` and relaxed leading.
+4. **AppInfo panel** — long "how this works" text is now a collapsible
+   `<details>` panel with numbered steps, comfortable measure and a separated
+   footnote; SupplierFertilizer uses it instead of a dense bullet wall.
+5. **LinkedEstateBanner** — wrapped in a real paragraph with an aligned icon,
+   so it no longer collapses into a thin column.
+6. **New login stage** — a deep-emerald CSS mesh gradient with two slowly
+   drifting light orbs and a film-grain layer; the form is a crisp white card
+   (no blur, no photography behind text) with the brand lockup above it. Two
+   keyframes (`loginRise`, `loginFloat`) are disabled under
+   `prefers-reduced-motion`.
+
+Unchanged: authentication handlers, registration bounded waits, portal role
+gate, ARIA roles, one Firebase `signInWithEmail` call, RLS, Office API,
+environment, i18n keys. Admin navigation and admin content untouched.
+
+`designSystem.test.ts` now guards: trilingual font coverage, absence of
+viewport 4-column grids in supplier modules, StatCard legibility rules,
+AppInfo usage, the login stage and the reduced-motion fallback.
+
+Verified: 133/133 tests, clean production build.
+
+*Container-safe layouts and new login stage added: 19 November 2026.*

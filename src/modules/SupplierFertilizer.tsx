@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Sprout, CalendarDays, TrendingDown, Package, AlertTriangle } from "lucide-react";
-import { PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
+import { AppInfo, PageHeader, StatCard, Card, Badge, IconChip } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { useLiveData } from "@/lib/useLiveData";
 import { fmtNum } from "@/lib/data";
@@ -157,7 +157,7 @@ export function SupplierFertilizer() {
       />
 
       {/* Stats overview */}
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-2.5">
         <StatCard
           icon={Package}
           label={t("supplierFert.totalReceived")}
@@ -173,7 +173,7 @@ export function SupplierFertilizer() {
           tone="sky"
         />
         {usedKg === 0 && (
-          <p className="col-span-2 sm:col-span-4 mt-1 text-[10px] text-slate-400 text-center leading-relaxed">
+          <p className="col-span-2 mt-0.5 flex items-start justify-center gap-1.5 text-center text-[11px] leading-relaxed text-slate-500">
             💡 {t("supplierFert.noLogs")}<br />
             {t("supplierFert.logHint")}
           </p>
@@ -237,20 +237,18 @@ export function SupplierFertilizer() {
         )}
       </Card>
 
-      {/* Note about how this works */}
-      <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs text-sky-700">
-        <p className="font-semibold">{t("supplierFert.howTitle")}</p>
-        <ul className="mt-1.5 space-y-1 list-disc list-inside">
-          <li>{t("supplierFert.how1")}</li>
-          <li>{t("supplierFert.how2")}</li>
-          <li>{t("supplierFert.how3")}</li>
-          <li>{t("supplierFert.how4")}</li>
-          <li>{t("supplierFert.how5")}</li>
-        </ul>
-        <p className="mt-2 text-[10px] text-sky-600">
-          {t("supplierFert.syncNote")}
-        </p>
-      </div>
+      {/* Explanation — collapsible, readable measure */}
+      <AppInfo
+        title={t("supplierFert.howTitle")}
+        steps={[
+          t("supplierFert.how1"),
+          t("supplierFert.how2"),
+          t("supplierFert.how3"),
+          t("supplierFert.how4"),
+          t("supplierFert.how5"),
+        ]}
+        note={t("supplierFert.syncNote")}
+      />
     </div>
   );
 }

@@ -392,7 +392,7 @@ export function SupplierInsights() {
       {activeTab === "insights" && (
       <>
       {/* Aggregate stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5">
         <StatCard icon={Users} label="Suppliers with Plots" value={String(totalSuppliers)} sub="entered plot data" tone="sky" />
         <StatCard icon={Sprout} label="Total Acreage" value={fmtNum(totalAcreage)} sub="acres (all suppliers)" tone="emerald" />
         <StatCard icon={Trees} label="Total Bush Count" value={fmtNum(totalBushCount)} sub="bushes" tone="amber" />

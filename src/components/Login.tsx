@@ -153,12 +153,12 @@ export function Login() {
     setShowPw(false);
   };
 
-  const fieldClass = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10 disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-teal-400";
-  const labelClass = "mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300";
+  const fieldClass = "h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:bg-white focus:ring-4 focus:ring-teal-600/10 disabled:bg-slate-100";
+  const labelClass = "mb-1.5 block text-xs font-semibold text-slate-600";
   const ctaClass = "inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60";
 
   const renderError = () => error ? (
-    <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200" role="alert">
+    <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-700" role="alert">
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
       <span>{error}</span>
     </div>
@@ -201,7 +201,7 @@ export function Login() {
             <button
               type="button"
               onClick={() => setShowPw((visible) => !visible)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-200"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:text-slate-600"
               tabIndex={active ? 0 : -1}
               aria-label={showPw ? "Hide password" : "Show password"}
             >
@@ -247,8 +247,8 @@ export function Login() {
       </div>
       <div><label className={labelClass}>{t("common.phone")}</label><input value={registration.phone} onChange={event => setRegistration({ ...registration, phone: event.target.value })} placeholder="+94 77 000 0000" className={fieldClass} disabled={busy} /></div>
 
-      {registrationDone && <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.registrationSuccess")}</span></div>}
-      {registrationWarning && <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{registrationWarning}</span></div>}
+      {registrationDone && <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-700"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.registrationSuccess")}</span></div>}
+      {registrationWarning && <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{registrationWarning}</span></div>}
       {renderError()}
 
       <button type="submit" disabled={busy} className={ctaClass} style={{ background: accent }}>
@@ -259,145 +259,86 @@ export function Login() {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-[#f4f6f3] lg:grid lg:grid-cols-[1.02fr_0.98fr] dark:bg-slate-950">
-      {/* ---------------- Brand panel (desktop) ---------------- */}
-      <aside className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
-        {hasBg ? (
-          isVideoUrl(branding.loginBackgroundUrl) ? (
-            <video src={branding.loginBackgroundUrl} autoPlay loop muted playsInline preload="auto" className="absolute inset-0 h-full w-full object-cover" onCanPlay={(e) => { (e.target as HTMLVideoElement).play().catch(() => {}); }} />
-          ) : (
-            <img src={branding.loginBackgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          )
-        ) : (
-          <img src="/tea-estate-glass-login.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#032a21]/96 via-[#04372b]/88 to-[#021b15]/97" />
-        <div className="absolute inset-0 opacity-[0.14]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1'%3E%3Cpath d='M-40 120C80 60 180 180 300 122S480 62 600 148'/%3E%3Cpath d='M-40 220C80 160 190 280 305 222S490 162 600 248'/%3E%3Cpath d='M-40 320C80 260 180 380 300 322S480 262 600 348'/%3E%3Cpath d='M-40 420C80 360 190 480 305 422S490 362 600 448'/%3E%3C/g%3E%3C/svg%3E\")" }} />
+    <div className="login-stage relative min-h-[100dvh] overflow-hidden bg-[#04231a] px-4 py-8 sm:px-6">
+      {/* Ambient layer: mesh gradient, slow orbs and a fine grain — pure CSS. */}
+      <div className="login-mesh" aria-hidden="true" />
+      <div className="login-orb login-orb--one" aria-hidden="true" />
+      <div className="login-orb login-orb--two" aria-hidden="true" />
+      <div className="login-grain" aria-hidden="true" />
 
-        <div className="relative flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
+      <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+        {!embeddedAndroidApp && <LanguageSwitcher dark />}
+        <ThemeToggle darkSurface />
+      </div>
+
+      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-[26.5rem] flex-col justify-center">
+        {/* Brand lockup on the emerald canvas */}
+        <div className="login-rise mb-6 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/10 ring-1 ring-white/25 backdrop-blur-sm">
             {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
               <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             ) : (
-              <Leaf className="h-6 w-6 text-emerald-200" />
+              <Leaf className="h-7 w-7 text-emerald-200" />
             )}
           </span>
-          <div>
-            <p className="text-sm font-bold tracking-tight text-white">{branding.loginTitle || t("common.appName")}</p>
-            <p className="text-[11px] font-medium text-emerald-200/80">KDU Estate Management</p>
-          </div>
-        </div>
-
-        <div className="relative max-w-md">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-300/90">Tea estate operations</p>
-          <h2 className="mt-3 font-display text-[2.15rem] font-bold leading-[1.15] tracking-tight text-white xl:text-[2.5rem]">
-            Every leaf accounted for, from estate to ledger.
-          </h2>
-          <p className="mt-4 max-w-sm text-sm leading-relaxed text-emerald-50/70">
+          <h1 className="mt-3 font-display text-xl font-bold tracking-tight text-white sm:text-[22px]">
+            {branding.loginTitle || t("common.appName")}
+          </h1>
+          <p className="mx-auto mt-1.5 max-w-[19rem] text-[12.5px] leading-relaxed text-emerald-100/60">
             {branding.loginSubtitle || t("auth.platformSubtitle")}
           </p>
-          <ul className="mt-8 space-y-3">
-            {[
-              "Secure Firebase sign-in with role-based access",
-              "Official factory records and estate GPS in one place",
-              "English · සිංහල · தமிழ்",
-            ].map((line) => (
-              <li key={line} className="flex items-center gap-2.5 text-[13px] font-medium text-emerald-50/85">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 ring-1 ring-emerald-300/30">
-                  <ShieldCheck className="h-3 w-3 text-emerald-300" />
-                </span>
-                {line}
-              </li>
-            ))}
-          </ul>
         </div>
 
-        <div className="relative flex items-center justify-between gap-4 border-t border-white/10 pt-5">
-          <p className="text-[11px] text-emerald-100/50">© {new Date().getFullYear()} KDU Tea Estate Management</p>
-          <div className="flex items-center gap-2">
-            {!embeddedAndroidApp && <LanguageSwitcher dark />}
-            <ThemeToggle darkSurface />
-          </div>
-        </div>
-      </aside>
-
-      {/* ---------------- Form panel ---------------- */}
-      <main className="relative flex min-h-[100dvh] flex-col justify-center px-4 py-12 sm:px-8 lg:px-10">
-        <div className="absolute right-4 top-4 flex items-center gap-2 lg:hidden">
-          {!embeddedAndroidApp && <LanguageSwitcher />}
-          <ThemeToggle />
-        </div>
-
-        <div className="mx-auto w-full max-w-[26.5rem]">
-          {/* Mobile brand */}
-          <div className="mb-7 flex flex-col items-center text-center lg:hidden">
-            <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5" style={{ background: accent }}>
-              {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
-                <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-              ) : (
-                <Leaf className="h-7 w-7 text-white" />
-              )}
-            </span>
-            <h1 className="mt-3 font-display text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {branding.loginTitle || t("common.appName")}
-            </h1>
-            <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              {branding.loginSubtitle || t("auth.platformSubtitle")}
-            </p>
+        {/* Form card */}
+        <div className="login-rise login-card auth-book rounded-2xl bg-white p-1.5 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.65)]" style={{ animationDelay: "80ms" }}>
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label={t("auth.choosePortal")}>
+            <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "supplier" ? "bg-white text-teal-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
+              <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
+            </button>
+            <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "staff" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
+              <UsersRound className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span>
+            </button>
           </div>
 
-          <div className="auth-book rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-[0_24px_60px_-32px_rgba(6,46,36,0.45)] dark:border-slate-800 dark:bg-slate-900">
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800" role="tablist" aria-label={t("auth.choosePortal")}>
-              <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "supplier" ? "bg-white text-teal-800 shadow-sm dark:bg-slate-950 dark:text-teal-300" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"}`}>
-                <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
+          <div className={`auth-book__pages ${portal === "staff" ? "is-flipped" : ""}`}>
+            <section className="auth-book__page auth-book__page--front p-4 sm:p-5" aria-hidden={portal !== "supplier"}>
+              <div className="mb-4 flex items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Sprout className="h-[18px] w-[18px]" /></span>
+                <div className="min-w-0">
+                  <h2 className="font-display text-[17px] font-bold leading-tight tracking-tight text-slate-900">{registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}</h2>
+                  <p className="text-[11.5px] leading-snug text-slate-500">{registering ? t("auth.supplierRegistrationHint") : t("auth.supplierPortalHint")}</p>
+                </div>
+              </div>
+
+              {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
+
+              <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-semibold text-teal-800 transition hover:bg-teal-50">
+                {registering ? <BookOpen className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
               </button>
-              <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "staff" ? "bg-white text-indigo-700 shadow-sm dark:bg-slate-950 dark:text-indigo-300" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"}`}>
-                <UsersRound className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span>
-              </button>
-            </div>
+            </section>
 
-            <div className={`auth-book__pages ${portal === "staff" ? "is-flipped" : ""}`}>
-              <section className="auth-book__page auth-book__page--front rounded-xl p-5 sm:p-6" aria-hidden={portal !== "supplier"}>
-                <div className="mb-5 flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300"><Sprout className="h-5 w-5" /></span>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-teal-700 dark:text-teal-400">{t("auth.supplierPortal")}</p>
-                    <h2 className="font-display text-lg font-bold tracking-tight text-slate-900 dark:text-white">{registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}</h2>
-                    <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{registering ? t("auth.supplierRegistrationHint") : t("auth.supplierPortalHint")}</p>
-                  </div>
+            <section className="auth-book__page auth-book__page--back p-4 sm:p-5" aria-hidden={portal !== "staff"}>
+              <div className="mb-4 flex items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><ShieldCheck className="h-[18px] w-[18px]" /></span>
+                <div className="min-w-0">
+                  <h2 className="font-display text-[17px] font-bold leading-tight tracking-tight text-slate-900">{t("auth.signInToAccount")}</h2>
+                  <p className="text-[11.5px] leading-snug text-slate-500">{t("auth.staffPortalHint")}</p>
                 </div>
+              </div>
 
-                {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
+              {renderSignInForm("staff", portal === "staff")}
 
-                <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-teal-700 transition hover:bg-teal-50 dark:text-teal-300 dark:hover:bg-teal-950/40">
-                  {registering ? <BookOpen className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
-                </button>
-              </section>
-
-              <section className="auth-book__page auth-book__page--back rounded-xl p-5 sm:p-6" aria-hidden={portal !== "staff"}>
-                <div className="mb-5 flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"><ShieldCheck className="h-5 w-5" /></span>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400">{t("auth.staffPortal")}</p>
-                    <h2 className="font-display text-lg font-bold tracking-tight text-slate-900 dark:text-white">{t("auth.signInToAccount")}</h2>
-                    <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{t("auth.staffPortalHint")}</p>
-                  </div>
-                </div>
-
-                {renderSignInForm("staff", portal === "staff")}
-
-                <div className="mt-4 flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-[11px] leading-relaxed text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200">
-                  <UsersRound className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.staffRolesHint")}</span>
-                </div>
-              </section>
-            </div>
+              <div className="mt-4 flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-[11.5px] leading-relaxed text-indigo-800">
+                <UsersRound className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.staffRolesHint")}</span>
+              </div>
+            </section>
           </div>
-
-          <p className="mt-5 text-center text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-            Protected by Firebase Authentication · Access follows your approved role
-          </p>
         </div>
-      </main>
+
+        <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-[11px] text-emerald-100/45">
+          <ShieldCheck className="h-3.5 w-3.5" /> Firebase protected · Access follows your approved role
+        </p>
+      </div>
     </div>
   );
 }

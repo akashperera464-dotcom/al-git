@@ -50,7 +50,7 @@ Firebase authentication සඳහා පමණක් භාවිත වේ. Bus
 
 ## Login සහ user access වැඩ කරන ආකාරය
 
-Login screen එක **split-screen** layout එකකි: desktop වලදී වම් පැත්තේ tea-estate photograph එකක් සහිත deep-emerald brand panel එකක් (brand lockup, tagline සහ security highlights) ද, දකුණු පැත්තේ crisp light **form panel** එකක් ද පෙන්වයි. Mobile වලදී brand mark එක කුඩාවට ඉහළින් පෙන්වා පසුව white card එක පමණක් පෙන්වයි. Supplier/Staff portal දෙක book-page flip එකකින් මාරු වේ; inputs, labels සහ buttons සියල්ලම solid light surfaces මත පවතින අතර විනිවිද පෙනෙන glass/blur effects text එකට පිටුපසින් භාවිත නොකරයි. Typography සඳහා **Noto Sans + Noto Sans Sinhala + Noto Sans Tamil** පවුල භාවිත වන අතර සිංහල/දෙමළ අකුරුවලට letter-spacing යෙදෙන්නේ නැත — එමගින් ත්‍රිභාෂා text එකම metrics වලින් පැහැදිලිව කියවිය හැක.
+Login screen එක deep-emerald **mesh gradient** canvas එකක් මත centered white card එකක් ලෙස නිර්මාණය කර ඇත. Canvas එකේ slow drifting light orbs දෙකක් සහ fine grain layer එකක් ඇති අතර සියලු motion `prefers-reduced-motion` වලදී නවතී. Card එකේ Supplier/Staff book-page tabs, crisp input fields (සුදු/light surface), primary button එක සහ brand mark එක පවතී. Text කිසිවක් පිටුපසින් blur හෝ photographic texture භාවිත නොකරන නිසා අකුරු සියලු device වල sharp වේ. Typography සඳහා **Noto Sans + Noto Sans Sinhala + Noto Sans Tamil** පවුල භාවිත වන අතර සිංහල/දෙමළ අකුරුවලට letter-spacing යෙදෙන්නේ නැත.
 
 - **Supplier Login** `supplier` role account සඳහා පමණි. වෙනත් approved role credentials මෙහි භාවිත කළොත් Firebase session එක වහාම close කර Staff Login භාවිත කිරීමට message එකක් පෙන්වයි.
 - **Staff Login** approved non-supplier accounts සඳහා පමණි. Supplier credentials මෙහි භාවිත කළොත් session එක close කර Supplier Login භාවිත කිරීමට message එකක් පෙන්වයි.
@@ -232,7 +232,7 @@ Admin branding save කිරීමෙන් web/PWA interface logo සහ names
 | **My Profile** | Profile data සහ change requests පාලනය කරයි. | Users profile සහ approval workflow. |
 | **Help & Support / Disputes** | Support හෝ weight dispute request යවයි. | Workflow request → Admin pending inbox → resolution. |
 
-Supplier interface එකේ shell එක calm, high-contrast ලෙස නිර්මාණය කර ඇත: solid deep-emerald header එකක්, neutral light canvas එකක් (`#f2f5f2`), සුදු solid card surfaces (1px border + soft shadow), සහ පහළින් floating white dock navigation එකක් — active item එක emerald pill එකකි. Text කිසිවක් පිටුපසින් backdrop-blur හෝ photographic texture භාවිත නොකරන අතර supplier content තුළ mono/display font override කර නොමැත (එකම Noto Sans පවුල). Admin navigation සහ admin content surfaces මෙම වෙනසින් ස්පර්ශ නොවේ.
+Supplier interface එකේ shell එක calm, high-contrast ලෙස නිර්මාණය කර ඇත: solid deep-emerald header එකක්, neutral light canvas එකක්, සුදු card surfaces සහ පහළින් floating white dock navigation එකක් — active item එක emerald pill එකකි. Supplier shell එක desktop එකේදී පවා ~430px පමණ පළලක් වන නිසා එහි සියලුම grids **columns 2කට** සීමා වේ (viewport `sm:` breakpoints භාවිත නොකරයි). Stat cards compact ලෙස නිර්මාණය කර ඇති අතර labels uppercase tracking නොමැතිව සාමාන්‍ය case එකෙන් wrap වේ; දිගු උපදෙස් `AppInfo` collapsible panel එකක් තුළ readable measure එකකින් පෙන්වයි. Text කිසිවක් පිටුපසින් backdrop-blur හෝ photographic texture භාවිත නොකරන අතර supplier content තුළ mono/display font override නොමැත. Admin navigation සහ admin content surfaces මෙම වෙනසින් ස්පර්ශ නොවේ.
 
 Supplier screen එකේ **Factory office system** සහ **EMS records** වැනි source labels භාවිත කරන්නේ පෙන්වන අගය පැමිණියේ කොහෙන්ද කියා පැහැදිලි කිරීමටයි.
 
