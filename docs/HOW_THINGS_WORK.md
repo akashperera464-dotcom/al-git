@@ -50,7 +50,7 @@ Firebase authentication සඳහා පමණක් භාවිත වේ. Bus
 
 ## Login සහ user access වැඩ කරන ආකාරය
 
-Login screen එක mobile-responsive **book page** එකක් ලෙස Supplier Login සහ Staff Login යන පැති දෙක පෙන්වයි. Branding logo/title එක background image හෝ video එක වසා නොදමන transparent header එකක පෙන්වන අතර login book එකට පමණක් liquid-glass surface එක භාවිත වේ. මේ වෙන් කිරීම UI guidance එකක් පමණි; authentication systems දෙකක් නොවේ.
+Login screen එක immersive **estate-night** canvas එකක් මත mobile-responsive **book page** එකක් ලෙස Supplier Login සහ Staff Login යන පැති දෙක පෙන්වයි. Generated scene එක topographic contour pattern එකක්, සෙමින් drift වන canopy light layers දෙකක් සහ vignette එකකින් සමන්විත වේ; Sora (display), Hanken Grotesk (body) සහ JetBrains Mono (data/eyebrow) යන type pairing එක භාවිත වේ. Auth canvas එක app theme එකෙන් තොරව සෑම විටම dark immersive ලෙස පවතී — Super Admin branding background image/video එකක් set කළ විට එය scene එක මත scrim එකක් සමඟ render වේ. Portal switcher එක segmented control එකක් ලෙස animated active pip එකක් සමඟ ක්‍රියා කරයි; fields focus glow එකක් ද, CTA buttons sheen/lift micro-interactions ද පෙන්වයි. Reduced-motion devices වල සියලු ambient animations අක්‍රීය වේ. මේ පැති වෙන් කිරීම UI guidance එකක් පමණි; authentication systems දෙකක් නොවේ.
 
 - **Supplier Login** `supplier` role account සඳහා පමණි. වෙනත් approved role credentials මෙහි භාවිත කළොත් Firebase session එක වහාම close කර Staff Login භාවිත කිරීමට message එකක් පෙන්වයි.
 - **Staff Login** approved non-supplier accounts සඳහා පමණි. Supplier credentials මෙහි භාවිත කළොත් session එක close කර Supplier Login භාවිත කිරීමට message එකක් පෙන්වයි.

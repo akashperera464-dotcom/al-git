@@ -152,17 +152,13 @@ export function Login() {
     setShowPw(false);
   };
 
-  // When a background image is set, text + card switch to a light-on-dark scheme
-  // for guaranteed readability over the scrimmed background.
-  const textColor = hasBg ? "text-white" : "text-slate-900 dark:text-white";
-  const subTextColor = hasBg ? "text-white/85" : "text-slate-500 dark:text-slate-300";
-  const labelClass = hasBg ? "text-white/75" : "text-slate-500 dark:text-slate-300";
-  const inputClass = hasBg
-    ? "border-white/25 bg-white/10 text-white placeholder:text-white/45 focus:border-white/50 focus:ring-white/20"
-    : "border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-emerald-400 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-emerald-500 dark:focus:ring-emerald-950";
+  // Round 72: the authentication scene is always immersive estate-night dark;
+  // admin branding media renders over the generated scene with its scrim kept.
+  const subTextColor = "text-emerald-100/55";
+  const labelClass = "mb-1.5 block lx-eyebrow";
 
   const renderError = () => error ? (
-    <div className={`flex items-start gap-2 rounded-xl border p-3 text-xs backdrop-blur ${hasBg ? "border-rose-300/60 bg-rose-500/20 text-rose-50" : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-200"}`} role="alert">
+    <div className="lx-note lx-note--err" role="alert">
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
       <span>{error}</span>
     </div>
@@ -170,20 +166,19 @@ export function Login() {
 
   const renderSignInForm = (kind: "supplier" | "staff", active: boolean) => {
     const staff = kind === "staff";
-    const pageAccent = staff ? "#4f46e5" : accent;
     return (
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("auth.emailUsername")}</label>
-          <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <label className={labelClass}>{t("auth.emailUsername")}</label>
+          <div className="lx-field">
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 lx-icon" />
             <input
               type="email"
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@kdu.com"
-              className={`w-full rounded-xl border py-3 pl-10 pr-3 text-sm outline-none transition focus:ring-2 ${inputClass}`}
+              className="w-full bg-transparent py-3 pl-10 pr-3 text-sm text-white placeholder:text-white/30 outline-none"
               disabled={busy}
               tabIndex={active ? 0 : -1}
             />
@@ -191,23 +186,23 @@ export function Login() {
         </div>
 
         <div>
-          <label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("common.password")}</label>
-          <div className="relative">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <label className={labelClass}>{t("common.password")}</label>
+          <div className="lx-field">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 lx-icon" />
             <input
               type={showPw ? "text" : "password"}
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="••••••••"
-              className={`w-full rounded-xl border py-3 pl-10 pr-10 text-sm outline-none transition focus:ring-2 ${inputClass}`}
+              className="w-full bg-transparent py-3 pl-10 pr-10 text-sm text-white placeholder:text-white/30 outline-none"
               disabled={busy}
               tabIndex={active ? 0 : -1}
             />
             <button
               type="button"
               onClick={() => setShowPw((visible) => !visible)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-200"
+              className="absolute right-3 top-1/2 -translate-y-1/2 lx-icon transition hover:text-emerald-300"
               tabIndex={active ? 0 : -1}
               aria-label={showPw ? "Hide password" : "Show password"}
             >
@@ -222,8 +217,7 @@ export function Login() {
           type="submit"
           disabled={busy}
           tabIndex={active ? 0 : -1}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-lg transition enabled:hover:-translate-y-0.5 enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-          style={{ background: pageAccent, boxShadow: `0 10px 30px -8px ${pageAccent}80` }}
+          className={`lx-cta ${staff ? "lx-cta--staff" : ""}`}
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
           {busy ? t("auth.signingIn") : staff ? t("auth.staffSignIn") : t("auth.supplierSignIn")}
@@ -236,28 +230,28 @@ export function Login() {
   const renderRegistrationForm = () => (
     <form onSubmit={submitRegistration} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("auth.supplierNo")}</label><input value={registration.supplierNo} onChange={event => setRegistration({ ...registration, supplierNo: event.target.value })} placeholder="e.g., 237" className={`w-full rounded-xl border px-3 py-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /></div>
-        <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("common.name")}</label><input value={registration.name} onChange={event => setRegistration({ ...registration, name: event.target.value })} className={`w-full rounded-xl border px-3 py-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /></div>
+        <div><label className={labelClass}>{t("auth.supplierNo")}</label><input value={registration.supplierNo} onChange={event => setRegistration({ ...registration, supplierNo: event.target.value })} placeholder="e.g., 237" className="lx-input-plain" disabled={busy} /></div>
+        <div><label className={labelClass}>{t("common.name")}</label><input value={registration.name} onChange={event => setRegistration({ ...registration, name: event.target.value })} className="lx-input-plain" disabled={busy} /></div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("auth.factory")}</label><select value={registration.factoryId} onChange={event => setRegistration({ ...registration, factoryId: event.target.value, routeIds: [] })} className={`w-full rounded-xl border px-3 py-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy}><option value="">{t("auth.selectFactory")}</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
-        <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("auth.routes")}</label><RouteMultiSelect routes={routes} selected={registration.routeIds} onChange={(routeIds) => setRegistration({ ...registration, routeIds })} disabled={!registration.factoryId || busy} emptyText={t("auth.selectFactoryFirst")} /></div>
+        <div><label className={labelClass}>{t("auth.factory")}</label><select value={registration.factoryId} onChange={event => setRegistration({ ...registration, factoryId: event.target.value, routeIds: [] })} className="lx-input-plain" disabled={busy}><option value="">{t("auth.selectFactory")}</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+        <div><label className={labelClass}>{t("auth.routes")}</label><RouteMultiSelect routes={routes} selected={registration.routeIds} onChange={(routeIds) => setRegistration({ ...registration, routeIds })} disabled={!registration.factoryId || busy} emptyText={t("auth.selectFactoryFirst")} /></div>
       </div>
       <div>
-        <label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("auth.emailUsername")}</label>
-        <div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="email" autoComplete="email" value={registration.email} onChange={event => setRegistration({ ...registration, email: event.target.value })} placeholder="you@kdu.com" className={`w-full rounded-xl border py-3 pl-10 pr-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /></div>
+        <label className={labelClass}>{t("auth.emailUsername")}</label>
+        <div className="lx-field"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 lx-icon" /><input type="email" autoComplete="email" value={registration.email} onChange={event => setRegistration({ ...registration, email: event.target.value })} placeholder="you@kdu.com" className="w-full bg-transparent py-3 pl-10 pr-3 text-sm text-white placeholder:text-white/30 outline-none" disabled={busy} /></div>
       </div>
       <div>
-        <label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("common.password")}</label>
-        <div className="relative"><Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type={showPw ? "text" : "password"} autoComplete="new-password" value={registration.password} onChange={event => setRegistration({ ...registration, password: event.target.value })} placeholder="••••••••" className={`w-full rounded-xl border py-3 pl-10 pr-10 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /><button type="button" onClick={() => setShowPw((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" aria-label={showPw ? "Hide password" : "Show password"}>{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
+        <label className={labelClass}>{t("common.password")}</label>
+        <div className="lx-field"><Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 lx-icon" /><input type={showPw ? "text" : "password"} autoComplete="new-password" value={registration.password} onChange={event => setRegistration({ ...registration, password: event.target.value })} placeholder="••••••••" className="w-full bg-transparent py-3 pl-10 pr-10 text-sm text-white placeholder:text-white/30 outline-none" disabled={busy} /><button type="button" onClick={() => setShowPw((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 lx-icon transition hover:text-emerald-300" aria-label={showPw ? "Hide password" : "Show password"}>{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
       </div>
-      <div><label className={`mb-1.5 block text-xs font-semibold ${labelClass}`}>{t("common.phone")}</label><input value={registration.phone} onChange={event => setRegistration({ ...registration, phone: event.target.value })} placeholder="+94 77 000 0000" className={`w-full rounded-xl border px-3 py-3 text-sm outline-none transition focus:ring-2 ${inputClass}`} disabled={busy} /></div>
+      <div><label className={labelClass}>{t("common.phone")}</label><input value={registration.phone} onChange={event => setRegistration({ ...registration, phone: event.target.value })} placeholder="+94 77 000 0000" className="lx-input-plain" disabled={busy} /></div>
 
-      {registrationDone && <div className={`rounded-xl border p-3 text-xs ${hasBg ? "border-emerald-300/60 bg-emerald-500/20 text-emerald-50" : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200"}`}>{t("auth.registrationSuccess")}</div>}
-      {registrationWarning && <div className={`rounded-xl border p-3 text-xs ${hasBg ? "border-amber-300/60 bg-amber-500/20 text-amber-50" : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/60 dark:text-amber-200"}`}>{registrationWarning}</div>}
+      {registrationDone && <div className="lx-note lx-note--ok"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.registrationSuccess")}</span></div>}
+      {registrationWarning && <div className="lx-note lx-note--warn"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{registrationWarning}</span></div>}
       {renderError()}
 
-      <button type="submit" disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-lg transition enabled:hover:-translate-y-0.5 enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60" style={{ background: accent, boxShadow: `0 10px 30px -8px ${accent}80` }}>
+      <button type="submit" disabled={busy} className="lx-cta">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
         {busy ? t("auth.registering") : t("auth.submitRegistration")}
       </button>
@@ -265,7 +259,15 @@ export function Login() {
   );
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col items-center justify-start overflow-x-hidden px-4 pb-8 pt-24 sm:min-h-screen sm:justify-center sm:p-5">
+    <div className="relative flex min-h-[100dvh] flex-col items-center justify-start overflow-x-hidden px-4 pb-8 pt-20 sm:min-h-screen sm:justify-center sm:p-5" style={{ "--brand-accent": accent, colorScheme: "dark" } as React.CSSProperties}>
+      {/* ---- Immersive estate-night scene (round 72) ---- */}
+      {!hasBg && (
+        <>
+          <div className="lx-scene" aria-hidden="true" />
+          <div className="lx-glow lx-glow--leaf" aria-hidden="true" />
+          <div className="lx-glow lx-glow--sun" aria-hidden="true" />
+        </>
+      )}
       {/* ---- Background layer ---- */}
       {hasBg ? (
         <>
@@ -308,16 +310,16 @@ export function Login() {
       {/* Keep the selector in the viewport's top-right corner on every screen size.
           safe-top-absolute moves it below a mobile display notch when necessary. */}
       <div className="safe-top-absolute absolute right-4 top-4 z-20 flex items-center gap-2">
-        {!embeddedAndroidApp && <LanguageSwitcher dark={hasBg} />}
-        <ThemeToggle darkSurface={hasBg} />
+        {!embeddedAndroidApp && <LanguageSwitcher dark />}
+        <ThemeToggle darkSurface />
       </div>
 
-      <div className="relative z-10 w-full max-w-xl animate-fade-up">
+      <div className="relative z-10 w-full max-w-xl">
         {/* brand */}
-        <div className="mx-auto mb-5 flex max-w-sm flex-col items-center px-6 py-2 text-center sm:mb-6">
+        <div className="lx-rise mx-auto mb-6 flex max-w-md flex-col items-center px-6 text-center">
           <div
-            className="relative mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-2xl sm:mb-4 sm:h-20 sm:w-20 sm:rounded-3xl"
-            style={{ background: hasBg ? "rgba(255,255,255,0.15)" : accent, backdropFilter: hasBg ? "blur(8px)" : undefined }}
+            className="lx-logo relative mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-2xl shadow-emerald-950/60 sm:mb-5 sm:h-[4.5rem] sm:w-[4.5rem]"
+            style={{ background: "linear-gradient(150deg, #0d8a66, #054534)" }}
           >
             {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
               <img
@@ -330,54 +332,58 @@ export function Login() {
                 }}
               />
             ) : (
-              <Leaf className="h-8 w-8 text-white sm:h-10 sm:w-10" />
+              <Leaf className="h-8 w-8 text-emerald-100 sm:h-9 sm:w-9" />
             )}
-            <span className="absolute -right-1.5 -top-1.5 h-4 w-4 rounded-full bg-amber-400 ring-2 ring-white" />
+            <span className="lx-logo__seed absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full bg-amber-400 ring-2 ring-[#06251c]" />
           </div>
-          <h1 className={`font-display text-2xl font-extrabold tracking-tight drop-shadow-md sm:text-3xl ${textColor}`}>
+          <p className="lx-eyebrow mb-2.5">KDU · EMS</p>
+          <h1 className="lx-title font-display text-[1.7rem] font-extrabold leading-tight tracking-tight text-white sm:text-4xl">
             {branding.loginTitle || t("common.appName")}
           </h1>
-          <p className={`mt-1 text-sm drop-shadow ${subTextColor}`}>
+          <p className={`mt-2 max-w-xs text-sm leading-relaxed ${subTextColor}`}>
             {branding.loginSubtitle || t("auth.platformSubtitle")}
           </p>
         </div>
 
-        <div className={`auth-book rounded-[2rem] border p-2 shadow-2xl backdrop-blur-2xl sm:p-3 ${hasBg ? "border-white/25 bg-black/15" : "border-white/90 bg-white/60 shadow-emerald-950/10 dark:border-slate-700 dark:bg-slate-950/60"}`}>
-          <div className={`mb-2 grid grid-cols-2 gap-1 rounded-[1.35rem] border p-1 ${hasBg ? "border-white/10 bg-black/25" : "border-white/80 bg-slate-100/80 dark:border-slate-800 dark:bg-slate-900"}`} role="tablist" aria-label={t("auth.choosePortal")}>
-            <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition sm:text-sm ${portal === "supplier" ? "bg-white text-emerald-700 shadow-md dark:bg-slate-800 dark:text-emerald-300" : hasBg ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"}`}>
-              <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
+        <div className={`auth-book lx-card lx-rise rounded-[2rem] p-2 backdrop-blur-2xl sm:p-3 ${hasBg ? "bg-black/30" : ""}`} style={{ animationDelay: "120ms" }}>
+          <div className="lx-switcher mb-2 grid grid-cols-2 gap-1 rounded-[1.35rem] p-1" role="tablist" aria-label={t("auth.choosePortal")}>
+            <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`lx-tab lx-tab--supplier flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold sm:text-sm ${portal === "supplier" ? "is-on" : ""}`}>
+              <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span><span className="lx-pip" aria-hidden="true" />
             </button>
-            <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition sm:text-sm ${portal === "staff" ? "bg-white text-indigo-700 shadow-md dark:bg-slate-800 dark:text-indigo-300" : hasBg ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"}`}>
-              <UsersRound className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span>
+            <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`lx-tab lx-tab--staff flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold sm:text-sm ${portal === "staff" ? "is-on" : ""}`}>
+              <UsersRound className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span><span className="lx-pip" aria-hidden="true" />
             </button>
           </div>
 
           <div className={`auth-book__pages ${portal === "staff" ? "is-flipped" : ""}`}>
-            <section className={`auth-book__page auth-book__page--front rounded-[1.55rem] border p-5 shadow-xl sm:p-7 ${hasBg ? "border-white/25 bg-white/10 backdrop-blur-xl" : "border-emerald-100/80 bg-white/90 backdrop-blur-xl dark:border-emerald-950 dark:bg-slate-900/95"}`} aria-hidden={portal !== "supplier"}>
+            <section className="auth-book__page auth-book__page--front lx-face rounded-[1.55rem] border p-5 sm:p-7" aria-hidden={portal !== "supplier"}>
               <div className="mb-5 flex items-start gap-3">
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${hasBg ? "bg-white/15 text-white" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"}`}><Sprout className="h-5 w-5" /></span>
-                <div className="min-w-0"><p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${hasBg ? "text-emerald-200" : "text-emerald-600 dark:text-emerald-300"}`}>{t("auth.supplierPortal")}</p><h2 className={`font-display text-lg font-bold ${hasBg ? "text-white" : "text-slate-800 dark:text-slate-100"}`}>{registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}</h2><p className={`mt-1 text-xs leading-relaxed ${subTextColor}`}>{registering ? t("auth.supplierRegistrationHint") : t("auth.supplierPortalHint")}</p></div>
+                <span className="lx-chip flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Sprout className="h-5 w-5" /></span>
+                <div className="min-w-0"><p className="lx-eyebrow">{t("auth.supplierPortal")}</p><h2 className="font-display text-lg font-bold text-white">{registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}</h2><p className={`mt-1 text-xs leading-relaxed ${subTextColor}`}>{registering ? t("auth.supplierRegistrationHint") : t("auth.supplierPortalHint")}</p></div>
               </div>
 
               {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
 
-              <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${hasBg ? "text-white hover:bg-white/10" : "text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/50"}`}>
+              <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className="lx-cta lx-cta--ghost mt-4">
                 {registering ? <BookOpen className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
               </button>
             </section>
 
-            <section className={`auth-book__page auth-book__page--back rounded-[1.55rem] border p-5 shadow-xl sm:p-7 ${hasBg ? "border-white/25 bg-white/10 backdrop-blur-xl" : "border-indigo-100/80 bg-white/90 backdrop-blur-xl dark:border-indigo-950 dark:bg-slate-900/95"}`} aria-hidden={portal !== "staff"}>
+            <section className="auth-book__page auth-book__page--back lx-face lx-face--staff rounded-[1.55rem] border p-5 sm:p-7" aria-hidden={portal !== "staff"}>
               <div className="mb-5 flex items-start gap-3">
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${hasBg ? "bg-white/15 text-white" : "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"}`}><ShieldCheck className="h-5 w-5" /></span>
-                <div className="min-w-0"><p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${hasBg ? "text-indigo-200" : "text-indigo-600 dark:text-indigo-300"}`}>{t("auth.staffPortal")}</p><h2 className={`font-display text-lg font-bold ${hasBg ? "text-white" : "text-slate-800 dark:text-slate-100"}`}>{t("auth.signInToAccount")}</h2><p className={`mt-1 text-xs leading-relaxed ${subTextColor}`}>{t("auth.staffPortalHint")}</p></div>
+                <span className="lx-chip lx-chip--staff flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><ShieldCheck className="h-5 w-5" /></span>
+                <div className="min-w-0"><p className="lx-eyebrow !text-indigo-300">{t("auth.staffPortal")}</p><h2 className="font-display text-lg font-bold text-white">{t("auth.signInToAccount")}</h2><p className={`mt-1 text-xs leading-relaxed ${subTextColor}`}>{t("auth.staffPortalHint")}</p></div>
               </div>
 
               {renderSignInForm("staff", portal === "staff")}
 
-              <div className={`mt-4 flex items-start gap-2 rounded-xl border p-3 text-[11px] leading-relaxed ${hasBg ? "border-white/15 bg-black/15 text-white/75" : "border-indigo-100 bg-indigo-50/70 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-200"}`}><UsersRound className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.staffRolesHint")}</span></div>
+              <div className="mt-4 flex items-start gap-2 rounded-xl border border-indigo-300/25 bg-indigo-400/10 p-3 text-[11px] leading-relaxed text-indigo-100/80"><UsersRound className="mt-0.5 h-4 w-4 shrink-0 text-indigo-300" /><span>{t("auth.staffRolesHint")}</span></div>
             </section>
           </div>
 
+          <div className="lx-cardfoot" aria-hidden="true">
+            <span className="lx-trustline" /><span className="lx-trustdot" /><span className="lx-trustline" />
+          </div>
         </div>
       </div>
     </div>

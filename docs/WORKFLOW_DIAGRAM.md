@@ -4384,3 +4384,35 @@ Vitest covers `withTimeout`, a hanging rate-limit guard, a hanging duplicate
 check and a hanging `set_user_routes` RPC using fake timers.
 
 *Registration pipeline bounded waits added: 14 November 2026.*
+
+## 72. Premium Design System — Login & Supplier Shell
+
+Supplier-facing surfaces were rebuilt visually (UI only — no data flow,
+authentication, role, RLS, Office API or environment change):
+
+```text
+Typography     Sora (display) + Hanken Grotesk (body) + JetBrains Mono (data)
+Login canvas   immersive estate-night scene: topographic contour motif,
+               two drifting canopy-light glows, vignette; always dark and
+               motion-safe; admin branding media still renders over it
+Login card     deep glass book with animated segmented portal switcher,
+               focus-glow fields, sheen/lift CTAs, trust-dot footer strip
+Supplier shell ambient contour canvas (light + dark), telemetry header with
+               gold hairline, floating dock nav with popping active pill;
+               shared .card surfaces uplifted globally
+```
+
+Implementation map: `index.html` font link, `src/index.css` `.lx-*` /
+`.sp-*` design layers (+ `@theme` font swap, card shadow/radius uplift),
+`src/components/Login.tsx` JSX reskin (all handlers, `auth-book*` class
+hooks, `role=tablist/tab` ARIA and single `signInWithEmail` call retained),
+`src/components/Shell.tsx` supplier-only chrome (admin shell untouched).
+
+No i18n keys were added or removed — English/Sinhala/Tamil parity is
+unchanged. All new animation sits behind `prefers-reduced-motion`.
+
+A source-contract test (`designSystem.test.ts`) guards the type pairing,
+login scene hooks, book-page/reduced-motion anchors, and that the admin
+navigation surface was not modified.
+
+*Premium design system (login + supplier shell) added: 14 November 2026.*

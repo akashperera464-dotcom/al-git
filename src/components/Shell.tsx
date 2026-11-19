@@ -398,25 +398,25 @@ function BottomNav({ onMore }: { onMore: () => void }) {
   const visible = tabs.slice(0, 4);
   const hasMore = allTabs.length > visible.length;
   return (
-    <nav className={cn("safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around px-2 py-1.5", role === "supplier" ? "supplier-liquid-nav mx-2 mb-2 rounded-2xl" : "border-t border-slate-200 bg-white/95 backdrop-blur-xl")}>
+    <nav className={cn("safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around px-2 py-1.5", role === "supplier" ? "sp-dock mx-2 mb-3" : "border-t border-slate-200 bg-white/95 backdrop-blur-xl")}>
       {visible.map((tab) => {
         const Icon = tab.icon;
         const active = activeModule === tab.key;
         return (
-          <button key={tab.key} onClick={() => setActiveModule(tab.key)} className={cn("flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5 transition", active ? "text-emerald-700" : "text-slate-400")}>
-            <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition", active && (role === "supplier" ? "bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-md shadow-emerald-500/25" : "bg-emerald-100"))}>
+          <button key={tab.key} onClick={() => setActiveModule(tab.key)} className={cn(role === "supplier" ? "sp-dockitem" : "flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5 transition", role !== "supplier" && (active ? "text-emerald-700" : "text-slate-400"), role === "supplier" && active && "sp-dockitem--on")}>
+            <span className={cn(role === "supplier" ? "sp-dockpill" : "flex h-8 w-8 items-center justify-center rounded-xl transition", active && (role === "supplier" ? "text-white" : "bg-emerald-100"))}>
               <Icon className="h-[18px] w-[18px]" />
             </span>
-            <span className="w-full truncate px-1 text-center text-[10px] font-semibold">{moduleShort(t, tab.key)}</span>
+            <span className={cn("w-full truncate px-1 text-center", role === "supplier" ? "sp-docklabel" : "text-[10px] font-semibold")}>{moduleShort(t, tab.key)}</span>
           </button>
         );
       })}
       {hasMore && (
-        <button onClick={onMore} className="flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-slate-400 transition hover:text-slate-600">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg">
+        <button onClick={onMore} className={cn(role === "supplier" ? "sp-morebtn sp-dockitem" : "flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-slate-400 transition hover:text-slate-600")}>
+          <span className={cn(role === "supplier" ? "sp-dockpill" : "flex h-7 w-7 items-center justify-center rounded-lg")}>
             <Grid3x3 className="h-[18px] w-[18px]" />
           </span>
-          <span className="text-[10px] font-semibold">More</span>
+          <span className={cn("w-full truncate px-1 text-center", role === "supplier" ? "sp-docklabel" : "text-[10px] font-semibold")}>More</span>
         </button>
       )}
     </nav>
@@ -471,12 +471,12 @@ function MobileShell({ children }: { children: ReactNode }) {
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
   const supplierMode = role === "supplier";
   return (
-    <div className={cn("min-h-screen", supplierMode ? "bg-gradient-to-br from-emerald-50 via-sky-50 to-slate-100" : "app-aurora")}>
+    <div className={cn("min-h-screen", supplierMode ? "sp-shell relative" : "app-aurora")}>
       {isAuthenticated && role === "supplier" && <SupplierWeatherMonitor />}
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-slate-900 md:shadow-2xl">
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-[#0b211a] md:shadow-2xl">
         {/* Header — safe-top pushes brand/buttons below iPhone notch on mobile.
             On desktop the md:py-3 resets to normal padding inside the phone frame. */}
-        <header className={cn("safe-top md:!pt-3 relative z-20 flex items-center justify-between gap-2 px-4 py-3 text-white", supplierMode ? "border-b border-white/10 bg-gradient-to-r from-emerald-950/95 via-pine-900/95 to-teal-900/95 shadow-lg shadow-emerald-950/10 backdrop-blur-xl" : "bg-gradient-to-r from-pine-900 to-pine-800")}>
+        <header className={cn("safe-top md:!pt-3 relative z-20 flex items-center justify-between gap-2 px-4 py-3 text-white", supplierMode ? "sp-header border-b border-white/10 backdrop-blur-xl" : "bg-gradient-to-r from-pine-900 to-pine-800")}>
           <Brand />
           <div className="flex items-center gap-1.5">
             {!embeddedAndroidApp && <LanguageSwitcher dark prominent />}
@@ -486,7 +486,7 @@ function MobileShell({ children }: { children: ReactNode }) {
               <button
                 onClick={() => void signOut()}
                 title={t("common.logout")}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500 text-white shadow-lg shadow-rose-900/30 transition hover:bg-rose-400 active:scale-95"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/90 text-white shadow-lg shadow-rose-950/40 ring-1 ring-white/20 transition hover:bg-rose-400 active:scale-95"
               >
                 <LogOut className="h-[18px] w-[18px]" />
               </button>
@@ -502,7 +502,7 @@ function MobileShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         {/* Content */}
-        <main className={cn("flex-1 overflow-y-auto p-4 no-scrollbar", supplierMode ? "bg-gradient-to-b from-slate-50 via-white to-emerald-50/40" : "bg-slate-50")}>
+        <main className={cn("flex-1 overflow-y-auto p-4 no-scrollbar", supplierMode ? "sp-main relative z-10" : "bg-slate-50")}>
           {children}
           {/* Full-width logout button at the bottom — always visible & accessible */}
           {isAuthenticated && (
