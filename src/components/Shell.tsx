@@ -474,7 +474,7 @@ function MobileShell({ children }: { children: ReactNode }) {
   return (
     <div className={cn("min-h-screen", supplierMode ? "supplier-device-stage min-h-screen" : "app-aurora")}>
       {isAuthenticated && role === "supplier" && <SupplierWeatherMonitor />}
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-[#0b211a] md:shadow-2xl">
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-[#2b2b2b] md:shadow-2xl">
         {/* Header — iOS 26 style: clean white glass, dark text. Light + airy. */}
         <header className={cn("safe-top md:!pt-3 relative z-20 flex items-center justify-between gap-2 px-4 py-3 sp-header", supplierMode ? "text-slate-900" : "bg-gradient-to-r from-pine-900 to-pine-800 text-white")}>
           <Brand />

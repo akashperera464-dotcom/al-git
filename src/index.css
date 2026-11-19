@@ -1486,68 +1486,78 @@ body, .font-display, .font-sans { letter-spacing: normal; }
 .sp-shell::before, .sp-shell::after { display: none !important; content: none !important; }
 .dark .sp-shell { background: #070f0c !important; }
 
-/* ---- Supplier header: solid, crisp, readable ---------------------------- */
+/* ---- Supplier header: fresh agritech white glass ------------------------ */
 .sp-header {
-  background: #04372b !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 8px 20px -18px rgba(2, 26, 18, 0.9) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(244, 247, 232, 0.85) 60%, rgba(216, 228, 194, 0.75)) !important;
+  border-bottom: 1px solid rgba(108, 158, 75, 0.18) !important;
+  box-shadow: 0 8px 20px -18px rgba(62, 140, 72, 0.25) !important;
+  backdrop-filter: blur(24px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
 }
 .sp-header::after {
-  background: linear-gradient(90deg, transparent, rgba(45, 212, 191, 0.5), rgba(250, 204, 21, 0.28), transparent) !important;
+  background: linear-gradient(90deg, transparent, rgba(62, 140, 72, 0.4), rgba(168, 201, 127, 0.3), transparent) !important;
   height: 2px;
 }
 
-/* ---- Supplier content: solid white cards, no blur over text ------------- */
+/* ---- Supplier content: pure white cards, fresh green accents ------------- */
 .sp-main .card,
 .sp-main .weather-hero {
   background: #ffffff !important;
-  border: 1px solid #e3e8e4 !important;
-  border-radius: 1rem !important;
-  box-shadow: 0 1px 2px rgba(15, 32, 26, 0.04), 0 12px 28px -24px rgba(15, 32, 26, 0.45) !important;
+  border: 1px solid rgba(108, 158, 75, 0.15) !important;
+  border-radius: 1.25rem !important;
+  box-shadow: 0 1px 2px rgba(15, 32, 26, 0.04), 0 12px 28px -24px rgba(62, 140, 72, 0.2) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 .sp-main .card-hover:hover {
   transform: translateY(-2px) !important;
-  border-color: #cde3d8 !important;
-  box-shadow: 0 18px 36px -24px rgba(15, 32, 26, 0.5) !important;
+  border-color: rgba(62, 140, 72, 0.35) !important;
+  box-shadow: 0 18px 36px -24px rgba(62, 140, 72, 0.3) !important;
 }
 .dark .sp-main .card,
 .dark .sp-main .weather-hero {
-  background: #101a16 !important;
-  border-color: #24352d !important;
+  background: #1a2415 !important;
+  border-color: rgba(108, 158, 75, 0.2) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 32px -26px rgba(0, 0, 0, 0.9) !important;
 }
 .dark .sp-main .card-hover:hover { border-color: #35564a !important; }
-.sp-main .weather-hero { background: #04372b !important; border-color: #04372b !important; }
-.sp-main .weather-glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(255, 255, 255, 0.12) !important; }
+/* Weather hero: fresh agritech gradient (cream→soft green), NOT dark. */
+.sp-main .weather-hero {
+  background: linear-gradient(135deg, #3e8c48 0%, #6e9e4b 50%, #a8c97f 100%) !important;
+  border-color: rgba(62, 140, 72, 0.3) !important;
+  color: #ffffff !important;
+}
+.sp-main .weather-glass {
+  backdrop-filter: blur(12px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
 
-/* ---- Supplier dock: clean white bar with one emerald active pill -------- */
+/* ---- Supplier dock: clean white bar with one fresh-green active pill ----- */
 .sp-dock {
   background: #ffffff !important;
-  border: 1px solid #e3e8e4 !important;
+  border: 1px solid rgba(108, 158, 75, 0.15) !important;
   border-radius: 1.25rem !important;
-  box-shadow: 0 -1px 0 rgba(15, 32, 26, 0.04), 0 16px 32px -20px rgba(15, 32, 26, 0.5) !important;
+  box-shadow: 0 -1px 0 rgba(15, 32, 26, 0.04), 0 16px 32px -20px rgba(62, 140, 72, 0.3) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 .sp-dockitem { color: #64748b !important; gap: 0.15rem; letter-spacing: normal !important; }
-.sp-dockitem--on { color: #0f766e !important; }
+.sp-dockitem--on { color: #3e8c48 !important; }
 .sp-dockpill { color: inherit !important; border-radius: 0.75rem !important; }
 .sp-dockitem--on .sp-dockpill {
-  background: #0f766e !important;
+  background: linear-gradient(135deg, #3e8c48, #6e9e4b) !important;
   color: #ffffff !important;
-  box-shadow: 0 6px 14px -8px rgba(15, 118, 110, 0.8) !important;
+  box-shadow: 0 6px 14px -8px rgba(62, 140, 72, 0.7) !important;
   animation: none !important;
 }
 .sp-docklabel { font-size: 10px !important; font-weight: 600 !important; letter-spacing: normal !important; }
 .sp-morebtn { color: #64748b !important; }
-.dark .sp-dock { background: #101a16 !important; border-color: #24352d !important; }
+.dark .sp-dock { background: #1a2415 !important; border-color: rgba(108, 158, 75, 0.2) !important; }
 .dark .sp-dockitem { color: #94a3b8 !important; }
-.dark .sp-dockitem--on { color: #5eead4 !important; }
-.dark .sp-dockitem--on .sp-dockpill { background: #14b8a6 !important; color: #04231a !important; }
+.dark .sp-dockitem--on { color: #a8c97f !important; }
+.dark .sp-dockitem--on .sp-dockpill { background: linear-gradient(135deg, #3e8c48, #6e9e4b) !important; color: #ffffff !important; }
 
 /* ---- Shared card surface: crisp instead of heavily shadowed ------------- */
 .card {
@@ -1789,20 +1799,19 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   .login-cta:hover:not(:disabled) { transform: none; }
 }
 
-/* Desktop canvas around the supplier phone preview. Keep this calm and light
-   in both themes: dark mode belongs to the app inside the device, not to a
-   large empty black area around it. On phones the frame fills the viewport. */
+/* Desktop canvas around the supplier phone preview. Fresh agritech palette
+   from the uploaded CROP CARE reference: cream → soft green gradient. */
 .supplier-device-stage {
   background:
-    radial-gradient(54rem 32rem at 12% 8%, rgba(167, 243, 208, 0.58), transparent 62%),
-    radial-gradient(50rem 30rem at 90% 14%, rgba(186, 230, 253, 0.58), transparent 64%),
-    radial-gradient(42rem 28rem at 72% 100%, rgba(254, 240, 138, 0.2), transparent 66%),
-    linear-gradient(145deg, #f4fbf7 0%, #edf7f5 48%, #eff6fb 100%);
+    radial-gradient(54rem 32rem at 12% 8%, rgba(168, 201, 127, 0.45), transparent 62%),
+    radial-gradient(50rem 30rem at 90% 14%, rgba(110, 158, 75, 0.32), transparent 64%),
+    radial-gradient(42rem 28rem at 72% 100%, rgba(244, 247, 232, 0.6), transparent 66%),
+    linear-gradient(145deg, #f4f7e8 0%, #e8efd8 48%, #d8e4c2 100%);
 }
 .dark .supplier-device-stage {
   background:
-    radial-gradient(54rem 32rem at 12% 8%, rgba(167, 243, 208, 0.54), transparent 62%),
-    radial-gradient(50rem 30rem at 90% 14%, rgba(186, 230, 253, 0.52), transparent 64%),
-    radial-gradient(42rem 28rem at 72% 100%, rgba(254, 240, 138, 0.18), transparent 66%),
-    linear-gradient(145deg, #eef9f3 0%, #e8f4f1 48%, #edf5fa 100%);
+    radial-gradient(54rem 32rem at 12% 8%, rgba(108, 158, 75, 0.3), transparent 62%),
+    radial-gradient(50rem 30rem at 90% 14%, rgba(62, 140, 72, 0.22), transparent 64%),
+    radial-gradient(42rem 28rem at 72% 100%, rgba(26, 36, 21, 0.6), transparent 66%),
+    linear-gradient(145deg, #1a2415 0%, #161e12 48%, #121810 100%);
 }
