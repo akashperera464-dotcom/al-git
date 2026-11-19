@@ -1313,17 +1313,35 @@ textarea {
 
 /* Supplier content surfaces -> frosted glass */
 .sp-main .card {
-  background: linear-gradient(162deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.56) 62%, rgba(240, 253, 248, 0.62));
+  background: linear-gradient(162deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.58) 62%, rgba(240, 253, 248, 0.62));
   border: 1px solid rgba(255, 255, 255, 0.86);
   border-radius: 1.5rem;
-  box-shadow: 0 22px 48px -28px rgba(4, 60, 44, 0.5), inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(6, 95, 70, 0.06);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow:
+    0 24px 52px -28px rgba(4, 60, 44, 0.5),
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(6, 95, 70, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  position: relative;
+}
+.sp-main .card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 50%;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
 }
 .sp-main .card-hover:hover {
-  transform: translateY(-4px);
+  transform: translateY(-4px) scale(1.01);
   border-color: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 30px 60px -26px rgba(4, 60, 44, 0.55), inset 0 1px 0 #ffffff;
+  box-shadow:
+    0 34px 68px -26px rgba(4, 60, 44, 0.55),
+    inset 0 1px 0 #ffffff,
+    0 0 0 1px rgba(16, 185, 129, 0.18);
 }
 .dark .sp-main .card {
   background: linear-gradient(162deg, rgba(20, 41, 34, 0.82), rgba(13, 30, 25, 0.72));
@@ -1338,14 +1356,26 @@ textarea {
 }
 .sp-main .weather-glass { border-radius: 1.25rem; }
 
+/* Stat numbers — iOS 26 thin display numerals */
+.sp-main .stat-value,
+.sp-main .tnum {
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  letter-spacing: -0.03em;
+  font-weight: 300;
+}
+
 /* Floating liquid-glass dock */
 .sp-dock {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.5));
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
   border: 1px solid rgba(255, 255, 255, 0.9);
   border-radius: 1.7rem;
-  box-shadow: 0 26px 55px -26px rgba(4, 60, 44, 0.55), inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(6, 95, 70, 0.05);
-  backdrop-filter: blur(30px) saturate(170%);
-  -webkit-backdrop-filter: blur(30px) saturate(170%);
+  box-shadow:
+    0 30px 60px -26px rgba(4, 60, 44, 0.55),
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(6, 95, 70, 0.05),
+    0 0 0 1px rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(34px) saturate(180%);
+  -webkit-backdrop-filter: blur(34px) saturate(180%);
 }
 .sp-dockitem { color: #6b7f76; }
 .sp-dockitem--on { color: #065f46; }
@@ -1574,30 +1604,38 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(80rem 45rem at 12% -10%, rgba(16, 185, 129, 0.5), transparent 58%),
-    radial-gradient(60rem 42rem at 95% 8%, rgba(20, 184, 166, 0.36), transparent 60%),
-    radial-gradient(52rem 38rem at 78% 108%, rgba(250, 204, 21, 0.16), transparent 62%),
-    radial-gradient(60rem 40rem at 8% 104%, rgba(59, 130, 246, 0.16), transparent 60%),
+    radial-gradient(80rem 45rem at 12% -10%, rgba(16, 185, 129, 0.55), transparent 58%),
+    radial-gradient(60rem 42rem at 95% 8%, rgba(56, 189, 248, 0.42), transparent 60%),
+    radial-gradient(52rem 38rem at 78% 108%, rgba(250, 204, 21, 0.22), transparent 62%),
+    radial-gradient(60rem 40rem at 8% 104%, rgba(99, 102, 241, 0.28), transparent 60%),
+    radial-gradient(40rem 30rem at 50% 50%, rgba(45, 212, 191, 0.18), transparent 70%),
     linear-gradient(158deg, #062c22 0%, #04231a 46%, #021710 100%);
 }
 .login-orb {
   position: absolute;
   z-index: 0;
   border-radius: 999px;
-  filter: blur(70px);
-  opacity: 0.55;
+  filter: blur(80px);
+  opacity: 0.6;
   pointer-events: none;
   will-change: transform;
 }
 .login-orb--one {
-  width: 22rem; height: 22rem; left: -7rem; top: 8%;
-  background: radial-gradient(circle, rgba(52, 211, 153, 0.7), transparent 66%);
+  width: 24rem; height: 24rem; left: -8rem; top: 6%;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.8), transparent 66%);
   animation: loginFloat 17s ease-in-out infinite;
 }
 .login-orb--two {
-  width: 18rem; height: 18rem; right: -6rem; bottom: 6%;
-  background: radial-gradient(circle, rgba(250, 204, 21, 0.45), transparent 68%);
+  width: 20rem; height: 20rem; right: -7rem; bottom: 4%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.55), transparent 68%);
   animation: loginFloat 23s ease-in-out infinite reverse;
+}
+.login-orb--three {
+  width: 16rem; height: 16rem; left: 30%; top: 40%;
+  background: radial-gradient(circle, rgba(250, 204, 21, 0.4), transparent 68%);
+  animation: loginFloat 19s ease-in-out infinite;
+  filter: blur(60px);
+  opacity: 0.45;
 }
 .login-grain {
   position: absolute;
@@ -1627,18 +1665,91 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   .login-orb--one, .login-orb--two, .login-rise { animation: none !important; }
 }
 
-/* ---------- Round 76 login finish: autofill-safe fields, premium card ----- */
-.login-card { box-shadow: 0 40px 90px -34px rgba(0, 0, 0, 0.72), 0 2px 0 rgba(255, 255, 255, 0.65) inset; }
+/* ---------- Round 79 login: premium liquid-glass card + iOS 26 widgets ----- */
+.login-card {
+  box-shadow:
+    0 50px 100px -34px rgba(0, 0, 0, 0.8),
+    0 20px 40px -20px rgba(2, 26, 18, 0.6),
+    0 2px 0 rgba(255, 255, 255, 0.7) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+}
 .login-card__edge {
   position: absolute;
   inset: 0 0 auto 0;
   height: 3px;
-  background: linear-gradient(90deg, #0f766e, #10b981 42%, #f5b840 78%, #0f766e);
+  background: linear-gradient(90deg, transparent, #0f766e, #10b981 42%, #f5b840 78%, #38bdf8, transparent);
   background-size: 220% 100%;
   animation: loginEdge 9s linear infinite;
   pointer-events: none;
+  border-radius: inherit;
 }
-@keyframes loginEdge { to { background-position: 220% 0; } }
+.login-card__sheen {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 60%;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+.login-segmented {
+  background: linear-gradient(162deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.03));
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 14px;
+  padding: 4px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+.login-segmented__btn {
+  position: relative;
+  z-index: 2;
+  border-radius: 11px;
+  transition: color 0.2s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+.login-segmented__btn--active {
+  background: #ffffff;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+.login-input {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.login-input:focus {
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.08), inset 0 1px 2px rgba(15, 23, 42, 0.02);
+}
+.login-cta {
+  box-shadow: 0 16px 32px -12px rgba(15, 118, 110, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+.login-cta::after {
+  content: "";
+  position: absolute;
+  top: 0; left: -50%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  transform: skewX(-20deg);
+  animation: ctaShine 4s ease-in-out infinite;
+}
+@keyframes ctaShine {
+  0%, 100% { left: -50%; }
+  50% { left: 120%; }
+}
+.login-brand-lockup {
+  position: relative;
+}
+.login-brand-lockup::before {
+  content: "";
+  position: absolute;
+  inset: -20px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.35), transparent 70%);
+  filter: blur(30px);
+  z-index: -1;
+  pointer-events: none;
+}
 
 /* Chrome/Safari autofill painted supplied fields grey — keep them white. */
 .login-input:-webkit-autofill,

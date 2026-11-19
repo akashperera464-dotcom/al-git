@@ -303,6 +303,7 @@ export function Login() {
           <div className="login-mesh" aria-hidden="true" />
           <div className="login-orb login-orb--one" aria-hidden="true" />
           <div className="login-orb login-orb--two" aria-hidden="true" />
+          <div className="login-orb login-orb--three" aria-hidden="true" />
           <div className="login-grain" aria-hidden="true" />
         </>
       )}
@@ -313,31 +314,33 @@ export function Login() {
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-[26.5rem] flex-col justify-center">
-        {/* Brand lockup on the emerald canvas */}
-        <div className="login-rise mb-6 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white/10 ring-1 ring-white/25 backdrop-blur-sm">
+        {/* Brand lockup on the emerald canvas — with halo glow */}
+        <div className="login-brand-lockup login-rise mb-6 text-center">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white/12 ring-1 ring-white/30 backdrop-blur-md shadow-2xl">
             {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
               <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             ) : (
-              <Leaf className="h-7 w-7 text-emerald-200" />
+              <Leaf className="h-8 w-8 text-emerald-200" />
             )}
           </span>
-          <h1 className="mt-3 font-display text-xl font-bold tracking-tight text-white sm:text-[22px]">
+          <h1 className="mt-3.5 font-display text-2xl font-bold tracking-tight text-white sm:text-[26px]" style={{ textShadow: "0 2px 20px rgba(16, 185, 129, 0.4)" }}>
             {branding.loginTitle || t("common.appName")}
           </h1>
-          <p className="mx-auto mt-1.5 max-w-[19rem] text-[12.5px] leading-relaxed text-emerald-100/60">
+          <p className="mx-auto mt-2 max-w-[19rem] text-[13px] leading-relaxed text-emerald-100/70">
             {branding.loginSubtitle || t("auth.platformSubtitle")}
           </p>
         </div>
 
-        {/* Form card */}
-        <div className="login-rise login-card auth-book relative overflow-hidden rounded-2xl bg-white p-1.5" style={{ animationDelay: "80ms" }}>
+        {/* Form card — premium liquid glass */}
+        <div className="login-rise login-card auth-book relative overflow-hidden rounded-[1.75rem] bg-white p-1.5" style={{ animationDelay: "80ms" }}>
           <span className="login-card__edge" aria-hidden="true" />
-          <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label={t("auth.choosePortal")}>
-            <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "supplier" ? "bg-white text-teal-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
+          <span className="login-card__sheen" aria-hidden="true" />
+          {/* iOS 26 segmented control for portal switcher */}
+          <div className="login-segmented" role="tablist" aria-label={t("auth.choosePortal")}>
+            <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`login-segmented__btn ${portal === "supplier" ? "login-segmented__btn--active" : ""} flex min-w-0 items-center justify-center gap-2 px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "supplier" ? "text-teal-800" : "text-slate-500"}`}>
               <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
             </button>
-            <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "staff" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
+            <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`login-segmented__btn ${portal === "staff" ? "login-segmented__btn--active" : ""} flex min-w-0 items-center justify-center gap-2 px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "staff" ? "text-indigo-700" : "text-slate-500"}`}>
               <UsersRound className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span>
             </button>
           </div>
