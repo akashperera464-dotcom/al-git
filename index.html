@@ -70,6 +70,12 @@
           Promise.all(tasks).catch(function () {}).then(function () { window.location.reload(); });
         }
         if (button) button.addEventListener("click", function () { recover(false); });
+        // Exposed for the app bundle: a missing lazily-imported chunk triggers
+        // the same recovery (see src/main.tsx).
+        window.kduRecover = function (reason) {
+          if (status && reason) status.textContent = "Recovering from an update (" + reason + ")";
+          recover(false);
+        };
         // A failed bundle load (stale SW / replaced asset) fires error on the script.
         window.addEventListener("error", function (event) {
           var target = event.target;

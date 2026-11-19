@@ -36,6 +36,35 @@ try {
   }
 }
 
+/**
+ * Chunk-loss recovery.
+ *
+ * A deploy replaces Vite's content-hashed chunks. If a browser is still
+ * running an older shell (a cached route, a cached tab), its lazily-imported
+ * module no longer exists on the server and the app dies mid-session. Instead
+ * of a white screen we hand control to the boot script in index.html, which
+ * unregisters service workers, clears caches and reloads once per session.
+ */
+function armChunkLossRecovery(): void {
+  const recover = (reason: string) => {
+    const handler = (window as unknown as { kduRecover?: (reason: string) => void }).kduRecover;
+    if (typeof handler === "function") handler(reason);
+  };
+  window.addEventListener("unhandledrejection", (event) => {
+    const message = event.reason instanceof Error ? event.reason.message : String(event.reason ?? "");
+    if (/dynamically imported module|Loading (CSS )?chunk|Importing a module script failed/i.test(message)) {
+      event.preventDefault();
+      recover("missing module");
+    }
+  });
+  window.addEventListener("vite:preloadError", () => recover("preload"));
+  window.addEventListener("error", (event) => {
+    const target = event.target as (HTMLElement & { tagName?: string }) | null;
+    if (target?.tagName === "SCRIPT") recover("script");
+  }, true);
+}
+armChunkLossRecovery();
+
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     const hadController = Boolean(navigator.serviceWorker.controller);

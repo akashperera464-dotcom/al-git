@@ -11,6 +11,7 @@ import { homeModuleFor } from "@/lib/rbac";
 import { SchemaVersionWarning } from "@/components/SchemaVersionWarning";
 import { ThemeProvider } from "@/lib/theme";
 
+
 /** Resolves the module for the active nav key, behind the RouteGuard. */
 function ModuleView() {
   const { activeModule } = useApp();

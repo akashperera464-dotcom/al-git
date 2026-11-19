@@ -67,7 +67,27 @@ registerRoute(
 );
 
 // 5. Static assets
-registerRoute(({ request }) => ["style", "script", "image", "font"].includes(request.destination), new CacheFirst({ cacheName: "verda-assets-v2", plugins: [new ExpirationPlugin({ maxAgeSeconds: 30 * 24 * 60 * 60, maxEntries: 250 })] }));
+// CODE (scripts + styles) must NEVER be served from a long-lived cache here.
+// Vite emits content-hashed filenames, but an old app shell keeps referencing
+// the hash it was built with: once a deploy replaces those chunks, the shell
+// asks for files that no longer exist and the app dies as a white screen
+// ("Failed to fetch dynamically imported module: /assets/Dashboard-*.js").
+// Network-first keeps every release self-consistent; Vercel's CDN already
+// makes those immutable files fast.
+registerRoute(
+  ({ request }) => ["style", "script"].includes(request.destination),
+  new NetworkFirst({ cacheName: "verda-code-v3", networkTimeoutSeconds: 4 }),
+  "GET"
+);
+
+// Images and fonts are content-stable across releases and safe to cache.
+registerRoute(
+  ({ request }) => ["image", "font"].includes(request.destination),
+  new CacheFirst({
+    cacheName: "verda-media-v3",
+    plugins: [new ExpirationPlugin({ maxAgeSeconds: 30 * 24 * 60 * 60, maxEntries: 250 })],
+  })
+);
 
 // OpenStreetMap tiles: offline-friendly, bounded seven-day cache.
 registerRoute(({ url }) => /(^|\.)tile\.openstreetmap\.org$/.test(url.hostname), new CacheFirst({ cacheName: "verda-map-tiles", plugins: [new ExpirationPlugin({ maxAgeSeconds: 7 * 24 * 60 * 60, maxEntries: 600 })] }), "GET");
@@ -86,14 +106,16 @@ registerRoute(
 // this release activates. clientsClaim() below makes the corrected worker take
 // control without requiring the user to uninstall the PWA.
 self.addEventListener("activate", (event) => {
-  // Drop shells and asset caches created by previous releases. A stale cached
-  // index.html can reference JavaScript hashes that no longer exist, which is
-  // exactly how a white screen appears after a deployment.
-  event.waitUntil(Promise.all([
-    caches.delete("verda-supabase-api"),
-    caches.delete("verda-navigation"),
-    caches.delete("verda-assets"),
-  ]));
+  // Purge every cache a previous release created. A leftover cache is exactly
+  // how a released shell keeps requesting chunk hashes that no longer exist —
+  // which is what turned a deployment into a white screen.
+  event.waitUntil((async () => {
+    const CURRENT = new Set(["verda-supabase-api", "verda-navigation-v2", "verda-code-v3", "verda-media-v3"]);
+    const names = await caches.keys();
+    await Promise.all(
+      names.filter((name) => name.startsWith("verda-") && !CURRENT.has(name)).map((name) => caches.delete(name)),
+    );
+  })());
 });
 
 // 6. Catch-all fallback to the app shell for navigation

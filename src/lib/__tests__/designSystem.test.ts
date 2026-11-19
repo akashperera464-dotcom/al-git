@@ -138,12 +138,17 @@ describe("boot safety net (white-screen prevention)", () => {
     expect(html).toContain("setTimeout");
   });
 
-  it("purges previous shell and asset caches when a new worker activates", () => {
+  it("never caches code chunks and purges every stale cache on activate", () => {
     const sw = readFileSync(resolve(process.cwd(), "public/sw.ts"), "utf8");
-    expect(sw).toContain("verda-navigation-v2");
-    expect(sw).toContain("verda-assets-v2");
-    expect(sw).toContain('caches.delete("verda-navigation")');
-    expect(sw).toContain('caches.delete("verda-assets")');
+    // Scripts/styles are network-first so a released shell can never request a
+    // chunk hash that no longer exists (the white-screen root cause).
+    expect(sw).toContain('["style", "script"].includes(request.destination)');
+    expect(sw).toMatch(/NetworkFirst\(\{ cacheName: "verda-code-v3"/);
+    expect(sw).not.toMatch(/\["style", "script", "image", "font"\][^\n]*CacheFirst/);
+    // Every cache a previous release created is purged on activation.
+    expect(sw).toContain('name.startsWith("verda-")');
+    expect(sw).toContain("!CURRENT.has(name)");
+    expect(sw).toContain('cacheName: "verda-code-v3"');
   });
 
   it("renders a visible error panel when React cannot mount", () => {
@@ -155,5 +160,18 @@ describe("boot safety net (white-screen prevention)", () => {
   it("does not force CORS mode on admin-supplied video hosts", () => {
     expect(login).not.toContain('crossOrigin="anonymous"');
     expect(login).toContain("onCanPlay");
+  });
+});
+
+describe("deploy-safe lazy modules", () => {
+  it("routes every module through the deploy-safe loader and triggers recovery on chunk loss", () => {
+    const registry = readFileSync(resolve(process.cwd(), "src/modules/registry.ts"), "utf8");
+    expect(registry).toContain('import { lazyModule } from "@/lib/lazyModule"');
+    expect(registry).not.toMatch(/\blazy\(\(\) => import\(/);
+    const loader = readFileSync(resolve(process.cwd(), "src/lib/lazyModule.ts"), "utf8");
+    expect(loader).toContain("kduRecover");
+    const main = readFileSync(resolve(process.cwd(), "src/main.tsx"), "utf8");
+    expect(main).toContain("armChunkLossRecovery");
+    expect(main).toMatch(/dynamically imported module/i);
   });
 });

@@ -4611,3 +4611,43 @@ key change. The service worker still never caches Office API responses.
 Verified: 143/143 tests, clean production build.
 
 *White-screen recovery added: 19 November 2026.*
+
+## 78. Confirmed White-Screen Cause and the Permanent Fix
+
+The app's own health log proved the cause rather than a guess:
+
+```text
+client_error · message: "Failed to fetch dynamically imported module:
+              https://…/assets/Dashboard-CzmnhLd1.js"
+```
+
+`sw.ts` registered a **CacheFirst** route for `style`, `script`, `image` and
+`font`. Vite emits content-hashed chunks, so after a deploy the cached shell
+kept asking for hashes that had been replaced — the chunk 404'd, the lazy
+module failed and the whole screen went blank.
+
+Permanent fix:
+
+1. **Code is never cached long-term.** Scripts and styles now use
+   `NetworkFirst` (`verda-code-v3`); only images/fonts stay `CacheFirst`
+   (`verda-media-v3`). Vercel's CDN already makes hashed files fast, so this
+   costs nothing and removes the failure mode entirely.
+2. **Every stale cache is purged on activation.** `activate` deletes any cache
+   starting with `verda-` that is not in the current set, so a released shell
+   can never outlive its own chunks.
+3. **Chunk-loss recovery at runtime.** `main.tsx` arms handlers for a failed
+   dynamic import, `vite:preloadError` and a failed `<script>`; they call the
+   boot recovery exposed as `window.kduRecover` by `index.html`, which
+   unregisters service workers, clears caches and reloads once per session.
+4. **Deploy-safe lazy modules.** `src/lib/lazyModule.ts` wraps React `lazy`:
+   on a missing chunk it triggers the same recovery instead of leaving an
+   empty screen, and `src/modules/registry.ts` routes all 49 modules through
+   it.
+
+Together these mean an existing browser heals itself on the next load, with
+no manual cache clearing required.
+
+No authentication, registration, role, RLS, Office API, environment or i18n
+key change. Verified: typecheck clean, 144/144 tests, production build OK.
+
+*White-screen cause confirmed and fixed: 19 November 2026.*
