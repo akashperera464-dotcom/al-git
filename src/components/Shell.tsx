@@ -38,9 +38,10 @@ function Brand({ compact }: { compact?: boolean }) {
   const { role } = useApp();
   const identity = resolveShellBrandIdentity(branding, role);
   const logo = identity.logoUrl && isMediaUrl(identity.logoUrl);
+  const lightMode = role === "supplier";
   return (
     <div className="flex items-center gap-2.5">
-      <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-600/30">
+      <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-sky-500 to-teal-500 shadow-lg shadow-sky-500/30">
         {logo ? (
           <img src={identity.logoUrl} alt={`${identity.name} logo`} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
@@ -50,8 +51,8 @@ function Brand({ compact }: { compact?: boolean }) {
       </span>
       {!compact && (
         <div className="leading-tight">
-          <p className="font-display text-[15px] font-extrabold tracking-tight text-white">{identity.name}</p>
-          <p className="text-[10px] font-medium text-emerald-300/80">{identity.tagline}</p>
+          <p className={cn("font-display text-[15px] font-extrabold tracking-tight", lightMode ? "text-slate-900" : "text-white")}>{identity.name}</p>
+          <p className={cn("text-[10px] font-medium", lightMode ? "text-slate-500" : "text-emerald-300/80")}>{identity.tagline}</p>
         </div>
       )}
     </div>
@@ -474,13 +475,12 @@ function MobileShell({ children }: { children: ReactNode }) {
     <div className={cn("min-h-screen", supplierMode ? "supplier-device-stage min-h-screen" : "app-aurora")}>
       {isAuthenticated && role === "supplier" && <SupplierWeatherMonitor />}
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-[#0b211a] md:shadow-2xl">
-        {/* Header — safe-top pushes brand/buttons below iPhone notch on mobile.
-            On desktop the md:py-3 resets to normal padding inside the phone frame. */}
-        <header className={cn("safe-top md:!pt-3 relative z-20 flex items-center justify-between gap-2 px-4 py-3 text-white", supplierMode ? "bg-[#04372b]" : "bg-gradient-to-r from-pine-900 to-pine-800")}>
+        {/* Header — iOS 26 style: clean white glass, dark text. Light + airy. */}
+        <header className={cn("safe-top md:!pt-3 relative z-20 flex items-center justify-between gap-2 px-4 py-3 sp-header", supplierMode ? "text-slate-900" : "bg-gradient-to-r from-pine-900 to-pine-800 text-white")}>
           <Brand />
           <div className="flex items-center gap-1.5">
-            {!embeddedAndroidApp && <LanguageSwitcher dark prominent />}
-            <ThemeToggle darkSurface prominent />
+            {!embeddedAndroidApp && <LanguageSwitcher dark={!supplierMode} prominent={supplierMode} />}
+            <ThemeToggle darkSurface={!supplierMode} prominent={supplierMode} />
             {/* Always-visible sign-out button — now also duplicated at the bottom */}
             {isAuthenticated ? (
               <button
@@ -502,7 +502,7 @@ function MobileShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         {/* Content */}
-        <main className={cn("flex-1 overflow-y-auto p-4 no-scrollbar", supplierMode ? "sp-main relative z-10 bg-transparent" : "bg-slate-50")}>
+        <main className={cn("flex-1 overflow-y-auto p-4 no-scrollbar", supplierMode ? "sp-main relative z-10 bg-slate-50" : "bg-slate-50")}>
           {children}
           {/* Full-width logout button at the bottom — always visible & accessible */}
           {isAuthenticated && (

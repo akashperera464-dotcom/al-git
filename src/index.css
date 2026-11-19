@@ -1301,81 +1301,67 @@ textarea {
 .dark .sp-shell::after { opacity: 0.16; mix-blend-mode: screen; }
 
 .sp-header {
-  background: linear-gradient(155deg, rgba(4, 40, 30, 0.9), rgba(6, 63, 47, 0.72) 58%, rgba(9, 71, 55, 0.68));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 18px 44px -26px rgba(2, 26, 18, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(26px) saturate(170%);
-  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.82) 58%, rgba(226, 232, 240, 0.78));
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 12px 32px -18px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
 }
 .sp-header::after {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), rgba(245, 216, 138, 0.55), transparent);
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), rgba(20, 184, 166, 0.5), transparent);
 }
 
-/* Supplier content surfaces -> frosted glass */
+/* Supplier content surfaces -> clean white iOS-style cards */
 .sp-main .card {
-  background: linear-gradient(162deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.58) 62%, rgba(240, 253, 248, 0.62));
-  border: 1px solid rgba(255, 255, 255, 0.86);
-  border-radius: 1.5rem;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 24px;
   box-shadow:
-    0 24px 52px -28px rgba(4, 60, 44, 0.5),
-    inset 0 1px 0 #ffffff,
-    inset 0 -1px 0 rgba(6, 95, 70, 0.06),
-    0 0 0 1px rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  position: relative;
-}
-.sp-main .card::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 50%;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, transparent 100%);
-  pointer-events: none;
-  z-index: 0;
+    0 2px 4px -1px rgba(15, 23, 42, 0.04),
+    0 12px 24px -12px rgba(15, 23, 42, 0.08);
 }
 .sp-main .card-hover:hover {
-  transform: translateY(-4px) scale(1.01);
-  border-color: rgba(255, 255, 255, 0.98);
+  transform: translateY(-3px);
+  border-color: rgba(20, 184, 166, 0.3);
   box-shadow:
-    0 34px 68px -26px rgba(4, 60, 44, 0.55),
-    inset 0 1px 0 #ffffff,
-    0 0 0 1px rgba(16, 185, 129, 0.18);
+    0 4px 8px -2px rgba(15, 23, 42, 0.06),
+    0 20px 36px -12px rgba(20, 184, 166, 0.18);
 }
 .dark .sp-main .card {
-  background: linear-gradient(162deg, rgba(20, 41, 34, 0.82), rgba(13, 30, 25, 0.72));
-  border-color: rgba(110, 231, 183, 0.16);
-  box-shadow: 0 24px 54px -28px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 12px 24px -12px rgba(0, 0, 0, 0.5);
 }
-.dark .sp-main .card-hover:hover { border-color: rgba(110, 231, 183, 0.34); }
-.sp-main .font-display { letter-spacing: -0.015em; }
+.dark .sp-main .card-hover:hover { border-color: rgba(45, 212, 191, 0.4); }
+.sp-main .font-display { letter-spacing: -0.02em; }
 .sp-main .weather-hero {
-  border-radius: 1.9rem;
-  box-shadow: 0 34px 70px -34px rgba(2, 30, 22, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  border-radius: 28px;
+  box-shadow: 0 20px 40px -16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
-.sp-main .weather-glass { border-radius: 1.25rem; }
+.sp-main .weather-glass { border-radius: 20px; }
 
-/* Stat numbers — iOS 26 thin display numerals */
+/* Stat numbers — iOS 26 bold display numerals */
 .sp-main .stat-value,
 .sp-main .tnum {
-  font-feature-settings: "tnum" 1, "ss01" 1;
+  font-feature-settings: "tnum" 1;
   letter-spacing: -0.03em;
-  font-weight: 300;
+  font-weight: 700;
+  color: #0f172a;
 }
+.dark .sp-main .stat-value,
+.dark .sp-main .tnum { color: #f1f5f9; }
 
-/* Floating liquid-glass dock */
+/* Floating iOS-style dock — bright pill */
 .sp-dock {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
+  background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 1.7rem;
+  border-radius: 28px;
   box-shadow:
-    0 30px 60px -26px rgba(4, 60, 44, 0.55),
+    0 12px 28px -10px rgba(15, 23, 42, 0.2),
     inset 0 1px 0 #ffffff,
-    inset 0 -1px 0 rgba(6, 95, 70, 0.05),
-    0 0 0 1px rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(34px) saturate(180%);
-  -webkit-backdrop-filter: blur(34px) saturate(180%);
+    0 0 0 1px rgba(226, 232, 240, 0.5);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
 }
 .sp-dockitem { color: #6b7f76; }
 .sp-dockitem--on { color: #065f46; }
@@ -1593,9 +1579,10 @@ body, .font-display, .font-sans { letter-spacing: normal; }
 :lang(si) :is(p, span, label, li, td, th, button, a), :lang(ta) :is(p, span, label, li, td, th, button, a) { line-height: 1.55; }
 
 /* ============================================================================
- * ROUND 75 — IMMERSIVE LOGIN STAGE (pure CSS, layered, animated)
- * A deep-emerald mesh canvas with slow drifting light orbs and film grain;
- * the form itself is a crisp white card so text stays razor sharp.
+ * ROUND 80 — iOS 26 PREMIUM LOGIN (bright, airy, liquid glass)
+ * Inspired by uploaded reference: Photography onboarding + iOS 26 widgets.
+ * Vivid blue→teal gradient canvas, pure white form card, pill buttons.
+ * NOTE: branding video/image (if set by admin) still overrides this canvas.
  * ========================================================================== */
 .login-stage { isolation: isolate; color-scheme: dark; }
 
@@ -1604,38 +1591,37 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(80rem 45rem at 12% -10%, rgba(16, 185, 129, 0.55), transparent 58%),
-    radial-gradient(60rem 42rem at 95% 8%, rgba(56, 189, 248, 0.42), transparent 60%),
-    radial-gradient(52rem 38rem at 78% 108%, rgba(250, 204, 21, 0.22), transparent 62%),
-    radial-gradient(60rem 40rem at 8% 104%, rgba(99, 102, 241, 0.28), transparent 60%),
-    radial-gradient(40rem 30rem at 50% 50%, rgba(45, 212, 191, 0.18), transparent 70%),
-    linear-gradient(158deg, #062c22 0%, #04231a 46%, #021710 100%);
+    radial-gradient(70rem 40rem at 15% 0%, rgba(56, 189, 248, 0.55), transparent 60%),
+    radial-gradient(60rem 36rem at 85% 5%, rgba(45, 212, 191, 0.45), transparent 62%),
+    radial-gradient(50rem 34rem at 50% 100%, rgba(99, 102, 241, 0.4), transparent 64%),
+    radial-gradient(40rem 28rem at 0% 60%, rgba(167, 243, 208, 0.3), transparent 66%),
+    linear-gradient(160deg, #0c4a6e 0%, #0e7490 35%, #0f766e 70%, #134e4a 100%);
 }
 .login-orb {
   position: absolute;
   z-index: 0;
   border-radius: 999px;
-  filter: blur(80px);
-  opacity: 0.6;
+  filter: blur(90px);
+  opacity: 0.55;
   pointer-events: none;
   will-change: transform;
 }
 .login-orb--one {
-  width: 24rem; height: 24rem; left: -8rem; top: 6%;
-  background: radial-gradient(circle, rgba(52, 211, 153, 0.8), transparent 66%);
-  animation: loginFloat 17s ease-in-out infinite;
+  width: 26rem; height: 26rem; left: -8rem; top: 4%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.7), transparent 66%);
+  animation: loginFloat 18s ease-in-out infinite;
 }
 .login-orb--two {
-  width: 20rem; height: 20rem; right: -7rem; bottom: 4%;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.55), transparent 68%);
-  animation: loginFloat 23s ease-in-out infinite reverse;
+  width: 22rem; height: 22rem; right: -7rem; bottom: 2%;
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.6), transparent 68%);
+  animation: loginFloat 24s ease-in-out infinite reverse;
 }
 .login-orb--three {
-  width: 16rem; height: 16rem; left: 30%; top: 40%;
-  background: radial-gradient(circle, rgba(250, 204, 21, 0.4), transparent 68%);
-  animation: loginFloat 19s ease-in-out infinite;
-  filter: blur(60px);
-  opacity: 0.45;
+  width: 18rem; height: 18rem; left: 35%; top: 35%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.5), transparent 68%);
+  animation: loginFloat 20s ease-in-out infinite;
+  filter: blur(70px);
+  opacity: 0.4;
 }
 .login-grain {
   position: absolute;
@@ -1665,37 +1651,38 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   .login-orb--one, .login-orb--two, .login-rise { animation: none !important; }
 }
 
-/* ---------- Round 79 login: premium liquid-glass card + iOS 26 widgets ----- */
+/* ---------- Round 80 login: iOS 26 premium — pure white card, pill CTA ----- */
 .login-card {
+  background: #ffffff;
+  border-radius: 28px;
   box-shadow:
-    0 50px 100px -34px rgba(0, 0, 0, 0.8),
-    0 20px 40px -20px rgba(2, 26, 18, 0.6),
-    0 2px 0 rgba(255, 255, 255, 0.7) inset,
-    0 0 0 1px rgba(255, 255, 255, 0.12);
+    0 50px 100px -30px rgba(0, 30, 60, 0.5),
+    0 20px 40px -16px rgba(12, 74, 110, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.8) inset;
 }
 .login-card__edge {
   position: absolute;
   inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, #0f766e, #10b981 42%, #f5b840 78%, #38bdf8, transparent);
+  height: 4px;
+  background: linear-gradient(90deg, #38bdf8, #14b8a6 40%, #6366f1 80%, #38bdf8);
   background-size: 220% 100%;
   animation: loginEdge 9s linear infinite;
   pointer-events: none;
-  border-radius: inherit;
+  border-radius: 28px 28px 0 0;
 }
 .login-card__sheen {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 60%;
+  height: 40%;
   border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.9) 0%, transparent 100%);
   pointer-events: none;
   z-index: 1;
 }
 .login-segmented {
-  background: linear-gradient(162deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.03));
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  border-radius: 14px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
   padding: 4px;
   position: relative;
   display: grid;
@@ -1705,22 +1692,44 @@ body, .font-display, .font-sans { letter-spacing: normal; }
 .login-segmented__btn {
   position: relative;
   z-index: 2;
-  border-radius: 11px;
+  border-radius: 12px;
   transition: color 0.2s ease, background 0.25s ease, box-shadow 0.25s ease;
+  font-weight: 600;
 }
 .login-segmented__btn--active {
   background: #ffffff;
-  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.04);
 }
+
+/* iOS 26-style inputs — cleaner, lighter */
 .login-input {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  height: 52px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #0f172a;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .login-input:focus {
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.08), inset 0 1px 2px rgba(15, 23, 42, 0.02);
+  border-color: #14b8a6;
+  box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.12);
 }
+.login-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+/* iOS 26 pill CTA — solid gradient with shine */
 .login-cta {
-  box-shadow: 0 16px 32px -12px rgba(15, 118, 110, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  height: 52px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: 0 16px 32px -12px rgba(20, 184, 166, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   position: relative;
   overflow: hidden;
 }
@@ -1729,7 +1738,7 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   position: absolute;
   top: 0; left: -50%;
   width: 50%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
   transform: skewX(-20deg);
   animation: ctaShine 4s ease-in-out infinite;
 }
@@ -1743,10 +1752,10 @@ body, .font-display, .font-sans { letter-spacing: normal; }
 .login-brand-lockup::before {
   content: "";
   position: absolute;
-  inset: -20px;
+  inset: -24px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.35), transparent 70%);
-  filter: blur(30px);
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.35), rgba(45, 212, 191, 0.2), transparent 70%);
+  filter: blur(36px);
   z-index: -1;
   pointer-events: none;
 }
@@ -1757,27 +1766,26 @@ body, .font-display, .font-sans { letter-spacing: normal; }
 .login-input:-webkit-autofill:focus,
 .login-input:-webkit-autofill:active {
   -webkit-text-fill-color: #0f172a;
-  -webkit-box-shadow: 0 0 0 1000px #ffffff inset, inset 0 1px 2px rgba(15, 23, 42, 0.04);
-  box-shadow: 0 0 0 1000px #ffffff inset, inset 0 1px 2px rgba(15, 23, 42, 0.04);
-  caret-color: #0f766e;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  caret-color: #14b8a6;
   transition: background-color 9999s ease-out 0s;
 }
 
-.login-cta {
-  box-shadow: 0 12px 26px -12px rgba(15, 118, 110, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.28);
-}
 .login-cta:hover:not(:disabled) {
-  transform: translateY(-1px);
-  filter: brightness(1.06);
-  box-shadow: 0 18px 34px -12px rgba(15, 118, 110, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  box-shadow: 0 20px 38px -12px rgba(20, 184, 166, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 .login-cta:active:not(:disabled) { transform: translateY(0); }
 
 /* Brand lockup: gentle halo behind the configured logo */
-.login-stage .login-rise > span:first-child { box-shadow: 0 10px 30px -12px rgba(16, 185, 129, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.22) inset; }
+.login-stage .login-rise > span:first-child {
+  box-shadow: 0 12px 32px -12px rgba(56, 189, 248, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.25) inset;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .login-card__edge { animation: none !important; }
+  .login-card__edge, .login-cta::after { animation: none !important; }
   .login-cta:hover:not(:disabled) { transform: none; }
 }
 
