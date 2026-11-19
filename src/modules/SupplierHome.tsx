@@ -200,7 +200,7 @@ export function SupplierHome() {
 
       {prices.length > 0 && (
         <div className="mb-4">
-          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
             {prices.filter((price) => price.grade !== "Coarse").map((price) => (
               <Card key={price.grade} className="p-3 text-center">
                 <p className="text-[10px] font-semibold uppercase text-slate-400">{t(gradeKey(price.grade), { defaultValue: price.grade })}</p>
@@ -251,7 +251,7 @@ export function SupplierHome() {
         </Card>
       )}
 
-      <div className="mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+      <div className="mb-4 grid grid-cols-2 gap-2.5">
         <Card className="p-3.5">
           <p className="text-[10px] font-semibold uppercase text-slate-400">{t("officeSummary.yesterdayCrop")}</p>
           {officeMonthly ? yesterdayDelivery ? (
@@ -274,7 +274,7 @@ export function SupplierHome() {
       <Suspense fallback={<div className="mb-4 h-64 animate-pulse rounded-2xl bg-slate-100" />}><LorryTracking userId={userUid} /></Suspense>
 
       {/* Key stats — operational results first, finance second */}
-      <div className="mb-4 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
         <StatCard icon={Package} label={t("supplierHome.monthSupplied")} value={`${fmtNum(totalKg)} kg`} tone="sky" />
         <StatCard icon={ReceiptText} label={t("supplierHome.monthDeliveries")} value={fmtNum(monthDeliveries)} sub={t("supplierHome.recordedReceipts")} tone="violet" />
         <StatCard icon={Wallet} label={t("supplierHome.monthEarnings")} value={fmtLKRShort(totalEarned)} tone="emerald" />
@@ -311,7 +311,7 @@ export function SupplierHome() {
 
       {/* Quick actions */}
       <h3 className="font-display text-sm font-bold text-slate-800 mb-2.5">⚡ {t("supplierHome.quickActions")}</h3>
-      <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
         {([
           { key: "supplier-plot", icon: Leaf, label: t("supplierHome.myPlot"), tone: "amber" },
           { key: "supplier-farm", icon: Sprout, label: t("supplierHome.farmLog"), tone: "emerald" },

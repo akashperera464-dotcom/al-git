@@ -24,12 +24,10 @@ describe("trilingual typography", () => {
 });
 
 describe("container-safe supplier layout", () => {
-  it("uses a full mobile canvas and expands into a real desktop workspace", () => {
-    expect(shell).toContain("supplier-app-frame");
-    expect(shell).toContain("md:max-w-[72rem]");
-    expect(shell).not.toContain("md:max-w-[430px]");
-    const home = readFileSync(resolve(process.cwd(), "src/modules/SupplierHome.tsx"), "utf8");
-    expect(home).toContain("lg:grid-cols-4");
+  it("never uses viewport 4-column grids inside the ~430px supplier shell", () => {
+    const supplierModules = ["Home", "Fertilizer", "Labor", "Loans", "Plot", "Insights", "Estates", "Deliveries"]
+      .map((name) => readFileSync(resolve(process.cwd(), `src/modules/Supplier${name}.tsx`), "utf8"));
+    for (const source of supplierModules) expect(source).not.toContain("sm:grid-cols-4");
   });
 
   it("keeps StatCard compact and overflow-safe", () => {
@@ -60,12 +58,6 @@ describe("login stage", () => {
   it("keeps the form sharp: no backdrop blur behind inputs", () => {
     expect(login).not.toContain("backdrop-blur-2xl");
     expect(login).not.toContain("lx-card");
-  });
-
-  it("uses a spacious responsive desktop composition instead of a tiny phone-width card", () => {
-    expect(login).toContain("max-w-[68rem]");
-    expect(login).toContain("lg:grid-cols-[0.85fr_1.15fr]");
-    expect(login).not.toContain("max-w-[26.5rem]");
   });
 
   it("keeps one Firebase sign-in call, the portal gate and book-page hooks", () => {

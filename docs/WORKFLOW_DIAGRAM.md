@@ -4648,15 +4648,14 @@ Together these mean an existing browser heals itself on the next load, with
 no manual cache clearing required.
 
 No authentication, registration, role, RLS, Office API, environment or i18n
-key change. Verified: typecheck clean, 145/145 tests, production build OK.
+key change. Verified: typecheck clean, 144/144 tests, production build OK.
 
 *White-screen cause confirmed and fixed: 19 November 2026.*
 
-## Responsive UI recovery — 2026-11-19
+## Supplier frame and login composition correction — 2026-11-19
 
-- Removed the supplier portal's permanent 430px desktop phone-frame constraint.
-- Supplier pages now use a full mobile canvas and expand to a bounded desktop workspace.
-- Supplier Home operational/financial cards adapt from two columns on mobile to four columns on large screens.
-- Login now uses a compact single-column mobile layout and a spacious two-panel desktop composition.
-- Removed the reintroduced Firebase trust tagline from the visible login screen.
-- Authentication, role gates, database access and Office API request behaviour were not changed.
+- Restored the intentional phone-shaped supplier preview on desktop while retaining full-width mobile behaviour.
+- Restored the centered login composition: branding above the authentication card over the configured background media.
+- Kept the visible Firebase trust tagline removed from the login page.
+- Restored narrow-container card grids so supplier content does not stretch or lose its mobile-app proportions.
+- Authentication, registration, role validation, database access and Office API request behaviour were not changed.

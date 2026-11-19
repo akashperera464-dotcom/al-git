@@ -567,13 +567,13 @@ Screen එකක data sources දෙකක් තිබේ නම් source labe
 
 ---
 
-## Responsive interface behaviour
+## Interface layout behaviour
 
-- Supplier portal එක phone එකකදී full-width mobile app එකක් ලෙස ක්‍රියා කරයි.
-- Tablet/desktop එකකදී එය 430px phone mock-up එකකට සීමා නොවී, readable multi-column workspace එකක් ලෙස පුළුල් වේ.
-- Supplier Home summary cards desktop එකේ columns හතරක් දක්වා පුළුල් වන අතර mobile එකේ columns දෙකක් ලෙස පවතී.
-- Login page එක mobile එකේ single-column form එකක් ලෙසත් desktop එකේ brand panel + authentication panel layout එකක් ලෙසත් පෙන්වයි.
-- මේ responsive වෙනස්කම් authentication, role validation, Supabase/Firebase data flow හෝ Office API behaviour වෙනස් නොකරයි.
+- Supplier portal එක mobile-first interface එකකි. Phone එකකදී screen width එක පුරා පෙන්වයි.
+- Desktop එකකදී supplier portal එක phone-shaped preview frame එකක් තුළ පෙන්වයි. එමඟින් mobile app එක සහ web preview එකේ layout එක එකම ආකාරයෙන් පවතී.
+- Supplier cards සහ forms narrow mobile width එක තුළ overflow නොවන ලෙස columns දෙකකට හෝ අවශ්‍ය විට single column එකකට සකස් වේ.
+- Login page එක configured background image/video එක මත logo, company name සහ centered authentication card එකක් ලෙස පෙන්වයි.
+- Supplier සහ Staff portal tabs එකම Firebase sign-in flow එක භාවිත කළත්, role validation එකෙන් වැරදි portal access එක ප්‍රතික්ෂේප කරයි.
 
 ---
 

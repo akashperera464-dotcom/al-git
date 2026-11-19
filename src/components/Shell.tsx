@@ -471,11 +471,11 @@ function MobileShell({ children }: { children: ReactNode }) {
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
   const supplierMode = role === "supplier";
   return (
-    <div className={cn("min-h-screen", supplierMode ? "sp-shell min-h-screen" : "app-aurora")}>
+    <div className={cn("min-h-screen", supplierMode ? "min-h-screen bg-[#f2f5f2] dark:bg-[#070f0c]" : "app-aurora")}>
       {isAuthenticated && role === "supplier" && <SupplierWeatherMonitor />}
-      <div className="supplier-app-frame mx-auto flex min-h-screen w-full flex-col md:my-5 md:h-[calc(100vh-2.5rem)] md:min-h-0 md:max-w-[72rem] md:overflow-hidden md:rounded-[2rem] md:border md:border-emerald-950/10 md:shadow-[0_32px_90px_-42px_rgba(2,44,34,0.5)] dark:md:border-emerald-100/10">
-        {/* Header — safe-top pushes brand/buttons below an iPhone notch.
-            Desktop keeps normal padding inside the expanded supplier workspace. */}
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-[#0b211a] md:shadow-2xl">
+        {/* Header — safe-top pushes brand/buttons below iPhone notch on mobile.
+            On desktop the md:py-3 resets to normal padding inside the phone frame. */}
         <header className={cn("safe-top md:!pt-3 relative z-20 flex items-center justify-between gap-2 px-4 py-3 text-white", supplierMode ? "bg-[#04372b]" : "bg-gradient-to-r from-pine-900 to-pine-800")}>
           <Brand />
           <div className="flex items-center gap-1.5">
@@ -502,20 +502,18 @@ function MobileShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         {/* Content */}
-        <main className={cn("flex-1 overflow-y-auto p-4 no-scrollbar sm:p-5 lg:p-6", supplierMode ? "sp-main relative z-10 bg-transparent" : "bg-slate-50")}>
-          <div className="mx-auto w-full max-w-[64rem]">
-            {children}
-            {/* Full-width logout button at the bottom — always visible & accessible */}
-            {isAuthenticated && (
-              <button
-                onClick={() => void signOut()}
-                className="mt-6 mb-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-rose-600/30 transition hover:bg-rose-700 active:scale-[0.99]"
-              >
-                <LogOut className="h-4 w-4" />
-                {t("common.logout") ?? "Sign out"}
-              </button>
-            )}
-          </div>
+        <main className={cn("flex-1 overflow-y-auto p-4 no-scrollbar", supplierMode ? "sp-main relative z-10 bg-transparent" : "bg-slate-50")}>
+          {children}
+          {/* Full-width logout button at the bottom — always visible & accessible */}
+          {isAuthenticated && (
+            <button
+              onClick={() => void signOut()}
+              className="mt-6 mb-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-rose-600/30 transition hover:bg-rose-700 active:scale-[0.99]"
+            >
+              <LogOut className="h-4 w-4" />
+              {t("common.logout") ?? "Sign out"}
+            </button>
+          )}
         </main>
         <BottomNav onMore={() => setMore(true)} />
       </div>
