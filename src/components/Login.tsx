@@ -301,10 +301,7 @@ export function Login() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
         </>
       ) : (
-        <>
-          <div className="app-aurora absolute inset-0" />
-          <div className="grid-overlay pointer-events-none absolute inset-0 opacity-50" />
-        </>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_85%_at_50%_-10%,rgba(255,255,255,0.10),transparent_58%)]" aria-hidden="true" />
       )}
 
       {/* Keep the selector in the viewport's top-right corner on every screen size.
@@ -319,7 +316,6 @@ export function Login() {
         <div className="lx-rise mx-auto mb-6 flex max-w-md flex-col items-center px-6 text-center">
           <div
             className="lx-logo relative mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-2xl shadow-emerald-950/60 sm:mb-5 sm:h-[4.5rem] sm:w-[4.5rem]"
-            style={{ background: "linear-gradient(150deg, #0d8a66, #054534)" }}
           >
             {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
               <img

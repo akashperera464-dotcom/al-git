@@ -50,7 +50,7 @@ Firebase authentication සඳහා පමණක් භාවිත වේ. Bus
 
 ## Login සහ user access වැඩ කරන ආකාරය
 
-Login screen එක immersive **estate-night** canvas එකක් මත mobile-responsive **book page** එකක් ලෙස Supplier Login සහ Staff Login යන පැති දෙක පෙන්වයි. Generated scene එක topographic contour pattern එකක්, සෙමින් drift වන canopy light layers දෙකක් සහ vignette එකකින් සමන්විත වේ; Sora (display), Hanken Grotesk (body) සහ JetBrains Mono (data/eyebrow) යන type pairing එක භාවිත වේ. Auth canvas එක app theme එකෙන් තොරව සෑම විටම dark immersive ලෙස පවතී — Super Admin branding background image/video එකක් set කළ විට එය scene එක මත scrim එකක් සමඟ render වේ. Portal switcher එක segmented control එකක් ලෙස animated active pip එකක් සමඟ ක්‍රියා කරයි; fields focus glow එකක් ද, CTA buttons sheen/lift micro-interactions ද පෙන්වයි. Reduced-motion devices වල සියලු ambient animations අක්‍රීය වේ. මේ පැති වෙන් කිරීම UI guidance එකක් පමණි; authentication systems දෙකක් නොවේ.
+Login screen එක **liquid-glass** design layer එකක් සමඟ mobile-responsive **book page** එකක් ලෙස Supplier Login සහ Staff Login යන පැති දෙක පෙන්වයි: tea-estate dawn photograph එකක් මත emerald/gold aurora refraction, frosted glass book surface (specular highlight + soft inner glow), white liquid-glass sign-in pills සහ translucent secondary pill එකක්. Scene layer එක `fixed` වන අතර login card එකට පිටුපසින් පවතී. Generated scene එක topographic contour pattern එකක්, සෙමින් drift වන canopy light layers දෙකක් සහ vignette එකකින් සමන්විත වේ; Sora (display), Hanken Grotesk (body) සහ JetBrains Mono (data/eyebrow) යන type pairing එක භාවිත වේ. Auth canvas එක app theme එකෙන් තොරව සෑම විටම dark immersive ලෙස පවතී — Super Admin branding background image/video එකක් set කළ විට එය scene එක මත scrim එකක් සමඟ render වේ. Portal switcher එක segmented control එකක් ලෙස animated active pip එකක් සමඟ ක්‍රියා කරයි; fields focus glow එකක් ද, CTA buttons sheen/lift micro-interactions ද පෙන්වයි. Reduced-motion devices වල සියලු ambient animations අක්‍රීය වේ. මේ පැති වෙන් කිරීම UI guidance එකක් පමණි; authentication systems දෙකක් නොවේ.
 
 - **Supplier Login** `supplier` role account සඳහා පමණි. වෙනත් approved role credentials මෙහි භාවිත කළොත් Firebase session එක වහාම close කර Staff Login භාවිත කිරීමට message එකක් පෙන්වයි.
 - **Staff Login** approved non-supplier accounts සඳහා පමණි. Supplier credentials මෙහි භාවිත කළොත් session එක close කර Supplier Login භාවිත කිරීමට message එකක් පෙන්වයි.
@@ -231,6 +231,8 @@ Admin branding save කිරීමෙන් web/PWA interface logo සහ names
 | **My Labor** | Supplierගේ daily worker cost records ගණනය කර save කරයි. | Supplier labor records. |
 | **My Profile** | Profile data සහ change requests පාලනය කරයි. | Users profile සහ approval workflow. |
 | **Help & Support / Disputes** | Support හෝ weight dispute request යවයි. | Workflow request → Admin pending inbox → resolution. |
+
+Supplier interface එකේ shell එක liquid-glass style එකකි: tea-leaf bokeh photograph එකක් සහිත aurora canvas එකක්, frosted glass header එකක්, floating glass dock navigation එකක් (active item එක white glass pill එකක්) සහ `.sp-main` තුළ සියලුම cards frosted-glass surfaces ලෙස පෙන්වයි. මේවා visual-only layers වන අතර module data, RBAC හෝ Office API requests වෙනස් නොකරයි.
 
 Supplier screen එකේ **Factory office system** සහ **EMS records** වැනි source labels භාවිත කරන්නේ පෙන්වන අගය පැමිණියේ කොහෙන්ද කියා පැහැදිලි කිරීමටයි.
 

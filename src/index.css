@@ -1020,3 +1020,399 @@ textarea {
 }
 .lx-field select option,
 .lx-input-plain option { background: #0a1f18; color: #f0fdf4; }
+
+/* ============================================================================
+ * ROUND 73 — LIQUID GLASS (login + supplier)
+ * Frosted translucent sheets, aurora refraction, specular highlights and
+ * photo-derived depth. Tea identity: estate photography + emerald/gold glass.
+ * ========================================================================== */
+
+@keyframes lgAurora { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(2%, -3%, 0) scale(1.08); } }
+@keyframes lgShimmer { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.7; } }
+
+/* Reusable liquid-glass sheet used by new surfaces. */
+.lg-glass {
+  position: relative;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.07) 48%, rgba(255, 255, 255, 0.14));
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  box-shadow: 0 28px 60px -30px rgba(2, 20, 16, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(30px) saturate(175%);
+  -webkit-backdrop-filter: blur(30px) saturate(175%);
+}
+.lg-sheen { position: relative; isolation: isolate; }
+.lg-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(120% 62% at 12% -12%, rgba(255, 255, 255, 0.4), transparent 58%),
+    radial-gradient(70% 46% at 96% 4%, rgba(245, 216, 138, 0.26), transparent 62%);
+  opacity: 0.9;
+}
+
+/* ---------- 1. Login: estate photograph + refracted aurora ----------------- */
+.lx-scene {
+  background-image:
+    linear-gradient(180deg, rgba(3, 18, 14, 0.58) 0%, rgba(3, 18, 14, 0.24) 34%, rgba(3, 20, 15, 0.58) 68%, rgba(2, 14, 10, 0.9) 100%),
+    radial-gradient(110rem 56rem at 112% -18%, rgba(45, 212, 191, 0.4), transparent 58%),
+    radial-gradient(60rem 40rem at -12% 108%, rgba(245, 184, 64, 0.24), transparent 62%),
+    url("/tea-estate-glass-login.jpg");
+  background-size: cover;
+  background-position: center 32%;
+  background-repeat: no-repeat;
+  filter: saturate(1.06);
+}
+.dark .lx-scene { background-image:
+    linear-gradient(180deg, rgba(1, 12, 9, 0.7) 0%, rgba(1, 12, 9, 0.42) 34%, rgba(1, 12, 9, 0.72) 68%, rgba(1, 10, 7, 0.94) 100%),
+    radial-gradient(110rem 56rem at 112% -18%, rgba(45, 212, 191, 0.32), transparent 58%),
+    radial-gradient(60rem 40rem at -12% 108%, rgba(245, 184, 64, 0.18), transparent 62%),
+    url("/tea-estate-glass-login.jpg");
+  background-size: cover;
+  background-position: center 32%;
+}
+.lx-scene::before {
+  background-image:
+    linear-gradient(118deg, transparent 38%, rgba(255, 255, 255, 0.06) 47%, transparent 56%),
+    radial-gradient(circle at 22% 24%, rgba(94, 234, 212, 0.2), transparent 45%),
+    radial-gradient(circle at 78% 60%, rgba(250, 204, 21, 0.12), transparent 42%);
+  opacity: 0.9;
+}
+.lx-scene::after {
+  background:
+    radial-gradient(130% 100% at 50% 4%, transparent 46%, rgba(1, 10, 7, 0.66)),
+    linear-gradient(180deg, transparent 70%, rgba(1, 10, 7, 0.55));
+}
+.lx-glow--leaf {
+  width: 30rem; height: 30rem; left: -9rem; top: -8rem;
+  background: radial-gradient(circle, rgba(94, 234, 212, 0.55), rgba(16, 185, 129, 0.16) 46%, transparent 70%);
+  filter: blur(42px);
+  mix-blend-mode: screen;
+  animation: lxDriftA 19s ease-in-out infinite, lgShimmer 9s ease-in-out infinite;
+}
+.lx-glow--sun {
+  width: 24rem; height: 24rem; right: -7rem; bottom: -7rem;
+  background: radial-gradient(circle, rgba(250, 204, 21, 0.34), rgba(245, 158, 11, 0.1) 48%, transparent 72%);
+  filter: blur(46px);
+  mix-blend-mode: screen;
+  animation: lxDriftB 23s ease-in-out infinite;
+}
+
+/* Brand mark — glossy glass squircle with specular highlight */
+.lx-logo {
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.42), rgba(16, 185, 129, 0.46) 52%, rgba(4, 47, 36, 0.7)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 26px 50px -22px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -12px 24px rgba(3, 40, 30, 0.5);
+  backdrop-filter: blur(14px) saturate(170%);
+  -webkit-backdrop-filter: blur(14px) saturate(170%);
+}
+.lx-logo::before {
+  content: "";
+  position: absolute;
+  inset: 3px 8% auto 8%;
+  height: 38%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6), transparent);
+  opacity: 0.7;
+  pointer-events: none;
+}
+.lx-logo::after { border-color: rgba(255, 255, 255, 0.42); }
+.lx-title {
+  background: linear-gradient(118deg, #ffffff 18%, #e3fbf0 52%, #f7e8bf 92%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 10px 34px rgba(0, 0, 0, 0.5));
+}
+.lx-eyebrow { color: #f3d79a; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.55); }
+
+/* Book card = large liquid-glass sheet */
+.lx-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2.2rem;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06) 46%, rgba(255, 255, 255, 0.13));
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  box-shadow: 0 44px 90px -44px rgba(0, 0, 0, 0.86), 0 2px 0 rgba(255, 255, 255, 0.18) inset, inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(36px) saturate(175%);
+  -webkit-backdrop-filter: blur(36px) saturate(175%);
+}
+.lx-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 58% at 10% -12%, rgba(255, 255, 255, 0.4), transparent 58%),
+    radial-gradient(64% 44% at 98% 2%, rgba(250, 204, 21, 0.18), transparent 62%),
+    linear-gradient(118deg, transparent 44%, rgba(255, 255, 255, 0.05) 50%, transparent 56%);
+}
+.lx-card::after {
+  content: "";
+  position: absolute;
+  left: 8%; right: 8%; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  pointer-events: none;
+}
+.lx-card > * { position: relative; }
+
+/* Frosted portal switcher — active tab becomes a white glass pill */
+.lx-switcher {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+.lx-tab { color: rgba(255, 255, 255, 0.68); border-radius: 0.95rem; }
+.lx-tab:hover { color: #ffffff; background: rgba(255, 255, 255, 0.07); }
+.lx-tab--supplier.is-on,
+.lx-tab--staff.is-on,
+.lx-tab--supplier.is-on:hover,
+.lx-tab--staff.is-on:hover {
+  background: linear-gradient(180deg, #ffffff, #eaf7f0);
+  color: #065f46;
+  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.7), inset 0 1px 0 #ffffff, inset 0 -2px 6px rgba(6, 95, 70, 0.1);
+}
+.lx-tab--staff.is-on { background: linear-gradient(180deg, #ffffff, #eef0ff); color: #3730a3; }
+.lx-tab .lx-pip { display: none; }
+
+/* Inner frosted sheets */
+.lx-face {
+  background: linear-gradient(162deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.045) 70%);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 18px 40px -32px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(18px) saturate(155%);
+  -webkit-backdrop-filter: blur(18px) saturate(155%);
+}
+.lx-face--staff { border-color: rgba(199, 210, 254, 0.32); }
+
+/* Glossy colour chips */
+.lx-chip {
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.36), rgba(16, 185, 129, 0.34));
+  color: #f0fdf4;
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68), 0 14px 26px -16px rgba(16, 185, 129, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.lx-chip--staff {
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.34), rgba(99, 102, 241, 0.36));
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62), 0 14px 26px -16px rgba(79, 70, 229, 0.75);
+}
+
+/* Frosted inputs */
+.lx-field {
+  background: rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+.lx-field:focus-within {
+  border-color: rgba(255, 255, 255, 0.58);
+  background: rgba(255, 255, 255, 0.17);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.lx-field:focus-within .lx-icon { color: #d1fae5; }
+.lx-input-plain {
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.11);
+  border-radius: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.lx-input-plain:focus {
+  border-color: rgba(255, 255, 255, 0.58);
+  background: rgba(255, 255, 255, 0.17);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* White liquid-glass primary pills + translucent secondary */
+.lx-cta {
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 1rem;
+  padding: 0.9rem 1.1rem;
+  color: #064e3b;
+  background: linear-gradient(180deg, #ffffff, #e9f7ef);
+  box-shadow: 0 18px 38px -18px rgba(0, 0, 0, 0.7), inset 0 1px 0 #ffffff, inset 0 -3px 8px rgba(6, 95, 70, 0.12);
+  text-shadow: none;
+}
+.lx-cta:hover:not(:disabled) {
+  color: #042f26;
+  background: linear-gradient(180deg, #ffffff, #dcf5e6);
+  box-shadow: 0 24px 48px -18px rgba(0, 0, 0, 0.72), inset 0 1px 0 #ffffff, inset 0 -3px 10px rgba(6, 95, 70, 0.16);
+}
+.lx-cta::after { background: linear-gradient(100deg, transparent, rgba(16, 185, 129, 0.22), transparent); }
+.lx-cta--staff { color: #312e81; background: linear-gradient(180deg, #ffffff, #eceeff); }
+.lx-cta--staff:hover:not(:disabled) { color: #1e1b4b; background: linear-gradient(180deg, #ffffff, #e2e5ff); }
+.lx-cta--ghost {
+  color: #ffffff;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 12px 28px -20px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.lx-cta--ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.22); color: #ffffff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4); }
+
+/* Frosted status banners */
+.lx-note { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16); }
+
+/* Trust strip */
+.lx-cardfoot { padding-top: 0.85rem; }
+.lx-trustline { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent); }
+.lx-trustdot { background: #ffffff; box-shadow: 0 0 12px rgba(255, 255, 255, 0.9); }
+
+/* ---------- 2. Supplier shell: aurora + leaf bokeh + glass chrome ---------- */
+.sp-shell {
+  background:
+    radial-gradient(58rem 32rem at 108% -10%, rgba(45, 212, 191, 0.34), transparent 60%),
+    radial-gradient(48rem 28rem at -12% 12%, rgba(125, 211, 252, 0.32), transparent 58%),
+    radial-gradient(44rem 26rem at 46% 112%, rgba(196, 181, 253, 0.3), transparent 62%),
+    radial-gradient(30rem 18rem at 88% 74%, rgba(253, 230, 138, 0.26), transparent 60%),
+    linear-gradient(180deg, #f4fbf7 0%, #edf6f4 52%, #edf3f8 100%);
+}
+.sp-shell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/tea-leaf-glass-ambient.jpg");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.1;
+  mix-blend-mode: soft-light;
+}
+.dark .sp-shell {
+  background:
+    radial-gradient(58rem 32rem at 108% -10%, rgba(16, 185, 129, 0.2), transparent 60%),
+    radial-gradient(48rem 28rem at -12% 12%, rgba(56, 189, 248, 0.14), transparent 58%),
+    radial-gradient(44rem 26rem at 46% 112%, rgba(139, 92, 246, 0.16), transparent 62%),
+    linear-gradient(180deg, #071511 0%, #06100d 100%);
+}
+.dark .sp-shell::after { opacity: 0.16; mix-blend-mode: screen; }
+
+.sp-header {
+  background: linear-gradient(155deg, rgba(4, 40, 30, 0.9), rgba(6, 63, 47, 0.72) 58%, rgba(9, 71, 55, 0.68));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 18px 44px -26px rgba(2, 26, 18, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(26px) saturate(170%);
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+}
+.sp-header::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), rgba(245, 216, 138, 0.55), transparent);
+}
+
+/* Supplier content surfaces -> frosted glass */
+.sp-main .card {
+  background: linear-gradient(162deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.56) 62%, rgba(240, 253, 248, 0.62));
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  border-radius: 1.5rem;
+  box-shadow: 0 22px 48px -28px rgba(4, 60, 44, 0.5), inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(6, 95, 70, 0.06);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+.sp-main .card-hover:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 30px 60px -26px rgba(4, 60, 44, 0.55), inset 0 1px 0 #ffffff;
+}
+.dark .sp-main .card {
+  background: linear-gradient(162deg, rgba(20, 41, 34, 0.82), rgba(13, 30, 25, 0.72));
+  border-color: rgba(110, 231, 183, 0.16);
+  box-shadow: 0 24px 54px -28px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.dark .sp-main .card-hover:hover { border-color: rgba(110, 231, 183, 0.34); }
+.sp-main .font-display { letter-spacing: -0.015em; }
+.sp-main .weather-hero {
+  border-radius: 1.9rem;
+  box-shadow: 0 34px 70px -34px rgba(2, 30, 22, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.sp-main .weather-glass { border-radius: 1.25rem; }
+
+/* Floating liquid-glass dock */
+.sp-dock {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.5));
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 1.7rem;
+  box-shadow: 0 26px 55px -26px rgba(4, 60, 44, 0.55), inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(6, 95, 70, 0.05);
+  backdrop-filter: blur(30px) saturate(170%);
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+}
+.sp-dockitem { color: #6b7f76; }
+.sp-dockitem--on { color: #065f46; }
+.sp-dockpill { color: inherit; }
+.sp-dockitem--on .sp-dockpill {
+  background: linear-gradient(160deg, #ffffff, #e3f7ec);
+  color: #064e3b;
+  box-shadow: 0 10px 22px -12px rgba(4, 60, 44, 0.6), inset 0 1px 0 #ffffff, 0 0 0 1px rgba(6, 95, 70, 0.14);
+}
+.sp-morebtn { color: #6b7f76; }
+.dark .sp-dock {
+  background: linear-gradient(160deg, rgba(6, 32, 25, 0.88), rgba(4, 21, 16, 0.9));
+  border-color: rgba(110, 231, 183, 0.22);
+  box-shadow: 0 26px 55px -22px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.dark .sp-dockitem { color: rgba(203, 225, 216, 0.58); }
+.dark .sp-dockitem--on { color: #d1fae5; }
+.dark .sp-dockitem--on .sp-dockpill {
+  background: linear-gradient(160deg, #ffffff, #ccf7e2);
+  color: #042f24;
+  box-shadow: 0 10px 24px -10px rgba(110, 231, 183, 0.55), inset 0 1px 0 #ffffff;
+}
+
+@media (max-width: 640px) {
+  .sp-main .card { backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); }
+  .lx-card { backdrop-filter: blur(28px) saturate(165%); -webkit-backdrop-filter: blur(28px) saturate(165%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lx-glow--leaf, .lx-glow--sun, .lg-sheen::after { animation: none !important; }
+}
+
+/* ---------- 3. Round 73 polish: stable photo canvas + supplier typography -- */
+.lx-scene, .lx-glow { position: fixed; }
+.lx-scene { z-index: 0; }
+.lx-glow { z-index: 0; pointer-events: none; }
+.lx-card { z-index: 1; }
+
+.sp-main h1.font-display { letter-spacing: -0.03em; }
+.sp-main p.uppercase.text-emerald-600,
+.sp-main p.uppercase.text-emerald-700,
+.sp-main p.uppercase.text-slate-400 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(236, 253, 245, 0.6));
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 16px -12px rgba(4, 60, 44, 0.5), inset 0 1px 0 #ffffff;
+  letter-spacing: 0.16em;
+  font-size: 10px;
+}
+.dark .sp-main p.uppercase.text-emerald-600,
+.dark .sp-main p.uppercase.text-emerald-700,
+.dark .sp-main p.uppercase.text-slate-400 {
+  background: linear-gradient(160deg, rgba(30, 55, 46, 0.85), rgba(15, 34, 27, 0.7));
+  border-color: rgba(110, 231, 183, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.sp-main .card .rounded-2xl.bg-gradient-to-br,
+.sp-main .card [class*="bg-gradient-to-br"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 10px 22px -14px rgba(4, 60, 44, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lx-scene, .lx-glow { animation: none !important; }
+}
+
+.lx-card { overflow: visible; }

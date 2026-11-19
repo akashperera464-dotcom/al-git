@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -43,5 +43,36 @@ describe("round 72 premium design system", () => {
   it("preserves the iOS input-zoom prevention in the new typography regime", () => {
     expect(css).toMatch(/font-size:\s*16px/);
     expect(css).not.toContain("user-scalable=no");
+  });
+});
+
+
+describe("round 73 liquid glass layer", () => {
+  it("ships a reusable frosted glass surface with real refraction", () => {
+    expect(css).toContain(".lg-glass");
+    expect(css).toContain("backdrop-filter: blur(36px) saturate(175%)");
+    expect(css).toContain("inset 0 1px 0 rgba(255, 255, 255, 0.6)");
+  });
+
+  it("uses the generated tea imagery as photographic depth", () => {
+    expect(css).toContain('url("/tea-estate-glass-login.jpg")');
+    expect(css).toContain('url("/tea-leaf-glass-ambient.jpg")');
+    const login = statSync(resolve(process.cwd(), "public/tea-estate-glass-login.jpg"));
+    const ambient = statSync(resolve(process.cwd(), "public/tea-leaf-glass-ambient.jpg"));
+    expect(login.size).toBeGreaterThan(50_000);
+    expect(ambient.size).toBeGreaterThan(30_000);
+  });
+
+  it("keeps the photographic scene visible behind the login glass", () => {
+    expect(login).not.toContain('className="app-aurora absolute inset-0"');
+    expect(login).toContain("lx-scene");
+    expect(css).toContain(".lx-scene::before");
+  });
+
+  it("renders white liquid-glass CTAs and a floating glass dock", () => {
+    expect(css).toMatch(/\.lx-cta\s*\{[^}]*background: linear-gradient\(180deg, #ffffff/);
+    expect(css).toContain(".lx-cta--ghost");
+    expect(css).toContain(".sp-dockitem--on .sp-dockpill");
+    expect(css).toMatch(/@supports|backdrop-filter: blur\(30px\) saturate\(170%\)/);
   });
 });

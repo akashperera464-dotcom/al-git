@@ -4416,3 +4416,36 @@ login scene hooks, book-page/reduced-motion anchors, and that the admin
 navigation surface was not modified.
 
 *Premium design system (login + supplier shell) added: 14 November 2026.*
+
+## 73. Liquid-Glass Visual Language (Login & Supplier)
+
+The UI was refined again to a liquid-glass language inspired by translucent
+frosted panels, specular highlights and floating glass docks, adapted to the
+tea-estate domain (emerald/gold palette, real estate and leaf photography).
+
+```text
+Login canvas   fixed tea-estate dawn photograph
+               + emerald/gold aurora refraction + vignette
+               + frosted book glass (blur 36px, white specular edge)
+               + white liquid-glass sign-in pills + translucent ghost pill
+Supplier shell aurora + tea-leaf bokeh canvas (light/dark)
+               frosted glass header, floating glass dock, white active pill
+               .sp-main surfaces become frosted glass cards (blur 20px)
+```
+
+Implementation map: `src/index.css` Round 73 layer (`.lg-glass`, `.lx-*`,
+`.sp-*` overrides), `src/components/Login.tsx` (the obsolete opaque
+`app-aurora` layer that hid the photographic scene was removed; the brand
+mark now uses the glass token), `public/tea-estate-glass-login.jpg` and
+`public/tea-leaf-glass-ambient.jpg` (optimised progressive JPEG, 239KB and
+106KB).
+
+Functional architecture is unchanged: no authentication, role, RLS, Office
+API, Supabase or environment change; no i18n keys added/removed; module
+routes preserved. All new motion respects `prefers-reduced-motion`, and
+backdrop blur is reduced on small screens.
+
+`designSystem.test.ts` now also guards the glass tokens, the tea imagery
+assets and that the login scene is not hidden again.
+
+*Liquid-glass visual language added: 19 November 2026.*
