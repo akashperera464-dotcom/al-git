@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-display: "Sora", "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Noto Sans", "Noto Sans Sinhala", "Noto Sans Tamil", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Noto Sans", "Noto Sans Sinhala", "Noto Sans Tamil", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-pine-950: #04231a;
   --color-pine-900: #064e3b;
@@ -844,7 +844,7 @@ textarea {
 .lx-eyebrow {
   font-family: var(--font-mono);
   font-size: 10px; font-weight: 700;
-  letter-spacing: 0.24em; text-transform: uppercase;
+  letter-spacing: 0.06em; text-transform: uppercase;
   color: #f5b840;
 }
 
@@ -1396,7 +1396,7 @@ textarea {
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(236, 253, 245, 0.6));
   border: 1px solid rgba(255, 255, 255, 0.95);
   box-shadow: 0 6px 16px -12px rgba(4, 60, 44, 0.5), inset 0 1px 0 #ffffff;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.04em;
   font-size: 10px;
 }
 .dark .sp-main p.uppercase.text-emerald-600,
@@ -1416,3 +1416,148 @@ textarea {
 }
 
 .lx-card { overflow: visible; }
+
+/* ============================================================================
+ * ROUND 74 — CLARITY PASS
+ * Fixes real rendering defects found in rounds 72–73:
+ *   1. Sora / Hanken Grotesk / JetBrains Mono have no Sinhala or Tamil glyphs,
+ *      so mixed text fell back per-glyph and looked distorted.
+ *   2. letter-spacing 0.16–0.24em was applied to Sinhala/Tamil labels; wide
+ *      tracking breaks those scripts.
+ *   3. .sp-main .tnum forced a Latin-only mono face onto supplier statistics.
+ *   4. The `p.uppercase` catch-all turned arbitrary paragraphs into flex pills,
+ *      clipping and stretching text.
+ *   5. Heavy backdrop-filter over fixed photography produced soft/blurry text
+ *      and jank on low-end phones.
+ * The layer below neutralises all five and restores crisp, calm surfaces.
+ * ========================================================================== */
+
+:lang(si), :lang(ta), [lang="si"], [lang="ta"] { letter-spacing: normal !important; }
+
+/* Typography: one family, clear scale, no forced mono anywhere in content. */
+body, .font-display, .font-sans { letter-spacing: normal; }
+.font-display { letter-spacing: -0.015em; }
+.sp-main .tnum,
+.sp-main .stat-value,
+.sp-main .font-display { font-family: inherit !important; letter-spacing: normal !important; }
+.sp-main h1.font-display { letter-spacing: -0.02em !important; font-weight: 700; }
+
+/* Revert the catch-all eyebrow pill that broke paragraph layout. */
+.sp-main p.uppercase.text-emerald-600,
+.sp-main p.uppercase.text-emerald-700,
+.sp-main p.uppercase.text-slate-400,
+.dark .sp-main p.uppercase.text-emerald-600,
+.dark .sp-main p.uppercase.text-emerald-700,
+.dark .sp-main p.uppercase.text-slate-400 {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #0f766e;
+}
+.dark .sp-main p.uppercase.text-emerald-600,
+.dark .sp-main p.uppercase.text-emerald-700 { color: #5eead4; }
+
+/* ---- Supplier canvas: calm neutral, no busy imagery behind text ---------- */
+.sp-shell {
+  background: #f2f5f2 !important;
+}
+.sp-shell::before, .sp-shell::after { display: none !important; content: none !important; }
+.dark .sp-shell { background: #070f0c !important; }
+
+/* ---- Supplier header: solid, crisp, readable ---------------------------- */
+.sp-header {
+  background: #04372b !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 20px -18px rgba(2, 26, 18, 0.9) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.sp-header::after {
+  background: linear-gradient(90deg, transparent, rgba(45, 212, 191, 0.5), rgba(250, 204, 21, 0.28), transparent) !important;
+  height: 2px;
+}
+
+/* ---- Supplier content: solid white cards, no blur over text ------------- */
+.sp-main .card,
+.sp-main .weather-hero {
+  background: #ffffff !important;
+  border: 1px solid #e3e8e4 !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 1px 2px rgba(15, 32, 26, 0.04), 0 12px 28px -24px rgba(15, 32, 26, 0.45) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.sp-main .card-hover:hover {
+  transform: translateY(-2px) !important;
+  border-color: #cde3d8 !important;
+  box-shadow: 0 18px 36px -24px rgba(15, 32, 26, 0.5) !important;
+}
+.dark .sp-main .card,
+.dark .sp-main .weather-hero {
+  background: #101a16 !important;
+  border-color: #24352d !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 32px -26px rgba(0, 0, 0, 0.9) !important;
+}
+.dark .sp-main .card-hover:hover { border-color: #35564a !important; }
+.sp-main .weather-hero { background: #04372b !important; border-color: #04372b !important; }
+.sp-main .weather-glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(255, 255, 255, 0.12) !important; }
+
+/* ---- Supplier dock: clean white bar with one emerald active pill -------- */
+.sp-dock {
+  background: #ffffff !important;
+  border: 1px solid #e3e8e4 !important;
+  border-radius: 1.25rem !important;
+  box-shadow: 0 -1px 0 rgba(15, 32, 26, 0.04), 0 16px 32px -20px rgba(15, 32, 26, 0.5) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.sp-dockitem { color: #64748b !important; gap: 0.15rem; letter-spacing: normal !important; }
+.sp-dockitem--on { color: #0f766e !important; }
+.sp-dockpill { color: inherit !important; border-radius: 0.75rem !important; }
+.sp-dockitem--on .sp-dockpill {
+  background: #0f766e !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 14px -8px rgba(15, 118, 110, 0.8) !important;
+  animation: none !important;
+}
+.sp-docklabel { font-size: 10px !important; font-weight: 600 !important; letter-spacing: normal !important; }
+.sp-morebtn { color: #64748b !important; }
+.dark .sp-dock { background: #101a16 !important; border-color: #24352d !important; }
+.dark .sp-dockitem { color: #94a3b8 !important; }
+.dark .sp-dockitem--on { color: #5eead4 !important; }
+.dark .sp-dockitem--on .sp-dockpill { background: #14b8a6 !important; color: #04231a !important; }
+
+/* ---- Shared card surface: crisp instead of heavily shadowed ------------- */
+.card {
+  background: #ffffff;
+  border-color: #e3e8e4;
+  box-shadow: 0 1px 2px rgba(15, 32, 26, 0.04), 0 10px 24px -22px rgba(15, 32, 26, 0.4);
+}
+.dark .card {
+  background: #101a16;
+  border-color: #24352d;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 30px -24px rgba(0, 0, 0, 0.85);
+}
+
+/* ---- Retire the unused heavy login layers ------------------------------- */
+.lx-scene, .lx-glow, .lx-card, .lx-face, .lx-field, .lx-input-plain,
+.lx-cta, .lx-switcher, .lx-tab, .lx-chip, .lx-note, .lx-eyebrow, .lx-logo,
+.lx-title, .lx-cardfoot, .lx-trustdot, .lx-trustline { background-image: none; }
+.lx-scene, .lx-glow, .lx-cardfoot { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-book__pages, .card-hover, .sp-main .card-hover:hover { transition: none !important; transform: none !important; }
+}
+
+/* Final typography guard: display faces keep natural tracking; only explicit
+   Latin-only accent text opts into negative tracking. */
+.font-display { letter-spacing: normal !important; }
+.sp-main :is(p, span, label, button, li, td, th, a, h1, h2, h3, h4) { letter-spacing: normal; }
+.sp-main .truncate { text-overflow: ellipsis; }
+:lang(si) :is(p, span, label, li, td, th, button, a), :lang(ta) :is(p, span, label, li, td, th, button, a) { line-height: 1.55; }

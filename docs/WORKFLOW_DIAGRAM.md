@@ -4449,3 +4449,47 @@ backdrop blur is reduced on small screens.
 assets and that the login scene is not hidden again.
 
 *Liquid-glass visual language added: 19 November 2026.*
+
+## 74. Clarity Pass — Legibility Fixes and Split-Screen Login
+
+Round 73's liquid-glass styling introduced measurable readability defects on
+the supplier interface. They were traced, not guessed, and removed:
+
+```text
+defect                                        cause
+--------------------------------------------  --------------------------------------------
+distorted/stretched letters in Sinhala/Tamil   Sora, Hanken Grotesk and JetBrains Mono have
+                                               no Sinhala/Tamil glyphs -> per-glyph fallback;
+                                               plus 0.16–0.24em letter-spacing on labels
+supplier statistics looked broken              `.sp-main .tnum/.stat-value` forced a
+                                               Latin-only mono face onto mixed content
+paragraphs clipped / text overflowing          a `p.uppercase` catch-all forced arbitrary
+                                               paragraphs into inline-flex pills
+soft, blurry text on phones                    backdrop-filter over fixed photography
+```
+
+The fix layer (`.ROUND 74 — CLARITY PASS` in `src/index.css`) does five things:
+
+1. loads **Noto Sans + Noto Sans Sinhala + Noto Sans Tamil** and uses one
+   stack for body and display (consistent metrics across all three locales);
+2. forces `letter-spacing: normal` for `:lang(si)` and `:lang(ta)`;
+3. removes every content-level mono/display override in `.sp-main`;
+4. reverts the catch-all eyebrow pill to a plain label;
+5. replaces blurred glass cards with solid white cards, a solid supplier
+   header and a clean white dock (no `backdrop-filter` behind text).
+
+`Login.tsx` was rebuilt as a calm split screen: an emerald brand panel with
+estate photography on desktop, and a crisp white form card on the right (the
+same card is the whole layout on mobile). All authentication handlers,
+registration bounded waits, portal gate, ARIA roles and `auth-book*` flip
+hooks are unchanged; the only Firebase call remains `signInWithEmail`.
+
+`Shell.tsx` supplier chrome is now plain Tailwind (no decorative classes):
+solid header, solid cards, white dock with an emerald active pill. Admin
+navigation and content are untouched.
+
+No authentication, role, RLS, Office API, Supabase, environment or i18n key
+change. Tests: `designSystem.test.ts` rewritten to guard the new typography
+coverage and the regression fixes above.
+
+*Clarity pass and split-screen login added: 19 November 2026.*

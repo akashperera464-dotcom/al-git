@@ -7,72 +7,67 @@ const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
 const login = readFileSync(resolve(process.cwd(), "src/components/Login.tsx"), "utf8");
 const shell = readFileSync(resolve(process.cwd(), "src/components/Shell.tsx"), "utf8");
 
-describe("round 72 premium design system", () => {
-  it("pairs a distinctive display face with readable body and data faces", () => {
-    expect(html).toContain("family=Sora");
-    expect(html).toContain("family=Hanken+Grotesk");
-    expect(html).toContain("family=JetBrains+Mono");
-    expect(css).toContain('"Sora"');
-    expect(css).toContain('"Hanken Grotesk"');
-    expect(css).toMatch(/--font-mono:\s*"JetBrains Mono"/);
+describe("round 74 legibility and layout contract", () => {
+  it("loads a font family with real Sinhala and Tamil coverage", () => {
+    expect(html).toContain("family=Noto+Sans");
+    expect(html).toContain("family=Noto+Sans+Sinhala");
+    expect(html).toContain("family=Noto+Sans+Tamil");
+    expect(css).toContain('"Noto Sans Sinhala"');
+    expect(css).toContain('"Noto Sans Tamil"');
   });
 
-  it("ships the immersive login scene with living feedback", () => {
-    expect(css).toContain(".lx-scene");
-    expect(css).toContain(".lx-field:focus-within");
-    expect(css).toContain(".lx-cta:hover");
-    expect(login).toContain("lx-scene");
-    expect(login).toContain('role="tablist"');
-    expect(login).toContain('aria-selected={portal === "supplier"}');
+  it("no longer ships Latin-only faces that distorted sinhala/tamil text", () => {
+    expect(css).not.toMatch(/--font-sans:\s*"Hanken Grotesk"/);
+    expect(css).not.toContain('"Sora"');
+    expect(css).not.toContain("--font-mono: \"JetBrains Mono\"");
   });
 
-  it("keeps the book-page turn hooks and reduced-motion guard intact", () => {
+  it("removes the wide-tracking and forced-mono defects", () => {
+    expect(css).toContain(':lang(si), :lang(ta)');
+    expect(css).toContain("font-family: inherit !important");
+    expect(css).not.toContain("letter-spacing: 0.24em");
+    expect(css).toContain("display: block;\n  padding: 0;\n  border: 0;");
+  });
+
+  it("renders a split-screen login with a crisp light form surface", () => {
+    expect(login).toContain('lg:grid-cols-[1.02fr_0.98fr]');
     expect(login).toContain("auth-book__pages");
-    expect(login).toContain("auth-book__page--front");
-    expect(login).toContain("auth-book__page--back");
-    expect(css).toMatch(/prefers-reduced-motion[\s\S]{0,400}lx-glow/);
+    expect(login).toContain('aria-selected={portal === "supplier"}');
+    expect(login).toContain('role="tablist"');
+    expect(login).not.toContain("lx-card");
+    expect(login).not.toContain("backdrop-blur-2xl");
   });
 
-  it("restyled only supplier chrome and left the admin surface untouched", () => {
-    expect(shell).toContain("sp-shell");
-    expect(shell).toContain("sp-dock");
+  it("keeps one Firebase sign-in call and the registration pipeline", () => {
+    expect(login.match(/await signInWithEmail\(/g)).toHaveLength(1);
+    expect(login).toContain('renderSignInForm("supplier"');
+    expect(login).toContain('renderSignInForm("staff"');
+    expect(login).toContain("registering ? renderRegistrationForm() : renderSignInForm");
+    expect(login).toContain('t("auth.staffRolesHint")');
+  });
+
+  it("keeps the book-page turn and reduced-motion fallback", () => {
+    expect(css).toContain(".auth-book__pages.is-flipped");
+    expect(css).toContain("rotateY(-180deg)");
+    expect(css).toContain("@media (prefers-reduced-motion: reduce)");
+  });
+
+  it("uses solid supplier surfaces instead of blurred cards", () => {
+    expect(css).toContain(".sp-main .card");
+    expect(css).toContain("backdrop-filter: none !important");
+    expect(css).toContain("background: #ffffff !important");
     expect(shell).toContain("primaryTabsForRole(role)");
     expect(shell).toContain('"border-t border-slate-200 bg-white/95 backdrop-blur-xl"');
   });
 
-  it("preserves the iOS input-zoom prevention in the new typography regime", () => {
+  it("keeps estate photography as brand depth, not behind form text", () => {
+    const image = statSync(resolve(process.cwd(), "public/tea-estate-glass-login.jpg"));
+    expect(image.size).toBeGreaterThan(50_000);
+    expect(login).toContain("/tea-estate-glass-login.jpg");
+  });
+
+  it("preserves the iOS input-zoom prevention", () => {
     expect(css).toMatch(/font-size:\s*16px/);
     expect(css).not.toContain("user-scalable=no");
-  });
-});
-
-
-describe("round 73 liquid glass layer", () => {
-  it("ships a reusable frosted glass surface with real refraction", () => {
-    expect(css).toContain(".lg-glass");
-    expect(css).toContain("backdrop-filter: blur(36px) saturate(175%)");
-    expect(css).toContain("inset 0 1px 0 rgba(255, 255, 255, 0.6)");
-  });
-
-  it("uses the generated tea imagery as photographic depth", () => {
-    expect(css).toContain('url("/tea-estate-glass-login.jpg")');
-    expect(css).toContain('url("/tea-leaf-glass-ambient.jpg")');
-    const login = statSync(resolve(process.cwd(), "public/tea-estate-glass-login.jpg"));
-    const ambient = statSync(resolve(process.cwd(), "public/tea-leaf-glass-ambient.jpg"));
-    expect(login.size).toBeGreaterThan(50_000);
-    expect(ambient.size).toBeGreaterThan(30_000);
-  });
-
-  it("keeps the photographic scene visible behind the login glass", () => {
-    expect(login).not.toContain('className="app-aurora absolute inset-0"');
-    expect(login).toContain("lx-scene");
-    expect(css).toContain(".lx-scene::before");
-  });
-
-  it("renders white liquid-glass CTAs and a floating glass dock", () => {
-    expect(css).toMatch(/\.lx-cta\s*\{[^}]*background: linear-gradient\(180deg, #ffffff/);
-    expect(css).toContain(".lx-cta--ghost");
-    expect(css).toContain(".sp-dockitem--on .sp-dockpill");
-    expect(css).toMatch(/@supports|backdrop-filter: blur\(30px\) saturate\(170%\)/);
   });
 });

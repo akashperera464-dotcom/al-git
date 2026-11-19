@@ -18,12 +18,13 @@ import { isRoleAllowedForPortal, LOGIN_PORTAL_BLOCKED_UID_KEY, LOGIN_PORTAL_INTE
 /**
  * Unified Login Screen — Email + Password (Firebase Auth).
  * ------------------------------------------------------------------
- * Supplier and staff portals share Firebase authentication, but each portal
- * accepts only the matching approved account role. Branding (logo, background
- * image/video, texts) is controlled by Branding & Settings.
+ * Round 74 "Clarity": a calm split-screen. The left panel carries estate
+ * identity and photography; the right panel is a crisp, high-contrast form
+ * surface. No heavy glass/blur over text, so every glyph — Latin, Sinhala and
+ * Tamil — renders sharply on low-end phones.
  *
- * When a background image/video is set, a dark scrim auto-applies so all text
- * and the login card stay fully readable.
+ * Authentication behaviour is unchanged: both portals share Firebase
+ * email/password, and the resolved Supabase profile role decides access.
  */
 export function Login() {
   const { t } = useTranslation();
@@ -139,7 +140,7 @@ export function Login() {
   };
 
   const hasBg = Boolean(branding.loginBackgroundUrl && isMediaUrl(branding.loginBackgroundUrl));
-  const accent = branding.accentColor || "#10b981";
+  const accent = branding.accentColor || "#0f766e";
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
 
   const changePortal = (nextPortal: LoginPortal) => {
@@ -152,13 +153,12 @@ export function Login() {
     setShowPw(false);
   };
 
-  // Round 72: the authentication scene is always immersive estate-night dark;
-  // admin branding media renders over the generated scene with its scrim kept.
-  const subTextColor = "text-emerald-100/55";
-  const labelClass = "mb-1.5 block lx-eyebrow";
+  const fieldClass = "h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10 disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 dark:focus:border-teal-400";
+  const labelClass = "mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300";
+  const ctaClass = "inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60";
 
   const renderError = () => error ? (
-    <div className="lx-note lx-note--err" role="alert">
+    <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200" role="alert">
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
       <span>{error}</span>
     </div>
@@ -170,39 +170,38 @@ export function Login() {
       <form onSubmit={submit} className="space-y-4">
         <div>
           <label className={labelClass}>{t("auth.emailUsername")}</label>
-          <div className="lx-field">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 lx-icon" />
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="email"
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@kdu.com"
-              className="w-full bg-transparent py-3 pl-10 pr-3 text-sm text-white placeholder:text-white/30 outline-none"
+              className={`${fieldClass} pl-10`}
               disabled={busy}
               tabIndex={active ? 0 : -1}
             />
           </div>
         </div>
-
         <div>
           <label className={labelClass}>{t("common.password")}</label>
-          <div className="lx-field">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 lx-icon" />
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type={showPw ? "text" : "password"}
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="••••••••"
-              className="w-full bg-transparent py-3 pl-10 pr-10 text-sm text-white placeholder:text-white/30 outline-none"
+              className={`${fieldClass} pl-10 pr-10`}
               disabled={busy}
               tabIndex={active ? 0 : -1}
             />
             <button
               type="button"
               onClick={() => setShowPw((visible) => !visible)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 lx-icon transition hover:text-emerald-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-200"
               tabIndex={active ? 0 : -1}
               aria-label={showPw ? "Hide password" : "Show password"}
             >
@@ -217,7 +216,8 @@ export function Login() {
           type="submit"
           disabled={busy}
           tabIndex={active ? 0 : -1}
-          className={`lx-cta ${staff ? "lx-cta--staff" : ""}`}
+          className={ctaClass}
+          style={{ background: staff ? "#4338ca" : accent }}
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
           {busy ? t("auth.signingIn") : staff ? t("auth.staffSignIn") : t("auth.supplierSignIn")}
@@ -230,28 +230,28 @@ export function Login() {
   const renderRegistrationForm = () => (
     <form onSubmit={submitRegistration} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><label className={labelClass}>{t("auth.supplierNo")}</label><input value={registration.supplierNo} onChange={event => setRegistration({ ...registration, supplierNo: event.target.value })} placeholder="e.g., 237" className="lx-input-plain" disabled={busy} /></div>
-        <div><label className={labelClass}>{t("common.name")}</label><input value={registration.name} onChange={event => setRegistration({ ...registration, name: event.target.value })} className="lx-input-plain" disabled={busy} /></div>
+        <div><label className={labelClass}>{t("auth.supplierNo")}</label><input value={registration.supplierNo} onChange={event => setRegistration({ ...registration, supplierNo: event.target.value })} placeholder="e.g., 237" className={fieldClass} disabled={busy} /></div>
+        <div><label className={labelClass}>{t("common.name")}</label><input value={registration.name} onChange={event => setRegistration({ ...registration, name: event.target.value })} className={fieldClass} disabled={busy} /></div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div><label className={labelClass}>{t("auth.factory")}</label><select value={registration.factoryId} onChange={event => setRegistration({ ...registration, factoryId: event.target.value, routeIds: [] })} className="lx-input-plain" disabled={busy}><option value="">{t("auth.selectFactory")}</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
+        <div><label className={labelClass}>{t("auth.factory")}</label><select value={registration.factoryId} onChange={event => setRegistration({ ...registration, factoryId: event.target.value, routeIds: [] })} className={fieldClass} disabled={busy}><option value="">{t("auth.selectFactory")}</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
         <div><label className={labelClass}>{t("auth.routes")}</label><RouteMultiSelect routes={routes} selected={registration.routeIds} onChange={(routeIds) => setRegistration({ ...registration, routeIds })} disabled={!registration.factoryId || busy} emptyText={t("auth.selectFactoryFirst")} /></div>
       </div>
       <div>
         <label className={labelClass}>{t("auth.emailUsername")}</label>
-        <div className="lx-field"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 lx-icon" /><input type="email" autoComplete="email" value={registration.email} onChange={event => setRegistration({ ...registration, email: event.target.value })} placeholder="you@kdu.com" className="w-full bg-transparent py-3 pl-10 pr-3 text-sm text-white placeholder:text-white/30 outline-none" disabled={busy} /></div>
+        <div className="relative"><Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="email" autoComplete="email" value={registration.email} onChange={event => setRegistration({ ...registration, email: event.target.value })} placeholder="you@kdu.com" className={`${fieldClass} pl-10`} disabled={busy} /></div>
       </div>
       <div>
         <label className={labelClass}>{t("common.password")}</label>
-        <div className="lx-field"><Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 lx-icon" /><input type={showPw ? "text" : "password"} autoComplete="new-password" value={registration.password} onChange={event => setRegistration({ ...registration, password: event.target.value })} placeholder="••••••••" className="w-full bg-transparent py-3 pl-10 pr-10 text-sm text-white placeholder:text-white/30 outline-none" disabled={busy} /><button type="button" onClick={() => setShowPw((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 lx-icon transition hover:text-emerald-300" aria-label={showPw ? "Hide password" : "Show password"}>{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
+        <div className="relative"><Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type={showPw ? "text" : "password"} autoComplete="new-password" value={registration.password} onChange={event => setRegistration({ ...registration, password: event.target.value })} placeholder="••••••••" className={`${fieldClass} pl-10 pr-10`} disabled={busy} /><button type="button" onClick={() => setShowPw((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" aria-label={showPw ? "Hide password" : "Show password"}>{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
       </div>
-      <div><label className={labelClass}>{t("common.phone")}</label><input value={registration.phone} onChange={event => setRegistration({ ...registration, phone: event.target.value })} placeholder="+94 77 000 0000" className="lx-input-plain" disabled={busy} /></div>
+      <div><label className={labelClass}>{t("common.phone")}</label><input value={registration.phone} onChange={event => setRegistration({ ...registration, phone: event.target.value })} placeholder="+94 77 000 0000" className={fieldClass} disabled={busy} /></div>
 
-      {registrationDone && <div className="lx-note lx-note--ok"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.registrationSuccess")}</span></div>}
-      {registrationWarning && <div className="lx-note lx-note--warn"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{registrationWarning}</span></div>}
+      {registrationDone && <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.registrationSuccess")}</span></div>}
+      {registrationWarning && <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{registrationWarning}</span></div>}
       {renderError()}
 
-      <button type="submit" disabled={busy} className="lx-cta">
+      <button type="submit" disabled={busy} className={ctaClass} style={{ background: accent }}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
         {busy ? t("auth.registering") : t("auth.submitRegistration")}
       </button>
@@ -259,129 +259,145 @@ export function Login() {
   );
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col items-center justify-start overflow-x-hidden px-4 pb-8 pt-20 sm:min-h-screen sm:justify-center sm:p-5" style={{ "--brand-accent": accent, colorScheme: "dark" } as React.CSSProperties}>
-      {/* ---- Immersive estate-night scene (round 72) ---- */}
-      {!hasBg && (
-        <>
-          <div className="lx-scene" aria-hidden="true" />
-          <div className="lx-glow lx-glow--leaf" aria-hidden="true" />
-          <div className="lx-glow lx-glow--sun" aria-hidden="true" />
-        </>
-      )}
-      {/* ---- Background layer ---- */}
-      {hasBg ? (
-        <>
-          {isVideoUrl(branding.loginBackgroundUrl) ? (
-            <video
-              src={branding.loginBackgroundUrl}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-              crossOrigin="anonymous"
-              className="absolute inset-0 h-full w-full object-cover"
-              // Browsers can stall autoplay if the video isn't muted or doesn't
-              // have playsInline. We have both — but if autoplay still fails
-              // (e.g., user has reduced-motion preference), force-play on canplay.
-              onCanPlay={(e) => { (e.target as HTMLVideoElement).play().catch(() => {}); }}
-              onError={(e) => { (e.target as HTMLVideoElement).style.display = "none"; }}
-            />
+    <div className="min-h-[100dvh] bg-[#f4f6f3] lg:grid lg:grid-cols-[1.02fr_0.98fr] dark:bg-slate-950">
+      {/* ---------------- Brand panel (desktop) ---------------- */}
+      <aside className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+        {hasBg ? (
+          isVideoUrl(branding.loginBackgroundUrl) ? (
+            <video src={branding.loginBackgroundUrl} autoPlay loop muted playsInline preload="auto" className="absolute inset-0 h-full w-full object-cover" onCanPlay={(e) => { (e.target as HTMLVideoElement).play().catch(() => {}); }} />
           ) : (
-            <img
-              src={branding.loginBackgroundUrl}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-            />
-          )}
-          {/* Readability scrim — opacity controlled by the Super Admin slider. */}
-          <div className="absolute inset-0 bg-black" style={{ opacity: branding.loginScrimOpacity / 100 }} />
-          {/* Subtle bottom-up gradient for extra contrast behind the card. */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
-        </>
-      ) : (
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_85%_at_50%_-10%,rgba(255,255,255,0.10),transparent_58%)]" aria-hidden="true" />
-      )}
+            <img src={branding.loginBackgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          )
+        ) : (
+          <img src="/tea-estate-glass-login.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#032a21]/96 via-[#04372b]/88 to-[#021b15]/97" />
+        <div className="absolute inset-0 opacity-[0.14]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1'%3E%3Cpath d='M-40 120C80 60 180 180 300 122S480 62 600 148'/%3E%3Cpath d='M-40 220C80 160 190 280 305 222S490 162 600 248'/%3E%3Cpath d='M-40 320C80 260 180 380 300 322S480 262 600 348'/%3E%3Cpath d='M-40 420C80 360 190 480 305 422S490 362 600 448'/%3E%3C/g%3E%3C/svg%3E\")" }} />
 
-      {/* Keep the selector in the viewport's top-right corner on every screen size.
-          safe-top-absolute moves it below a mobile display notch when necessary. */}
-      <div className="safe-top-absolute absolute right-4 top-4 z-20 flex items-center gap-2">
-        {!embeddedAndroidApp && <LanguageSwitcher dark />}
-        <ThemeToggle darkSurface />
-      </div>
-
-      <div className="relative z-10 w-full max-w-xl">
-        {/* brand */}
-        <div className="lx-rise mx-auto mb-6 flex max-w-md flex-col items-center px-6 text-center">
-          <div
-            className="lx-logo relative mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-2xl shadow-emerald-950/60 sm:mb-5 sm:h-[4.5rem] sm:w-[4.5rem]"
-          >
+        <div className="relative flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
             {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
-              <img
-                src={branding.loginLogoUrl}
-                alt="logo"
-                className="h-full w-full object-cover"
-                onError={(e) => {
-                  const t = e.target as HTMLImageElement;
-                  t.style.display = "none";
-                }}
-              />
+              <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             ) : (
-              <Leaf className="h-8 w-8 text-emerald-100 sm:h-9 sm:w-9" />
+              <Leaf className="h-6 w-6 text-emerald-200" />
             )}
-            <span className="lx-logo__seed absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full bg-amber-400 ring-2 ring-[#06251c]" />
+          </span>
+          <div>
+            <p className="text-sm font-bold tracking-tight text-white">{branding.loginTitle || t("common.appName")}</p>
+            <p className="text-[11px] font-medium text-emerald-200/80">KDU Estate Management</p>
           </div>
-          <p className="lx-eyebrow mb-2.5">KDU · EMS</p>
-          <h1 className="lx-title font-display text-[1.7rem] font-extrabold leading-tight tracking-tight text-white sm:text-4xl">
-            {branding.loginTitle || t("common.appName")}
-          </h1>
-          <p className={`mt-2 max-w-xs text-sm leading-relaxed ${subTextColor}`}>
+        </div>
+
+        <div className="relative max-w-md">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-300/90">Tea estate operations</p>
+          <h2 className="mt-3 font-display text-[2.15rem] font-bold leading-[1.15] tracking-tight text-white xl:text-[2.5rem]">
+            Every leaf accounted for, from estate to ledger.
+          </h2>
+          <p className="mt-4 max-w-sm text-sm leading-relaxed text-emerald-50/70">
             {branding.loginSubtitle || t("auth.platformSubtitle")}
           </p>
+          <ul className="mt-8 space-y-3">
+            {[
+              "Secure Firebase sign-in with role-based access",
+              "Official factory records and estate GPS in one place",
+              "English · සිංහල · தமிழ்",
+            ].map((line) => (
+              <li key={line} className="flex items-center gap-2.5 text-[13px] font-medium text-emerald-50/85">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 ring-1 ring-emerald-300/30">
+                  <ShieldCheck className="h-3 w-3 text-emerald-300" />
+                </span>
+                {line}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <div className={`auth-book lx-card lx-rise rounded-[2rem] p-2 backdrop-blur-2xl sm:p-3 ${hasBg ? "bg-black/30" : ""}`} style={{ animationDelay: "120ms" }}>
-          <div className="lx-switcher mb-2 grid grid-cols-2 gap-1 rounded-[1.35rem] p-1" role="tablist" aria-label={t("auth.choosePortal")}>
-            <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`lx-tab lx-tab--supplier flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold sm:text-sm ${portal === "supplier" ? "is-on" : ""}`}>
-              <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span><span className="lx-pip" aria-hidden="true" />
-            </button>
-            <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`lx-tab lx-tab--staff flex min-w-0 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold sm:text-sm ${portal === "staff" ? "is-on" : ""}`}>
-              <UsersRound className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span><span className="lx-pip" aria-hidden="true" />
-            </button>
+        <div className="relative flex items-center justify-between gap-4 border-t border-white/10 pt-5">
+          <p className="text-[11px] text-emerald-100/50">© {new Date().getFullYear()} KDU Tea Estate Management</p>
+          <div className="flex items-center gap-2">
+            {!embeddedAndroidApp && <LanguageSwitcher dark />}
+            <ThemeToggle darkSurface />
+          </div>
+        </div>
+      </aside>
+
+      {/* ---------------- Form panel ---------------- */}
+      <main className="relative flex min-h-[100dvh] flex-col justify-center px-4 py-12 sm:px-8 lg:px-10">
+        <div className="absolute right-4 top-4 flex items-center gap-2 lg:hidden">
+          {!embeddedAndroidApp && <LanguageSwitcher />}
+          <ThemeToggle />
+        </div>
+
+        <div className="mx-auto w-full max-w-[26.5rem]">
+          {/* Mobile brand */}
+          <div className="mb-7 flex flex-col items-center text-center lg:hidden">
+            <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5" style={{ background: accent }}>
+              {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
+                <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              ) : (
+                <Leaf className="h-7 w-7 text-white" />
+              )}
+            </span>
+            <h1 className="mt-3 font-display text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+              {branding.loginTitle || t("common.appName")}
+            </h1>
+            <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              {branding.loginSubtitle || t("auth.platformSubtitle")}
+            </p>
           </div>
 
-          <div className={`auth-book__pages ${portal === "staff" ? "is-flipped" : ""}`}>
-            <section className="auth-book__page auth-book__page--front lx-face rounded-[1.55rem] border p-5 sm:p-7" aria-hidden={portal !== "supplier"}>
-              <div className="mb-5 flex items-start gap-3">
-                <span className="lx-chip flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><Sprout className="h-5 w-5" /></span>
-                <div className="min-w-0"><p className="lx-eyebrow">{t("auth.supplierPortal")}</p><h2 className="font-display text-lg font-bold text-white">{registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}</h2><p className={`mt-1 text-xs leading-relaxed ${subTextColor}`}>{registering ? t("auth.supplierRegistrationHint") : t("auth.supplierPortalHint")}</p></div>
-              </div>
-
-              {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
-
-              <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className="lx-cta lx-cta--ghost mt-4">
-                {registering ? <BookOpen className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
+          <div className="auth-book rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-[0_24px_60px_-32px_rgba(6,46,36,0.45)] dark:border-slate-800 dark:bg-slate-900">
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800" role="tablist" aria-label={t("auth.choosePortal")}>
+              <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "supplier" ? "bg-white text-teal-800 shadow-sm dark:bg-slate-950 dark:text-teal-300" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"}`}>
+                <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
               </button>
-            </section>
+              <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "staff" ? "bg-white text-indigo-700 shadow-sm dark:bg-slate-950 dark:text-indigo-300" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"}`}>
+                <UsersRound className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span>
+              </button>
+            </div>
 
-            <section className="auth-book__page auth-book__page--back lx-face lx-face--staff rounded-[1.55rem] border p-5 sm:p-7" aria-hidden={portal !== "staff"}>
-              <div className="mb-5 flex items-start gap-3">
-                <span className="lx-chip lx-chip--staff flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"><ShieldCheck className="h-5 w-5" /></span>
-                <div className="min-w-0"><p className="lx-eyebrow !text-indigo-300">{t("auth.staffPortal")}</p><h2 className="font-display text-lg font-bold text-white">{t("auth.signInToAccount")}</h2><p className={`mt-1 text-xs leading-relaxed ${subTextColor}`}>{t("auth.staffPortalHint")}</p></div>
-              </div>
+            <div className={`auth-book__pages ${portal === "staff" ? "is-flipped" : ""}`}>
+              <section className="auth-book__page auth-book__page--front rounded-xl p-5 sm:p-6" aria-hidden={portal !== "supplier"}>
+                <div className="mb-5 flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300"><Sprout className="h-5 w-5" /></span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-teal-700 dark:text-teal-400">{t("auth.supplierPortal")}</p>
+                    <h2 className="font-display text-lg font-bold tracking-tight text-slate-900 dark:text-white">{registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}</h2>
+                    <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{registering ? t("auth.supplierRegistrationHint") : t("auth.supplierPortalHint")}</p>
+                  </div>
+                </div>
 
-              {renderSignInForm("staff", portal === "staff")}
+                {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
 
-              <div className="mt-4 flex items-start gap-2 rounded-xl border border-indigo-300/25 bg-indigo-400/10 p-3 text-[11px] leading-relaxed text-indigo-100/80"><UsersRound className="mt-0.5 h-4 w-4 shrink-0 text-indigo-300" /><span>{t("auth.staffRolesHint")}</span></div>
-            </section>
+                <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-teal-700 transition hover:bg-teal-50 dark:text-teal-300 dark:hover:bg-teal-950/40">
+                  {registering ? <BookOpen className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
+                </button>
+              </section>
+
+              <section className="auth-book__page auth-book__page--back rounded-xl p-5 sm:p-6" aria-hidden={portal !== "staff"}>
+                <div className="mb-5 flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"><ShieldCheck className="h-5 w-5" /></span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400">{t("auth.staffPortal")}</p>
+                    <h2 className="font-display text-lg font-bold tracking-tight text-slate-900 dark:text-white">{t("auth.signInToAccount")}</h2>
+                    <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{t("auth.staffPortalHint")}</p>
+                  </div>
+                </div>
+
+                {renderSignInForm("staff", portal === "staff")}
+
+                <div className="mt-4 flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-[11px] leading-relaxed text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200">
+                  <UsersRound className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.staffRolesHint")}</span>
+                </div>
+              </section>
+            </div>
           </div>
 
-          <div className="lx-cardfoot" aria-hidden="true">
-            <span className="lx-trustline" /><span className="lx-trustdot" /><span className="lx-trustline" />
-          </div>
+          <p className="mt-5 text-center text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+            Protected by Firebase Authentication · Access follows your approved role
+          </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
