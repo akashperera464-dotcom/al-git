@@ -29,7 +29,65 @@
     <title>Estate Pulse · Integrated Tea Estate ERP Platform</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Boot splash: replaced the moment React mounts. Guarantees the page is
+           never a blank screen while the bundle downloads, and shows recovery
+           actions if a stale service worker blocks the new bundle. -->
+      <div id="boot-splash" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(60rem 30rem at 20% 0%,#0a5c45,#04231a 60%);color:#e6fff5;font-family:'Noto Sans',system-ui,sans-serif;padding:24px;text-align:center">
+        <div style="width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:24px">🌿</div>
+        <div>
+          <p style="margin:0;font-size:17px;font-weight:700;letter-spacing:-.01em">KDU Estate Management</p>
+          <p id="boot-status" style="margin:6px 0 0;font-size:12.5px;color:#9fe8cf">Loading your workspace…</p>
+        </div>
+        <div style="width:120px;height:3px;border-radius:999px;background:rgba(255,255,255,.15);overflow:hidden">
+          <div style="width:45%;height:100%;background:#34d399;border-radius:999px;animation:bootslide 1.1s ease-in-out infinite"></div>
+        </div>
+        <button id="boot-recover" type="button" style="display:none;margin-top:6px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font:600 13px 'Noto Sans',system-ui,sans-serif;padding:10px 18px;border-radius:12px;cursor:pointer">Reload the latest version</button>
+      </div>
+      <style>@keyframes bootslide{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}</style>
+    </div>
+    <script>
+      (function () {
+        var KEY = "kdu.boot.recovery";
+        var splash = document.getElementById("boot-splash");
+        var status = document.getElementById("boot-status");
+        var button = document.getElementById("boot-recover");
+        function showRecovery(message) {
+          if (!splash) return;
+          if (status) status.textContent = message;
+          if (button) button.style.display = "inline-block";
+        }
+        function recover(auto) {
+          try {
+            if (auto && sessionStorage.getItem(KEY) === "1") { showRecovery("Please close other tabs or reload manually."); return; }
+            if (auto) sessionStorage.setItem(KEY, "1");
+          } catch (e) {}
+          var tasks = [];
+          if ("serviceWorker" in navigator) {
+            tasks.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+          }
+          if (window.caches) tasks.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+          Promise.all(tasks).catch(function () {}).then(function () { window.location.reload(); });
+        }
+        if (button) button.addEventListener("click", function () { recover(false); });
+        // A failed bundle load (stale SW / replaced asset) fires error on the script.
+        window.addEventListener("error", function (event) {
+          var target = event.target;
+          if (target && target.tagName === "SCRIPT") { showRecovery("Update detected — refreshing…"); recover(true); }
+        }, true);
+        // Vite emits this when a preloaded chunk 404s after a deploy.
+        window.addEventListener("vite:preloadError", function () { recover(true); });
+        // If React has not mounted in 12s, the shell is stale: recover once.
+        setTimeout(function () {
+          var root = document.getElementById("root");
+          if (root && root.querySelector("#boot-splash")) { showRecovery("Taking longer than usual…"); recover(true); }
+        }, 12000);
+        setTimeout(function () {
+          var root = document.getElementById("root");
+          if (root && !root.querySelector("#boot-splash")) { try { sessionStorage.removeItem(KEY); } catch (e) {} }
+        }, 20000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -122,3 +122,38 @@ describe("admin branding media (regression guard)", () => {
     expect(css).toContain("-webkit-box-shadow: 0 0 0 1000px #ffffff inset");
   });
 });
+
+describe("boot safety net (white-screen prevention)", () => {
+  it("ships a static boot splash inside #root so the page is never blank", () => {
+    expect(html).toContain('id="boot-splash"');
+    expect(html).toContain("Loading your workspace");
+    expect(html).toContain('id="boot-recover"');
+  });
+
+  it("self-heals a stale service-worker app shell exactly once per session", () => {
+    expect(html).toContain("kdu.boot.recovery");
+    expect(html).toContain("caches.keys()");
+    expect(html).toContain("getRegistrations()");
+    expect(html).toContain("vite:preloadError");
+    expect(html).toContain("setTimeout");
+  });
+
+  it("purges previous shell and asset caches when a new worker activates", () => {
+    const sw = readFileSync(resolve(process.cwd(), "public/sw.ts"), "utf8");
+    expect(sw).toContain("verda-navigation-v2");
+    expect(sw).toContain("verda-assets-v2");
+    expect(sw).toContain('caches.delete("verda-navigation")');
+    expect(sw).toContain('caches.delete("verda-assets")');
+  });
+
+  it("renders a visible error panel when React cannot mount", () => {
+    const main = readFileSync(resolve(process.cwd(), "src/main.tsx"), "utf8");
+    expect(main).toContain("could not start");
+    expect(main).toContain("Reload the latest version");
+  });
+
+  it("does not force CORS mode on admin-supplied video hosts", () => {
+    expect(login).not.toContain('crossOrigin="anonymous"');
+    expect(login).toContain("onCanPlay");
+  });
+});

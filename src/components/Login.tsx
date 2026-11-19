@@ -276,7 +276,6 @@ export function Login() {
               muted
               playsInline
               preload="auto"
-              crossOrigin="anonymous"
               aria-hidden="true"
               className="absolute inset-0 z-0 h-full w-full object-cover"
               // Muted + playsInline is enough for most browsers; force-play on

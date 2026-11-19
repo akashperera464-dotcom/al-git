@@ -42,7 +42,8 @@ describe("iPhone PWA shell", () => {
     expect(main).toContain('{ updateViaCache: "none" }');
     expect(main).toContain("registration.update()");
     expect(worker).toContain("self.skipWaiting()");
-    expect(worker).toContain('cacheName: "verda-navigation"');
+    // Versioned cache: a previous release's shell can never hide this one.
+    expect(worker).toContain('cacheName: "verda-navigation-v2"');
     expect(worker).toContain('request.mode === "navigate"');
   });
 });

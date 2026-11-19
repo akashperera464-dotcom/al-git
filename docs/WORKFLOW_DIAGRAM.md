@@ -4574,3 +4574,40 @@ key change.
 Verified: 138/138 tests, clean production build.
 
 *Branding background restored: 19 November 2026.*
+
+## 77. White-Screen Boot Recovery
+
+A production load could render a completely blank page: a previously
+installed service worker served an old app shell whose hashed JavaScript no
+longer existed, so React never mounted. The page showed only the body colour.
+
+Three independent safety nets were added:
+
+1. **Static boot splash in `index.html`** — rendered inside `#root` before any
+   JavaScript. React replaces it on mount, so users see a branded
+   "Loading your workspace…" screen instead of a blank page while the bundle
+   downloads.
+2. **Stale-shell recovery** — the inline script listens for a failed
+   `<script>` load and Vite's `vite:preloadError`, then unregisters service
+   workers, deletes caches and reloads **once per session**
+   (`kdu.boot.recovery` guard prevents loops). A 12-second watchdog triggers
+   the same recovery if React never mounts, and surfaces a visible
+   "Reload the latest version" button.
+3. **Versioned service-worker caches** — navigation and asset caches are now
+   `verda-navigation-v2` / `verda-assets-v2`, and activation explicitly
+   deletes the previous `verda-navigation` and `verda-assets` caches, so a
+   released shell can never pin an obsolete bundle again.
+
+`main.tsx` also wraps the React mount in a `try/catch` and renders a readable
+error panel with a reload action instead of leaving the splash on screen.
+
+Separately, the login background video no longer sets
+`crossOrigin="anonymous"`, which previously blocked video hosts that do not
+send CORS headers (the configured branding video silently refused to play).
+
+No authentication, registration, role, RLS, Office API, environment or i18n
+key change. The service worker still never caches Office API responses.
+
+Verified: 143/143 tests, clean production build.
+
+*White-screen recovery added: 19 November 2026.*

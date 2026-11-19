@@ -4,11 +4,37 @@ import "./i18n"; // global i18next init (en/si/ta) — must run before App
 import "./index.css";
 import App from "./App";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
-);
+try {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>
+  );
+} catch (error) {
+  // Never leave the boot splash on a silent failure: show the reason and a
+  // way out. The inline recovery script in index.html handles stale bundles.
+  // eslint-disable-next-line no-console
+  console.error("[boot] React failed to mount", error);
+  const root = document.getElementById("root");
+  if (root) {
+    root.innerHTML = "";
+    const panel = document.createElement("div");
+    panel.style.cssText = "min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#04231a;color:#e6fff5;font-family:'Noto Sans',system-ui,sans-serif;padding:24px;text-align:center";
+    const title = document.createElement("p");
+    title.style.cssText = "margin:0;font-size:16px;font-weight:700";
+    title.textContent = "KDU Estate Management could not start";
+    const detail = document.createElement("p");
+    detail.style.cssText = "margin:0;font-size:12.5px;color:#9fe8cf;max-width:26rem;line-height:1.6";
+    detail.textContent = error instanceof Error ? error.message : "An unexpected error occurred.";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.textContent = "Reload the latest version";
+    retry.style.cssText = "margin-top:6px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font:600 13px 'Noto Sans',system-ui,sans-serif;padding:10px 18px;border-radius:12px;cursor:pointer";
+    retry.addEventListener("click", () => window.location.reload());
+    panel.append(title, detail, retry);
+    root.append(panel);
+  }
+}
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {

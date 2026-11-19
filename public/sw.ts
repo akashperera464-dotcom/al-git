@@ -28,7 +28,7 @@ cleanupOutdatedCaches();
 // offline fallback, but it must not hide a newly deployed JavaScript bundle.
 registerRoute(
   ({ request, url }) => request.mode === "navigate" && url.origin === self.location.origin,
-  new NetworkFirst({ cacheName: "verda-navigation", networkTimeoutSeconds: 4 }),
+  new NetworkFirst({ cacheName: "verda-navigation-v2", networkTimeoutSeconds: 4 }),
   "GET",
 );
 
@@ -67,7 +67,7 @@ registerRoute(
 );
 
 // 5. Static assets
-registerRoute(({ request }) => ["style", "script", "image", "font"].includes(request.destination), new CacheFirst({ cacheName: "verda-assets", plugins: [new ExpirationPlugin({ maxAgeSeconds: 30 * 24 * 60 * 60, maxEntries: 250 })] }));
+registerRoute(({ request }) => ["style", "script", "image", "font"].includes(request.destination), new CacheFirst({ cacheName: "verda-assets-v2", plugins: [new ExpirationPlugin({ maxAgeSeconds: 30 * 24 * 60 * 60, maxEntries: 250 })] }));
 
 // OpenStreetMap tiles: offline-friendly, bounded seven-day cache.
 registerRoute(({ url }) => /(^|\.)tile\.openstreetmap\.org$/.test(url.hostname), new CacheFirst({ cacheName: "verda-map-tiles", plugins: [new ExpirationPlugin({ maxAgeSeconds: 7 * 24 * 60 * 60, maxEntries: 600 })] }), "GET");
@@ -86,7 +86,14 @@ registerRoute(
 // this release activates. clientsClaim() below makes the corrected worker take
 // control without requiring the user to uninstall the PWA.
 self.addEventListener("activate", (event) => {
-  event.waitUntil(caches.delete("verda-supabase-api"));
+  // Drop shells and asset caches created by previous releases. A stale cached
+  // index.html can reference JavaScript hashes that no longer exist, which is
+  // exactly how a white screen appears after a deployment.
+  event.waitUntil(Promise.all([
+    caches.delete("verda-supabase-api"),
+    caches.delete("verda-navigation"),
+    caches.delete("verda-assets"),
+  ]));
 });
 
 // 6. Catch-all fallback to the app shell for navigation
