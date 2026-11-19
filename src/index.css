@@ -1521,10 +1521,10 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 32px -26px rgba(0, 0, 0, 0.9) !important;
 }
 .dark .sp-main .card-hover:hover { border-color: #35564a !important; }
-/* Weather hero: fresh agritech gradient (cream→soft green), NOT dark. */
+/* Weather hero: let the inline weather-based gradient (weatherPresentation.ts) show through.
+   Only set border-radius + shadow here; background comes from the JS mood logic. */
 .sp-main .weather-hero {
-  background: linear-gradient(135deg, #3e8c48 0%, #6e9e4b 50%, #a8c97f 100%) !important;
-  border-color: rgba(62, 140, 72, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
   color: #ffffff !important;
 }
 .sp-main .weather-glass {

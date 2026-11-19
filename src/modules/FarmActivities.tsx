@@ -287,7 +287,7 @@ export function FarmActivities() {
           {tab === "plucking" && (
             <>
               <div>
-                <label className={labelCls}>🏞️ කොටස/බ්ලොක් · Block / Field</label>
+                <label className={labelCls}>🏞️ Block / Field</label>
                 {hasBlocks ? (
                   <select value={field} onChange={(e) => setField(e.target.value)} className={inputCls}>
                     <option value="">— කොටසක් තෝරන්න —</option>

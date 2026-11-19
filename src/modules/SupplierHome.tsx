@@ -1,5 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { Leaf, Bell, Wallet, Package, ReceiptText, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2, Droplets, Wind } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Leaf, Bell, Wallet, Package, ReceiptText, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2, Droplets, Wind, Sun, CloudRain, Calendar, Award } from "lucide-react";
 import { Card, StatCard } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum, fmtLKRShort } from "@/lib/data";
@@ -144,6 +144,67 @@ export function SupplierHome() {
   const weatherToday = weather.today;
   const weatherVisual = useMemo(() => getWeatherPresentation(weatherToday), [weatherToday]);
 
+  // ── Slide cards (ad-style carousel) ──────────────────────────────────────
+  // Auto-rotating banner with tips/announcements relevant to the supplier.
+  const slides = useMemo(() => {
+    const items: Array<{ icon: typeof Sun; title: string; body: string; gradient: string; cta?: string; module?: string }> = [];
+    if (fertDue) {
+      items.push({
+        icon: Sprout, title: t("supplierHome.fertDueTitle"),
+        body: t("supplierHome.fertDueBody"),
+        gradient: "linear-gradient(135deg, #3e8c48, #6e9e4b)",
+        cta: t("supplierHome.fertDueCta"), module: "supplier-fertilizer",
+      });
+    }
+    if (pruneDue) {
+      items.push({
+        icon: Leaf, title: t("supplierHome.pruneDueTitle"),
+        body: t("supplierHome.pruneDueBody"),
+        gradient: "linear-gradient(135deg, #0ea5e9, #2563eb)",
+        cta: t("supplierHome.pruneDueCta"), module: "supplier-farm",
+      });
+    }
+    if (weatherToday && weatherToday.rainProb > 60) {
+      items.push({
+        icon: CloudRain, title: t("supplierHome.rainAlertTitle"),
+        body: t("supplierHome.rainAlertBody", { prob: weatherToday.rainProb }),
+        gradient: "linear-gradient(135deg, #0369a1, #0f4c81)",
+      });
+    }
+    if (weatherToday && weatherToday.tempMax > 30) {
+      items.push({
+        icon: Sun, title: t("supplierHome.heatAlertTitle"),
+        body: t("supplierHome.heatAlertBody"),
+        gradient: "linear-gradient(135deg, #f59e0b, #ea580c)",
+      });
+    }
+    // Always-on tip slides so the carousel is never empty
+    items.push({
+      icon: Award, title: t("supplierHome.qualityTipTitle"),
+      body: t("supplierHome.qualityTipBody"),
+      gradient: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+      cta: t("supplierHome.qualityTipCta"), module: "supplier-deliveries",
+    });
+    items.push({
+      icon: Calendar, title: t("supplierHome.calendarTipTitle"),
+      body: t("supplierHome.calendarTipBody"),
+      gradient: "linear-gradient(135deg, #ec4899, #be185d)",
+      cta: t("supplierHome.calendarTipCta"), module: "supplier-calendar",
+    });
+    return items;
+  }, [t, fertDue, pruneDue, weatherToday]);
+
+  const [slideIdx, setSlideIdx] = useState(0);
+  const slideTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    slideTimer.current = window.setInterval(() => {
+      setSlideIdx(i => (i + 1) % slides.length);
+    }, 5000);
+    return () => { if (slideTimer.current) window.clearInterval(slideTimer.current); };
+  }, [slides.length]);
+  const currentSlide = slides[slideIdx] ?? slides[0];
+
   return (
     <div className="supplier-weather-surface -m-4 min-h-full p-4" style={{ background: weatherVisual.pageGradient }}>
       {/* Weather-aware greeting hero */}
@@ -197,6 +258,47 @@ export function SupplierHome() {
           <span className="ml-auto text-[9px] font-semibold text-white/60">{weather.status === "live" ? "Live estate weather" : "Demo weather"}</span>
         </div>
       </div>
+
+      {/* ── Slide cards (ad-style auto-rotating carousel) ───────────────────── */}
+      {currentSlide && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => currentSlide.module ? setActiveModule(currentSlide.module) : undefined}
+            className="block w-full overflow-hidden rounded-[1.5rem] text-left transition active:scale-[0.99]"
+            style={{ background: currentSlide.gradient }}
+          >
+            <div className="flex items-center gap-3 p-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/25 backdrop-blur-sm">
+                <currentSlide.icon className="h-6 w-6 text-white" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-display text-sm font-bold text-white">{currentSlide.title}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-white/85">{currentSlide.body}</p>
+                {currentSlide.cta && (
+                  <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/25 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
+                    {currentSlide.cta} <ChevronRight className="h-3 w-3" />
+                  </span>
+                )}
+              </div>
+            </div>
+          </button>
+          {/* Dot indicators */}
+          {slides.length > 1 && (
+            <div className="mt-2 flex justify-center gap-1.5">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setSlideIdx(i)}
+                  className={`h-1.5 rounded-full transition-all ${i === slideIdx ? "w-6 bg-[#3e8c48]" : "w-1.5 bg-slate-300"}`}
+                  aria-label={`Slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {prices.length > 0 && (
         <div className="mb-4">
