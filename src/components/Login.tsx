@@ -206,7 +206,10 @@ export function Login() {
             }
           >
             <Icon className="h-4 w-4 text-dalu-primary-container" strokeWidth={2} />
-            <p className="mt-1.5 truncate text-[10.5px] font-bold leading-none text-white">
+            {/* No truncate/leading-none here: Sinhala vowel signs + descenders
+                paint outside a 1em line box, and overflow-hidden would slice
+                them in half. Wrap instead — grid rows stretch equally. */}
+            <p className="mt-1 min-w-0 text-[10.5px] font-bold leading-[1.55] text-white">
               {t(feature.labelKey)}
             </p>
           </div>
