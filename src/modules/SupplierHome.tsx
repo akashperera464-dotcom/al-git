@@ -219,7 +219,11 @@ export function SupplierHome() {
       {/* ═══ Desktop (lg+): Stitch 12-col dashboard row — weather hero (7 cols) +
           right rail (5 cols: plucking strip, tip carousel, leaf rates, office
           sync). Mobile below lg keeps the original stacked order. ═══ */}
-      <div className="lg:grid lg:grid-cols-12 lg:items-stretch lg:gap-4">
+      {/* lg:mb-4 — the rail cards drop their mobile mb-4 on desktop (grid gap-4
+         handles spacing between rows), so without this the first section BELOW
+         the grid (crop comparison / yesterday's crop) sits flush against the
+         hero's bottom edge = "cards touching" complaint. */}
+      <div className="lg:mb-4 lg:grid lg:grid-cols-12 lg:items-stretch lg:gap-4">
       {/* ═══ Weather & greeting hero — Stitch: tea photo + mood gradient ═══ */}
       <div className="weather-hero relative mb-4 overflow-hidden rounded-3xl p-5 text-white lg:col-span-7 lg:row-span-4 lg:mb-0 lg:flex lg:flex-col lg:p-7" style={{ background: weatherVisual.gradient }}>
         {/* Tea estate photo. The mood tint above it renders at reduced opacity so
