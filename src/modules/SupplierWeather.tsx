@@ -34,6 +34,11 @@ export function SupplierWeather() {
       </div>
 
       {today && <section className="weather-hero relative overflow-hidden rounded-[2rem] p-5 text-white" style={{ background: presentation.gradient }}>
+        {/* Tea estate photo under a reduced-opacity mood tint (same treatment as
+            the Home hero — keeps the scenery visible behind the glass panels). */}
+        <img src="/tea-estate-bg.jpg" alt="" aria-hidden="true" className="absolute inset-0 z-0 h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        <div className="absolute inset-0 z-0" style={{ background: presentation.gradient, opacity: 0.72 }} aria-hidden="true" />
+        <div className="absolute inset-0 z-0 bg-gradient-to-t from-black/45 via-black/5 to-black/30" aria-hidden="true" />
         <WeatherAtmosphere mood={presentation.mood} />
         <div className="relative z-10 flex items-start justify-between gap-4">
           <div className="min-w-0">

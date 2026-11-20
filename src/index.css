@@ -315,7 +315,9 @@ video {
   .weather-atmosphere {
     position: absolute;
     inset: 0;
-    z-index: -1;
+    /* Above the photo + mood tint (z-0) so rain/clouds stay visible, below the
+       z-10 content. Previously z-index:-1 hid the rain behind the photo. */
+    z-index: 1;
     overflow: hidden;
     pointer-events: none;
   }
@@ -630,6 +632,32 @@ video {
 .dark .supplier-device-stage nav.safe-bottom-nav {
   background: rgba(255, 255, 255, 0.96) !important;
   border-color: #c7d6ce !important;
+}
+
+/* Force-light text colors. Without these, classes like `text-slate-900
+   dark:text-white` keep their dark-mode color while every surface behind them
+   is forced light — e.g. the "My Estates" page title rendered white-on-white. */
+.dark .supplier-device-stage .text-slate-900,
+.dark .supplier-device-stage .text-slate-800,
+.dark .supplier-device-stage .text-slate-700,
+.dark .sp-main .text-slate-900,
+.dark .sp-main .text-slate-800,
+.dark .sp-main .text-slate-700,
+.dark .supplier-device-stage .dark\:text-white,
+.dark .sp-main .dark\:text-white {
+  color: #11221b !important;
+}
+.dark .supplier-device-stage .text-slate-600,
+.dark .supplier-device-stage .text-slate-500,
+.dark .sp-main .text-slate-600,
+.dark .sp-main .text-slate-500,
+.dark .supplier-device-stage .dark\:text-slate-400,
+.dark .sp-main .dark\:text-slate-400 {
+  color: #465c52 !important;
+}
+.dark .supplier-device-stage .text-slate-400,
+.dark .sp-main .text-slate-400 {
+  color: #64807a !important;
 }
 
 /* Tinted cards keep their Stitch container colors even under force-light.

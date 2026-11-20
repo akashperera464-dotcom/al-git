@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -24,6 +24,7 @@ import { Onboarding } from "@/components/Onboarding";
 import { useBranding, isMediaUrl } from "@/lib/branding";
 import { resolveShellBrandIdentity } from "@/lib/brandIdentity";
 import { isAndroidEmbeddedWebView } from "@/lib/platform";
+import { readMyEstates } from "@/lib/estateRepo";
 import { useEstateWeather } from "@/lib/useEstateWeather";
 import { SupplierWeatherMonitor } from "@/components/SupplierWeatherMonitor";
 import { useLiveData } from "@/lib/useLiveData";
@@ -469,9 +470,28 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
 /* --------------------- Supplier Desktop Sidebar (lg+) --------------------- */
 function SupplierSidebar() {
   const { t } = useTranslation();
-  const { role, activeModule, setActiveModule, estates, session, user } = useApp();
+  // IMPORTANT: the context `estates` array holds EVERY estate in the database
+  // (admin view, name-ordered) — estates[0] is some other supplier's estate
+  // (e.g. "Asoka estate"). The sidebar must show THIS supplier's own estate,
+  // so load it straight from the owner-scoped repo (same query as My Plot).
+  const { role, activeModule, setActiveModule, userUid, session, user } = useApp();
   const items = modulesForRole(role);
-  const estateName = estates[0]?.name ?? session?.name ?? user.name;
+  const [ownEstateName, setOwnEstateName] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!userUid) return;
+    void readMyEstates(userUid)
+      .then((rows) => {
+        if (!alive) return;
+        // The approved estate is the "active" one; fall back to the first row.
+        const active = rows.find((estate) => estate.status === "approved") ?? rows[0];
+        setOwnEstateName(active?.name ?? null);
+      })
+      .catch(() => alive && setOwnEstateName(null));
+    return () => { alive = false; };
+  }, [userUid]);
+  const estateName = ownEstateName ?? session?.name ?? user.name;
+  const contactEmail = session?.email ?? null;
   return (
     <div className="flex h-full flex-col">
       <div className="px-5 pb-4 pt-5">
@@ -500,9 +520,10 @@ function SupplierSidebar() {
         })}
       </nav>
       <div className="border-t border-dalu-outline-variant p-3">
-        <div className="rounded-xl border border-dalu-outline-variant bg-white p-3 shadow-sm">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-dalu-outline">{t("common.activeEstate", { defaultValue: "Active estate" })}</p>
-          <p className="mt-0.5 truncate text-xs font-bold text-dalu-on-surface">{estateName}</p>
+        <div className="rounded-xl border border-dalu-outline-variant bg-dalu-surface-container-low p-3">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-dalu-primary">{t("common.activeEstate", { defaultValue: "Active estate" })}</p>
+          <p className="mt-1 truncate text-[13px] font-bold leading-tight text-dalu-on-surface" title={estateName}>{estateName}</p>
+          {contactEmail && <p className="mt-0.5 truncate text-[10px] font-medium text-dalu-on-surface-variant" title={contactEmail}>{contactEmail}</p>}
         </div>
       </div>
     </div>

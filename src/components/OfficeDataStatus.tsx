@@ -10,6 +10,8 @@ interface OfficeDataStatusProps {
   refreshing?: boolean;
   cooldownSeconds?: number;
   onRefresh: () => void;
+  /** Extra classes on the root banner (e.g. lg:col-span-5 inside the Home grid). */
+  className?: string;
 }
 
 /**
@@ -18,7 +20,7 @@ interface OfficeDataStatusProps {
  * Stale cache  → warning-container (amber tint).
  * Available    → success-container (green tint).
  */
-export function OfficeDataStatus({ freshness, fetchedAt, error, refreshing = false, cooldownSeconds = 0, onRefresh }: OfficeDataStatusProps) {
+export function OfficeDataStatus({ freshness, fetchedAt, error, refreshing = false, cooldownSeconds = 0, onRefresh, className }: OfficeDataStatusProps) {
   const { t, i18n } = useTranslation();
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
@@ -47,7 +49,7 @@ export function OfficeDataStatus({ freshness, fetchedAt, error, refreshing = fal
         : { box: "border-dalu-success/25 bg-dalu-success-container", icon: <CheckCircle2 className="h-4 w-4 shrink-0 text-dalu-on-success-container" />, iconChip: "bg-white/70 text-dalu-on-success-container", title: "text-dalu-on-success-container", sub: "text-dalu-on-success-container/80", btn: "border-dalu-success/25 bg-white text-dalu-on-success-container" };
 
   return (
-    <div className={`mb-4 flex items-center gap-2.5 rounded-2xl border p-3 ${tone.box}`} role="status">
+    <div className={`mb-4 flex items-center gap-2.5 rounded-2xl border p-3 ${tone.box}${className ? ` ${className}` : ""}`} role="status">
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone.iconChip}`}>{tone.icon}</span>
       <div className="min-w-0 flex-1">
         <p className={`text-xs font-bold ${tone.title}`}>

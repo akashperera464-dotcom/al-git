@@ -197,12 +197,9 @@ export function SupplierHome() {
       gradient: "linear-gradient(135deg, #3f5c50, #0e5e42)",
       cta: t("supplierHome.qualityTipCta"), module: "supplier-deliveries",
     });
-    items.push({
-      icon: Calendar, title: t("supplierHome.calendarTipTitle"),
-      body: t("supplierHome.calendarTipBody"),
-      gradient: "linear-gradient(135deg, #0b4a53, #0e5e42)",
-      cta: t("supplierHome.calendarTipCta"), module: "supplier-calendar",
-    });
+    /* Calendar tip removed — it duplicated the "Plucking schedule" strip right
+       above the carousel (two identical green banners stacked). The strip and
+       its "Open calendar" action already cover it. */
     return items;
   }, [t, fertDue, pruneDue, weatherToday]);
 
@@ -219,18 +216,27 @@ export function SupplierHome() {
 
   return (
     <div className="supplier-weather-surface -m-4 min-h-full bg-dalu-surface p-4 pb-6">
+      {/* ═══ Desktop (lg+): Stitch 12-col dashboard row — weather hero (7 cols) +
+          right rail (5 cols: plucking strip, tip carousel, leaf rates, office
+          sync). Mobile below lg keeps the original stacked order. ═══ */}
+      <div className="lg:grid lg:grid-cols-12 lg:items-stretch lg:gap-4">
       {/* ═══ Weather & greeting hero — Stitch: tea photo + mood gradient ═══ */}
-      <div className="weather-hero relative mb-4 overflow-hidden rounded-3xl p-5 text-white" style={{ background: weatherVisual.gradient }}>
+      <div className="weather-hero relative mb-4 overflow-hidden rounded-3xl p-5 text-white lg:col-span-7 lg:row-span-4 lg:mb-0 lg:flex lg:flex-col lg:p-7" style={{ background: weatherVisual.gradient }}>
+        {/* Tea estate photo. The mood tint above it renders at reduced opacity so
+            the scenery stays visible behind the glass chips (was opacity .92 →
+            the photo was completely invisible = "plain blue card" complaint). */}
         <img src="/tea-estate-bg.jpg" alt="" aria-hidden="true" className="absolute inset-0 z-0 h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         {/* Weather-mood gradient tint over the photo (dynamic by real weather) */}
-        <div className="absolute inset-0 z-0 opacity-[0.92]" style={{ background: weatherVisual.gradient }} aria-hidden="true" />
+        <div className="absolute inset-0 z-0" style={{ background: weatherVisual.gradient, opacity: 0.72 }} aria-hidden="true" />
+        {/* Legibility scrim — darker at the very top and bottom of the photo */}
+        <div className="absolute inset-0 z-0 bg-gradient-to-t from-black/45 via-black/5 to-black/30" aria-hidden="true" />
         <WeatherAtmosphere mood={weatherVisual.mood} />
         <div className="relative z-10 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="mb-1 text-[11px] font-semibold text-white/75">
               {currentTime.toLocaleDateString(i18n.language === "si" ? "si-LK" : i18n.language === "ta" ? "ta-LK" : "en-LK", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Colombo" })}
             </p>
-            <h1 className="font-display text-[24px] font-bold leading-tight tracking-tight sm:text-[26px]">
+            <h1 className="font-display text-[24px] font-bold leading-tight tracking-tight sm:text-[26px] lg:text-[30px]">
               {t("supplierHome.greetingWithName", { greeting: t(`supplierHome.greeting.${greeting}`), name: firstName })}
             </h1>
             <p className="mt-1 truncate text-xs font-medium text-white/80">
@@ -244,10 +250,10 @@ export function SupplierHome() {
         </div>
 
         {/* Three glass stat chips — Rain / Wind / Forecast */}
-        <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
-          <div className="weather-glass min-w-0 rounded-lg p-2.5"><Droplets className="h-3.5 w-3.5 text-sky-100" /><p className="tnum mt-1 text-sm font-bold">{weatherToday?.rainProb ?? "—"}%</p><p className="truncate text-[9px] text-white/65">Rain</p></div>
-          <div className="weather-glass min-w-0 rounded-lg p-2.5"><Wind className="h-3.5 w-3.5 text-sky-100" /><p className="tnum mt-1 text-sm font-bold">{weatherToday?.windKph ?? "—"} km/h</p><p className="truncate text-[9px] text-white/65">Wind</p></div>
-          <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass min-w-0 rounded-lg p-2.5 text-left"><span className="block truncate text-[11px] font-bold">{weatherToday?.condition ?? "Weather"}</span><span className="mt-1 flex items-center text-[9px] text-white/70">Forecast <ChevronRight className="ml-0.5 h-3 w-3" /></span></button>
+        <div className="relative z-10 mt-4 grid grid-cols-3 gap-2 lg:gap-2.5">
+          <div className="weather-glass min-w-0 rounded-lg p-2.5 lg:p-3"><Droplets className="h-3.5 w-3.5 text-sky-100" /><p className="tnum mt-1 text-sm font-bold">{weatherToday?.rainProb ?? "—"}%</p><p className="truncate text-[9px] text-white/65">Rain</p></div>
+          <div className="weather-glass min-w-0 rounded-lg p-2.5 lg:p-3"><Wind className="h-3.5 w-3.5 text-sky-100" /><p className="tnum mt-1 text-sm font-bold">{weatherToday?.windKph ?? "—"} km/h</p><p className="truncate text-[9px] text-white/65">Wind</p></div>
+          <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass min-w-0 rounded-lg p-2.5 text-left lg:p-3"><span className="block truncate text-[11px] font-bold">{weatherToday?.condition ?? "Weather"}</span><span className="mt-1 flex items-center text-[9px] text-white/70">Forecast <ChevronRight className="ml-0.5 h-3 w-3" /></span></button>
         </div>
 
         {/* Advisory strip */}
@@ -256,8 +262,9 @@ export function SupplierHome() {
           <ChevronRight className="h-4 w-4 shrink-0 text-white/75" />
         </button>
 
-        {/* Connectivity badge row */}
-        <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2">
+        {/* Connectivity badge row — lg: pinned to the hero's bottom edge so the
+            stretched hero distributes spare space above it */}
+        <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2 lg:mt-auto">
           {online ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-dalu-success-container px-2.5 py-1 text-[10px] font-bold text-dalu-on-success-container">
               <CheckCircle2 className="h-3 w-3" /> {t("common.online")}
@@ -276,11 +283,11 @@ export function SupplierHome() {
         </div>
       </div>
 
-      {/* ═══ Plucking schedule strip — Stitch primary-container card ═══ */}
+      {/* ═══ Plucking schedule strip — Stitch primary-container card (rail row 1) ═══ */}
       <button
         type="button"
         onClick={() => setActiveModule("supplier-calendar")}
-        className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-dalu-primary/20 bg-dalu-primary-container p-3.5 text-left shadow-sm transition hover:border-dalu-primary"
+        className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-dalu-primary/20 bg-dalu-primary-container p-3.5 text-left shadow-sm transition hover:border-dalu-primary lg:col-span-5 lg:mb-0"
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-dalu-primary text-white shadow-sm">
@@ -294,9 +301,9 @@ export function SupplierHome() {
         <ChevronRight className="h-5 w-5 shrink-0 text-dalu-on-primary-container" />
       </button>
 
-      {/* ── Slide cards (ad-style auto-rotating carousel) ───────────────────── */}
+      {/* ── Slide cards (ad-style auto-rotating carousel) — rail row 2 ────────── */}
       {currentSlide && (
-        <div className="mb-4">
+        <div className="mb-4 lg:col-span-5 lg:mb-0">
           <button
             type="button"
             onClick={() => currentSlide.module ? setActiveModule(currentSlide.module) : undefined}
@@ -335,9 +342,9 @@ export function SupplierHome() {
         </div>
       )}
 
-      {/* ═══ Today's leaf rates — Stitch: 2 white + 1 primary card ═══ */}
+      {/* ═══ Today's leaf rates — Stitch: 2 white + 1 primary card (rail row 3) ═══ */}
       {rateCards.length > 0 && (
-        <div className="mb-4">
+        <div className="mb-4 lg:col-span-5 lg:mb-0">
           <SectionHead title={t("supplierHome.todayRates")} caption={t("supplierHome.perKgFactory")} />
           <div className="grid grid-cols-3 gap-2.5">
             {rateCards.map((price, index) => {
@@ -361,8 +368,9 @@ export function SupplierHome() {
         </div>
       )}
 
-      {/* ═══ Office sync status — Stitch error-container alert ═══ */}
+      {/* ═══ Office sync status — Stitch error-container alert (rail row 4) ═══ */}
       <OfficeDataStatus
+        className="lg:col-span-5 lg:mb-0"
         freshness={officeFreshness}
         fetchedAt={officeFetchedAt}
         error={officeError}
@@ -370,6 +378,7 @@ export function SupplierHome() {
         cooldownSeconds={refreshCooldown}
         onRefresh={refreshOfficeData}
       />
+      </div>{/* ← close lg:grid-cols-12 dashboard row */}
 
       {/* ═══ Crop comparison (office vs statement) ═══ */}
       {cropComparison && (
