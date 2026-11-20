@@ -47,7 +47,8 @@
     "area": "Area",
     "total": "Total",
     "sub": "of",
-    "exitAdmin": "Exit Admin Panel"
+    "exitAdmin": "Exit Admin Panel",
+    "offlineReady": "Offline-ready PWA"
   },
   "lang": {
     "en": "English",
@@ -845,7 +846,14 @@
     "heatAlertBody": "High temperature expected today. Ensure workers stay hydrated and keep plucked leaf in shade.",
     "netPayable": "Estimated net payable",
     "financeDisclaimer": "The factory finance office confirms the final amount at month-end.",
-    "view": "View"
+    "view": "View",
+    "pluckingSchedule": "Plucking schedule",
+    "pluckingScheduleSub": "Upcoming cycles, fertilizer dates & advisories",
+    "monthlySummary": "Monthly summary",
+    "totalDeductions": "Total deductions",
+    "latestRate": "Latest rate",
+    "todayRates": "Today's leaf rates",
+    "perKgFactory": "Per kg · Factory"
   },
   "officeData": {
     "available": "Office data available",

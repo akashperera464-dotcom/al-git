@@ -1,10 +1,63 @@
+/* =============================================================================
+ * DALU PLUS — Google Stitch Material-3 Tea Design System (single source of truth)
+ * -----------------------------------------------------------------------------
+ * Derived 1:1 from the Google Stitch "Dalu Plus" screens:
+ *   · login (desktop split + mobile full-bleed)
+ *   · home dashboard (desktop sidebar + mobile top-bar)
+ * Palette  : primary #0E5E42 · surface #F5F8F5 · outline-variant #C7D6CE
+ * Type     : Wix Madefor Display (display) · Instrument Sans (body)
+ *            Sinhala/Tamil fall back per-glyph to Noto Sans Sinhala/Tamil.
+ *
+ * Cascade contract: component classes (.card, .sp-*, .glass…) live inside
+ * @layer components so Tailwind utilities (bg-*, text-*, border-*) always win.
+ * Only two things stay unlayered, both intentionally stronger than utilities:
+ *   1. the .dark admin palette
+ *   2. the supplier force-light + tint guards at the bottom of this file.
+ * ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Wix+Madefor+Display:wght@600;700;800&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Noto Sans", "Noto Sans Sinhala", "Noto Sans Tamil", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Noto Sans", "Noto Sans Sinhala", "Noto Sans Tamil", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Instrument Sans", "Noto Sans", "Noto Sans Sinhala", "Noto Sans Tamil", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Wix Madefor Display", "Instrument Sans", "Noto Sans", "Noto Sans Sinhala", "Noto Sans Tamil", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /* Dalu Plus / Stitch palette */
+  --color-dalu-primary: #0e5e42;
+  --color-dalu-accent: #0f8a5f;
+  --color-dalu-on-primary: #ffffff;
+  --color-dalu-primary-container: #d3f0e3;
+  --color-dalu-on-primary-container: #063726;
+  --color-dalu-secondary: #3f5c50;
+  --color-dalu-secondary-container: #dce9e2;
+  --color-dalu-on-secondary-container: #162a22;
+  --color-dalu-tertiary: #0d5c75;
+  --color-dalu-tertiary-container: #d4eef7;
+  --color-dalu-on-tertiary-container: #073444;
+  --color-dalu-surface: #f5f8f5;
+  --color-dalu-surface-low: #f0f5f1;
+  --color-dalu-surface-container: #e7efea;
+  --color-dalu-surface-high: #dce6e0;
+  --color-dalu-on-surface: #11221b;
+  --color-dalu-on-surface-variant: #465c52;
+  --color-dalu-outline: #72877d;
+  --color-dalu-outline-variant: #c7d6ce;
+  --color-dalu-success: #15803d;
+  --color-dalu-success-container: #dcfce7;
+  --color-dalu-on-success-container: #14532d;
+  --color-dalu-warning: #b45309;
+  --color-dalu-warning-container: #fef3c7;
+  --color-dalu-on-warning-container: #78350f;
+  --color-dalu-error: #be123c;
+  --color-dalu-error-container: #ffe4e6;
+  --color-dalu-on-error-container: #881337;
+  --color-dalu-info: #0369a1;
+  --color-dalu-info-container: #e0f2fe;
+  --color-dalu-on-info-container: #0c4a6e;
+  --color-dalu-hero: #0b4a53;
+
+  /* Legacy pine tones (admin desktop sidebar) */
   --color-pine-950: #04231a;
   --color-pine-900: #064e3b;
   --color-pine-800: #065f46;
@@ -12,6 +65,9 @@
   --color-pine-600: #059669;
 }
 
+/* ============================================================================
+ * Base (unlayered — element defaults, no utility conflicts)
+ * ========================================================================== */
 :root {
   color-scheme: light;
 }
@@ -26,19 +82,28 @@ html {
   text-size-adjust: 100%;
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   font-family: var(--font-sans);
-  background-color: #f3f6f2;
-  color: #0f172a;
+  background-color: #f5f8f5;
+  color: #11221b;
+  overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
+img,
+video {
+  max-width: 100%;
+}
+
 /* iOS Safari zooms the viewport whenever a focused form control renders below
-   16px. Tailwind's text-sm is 14px, so an installed Home Screen PWA appeared
-   permanently enlarged after login/form focus. Keep accessibility zoom enabled
-   and prevent only that automatic focus zoom. */
+   16px. Keep accessibility zoom enabled and prevent only that automatic zoom. */
 @media (max-width: 767px) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   select,
@@ -58,7 +123,7 @@ body {
 }
 
 ::selection {
-  background: rgba(16, 185, 129, 0.28);
+  background: rgba(14, 94, 66, 0.24);
 }
 
 /* Scrollbars */
@@ -70,13 +135,13 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #c7d6ce;
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #a9bfb3;
   background-clip: padding-box;
 }
 .no-scrollbar::-webkit-scrollbar {
@@ -90,188 +155,311 @@ body {
 .font-display {
   font-family: var(--font-display);
 }
-
-/* Backgrounds */
-.app-aurora {
-  background:
-    radial-gradient(1200px 620px at 100% -12%, rgba(16, 185, 129, 0.12), transparent 60%),
-    radial-gradient(900px 520px at -12% 8%, rgba(245, 158, 11, 0.09), transparent 55%),
-    radial-gradient(760px 520px at 50% 118%, rgba(13, 148, 136, 0.1), transparent 60%),
-    #f3f6f2;
+/* Sinhala/Tamil must never inherit Latin display tracking. */
+:lang(si), :lang(ta), [lang="si"], [lang="ta"] {
+  letter-spacing: normal !important;
 }
 
-.grid-overlay {
-  background-image:
-    linear-gradient(to right, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
-  background-size: 34px 34px;
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
-.dot-overlay {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
-  background-size: 18px 18px;
+/* ============================================================================
+ * Components layer — everything utilities are allowed to override
+ * ========================================================================== */
+@layer components {
+  /* Stitch card-elevated: white sheet, hairline outline-variant border. */
+  .card {
+    background: #ffffff;
+    border: 1px solid #c7d6ce;
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px rgba(17, 34, 27, 0.05), 0 10px 24px -18px rgba(6, 55, 38, 0.18);
+  }
+  .card-elev {
+    box-shadow: 0 14px 34px -18px rgba(17, 34, 27, 0.24), 0 2px 6px rgba(17, 34, 27, 0.05);
+  }
+  .card-hover {
+    transition: transform 0.18s ease-out, box-shadow 0.18s ease-out, border-color 0.18s ease-out;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: #0e5e42;
+    box-shadow: 0 12px 28px -18px rgba(14, 94, 66, 0.35);
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+  }
+  .glass-dark {
+    background: rgba(11, 34, 27, 0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .text-gradient {
+    background: linear-gradient(115deg, #0e5e42, #0f8a5f 55%, #d3f0e3);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .ring-focus {
+    outline: none;
+  }
+  .ring-focus:focus-visible {
+    box-shadow: 0 0 0 3px rgba(14, 94, 66, 0.3);
+  }
+
+  /* Admin desktop canvas (dark pine sidebar sits next to it) */
+  .app-aurora {
+    background:
+      radial-gradient(1200px 620px at 100% -12%, rgba(15, 138, 95, 0.1), transparent 60%),
+      radial-gradient(900px 520px at -12% 8%, rgba(13, 92, 117, 0.08), transparent 55%),
+      #f5f8f5;
+  }
+
+  .grid-overlay {
+    background-image:
+      linear-gradient(to right, rgba(17, 34, 27, 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(17, 34, 27, 0.035) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+
+  .dot-overlay {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
+  /* ---- Login ---------------------------------------------------------------- */
+  .login-stage {
+    isolation: isolate;
+  }
+  .auth-book {
+    perspective: 1500px;
+    -webkit-perspective: 1500px;
+  }
+  .auth-book__pages {
+    display: grid;
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+    transform-origin: 50% 50%;
+    transition: transform 620ms cubic-bezier(0.2, 0.78, 0.24, 1);
+    will-change: transform;
+  }
+  .auth-book__pages.is-flipped {
+    transform: rotateY(-180deg);
+  }
+  .auth-book__page {
+    grid-area: 1 / 1;
+    min-width: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+  }
+  .auth-book__page--front {
+    pointer-events: auto;
+    transform: rotateY(0deg);
+  }
+  .auth-book__page--back {
+    pointer-events: none;
+    transform: rotateY(180deg);
+  }
+  .auth-book__pages.is-flipped .auth-book__page--front {
+    pointer-events: none;
+  }
+  .auth-book__pages.is-flipped .auth-book__page--back {
+    pointer-events: auto;
+  }
+
+  /* Stitch input autofill polish (inputs carry .login-input). */
+  .login-input:-webkit-autofill,
+  .login-input:-webkit-autofill:hover,
+  .login-input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #11221b;
+    -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* ---- Supplier weather experience ------------------------------------------ */
+  .supplier-weather-surface {
+    transition: background 500ms ease;
+  }
+  .weather-hero {
+    isolation: isolate;
+    box-shadow: 0 24px 55px -28px rgba(15, 23, 42, 0.55);
+  }
+  .weather-glass {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(16px) saturate(135%);
+    -webkit-backdrop-filter: blur(16px) saturate(135%);
+  }
+
+  .weather-atmosphere {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .weather-atmosphere__glow {
+    position: absolute;
+    width: 10rem;
+    height: 10rem;
+    right: -2.25rem;
+    top: -3rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+    filter: blur(2px);
+  }
+  .weather-atmosphere--sunny .weather-atmosphere__glow {
+    background: rgba(253, 224, 71, 0.72);
+    box-shadow: 0 0 55px rgba(253, 224, 71, 0.56);
+  }
+  .weather-atmosphere__cloud {
+    position: absolute;
+    width: 7rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.35);
+    filter: blur(0.4px);
+    animation: weatherCloudDrift 14s ease-in-out infinite alternate;
+  }
+  .weather-atmosphere__cloud::before,
+  .weather-atmosphere__cloud::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    border-radius: 999px;
+    background: inherit;
+  }
+  .weather-atmosphere__cloud::before { width: 3.4rem; height: 3.4rem; left: 1.2rem; }
+  .weather-atmosphere__cloud::after { width: 2.4rem; height: 2.4rem; right: 1rem; }
+  .weather-atmosphere__cloud--one { left: -2rem; top: 18%; }
+  .weather-atmosphere__cloud--two { right: -3rem; bottom: 14%; animation-delay: -5s; transform: scale(.72); }
+  .weather-atmosphere--sunny .weather-atmosphere__cloud { opacity: .45; }
+  .weather-atmosphere__rain {
+    position: absolute;
+    inset: -6rem -8% -1rem;
+    opacity: .72;
+    background-image:
+      radial-gradient(ellipse 1.2px 7px at center, rgba(255,255,255,.82) 0 48%, rgba(186,230,253,.42) 58%, transparent 72%),
+      radial-gradient(ellipse 1px 5px at center, rgba(224,242,254,.68) 0 48%, transparent 72%),
+      radial-gradient(ellipse 1.4px 9px at center, rgba(255,255,255,.58) 0 46%, transparent 70%);
+    background-position: 0 0, 19px 24px, 51px 11px;
+    background-size: 47px 71px, 73px 97px, 109px 131px;
+    animation: weatherRainNear .82s linear infinite;
+    transform: rotate(2deg);
+    transform-origin: center;
+  }
+  .weather-atmosphere__rain::after {
+    content: "";
+    position: absolute;
+    inset: -12% 0;
+    opacity: .44;
+    background-image:
+      radial-gradient(ellipse 1px 4px at center, rgba(219,234,254,.72) 0 50%, transparent 73%),
+      radial-gradient(ellipse .8px 3px at center, rgba(255,255,255,.58) 0 48%, transparent 72%);
+    background-position: 13px 9px, 37px 31px;
+    background-size: 59px 83px, 89px 113px;
+    animation: weatherRainFar 1.18s linear infinite;
+  }
+  .weather-atmosphere__lightning {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(125deg, transparent 45%, rgba(255,255,255,.38) 48%, transparent 51%);
+    animation: weatherLightning 6s steps(1) infinite;
+  }
+  .weather-atmosphere__mist {
+    position: absolute;
+    inset: 15% -30%;
+    background: repeating-linear-gradient(180deg, transparent 0 18px, rgba(255,255,255,.2) 19px 35px);
+    filter: blur(8px);
+    animation: weatherMist 9s ease-in-out infinite alternate;
+  }
+
+  /* ---- Supplier shell (sp-*) — Dalu Plus Stitch look ------------------------- */
+  /* White top bar, white cards on a soft green-tinted canvas, white bottom dock. */
+  .supplier-device-stage {
+    background: #f5f8f5;
+    color: #11221b;
+  }
+  .sp-header {
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid #c7d6ce;
+    box-shadow: 0 1px 0 rgba(17, 34, 27, 0.03);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+  }
+  .sp-main {
+    background: #f5f8f5;
+  }
+  /* No extra card overrides: the base .card above already renders the Stitch
+     white sheet, and utilities (bg-*, text-*, border-*) stay authoritative. */
+  .sp-dock {
+    background: rgba(255, 255, 255, 0.96);
+    border-top: 1px solid #c7d6ce;
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+  }
+  .sp-dockitem {
+    color: #465c52;
+  }
+  .sp-dockitem--on {
+    color: #063726;
+  }
+  .sp-dockitem--on .sp-dockpill {
+    background: #d3f0e3;
+    color: #063726;
+  }
+
+  /* Supplier statistics/mono: never let a Latin-only mono face distort
+     Sinhala or Tamil digits (Round 74 guard, kept for the Stitch layer). */
+  .sp-main .font-mono,
+  .sp-main [class*="font-mono"] {
+    font-family: inherit !important;
+    letter-spacing: normal !important;
+  }
 }
 
-/* Surfaces */
-.card {
-  background: linear-gradient(180deg, #ffffff, #fbfdfb);
-  border: 1px solid rgb(226 232 240);
-  border-radius: 1.25rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 12px 32px -18px rgba(6, 78, 59, 0.18);
-}
-.card-elev {
-  box-shadow: 0 18px 40px -18px rgba(15, 23, 42, 0.22), 0 2px 6px rgba(15, 23, 42, 0.05);
-}
-.card-hover {
-  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, border-color 0.25s ease;
-}
-.card-hover:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 22px 44px -18px rgba(15, 23, 42, 0.28);
-  border-color: rgb(167 243 208);
-}
-
-.glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-}
-.glass-dark {
-  background: rgba(4, 35, 26, 0.55);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.text-gradient {
-  background: linear-gradient(115deg, #047857, #10b981 38%, #f59e0b);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.ring-focus {
-  outline: none;
-}
-.ring-focus:focus-visible {
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.35);
-}
-
-/* Animations */
+/* ============================================================================
+ * Animations (unlayered — keyframes and their utility classes)
+ * ========================================================================== */
 @keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
 }
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 @keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes floaty {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
 }
 @keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
+  100% { transform: translateX(100%); }
 }
 @keyframes pulseRing {
-  0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 12px rgba(16, 185, 129, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(15, 138, 95, 0.5); }
+  70% { box-shadow: 0 0 0 12px rgba(15, 138, 95, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(15, 138, 95, 0); }
 }
-@keyframes dashGrow {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
+@keyframes weatherCloudDrift { to { transform: translateX(2.4rem) translateY(-.6rem) scale(.94); } }
+@keyframes weatherRainNear { to { background-position: -5px 71px, 14px 121px, 46px 142px; } }
+@keyframes weatherRainFar { to { background-position: 10px 92px, 34px 144px; } }
+@keyframes weatherLightning { 0%, 92%, 96%, 100% { opacity: 0; } 93%, 95% { opacity: 1; } }
+@keyframes weatherMist { to { transform: translateX(12%); opacity: .62; } }
 
-.animate-fade-up {
-  animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.animate-fade-in {
-  animation: fadeIn 0.5s ease both;
-}
-.animate-scale-in {
-  animation: scaleIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.animate-floaty {
-  animation: floaty 7s ease-in-out infinite;
-}
-.pulse-dot {
-  animation: pulseRing 2.2s infinite;
-}
-
-/* Login portal book: the two authentication surfaces occupy the same grid
-   cell, while the page stack turns around a vertical book spine. */
-.auth-book {
-  perspective: 1500px;
-  -webkit-perspective: 1500px;
-}
-.auth-book__pages {
-  display: grid;
-  transform-style: preserve-3d;
-  -webkit-transform-style: preserve-3d;
-  transform-origin: 50% 50%;
-  transition: transform 720ms cubic-bezier(0.2, 0.78, 0.24, 1);
-  will-change: transform;
-}
-.auth-book__pages.is-flipped {
-  transform: rotateY(-180deg);
-}
-.auth-book__page {
-  grid-area: 1 / 1;
-  min-width: 0;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  transform-style: preserve-3d;
-  -webkit-transform-style: preserve-3d;
-}
-.auth-book__page--front {
-  pointer-events: auto;
-  transform: rotateY(0deg);
-}
-.auth-book__page--back {
-  pointer-events: none;
-  transform: rotateY(180deg);
-}
-.auth-book__pages.is-flipped .auth-book__page--front {
-  pointer-events: none;
-}
-.auth-book__pages.is-flipped .auth-book__page--back {
-  pointer-events: auto;
-}
+.animate-fade-up { animation: fadeUp 0.5s cubic-bezier(0.2, 0, 0, 1) both; }
+.animate-fade-in { animation: fadeIn 0.4s ease both; }
+.animate-scale-in { animation: scaleIn 0.32s cubic-bezier(0.2, 0, 0, 1) both; }
+.pulse-dot { animation: pulseRing 2.2s infinite; }
 
 .shimmer {
   position: relative;
@@ -286,129 +474,8 @@ body {
   animation: shimmer 1.8s infinite;
 }
 
-.tnum {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Supplier weather experience — lightweight CSS atmosphere, no image requests. */
-.supplier-weather-surface {
-  transition: background 500ms ease;
-}
-.weather-hero {
-  isolation: isolate;
-  box-shadow: 0 24px 55px -28px rgba(15, 23, 42, 0.72);
-}
-.weather-glass {
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(18px) saturate(135%);
-  -webkit-backdrop-filter: blur(18px) saturate(135%);
-}
-.weather-atmosphere {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
-.weather-atmosphere__glow {
-  position: absolute;
-  width: 10rem;
-  height: 10rem;
-  right: -2.25rem;
-  top: -3rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
-  filter: blur(2px);
-}
-.weather-atmosphere--sunny .weather-atmosphere__glow {
-  background: rgba(253, 224, 71, 0.72);
-  box-shadow: 0 0 55px rgba(253, 224, 71, 0.56);
-}
-.weather-atmosphere__cloud {
-  position: absolute;
-  width: 7rem;
-  height: 2.25rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
-  filter: blur(0.4px);
-  animation: weatherCloudDrift 14s ease-in-out infinite alternate;
-}
-.weather-atmosphere__cloud::before,
-.weather-atmosphere__cloud::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  border-radius: 999px;
-  background: inherit;
-}
-.weather-atmosphere__cloud::before { width: 3.4rem; height: 3.4rem; left: 1.2rem; }
-.weather-atmosphere__cloud::after { width: 2.4rem; height: 2.4rem; right: 1rem; }
-.weather-atmosphere__cloud--one { left: -2rem; top: 18%; }
-.weather-atmosphere__cloud--two { right: -3rem; bottom: 14%; animation-delay: -5s; transform: scale(.72); }
-.weather-atmosphere--sunny .weather-atmosphere__cloud { opacity: .45; }
-.weather-atmosphere--rain .weather-atmosphere__cloud,
-.weather-atmosphere--storm .weather-atmosphere__cloud { background: rgba(15, 23, 42, 0.22); }
-.weather-atmosphere__rain {
-  position: absolute;
-  inset: -6rem -8% -1rem;
-  opacity: .72;
-  background-image:
-    radial-gradient(ellipse 1.2px 7px at center, rgba(255,255,255,.82) 0 48%, rgba(186,230,253,.42) 58%, transparent 72%),
-    radial-gradient(ellipse 1px 5px at center, rgba(224,242,254,.68) 0 48%, transparent 72%),
-    radial-gradient(ellipse 1.4px 9px at center, rgba(255,255,255,.58) 0 46%, transparent 70%);
-  background-position: 0 0, 19px 24px, 51px 11px;
-  background-size: 47px 71px, 73px 97px, 109px 131px;
-  animation: weatherRainNear .82s linear infinite;
-  transform: rotate(2deg);
-  transform-origin: center;
-}
-.weather-atmosphere__rain::after {
-  content: "";
-  position: absolute;
-  inset: -12% 0;
-  opacity: .44;
-  background-image:
-    radial-gradient(ellipse 1px 4px at center, rgba(219,234,254,.72) 0 50%, transparent 73%),
-    radial-gradient(ellipse .8px 3px at center, rgba(255,255,255,.58) 0 48%, transparent 72%);
-  background-position: 13px 9px, 37px 31px;
-  background-size: 59px 83px, 89px 113px;
-  animation: weatherRainFar 1.18s linear infinite;
-}
-.weather-atmosphere__lightning {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(125deg, transparent 45%, rgba(255,255,255,.38) 48%, transparent 51%);
-  animation: weatherLightning 6s steps(1) infinite;
-}
-.weather-atmosphere__mist {
-  position: absolute;
-  inset: 15% -30%;
-  background: repeating-linear-gradient(180deg, transparent 0 18px, rgba(255,255,255,.2) 19px 35px);
-  filter: blur(8px);
-  animation: weatherMist 9s ease-in-out infinite alternate;
-}
-.supplier-liquid-nav {
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.82);
-  box-shadow: 0 16px 38px -24px rgba(15, 23, 42, .55);
-  backdrop-filter: blur(22px) saturate(145%);
-  -webkit-backdrop-filter: blur(22px) saturate(145%);
-}
-@keyframes weatherCloudDrift { to { transform: translateX(2.4rem) translateY(-.6rem) scale(.94); } }
-@keyframes weatherRainNear { to { background-position: -5px 71px, 14px 121px, 46px 142px; } }
-@keyframes weatherRainFar { to { background-position: 10px 92px, 34px 144px; } }
-@keyframes weatherLightning { 0%, 92%, 96%, 100% { opacity: 0; } 93%, 95% { opacity: 1; } }
-@keyframes weatherMist { to { transform: translateX(12%); opacity: .62; } }
-
 /* ============================================================================
- * Global light / dark appearance
- * ============================================================================
- * The application predates Tailwind dark variants and contains many modules.
- * These centralized mappings preserve every module's semantic tone while
- * changing shared surfaces, borders, text, forms, charts and map controls.
- * This avoids partial dark mode where only the shell changes.
+ * Admin dark palette (unlayered — dark mode intentionally beats utilities)
  * ========================================================================== */
 .dark body {
   background-color: #07110e;
@@ -419,7 +486,6 @@ body {
   background:
     radial-gradient(1200px 620px at 100% -12%, rgba(16, 185, 129, 0.11), transparent 60%),
     radial-gradient(900px 520px at -12% 8%, rgba(245, 158, 11, 0.07), transparent 55%),
-    radial-gradient(760px 520px at 50% 118%, rgba(13, 148, 136, 0.09), transparent 60%),
     #07110e;
 }
 
@@ -442,10 +508,6 @@ body {
   background: rgba(17, 31, 27, 0.82);
   border-color: rgba(71, 101, 90, 0.62);
 }
-.dark .supplier-liquid-nav {
-  background: rgba(13, 26, 22, 0.86);
-  border-color: rgba(71, 85, 105, 0.55);
-}
 .dark .text-gradient {
   background-image: linear-gradient(115deg, #6ee7b7, #34d399 38%, #fbbf24);
 }
@@ -467,206 +529,111 @@ body {
 /* Pale semantic surfaces retain their meaning without producing glare. */
 .dark .bg-emerald-50,
 .dark [class~="bg-emerald-50/50"],
-.dark [class~="bg-emerald-50/40"],
-.dark [class~="bg-emerald-50/60"] { background-color: rgba(16, 185, 129, 0.13) !important; }
-.dark .bg-emerald-100,
-.dark .bg-emerald-200 { background-color: rgba(16, 185, 129, 0.22) !important; }
-.dark .bg-teal-50,
-.dark [class~="bg-teal-50/50"] { background-color: rgba(20, 184, 166, 0.13) !important; }
-.dark .bg-teal-100 { background-color: rgba(20, 184, 166, 0.22) !important; }
-.dark .bg-sky-50,
-.dark [class~="bg-sky-50/50"] { background-color: rgba(14, 165, 233, 0.13) !important; }
-.dark .bg-sky-100 { background-color: rgba(14, 165, 233, 0.22) !important; }
-.dark .bg-blue-50,
-.dark [class~="bg-blue-50/50"] { background-color: rgba(59, 130, 246, 0.13) !important; }
-.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.22) !important; }
-.dark .bg-violet-50,
-.dark [class~="bg-violet-50/50"] { background-color: rgba(139, 92, 246, 0.14) !important; }
-.dark .bg-violet-100 { background-color: rgba(139, 92, 246, 0.22) !important; }
-.dark .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.22) !important; }
-.dark .bg-amber-50,
-.dark [class~="bg-amber-50/50"] { background-color: rgba(245, 158, 11, 0.13) !important; }
-.dark .bg-amber-100,
-.dark .bg-amber-200 { background-color: rgba(245, 158, 11, 0.22) !important; }
-.dark .bg-orange-50,
-.dark [class~="bg-orange-50/50"] { background-color: rgba(249, 115, 22, 0.13) !important; }
-.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.22) !important; }
-.dark .bg-rose-50,
-.dark [class~="bg-rose-50/50"] { background-color: rgba(244, 63, 94, 0.13) !important; }
+.dark [class~="bg-emerald-50/40"] { background-color: rgba(16, 185, 129, 0.13) !important; }
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.22) !important; }
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.13) !important; }
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.22) !important; }
+.dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.13) !important; }
 .dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.22) !important; }
-.dark .bg-red-50,
-.dark [class~="bg-red-50/50"] { background-color: rgba(239, 68, 68, 0.13) !important; }
+.dark .bg-sky-50 { background-color: rgba(14, 165, 233, 0.13) !important; }
+.dark .bg-sky-100 { background-color: rgba(14, 165, 233, 0.22) !important; }
 
-/* High-contrast text hierarchy */
-.dark .text-slate-950,
-.dark .text-slate-900,
-.dark .text-slate-800 { color: #f1f5f9 !important; }
-.dark .text-slate-700 { color: #e2e8f0 !important; }
-.dark .text-slate-600 { color: #cbd5e1 !important; }
-.dark .text-slate-500 { color: #a8b4c5 !important; }
-.dark .text-slate-400 { color: #94a3b8 !important; }
-.dark .text-slate-300 { color: #7f8da2 !important; }
-.dark .text-emerald-800,
-.dark .text-emerald-700 { color: #a7f3d0 !important; }
-.dark .text-emerald-600 { color: #6ee7b7 !important; }
-.dark .text-teal-800,
-.dark .text-teal-700,
-.dark .text-teal-600 { color: #99f6e4 !important; }
-.dark .text-sky-800,
-.dark .text-sky-700,
-.dark .text-sky-600 { color: #bae6fd !important; }
-.dark .text-blue-800,
-.dark .text-blue-700,
-.dark .text-blue-600 { color: #bfdbfe !important; }
-.dark .text-violet-800,
-.dark .text-violet-700,
-.dark .text-violet-600 { color: #ddd6fe !important; }
-.dark .text-indigo-700 { color: #c7d2fe !important; }
-.dark .text-amber-800,
-.dark .text-amber-700,
-.dark .text-amber-600 { color: #fde68a !important; }
-.dark .text-orange-800,
-.dark .text-orange-700,
-.dark .text-orange-600 { color: #fed7aa !important; }
-.dark .text-rose-800,
-.dark .text-rose-700,
-.dark .text-rose-600 { color: #fecdd3 !important; }
-.dark .text-red-800,
-.dark .text-red-700,
-.dark .text-red-600 { color: #fecaca !important; }
+.dark .text-slate-400 { color: #94a3b8; }
+.dark .text-slate-500 { color: #a8b6bf; }
+.dark .text-slate-600 { color: #c2cdcf; }
+.dark .text-slate-700 { color: #d5dde0; }
+.dark .text-slate-800 { color: #e8eef0; }
+.dark .text-slate-900 { color: #f1f6f7; }
+.dark .border-slate-100 { border-color: rgba(148, 163, 184, 0.14) !important; }
+.dark .border-slate-200 { border-color: rgba(148, 163, 184, 0.22) !important; }
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(148, 163, 184, 0.14); }
 
-/* Borders, dividers and focus rings */
-.dark .border-slate-50,
-.dark .border-slate-100 { border-color: #20332c !important; }
-.dark .border-slate-200 { border-color: #314840 !important; }
-.dark .border-slate-300 { border-color: #465f56 !important; }
-.dark .border-emerald-100,
-.dark .border-emerald-200,
-.dark .border-emerald-300 { border-color: rgba(52, 211, 153, 0.38) !important; }
-.dark .border-sky-100,
-.dark .border-sky-200 { border-color: rgba(56, 189, 248, 0.36) !important; }
-.dark .border-blue-100,
-.dark .border-blue-200 { border-color: rgba(96, 165, 250, 0.36) !important; }
-.dark .border-violet-100,
-.dark .border-violet-200 { border-color: rgba(167, 139, 250, 0.36) !important; }
-.dark .border-amber-100,
-.dark .border-amber-200,
-.dark .border-amber-300 { border-color: rgba(251, 191, 36, 0.38) !important; }
-.dark .border-orange-100,
-.dark .border-orange-200 { border-color: rgba(251, 146, 60, 0.36) !important; }
-.dark .border-rose-100,
-.dark .border-rose-200,
-.dark .border-rose-300 { border-color: rgba(251, 113, 133, 0.38) !important; }
-
-/* Forms must remain legible regardless of module-specific light classes. */
-.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark input,
 .dark select,
 .dark textarea {
-  background-color: #0d1a16 !important;
-  border-color: #3a5148 !important;
-  color: #f8fafc !important;
-  caret-color: #6ee7b7;
+  background-color: #0c1814;
+  border-color: #2b4038;
+  color: #e2e8f0;
 }
 .dark input::placeholder,
-.dark textarea::placeholder { color: #7d8b9f !important; opacity: 1; }
-.dark input:disabled,
-.dark select:disabled,
-.dark textarea:disabled { background-color: #14231e !important; color: #87958f !important; }
-.dark select option { background-color: #0d1a16; color: #f8fafc; }
-.dark input[type="date"],
-.dark input[type="datetime-local"],
-.dark input[type="time"] { color-scheme: dark; }
-
-/* Common hover utilities need dark equivalents as well. */
-.dark .hover\:bg-slate-50:hover,
-.dark .hover\:bg-slate-100:hover { background-color: #1a2b25 !important; }
-.dark .hover\:bg-emerald-50:hover { background-color: rgba(16, 185, 129, 0.18) !important; }
-.dark .hover\:bg-rose-50:hover,
-.dark .hover\:bg-rose-100:hover { background-color: rgba(244, 63, 94, 0.18) !important; }
-
-/* Charts, tables, native widgets and map chrome */
-.dark .recharts-cartesian-axis-tick-value,
-.dark .recharts-text { fill: #a8b4c5 !important; }
-.dark .recharts-cartesian-grid line { stroke: #2b4038 !important; }
-.dark .recharts-default-tooltip {
-  background-color: #111f1b !important;
-  border-color: #3a5148 !important;
-  color: #e2e8f0 !important;
-}
-.dark .leaflet-bar a,
-.dark .leaflet-control-layers,
-.dark .leaflet-popup-content-wrapper,
-.dark .leaflet-popup-tip {
-  background: #111f1b !important;
-  color: #e2e8f0 !important;
-  border-color: #3a5148 !important;
-}
-.dark ::-webkit-calendar-picker-indicator { filter: invert(0.9); }
-.dark ::-webkit-scrollbar-thumb { background: #465f56; background-clip: padding-box; }
-.dark .shimmer::after { background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.16), transparent); }
-
-body,
-.card,
-input,
-select,
-textarea {
-  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body,
-  .card,
-  input,
-  select,
-  textarea { transition: none; }
-
-  .auth-book__pages,
-  .auth-book__pages.is-flipped {
-    transform: none;
-    transition: none;
-  }
-  .auth-book__page--back {
-    display: none;
-    transform: none;
-  }
-  .auth-book__pages.is-flipped .auth-book__page--front {
-    display: none;
-  }
-  .auth-book__pages.is-flipped .auth-book__page--back {
-    display: block;
-  }
-  .weather-atmosphere__cloud,
-  .weather-atmosphere__rain,
-  .weather-atmosphere__lightning,
-  .weather-atmosphere__mist {
-    animation: none !important;
-  }
+.dark textarea::placeholder {
+  color: #64807a;
 }
 
 /* ============================================================================
- * iPhone notch / Dynamic Island safe-area helpers
- * ============================================================================
- * Purpose: push UI elements below the notch (top) and above the home indicator
- * (bottom) on iPhones with `viewport-fit=cover` + `black-translucent` status
- * bar style (set in index.html).
- *
- * Mechanism: `max(env(safe-area-inset-X, 0px), Yrem)` returns the LARGER of
- * the device's safe-area inset OR the base padding Y. So:
- *   • Non-notched devices: env() returns 0 → base padding wins → no visual
- *     change vs. before.
- *   • Notched devices: env() returns ~47px (iPhone 14 Pro) → inset wins →
- *     content pushed below the notch.
- *
- * Scope: applied only on mobile (< 768px). On desktop, the MobileShell
- * renders inside a phone-frame wrapper with its own visual padding, so
- * safe-area helpers must NOT apply there.
- *
- * Usage: add the class alongside existing padding utilities. The `!important`
- * is needed to override Tailwind's `py-3` / `px-4` on the same element.
+ * Supplier force-light — the supplier shell ignores the OS dark preference
+ * (unlayered, scoped under .supplier-device-stage / .sp-main so the admin
+ * desktop keeps its dark mode).
+ * ========================================================================== */
+.dark .supplier-device-stage,
+.dark .supplier-device-stage .sp-main,
+.dark .sp-main {
+  background: #f5f8f5 !important;
+  color: #11221b !important;
+}
+.dark .supplier-device-stage .sp-header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: #c7d6ce !important;
+}
+.dark .supplier-device-stage .card,
+.dark .sp-main .card {
+  background: #ffffff !important;
+  border-color: #c7d6ce !important;
+  color: #11221b !important;
+}
+.dark .supplier-device-stage .bg-white,
+.dark .supplier-device-stage [class~="bg-white/95"],
+.dark .supplier-device-stage [class~="bg-white/90"],
+.dark .supplier-device-stage [class~="bg-white/80"],
+.dark .supplier-device-stage [class~="bg-white/70"],
+.dark .sp-main .bg-white,
+.dark .sp-main [class~="bg-white/95"],
+.dark .sp-main [class~="bg-white/90"],
+.dark .sp-main [class~="bg-white/80"],
+.dark .sp-main [class~="bg-white/70"] {
+  background-color: #ffffff !important;
+}
+.dark .supplier-device-stage .bg-slate-50,
+.dark .sp-main .bg-slate-50,
+.dark .supplier-device-stage .bg-slate-100,
+.dark .sp-main .bg-slate-100 {
+  background-color: #f0f5f1 !important;
+}
+.dark .supplier-device-stage input,
+.dark .supplier-device-stage select,
+.dark .supplier-device-stage textarea,
+.dark .sp-main input,
+.dark .sp-main select,
+.dark .sp-main textarea {
+  background-color: #ffffff !important;
+  border-color: #c7d6ce !important;
+  color: #11221b !important;
+}
+.dark .supplier-device-stage nav.safe-bottom-nav {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: #c7d6ce !important;
+}
+
+/* Tinted cards keep their Stitch container colors even under force-light.
+   Must come after the force-light block (same !important, later wins). */
+.card-tint-primary {
+  background: #0e5e42 !important;
+  border-color: #0e5e42 !important;
+}
+.card-tint-warning {
+  background: #fef3c7 !important;
+  border-color: rgba(180, 83, 9, 0.3) !important;
+}
+.card-tint-success {
+  background: #dcfce7 !important;
+  border-color: rgba(21, 128, 61, 0.3) !important;
+}
+
+/* ============================================================================
+ * Safe-area helpers (iPhone notch / Dynamic Island)
  * ========================================================================== */
 @supports (padding: max(env(safe-area-inset-top, 0px), 0px)) {
   @media (max-width: 767px) {
-    /* Top — header bars, top app bars. Uses 0.75rem base to match py-3. */
     .safe-top {
       padding-top: max(env(safe-area-inset-top, 0px), 0.75rem) !important;
     }
@@ -676,12 +643,9 @@ textarea {
     .safe-top-lg {
       padding-top: max(env(safe-area-inset-top, 0px), 1rem) !important;
     }
-    /* Just the safe-area inset, no base padding (for overlays that have their own padding) */
     .safe-top-0 {
       padding-top: env(safe-area-inset-top, 0px) !important;
     }
-
-    /* Bottom — bottom nav bars, bottom sheets. Uses 0.375rem base to match py-1.5. */
     .safe-bottom {
       padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem) !important;
     }
@@ -691,31 +655,22 @@ textarea {
     .safe-bottom-0 {
       padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     }
-
-    /* Horizontal — for landscape orientation (notch on the side) */
     .safe-x {
       padding-left: max(env(safe-area-inset-left, 0px), 1rem) !important;
       padding-right: max(env(safe-area-inset-right, 0px), 1rem) !important;
     }
-
-    /* Full-screen overlay (modals, sheets) — apply all 4 insets */
     .safe-screen {
       padding-top: env(safe-area-inset-top, 0px) !important;
       padding-bottom: env(safe-area-inset-bottom, 0px) !important;
       padding-left: env(safe-area-inset-left, 0px) !important;
       padding-right: env(safe-area-inset-right, 0px) !important;
     }
-
-    /* Margin variants — for elements that need to be PUSHED down (not padded internally) */
     .safe-mt {
       margin-top: env(safe-area-inset-top, 0px) !important;
     }
     .safe-mb {
       margin-bottom: env(safe-area-inset-bottom, 0px) !important;
     }
-
-    /* Absolute-position variants — for elements positioned with `top` / `bottom`
-       (e.g. language switcher pinned to top-right of login screen). */
     .safe-top-absolute {
       top: max(env(safe-area-inset-top, 0px), 1rem) !important;
     }
@@ -735,1216 +690,19 @@ textarea {
 }
 
 /* ============================================================================
- * ROUND 72 — PREMIUM DESIGN SYSTEM (login + supplier shell)
- * Display face: Sora · Body: Hanken Grotesk · Data: JetBrains Mono.
- * Signature motif: estate topographic contours + drifting canopy light.
+ * Motion sensitivity
  * ========================================================================== */
-
-@keyframes lxFadeRise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
-@keyframes lxDriftA { 0%, 100% { transform: translate3d(-4%, -2%, 0) scale(1); } 50% { transform: translate3d(5%, 6%, 0) scale(1.12); } }
-@keyframes lxDriftB { 0%, 100% { transform: translate3d(3%, 4%, 0) scale(1.08); } 50% { transform: translate3d(-5%, -3%, 0) scale(0.96); } }
-@keyframes lxOrbitSpin { to { transform: rotate(360deg); } }
-@keyframes lxBreathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-@keyframes ctaSheen { from { transform: translateX(-130%) skewX(-18deg); } to { transform: translateX(230%) skewX(-18deg); } }
-@keyframes dockPop { 0% { transform: scale(0.72); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
-@keyframes tabPipIn { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
-
-.lx-rise { animation: lxFadeRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
-
-/* ---- Immersive login canvas ------------------------------------------------ */
-.lx-scene {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(92rem 46rem at 118% -14%, rgba(52, 211, 153, 0.14), transparent 56%),
-    radial-gradient(70rem 40rem at -16% 112%, rgba(245, 184, 64, 0.1), transparent 55%),
-    linear-gradient(168deg, #0b2c22 0%, #07211a 42%, #04150f 100%);
-}
-.lx-scene::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.55;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480' viewBox='0 0 480 480'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M-40 90 C 60 40 150 150 250 96 S 430 40 540 120' stroke='%233ddc97' stroke-opacity='0.13'/%3E%3Cpath d='M-40 150 C 70 96 160 208 260 152 S 440 96 540 176' stroke='%233ddc97' stroke-opacity='0.09'/%3E%3Cpath d='M-40 214 C 60 160 170 268 268 212 S 440 158 540 238' stroke='%23f5b840' stroke-opacity='0.07'/%3E%3Cpath d='M-40 282 C 70 226 160 336 262 280 S 440 224 540 306' stroke='%233ddc97' stroke-opacity='0.08'/%3E%3Cpath d='M-40 352 C 60 296 170 404 270 348 S 440 292 540 374' stroke='%23f5b840' stroke-opacity='0.05'/%3E%3Cpath d='M-40 420 C 70 366 160 474 262 418 S 440 362 540 444' stroke='%233ddc97' stroke-opacity='0.06'/%3E%3C/g%3E%3C/svg%3E");
-}
-.lx-scene::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(120% 90% at 50% 8%, transparent 52%, rgba(2, 10, 8, 0.6));
-}
-.lx-glow {
-  position: absolute;
-  border-radius: 999px;
-  pointer-events: none;
-  will-change: transform;
-}
-.lx-glow--leaf {
-  width: 26rem; height: 26rem; right: -9rem; top: -8rem;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.2), transparent 66%);
-  animation: lxDriftA 17s ease-in-out infinite;
-}
-.lx-glow--sun {
-  width: 21rem; height: 21rem; left: -8rem; bottom: -7rem;
-  background: radial-gradient(circle, rgba(245, 184, 64, 0.14), transparent 66%);
-  animation: lxDriftB 21s ease-in-out infinite;
-}
-
-/* ---- Brand lockup ----------------------------------------------------------- */
-.lx-logo { position: relative; }
-.lx-logo::after {
-  content: "";
-  position: absolute;
-  inset: -7px;
-  border-radius: inherit;
-  border: 1.5px dashed rgba(245, 184, 64, 0.4);
-  animation: lxOrbitSpin 28s linear infinite;
-}
-.lx-logo__seed { animation: lxBreathe 3.4s ease-in-out infinite; }
-.lx-title { text-shadow: 0 2px 26px rgba(16, 185, 129, 0.35); }
-
-/* ---- Book surface + portal switcher ---------------------------------------- */
-.lx-card {
-  background: linear-gradient(165deg, rgba(16, 38, 30, 0.88), rgba(7, 22, 17, 0.94));
-  border: 1px solid rgba(110, 231, 183, 0.18);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 30px 80px -30px rgba(0, 0, 0, 0.75);
-}
-.lx-switcher {
-  background: rgba(3, 14, 11, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-}
-.lx-tab { position: relative; color: rgba(203, 225, 216, 0.55); transition: color 0.2s ease; }
-.lx-tab:hover { color: rgba(255, 255, 255, 0.85); }
-.lx-tab--supplier.is-on { color: #6ee7b7; background: rgba(16, 185, 129, 0.13); }
-.lx-tab--staff.is-on { color: #a5b4fc; background: rgba(99, 102, 241, 0.15); }
-.lx-tab .lx-pip {
-  position: absolute;
-  left: 18%; right: 18%; bottom: 5px; height: 2px;
-  border-radius: 999px;
-  background: currentColor;
-  transform: scaleX(0);
-  transform-origin: center;
-  opacity: 0;
-}
-.lx-tab.is-on .lx-pip { animation: tabPipIn 0.3s ease forwards; }
-
-.lx-face {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
-  border-color: rgba(110, 231, 183, 0.16);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 20px 45px -28px rgba(0, 0, 0, 0.65);
-}
-.lx-face--staff { border-color: rgba(129, 140, 248, 0.2); }
-
-.lx-chip {
-  background: rgba(16, 185, 129, 0.14);
-  color: #6ee7b7;
-  border: 1px solid rgba(52, 211, 153, 0.28);
-}
-.lx-chip--staff { background: rgba(99, 102, 241, 0.16); color: #a5b4fc; border-color: rgba(129, 140, 248, 0.3); }
-.lx-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 10px; font-weight: 700;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  color: #f5b840;
-}
-
-/* ---- Fields ----------------------------------------------------------------- */
-.lx-field {
-  position: relative;
-  border: 1px solid rgba(148, 197, 178, 0.17);
-  background: rgba(4, 17, 13, 0.55);
-  border-radius: 0.9rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-.lx-field:focus-within {
-  border-color: rgba(52, 211, 153, 0.6);
-  background: rgba(4, 17, 13, 0.75);
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15), 0 8px 24px -14px rgba(16, 185, 129, 0.4);
-}
-.lx-icon { color: rgba(148, 197, 178, 0.55); transition: color 0.2s ease; }
-.lx-field:focus-within .lx-icon { color: #34d399; }
-
-/* ---- CTA -------------------------------------------------------------------- */
-.lx-cta {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  display: inline-flex; width: 100%;
-  align-items: center; justify-content: center; gap: 0.5rem;
-  border-radius: 0.9rem; padding: 0.85rem 1rem;
-  font-size: 0.875rem; font-weight: 700; letter-spacing: 0.01em;
-  color: #03130c;
-  background: linear-gradient(115deg, var(--brand-accent, #10b981), #2dd4bf);
-  box-shadow: 0 14px 34px -12px color-mix(in srgb, var(--brand-accent, #10b981) 65%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, filter 0.2s ease;
-}
-.lx-cta::after {
-  content: "";
-  position: absolute; top: 0; bottom: 0; left: 0; width: 42%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-  transform: translateX(-130%) skewX(-18deg);
-  z-index: -1;
-}
-.lx-cta:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.05); box-shadow: 0 20px 44px -12px color-mix(in srgb, var(--brand-accent, #10b981) 75%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.4); }
-.lx-cta:hover:not(:disabled)::after { animation: ctaSheen 0.85s ease forwards; }
-.lx-cta:active:not(:disabled) { transform: translateY(0) scale(0.99); }
-.lx-cta:disabled { opacity: 0.55; cursor: not-allowed; }
-.lx-cta--ghost {
-  background: transparent; color: #a7f3d0;
-  border: 1px dashed rgba(110, 231, 183, 0.35);
-  box-shadow: none;
-}
-.lx-cta--ghost:hover:not(:disabled) { background: rgba(16, 185, 129, 0.1); box-shadow: none; filter: none; }
-.lx-cta--ghost::after { display: none; }
-
-/* ---- Notes / banners -------------------------------------------------------- */
-.lx-note { border-radius: 0.8rem; border: 1px solid; padding: 0.7rem 0.8rem; font-size: 0.75rem; line-height: 1.45; display: flex; gap: 0.5rem; align-items: flex-start; }
-.lx-note--err { border-color: rgba(251, 113, 133, 0.4); background: rgba(244, 63, 94, 0.14); color: #fecdd3; }
-.lx-note--ok { border-color: rgba(52, 211, 153, 0.4); background: rgba(16, 185, 129, 0.13); color: #a7f3d0; }
-.lx-note--warn { border-color: rgba(251, 191, 36, 0.4); background: rgba(245, 158, 11, 0.13); color: #fde68a; }
-
-/* ---- Card footer trust strip ------------------------------------------------- */
-.lx-cardfoot {
-  display: flex; align-items: center; justify-content: center; gap: 0.6rem;
-  padding: 0.7rem 0 0.15rem;
-}
-.lx-trustdot { width: 6px; height: 6px; border-radius: 999px; background: #34d399; box-shadow: 0 0 10px rgba(52, 211, 153, 0.8); animation: lxBreathe 2.8s ease-in-out infinite; }
-.lx-trustline { height: 1px; width: 64px; background: linear-gradient(90deg, transparent, rgba(110, 231, 183, 0.4), transparent); }
-
-/* =============================================================================
- * SUPPLIER SHELL (.sp-*) — ambient canvas, telemetry header, floating dock
- * =========================================================================== */
-.sp-shell {
-  background:
-    radial-gradient(60rem 30rem at 110% -8%, rgba(16, 185, 129, 0.1), transparent 60%),
-    radial-gradient(48rem 28rem at -12% 108%, rgba(245, 184, 64, 0.08), transparent 55%),
-    linear-gradient(180deg, #eef4ee 0%, #e9f0ea 55%, #e3ece5 100%);
-}
-.sp-shell::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.5;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520' viewBox='0 0 520 520'%3E%3Cg fill='none' stroke='%230c5b43' stroke-opacity='0.05'%3E%3Cpath d='M-40 110 C 80 50 180 170 300 112 S 480 52 600 138'/%3E%3Cpath d='M-40 190 C 80 130 190 250 305 192 S 490 132 600 218'/%3E%3Cpath d='M-40 270 C 80 210 180 330 300 272 S 480 212 600 298'/%3E%3Cpath d='M-40 350 C 80 290 190 410 305 352 S 490 292 600 378'/%3E%3Cpath d='M-40 430 C 80 370 180 490 300 432 S 480 372 600 458'/%3E%3C/g%3E%3C/svg%3E");
-}
-.dark .sp-shell {
-  background:
-    radial-gradient(60rem 30rem at 110% -8%, rgba(16, 185, 129, 0.13), transparent 60%),
-    radial-gradient(48rem 28rem at -12% 108%, rgba(245, 184, 64, 0.07), transparent 55%),
-    linear-gradient(180deg, #07130f 0%, #060f0c 100%);
-}
-.dark .sp-shell::before { opacity: 0.4; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520' viewBox='0 0 520 520'%3E%3Cg fill='none' stroke='%236ee7b7' stroke-opacity='0.045'%3E%3Cpath d='M-40 110 C 80 50 180 170 300 112 S 480 52 600 138'/%3E%3Cpath d='M-40 190 C 80 130 190 250 305 192 S 490 132 600 218'/%3E%3Cpath d='M-40 270 C 80 210 180 330 300 272 S 480 212 600 298'/%3E%3Cpath d='M-40 350 C 80 290 190 410 305 352 S 490 292 600 378'/%3E%3Cpath d='M-40 430 C 80 370 180 490 300 432 S 480 372 600 458'/%3E%3C/g%3E%3C/svg%3E"); }
-
-.sp-header {
-  background:
-    radial-gradient(30rem 8rem at 82% -40%, rgba(245, 184, 64, 0.22), transparent 70%),
-    linear-gradient(96deg, #052e22 0%, #064634 48%, #075844 100%);
-  box-shadow: 0 10px 30px -18px rgba(2, 44, 34, 0.8);
-}
-.sp-header::after {
-  content: "";
-  position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(110, 231, 183, 0.55), rgba(245, 184, 64, 0.35), transparent);
-}
-
-/* Telemetry flavor: mono digits + airy labels inside the supplier experience */
-.sp-main .tnum,
-.sp-main .stat-value { font-family: var(--font-mono); letter-spacing: -0.02em; }
-
-/* Floating dock navigation */
-.sp-dock {
-  background: linear-gradient(165deg, rgba(9, 32, 25, 0.94), rgba(5, 19, 15, 0.96));
-  border: 1px solid rgba(110, 231, 183, 0.18);
-  border-radius: 1.6rem;
-  box-shadow: 0 24px 55px -22px rgba(2, 24, 18, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-}
-.sp-dockitem {
-  display: flex; flex: 1 1 0%; flex-direction: column; align-items: center; gap: 0.15rem;
-  border-radius: 0.9rem; padding: 0.45rem 0 0.35rem;
-  color: rgba(203, 225, 216, 0.5);
-  transition: color 0.2s ease, transform 0.2s ease;
-}
-.sp-dockitem:active { transform: scale(0.94); }
-.sp-dockitem--on { color: #d1fae5; }
-.sp-dockpill {
-  display: flex; height: 2.35rem; width: 2.35rem;
-  align-items: center; justify-content: center;
-  border-radius: 0.95rem;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
-}
-.sp-dockitem--on .sp-dockpill {
-  background: linear-gradient(150deg, #34d399, #0d9488);
-  color: #04231a;
-  box-shadow: 0 10px 22px -8px rgba(16, 185, 129, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  animation: dockPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.sp-docklabel { font-size: 10px; font-weight: 600; letter-spacing: 0.02em; }
-.sp-morebtn { color: rgba(203, 225, 216, 0.5); transition: color 0.2s ease; }
-.sp-morebtn:hover { color: #d1fae5; }
-
-/* Motion safety for the new layer only */
 @media (prefers-reduced-motion: reduce) {
-  .lx-rise, .lx-glow, .lx-logo::after, .lx-logo__seed, .lx-cta::after,
-  .sp-dockitem--on .sp-dockpill, .lx-trustdot, .lx-tab .lx-pip { animation: none !important; }
-  .lx-cta:hover:not(:disabled) { transform: none; }
+  .animate-fade-up,
+  .animate-fade-in,
+  .animate-scale-in,
+  .pulse-dot,
+  .shimmer::after,
+  .weather-atmosphere__cloud,
+  .weather-atmosphere__rain,
+  .weather-atmosphere__rain::after,
+  .weather-atmosphere__lightning,
+  .weather-atmosphere__mist {
+    animation: none !important;
+  }
 }
-
-.lx-cta--staff {
-  color: #eef2ff;
-  background: linear-gradient(115deg, #4f46e5, #3b82f6);
-  box-shadow: 0 14px 34px -12px rgba(79, 70, 229, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
-.lx-cta--staff:hover:not(:disabled) {
-  box-shadow: 0 20px 44px -12px rgba(79, 70, 229, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-.lx-input-plain {
-  width: 100%;
-  border: 1px solid rgba(148, 197, 178, 0.17);
-  background: rgba(4, 17, 13, 0.55);
-  border-radius: 0.9rem;
-  padding: 0.72rem 0.85rem;
-  font-size: 0.875rem;
-  color: #ffffff;
-  outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-.lx-input-plain::placeholder { color: rgba(255, 255, 255, 0.3); }
-.lx-input-plain:focus {
-  border-color: rgba(52, 211, 153, 0.6);
-  background: rgba(4, 17, 13, 0.75);
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
-}
-.lx-field select option,
-.lx-input-plain option { background: #0a1f18; color: #f0fdf4; }
-
-/* ============================================================================
- * ROUND 73 — LIQUID GLASS (login + supplier)
- * Frosted translucent sheets, aurora refraction, specular highlights and
- * photo-derived depth. Tea identity: estate photography + emerald/gold glass.
- * ========================================================================== */
-
-@keyframes lgAurora { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(2%, -3%, 0) scale(1.08); } }
-@keyframes lgShimmer { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.7; } }
-
-/* Reusable liquid-glass sheet used by new surfaces. */
-.lg-glass {
-  position: relative;
-  background: linear-gradient(155deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.07) 48%, rgba(255, 255, 255, 0.14));
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  box-shadow: 0 28px 60px -30px rgba(2, 20, 16, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(30px) saturate(175%);
-  -webkit-backdrop-filter: blur(30px) saturate(175%);
-}
-.lg-sheen { position: relative; isolation: isolate; }
-.lg-sheen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(120% 62% at 12% -12%, rgba(255, 255, 255, 0.4), transparent 58%),
-    radial-gradient(70% 46% at 96% 4%, rgba(245, 216, 138, 0.26), transparent 62%);
-  opacity: 0.9;
-}
-
-/* ---------- 1. Login: estate photograph + refracted aurora ----------------- */
-.lx-scene {
-  background-image:
-    linear-gradient(180deg, rgba(3, 18, 14, 0.58) 0%, rgba(3, 18, 14, 0.24) 34%, rgba(3, 20, 15, 0.58) 68%, rgba(2, 14, 10, 0.9) 100%),
-    radial-gradient(110rem 56rem at 112% -18%, rgba(45, 212, 191, 0.4), transparent 58%),
-    radial-gradient(60rem 40rem at -12% 108%, rgba(245, 184, 64, 0.24), transparent 62%),
-    url("/tea-estate-glass-login.jpg");
-  background-size: cover;
-  background-position: center 32%;
-  background-repeat: no-repeat;
-  filter: saturate(1.06);
-}
-.dark .lx-scene { background-image:
-    linear-gradient(180deg, rgba(1, 12, 9, 0.7) 0%, rgba(1, 12, 9, 0.42) 34%, rgba(1, 12, 9, 0.72) 68%, rgba(1, 10, 7, 0.94) 100%),
-    radial-gradient(110rem 56rem at 112% -18%, rgba(45, 212, 191, 0.32), transparent 58%),
-    radial-gradient(60rem 40rem at -12% 108%, rgba(245, 184, 64, 0.18), transparent 62%),
-    url("/tea-estate-glass-login.jpg");
-  background-size: cover;
-  background-position: center 32%;
-}
-.lx-scene::before {
-  background-image:
-    linear-gradient(118deg, transparent 38%, rgba(255, 255, 255, 0.06) 47%, transparent 56%),
-    radial-gradient(circle at 22% 24%, rgba(94, 234, 212, 0.2), transparent 45%),
-    radial-gradient(circle at 78% 60%, rgba(250, 204, 21, 0.12), transparent 42%);
-  opacity: 0.9;
-}
-.lx-scene::after {
-  background:
-    radial-gradient(130% 100% at 50% 4%, transparent 46%, rgba(1, 10, 7, 0.66)),
-    linear-gradient(180deg, transparent 70%, rgba(1, 10, 7, 0.55));
-}
-.lx-glow--leaf {
-  width: 30rem; height: 30rem; left: -9rem; top: -8rem;
-  background: radial-gradient(circle, rgba(94, 234, 212, 0.55), rgba(16, 185, 129, 0.16) 46%, transparent 70%);
-  filter: blur(42px);
-  mix-blend-mode: screen;
-  animation: lxDriftA 19s ease-in-out infinite, lgShimmer 9s ease-in-out infinite;
-}
-.lx-glow--sun {
-  width: 24rem; height: 24rem; right: -7rem; bottom: -7rem;
-  background: radial-gradient(circle, rgba(250, 204, 21, 0.34), rgba(245, 158, 11, 0.1) 48%, transparent 72%);
-  filter: blur(46px);
-  mix-blend-mode: screen;
-  animation: lxDriftB 23s ease-in-out infinite;
-}
-
-/* Brand mark — glossy glass squircle with specular highlight */
-.lx-logo {
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.42), rgba(16, 185, 129, 0.46) 52%, rgba(4, 47, 36, 0.7)) !important;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 26px 50px -22px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -12px 24px rgba(3, 40, 30, 0.5);
-  backdrop-filter: blur(14px) saturate(170%);
-  -webkit-backdrop-filter: blur(14px) saturate(170%);
-}
-.lx-logo::before {
-  content: "";
-  position: absolute;
-  inset: 3px 8% auto 8%;
-  height: 38%;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6), transparent);
-  opacity: 0.7;
-  pointer-events: none;
-}
-.lx-logo::after { border-color: rgba(255, 255, 255, 0.42); }
-.lx-title {
-  background: linear-gradient(118deg, #ffffff 18%, #e3fbf0 52%, #f7e8bf 92%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 10px 34px rgba(0, 0, 0, 0.5));
-}
-.lx-eyebrow { color: #f3d79a; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.55); }
-
-/* Book card = large liquid-glass sheet */
-.lx-card {
-  position: relative;
-  overflow: hidden;
-  border-radius: 2.2rem;
-  background: linear-gradient(155deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06) 46%, rgba(255, 255, 255, 0.13));
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  box-shadow: 0 44px 90px -44px rgba(0, 0, 0, 0.86), 0 2px 0 rgba(255, 255, 255, 0.18) inset, inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(36px) saturate(175%);
-  -webkit-backdrop-filter: blur(36px) saturate(175%);
-}
-.lx-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    radial-gradient(120% 58% at 10% -12%, rgba(255, 255, 255, 0.4), transparent 58%),
-    radial-gradient(64% 44% at 98% 2%, rgba(250, 204, 21, 0.18), transparent 62%),
-    linear-gradient(118deg, transparent 44%, rgba(255, 255, 255, 0.05) 50%, transparent 56%);
-}
-.lx-card::after {
-  content: "";
-  position: absolute;
-  left: 8%; right: 8%; top: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
-  pointer-events: none;
-}
-.lx-card > * { position: relative; }
-
-/* Frosted portal switcher — active tab becomes a white glass pill */
-.lx-switcher {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-}
-.lx-tab { color: rgba(255, 255, 255, 0.68); border-radius: 0.95rem; }
-.lx-tab:hover { color: #ffffff; background: rgba(255, 255, 255, 0.07); }
-.lx-tab--supplier.is-on,
-.lx-tab--staff.is-on,
-.lx-tab--supplier.is-on:hover,
-.lx-tab--staff.is-on:hover {
-  background: linear-gradient(180deg, #ffffff, #eaf7f0);
-  color: #065f46;
-  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.7), inset 0 1px 0 #ffffff, inset 0 -2px 6px rgba(6, 95, 70, 0.1);
-}
-.lx-tab--staff.is-on { background: linear-gradient(180deg, #ffffff, #eef0ff); color: #3730a3; }
-.lx-tab .lx-pip { display: none; }
-
-/* Inner frosted sheets */
-.lx-face {
-  background: linear-gradient(162deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.045) 70%);
-  border-color: rgba(255, 255, 255, 0.28);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 18px 40px -32px rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(18px) saturate(155%);
-  -webkit-backdrop-filter: blur(18px) saturate(155%);
-}
-.lx-face--staff { border-color: rgba(199, 210, 254, 0.32); }
-
-/* Glossy colour chips */
-.lx-chip {
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.36), rgba(16, 185, 129, 0.34));
-  color: #f0fdf4;
-  border: 1px solid rgba(255, 255, 255, 0.48);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68), 0 14px 26px -16px rgba(16, 185, 129, 0.8);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.lx-chip--staff {
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.34), rgba(99, 102, 241, 0.36));
-  border-color: rgba(255, 255, 255, 0.45);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62), 0 14px 26px -16px rgba(79, 70, 229, 0.75);
-}
-
-/* Frosted inputs */
-.lx-field {
-  background: rgba(255, 255, 255, 0.11);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 1rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-}
-.lx-field:focus-within {
-  border-color: rgba(255, 255, 255, 0.58);
-  background: rgba(255, 255, 255, 0.17);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-.lx-field:focus-within .lx-icon { color: #d1fae5; }
-.lx-input-plain {
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.11);
-  border-radius: 1rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-.lx-input-plain:focus {
-  border-color: rgba(255, 255, 255, 0.58);
-  background: rgba(255, 255, 255, 0.17);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-
-/* White liquid-glass primary pills + translucent secondary */
-.lx-cta {
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 1rem;
-  padding: 0.9rem 1.1rem;
-  color: #064e3b;
-  background: linear-gradient(180deg, #ffffff, #e9f7ef);
-  box-shadow: 0 18px 38px -18px rgba(0, 0, 0, 0.7), inset 0 1px 0 #ffffff, inset 0 -3px 8px rgba(6, 95, 70, 0.12);
-  text-shadow: none;
-}
-.lx-cta:hover:not(:disabled) {
-  color: #042f26;
-  background: linear-gradient(180deg, #ffffff, #dcf5e6);
-  box-shadow: 0 24px 48px -18px rgba(0, 0, 0, 0.72), inset 0 1px 0 #ffffff, inset 0 -3px 10px rgba(6, 95, 70, 0.16);
-}
-.lx-cta::after { background: linear-gradient(100deg, transparent, rgba(16, 185, 129, 0.22), transparent); }
-.lx-cta--staff { color: #312e81; background: linear-gradient(180deg, #ffffff, #eceeff); }
-.lx-cta--staff:hover:not(:disabled) { color: #1e1b4b; background: linear-gradient(180deg, #ffffff, #e2e5ff); }
-.lx-cta--ghost {
-  color: #ffffff;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 12px 28px -20px rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-.lx-cta--ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.22); color: #ffffff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4); }
-
-/* Frosted status banners */
-.lx-note { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16); }
-
-/* Trust strip */
-.lx-cardfoot { padding-top: 0.85rem; }
-.lx-trustline { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent); }
-.lx-trustdot { background: #ffffff; box-shadow: 0 0 12px rgba(255, 255, 255, 0.9); }
-
-/* ---------- 2. Supplier shell: aurora + leaf bokeh + glass chrome ---------- */
-.sp-shell {
-  background:
-    radial-gradient(58rem 32rem at 108% -10%, rgba(45, 212, 191, 0.34), transparent 60%),
-    radial-gradient(48rem 28rem at -12% 12%, rgba(125, 211, 252, 0.32), transparent 58%),
-    radial-gradient(44rem 26rem at 46% 112%, rgba(196, 181, 253, 0.3), transparent 62%),
-    radial-gradient(30rem 18rem at 88% 74%, rgba(253, 230, 138, 0.26), transparent 60%),
-    linear-gradient(180deg, #f4fbf7 0%, #edf6f4 52%, #edf3f8 100%);
-}
-.sp-shell::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image: url("/tea-leaf-glass-ambient.jpg");
-  background-size: cover;
-  background-position: center;
-  opacity: 0.1;
-  mix-blend-mode: soft-light;
-}
-.dark .sp-shell {
-  background:
-    radial-gradient(58rem 32rem at 108% -10%, rgba(16, 185, 129, 0.2), transparent 60%),
-    radial-gradient(48rem 28rem at -12% 12%, rgba(56, 189, 248, 0.14), transparent 58%),
-    radial-gradient(44rem 26rem at 46% 112%, rgba(139, 92, 246, 0.16), transparent 62%),
-    linear-gradient(180deg, #071511 0%, #06100d 100%);
-}
-.dark .sp-shell::after { opacity: 0.16; mix-blend-mode: screen; }
-
-.sp-header {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.82) 58%, rgba(226, 232, 240, 0.78));
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 12px 32px -18px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-}
-.sp-header::after {
-  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), rgba(20, 184, 166, 0.5), transparent);
-}
-
-/* Supplier content surfaces -> clean white iOS-style cards */
-.sp-main .card {
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  border-radius: 24px;
-  box-shadow:
-    0 2px 4px -1px rgba(15, 23, 42, 0.04),
-    0 12px 24px -12px rgba(15, 23, 42, 0.08);
-}
-.sp-main .card-hover:hover {
-  transform: translateY(-3px);
-  border-color: rgba(20, 184, 166, 0.3);
-  box-shadow:
-    0 4px 8px -2px rgba(15, 23, 42, 0.06),
-    0 20px 36px -12px rgba(20, 184, 166, 0.18);
-}
-.dark .sp-main .card {
-  background: #1e293b;
-  border-color: #334155;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 12px 24px -12px rgba(0, 0, 0, 0.5);
-}
-.dark .sp-main .card-hover:hover { border-color: rgba(45, 212, 191, 0.4); }
-.sp-main .font-display { letter-spacing: -0.02em; }
-.sp-main .weather-hero {
-  border-radius: 28px;
-  box-shadow: 0 20px 40px -16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-.sp-main .weather-glass { border-radius: 20px; }
-
-/* Stat numbers — iOS 26 bold display numerals */
-.sp-main .stat-value,
-.sp-main .tnum {
-  font-feature-settings: "tnum" 1;
-  letter-spacing: -0.03em;
-  font-weight: 700;
-  color: #0f172a;
-}
-.dark .sp-main .stat-value,
-.dark .sp-main .tnum { color: #f1f5f9; }
-
-/* Floating iOS-style dock — bright pill */
-.sp-dock {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 28px;
-  box-shadow:
-    0 12px 28px -10px rgba(15, 23, 42, 0.2),
-    inset 0 1px 0 #ffffff,
-    0 0 0 1px rgba(226, 232, 240, 0.5);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-}
-.sp-dockitem { color: #6b7f76; }
-.sp-dockitem--on { color: #065f46; }
-.sp-dockpill { color: inherit; }
-.sp-dockitem--on .sp-dockpill {
-  background: linear-gradient(160deg, #ffffff, #e3f7ec);
-  color: #064e3b;
-  box-shadow: 0 10px 22px -12px rgba(4, 60, 44, 0.6), inset 0 1px 0 #ffffff, 0 0 0 1px rgba(6, 95, 70, 0.14);
-}
-.sp-morebtn { color: #6b7f76; }
-.dark .sp-dock {
-  background: linear-gradient(160deg, rgba(6, 32, 25, 0.88), rgba(4, 21, 16, 0.9));
-  border-color: rgba(110, 231, 183, 0.22);
-  box-shadow: 0 26px 55px -22px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-.dark .sp-dockitem { color: rgba(203, 225, 216, 0.58); }
-.dark .sp-dockitem--on { color: #d1fae5; }
-.dark .sp-dockitem--on .sp-dockpill {
-  background: linear-gradient(160deg, #ffffff, #ccf7e2);
-  color: #042f24;
-  box-shadow: 0 10px 24px -10px rgba(110, 231, 183, 0.55), inset 0 1px 0 #ffffff;
-}
-
-@media (max-width: 640px) {
-  .sp-main .card { backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); }
-  .lx-card { backdrop-filter: blur(28px) saturate(165%); -webkit-backdrop-filter: blur(28px) saturate(165%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lx-glow--leaf, .lx-glow--sun, .lg-sheen::after { animation: none !important; }
-}
-
-/* ---------- 3. Round 73 polish: stable photo canvas + supplier typography -- */
-.lx-scene, .lx-glow { position: fixed; }
-.lx-scene { z-index: 0; }
-.lx-glow { z-index: 0; pointer-events: none; }
-.lx-card { z-index: 1; }
-
-.sp-main h1.font-display { letter-spacing: -0.03em; }
-.sp-main p.uppercase.text-emerald-600,
-.sp-main p.uppercase.text-emerald-700,
-.sp-main p.uppercase.text-slate-400 {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(236, 253, 245, 0.6));
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 6px 16px -12px rgba(4, 60, 44, 0.5), inset 0 1px 0 #ffffff;
-  letter-spacing: 0.04em;
-  font-size: 10px;
-}
-.dark .sp-main p.uppercase.text-emerald-600,
-.dark .sp-main p.uppercase.text-emerald-700,
-.dark .sp-main p.uppercase.text-slate-400 {
-  background: linear-gradient(160deg, rgba(30, 55, 46, 0.85), rgba(15, 34, 27, 0.7));
-  border-color: rgba(110, 231, 183, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-.sp-main .card .rounded-2xl.bg-gradient-to-br,
-.sp-main .card [class*="bg-gradient-to-br"] {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 10px 22px -14px rgba(4, 60, 44, 0.55);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lx-scene, .lx-glow { animation: none !important; }
-}
-
-.lx-card { overflow: visible; }
-
-/* ============================================================================
- * ROUND 74 — CLARITY PASS
- * Fixes real rendering defects found in rounds 72–73:
- *   1. Sora / Hanken Grotesk / JetBrains Mono have no Sinhala or Tamil glyphs,
- *      so mixed text fell back per-glyph and looked distorted.
- *   2. letter-spacing 0.16–0.24em was applied to Sinhala/Tamil labels; wide
- *      tracking breaks those scripts.
- *   3. .sp-main .tnum forced a Latin-only mono face onto supplier statistics.
- *   4. The `p.uppercase` catch-all turned arbitrary paragraphs into flex pills,
- *      clipping and stretching text.
- *   5. Heavy backdrop-filter over fixed photography produced soft/blurry text
- *      and jank on low-end phones.
- * The layer below neutralises all five and restores crisp, calm surfaces.
- * ========================================================================== */
-
-:lang(si), :lang(ta), [lang="si"], [lang="ta"] { letter-spacing: normal !important; }
-
-/* Typography: one family, clear scale, no forced mono anywhere in content. */
-body, .font-display, .font-sans { letter-spacing: normal; }
-.font-display { letter-spacing: -0.015em; }
-.sp-main .tnum,
-.sp-main .stat-value,
-.sp-main .font-display { font-family: inherit !important; letter-spacing: normal !important; }
-.sp-main h1.font-display { letter-spacing: -0.02em !important; font-weight: 700; }
-
-/* Revert the catch-all eyebrow pill that broke paragraph layout. */
-.sp-main p.uppercase.text-emerald-600,
-.sp-main p.uppercase.text-emerald-700,
-.sp-main p.uppercase.text-slate-400,
-.dark .sp-main p.uppercase.text-emerald-600,
-.dark .sp-main p.uppercase.text-emerald-700,
-.dark .sp-main p.uppercase.text-slate-400 {
-  display: block;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #0f766e;
-}
-.dark .sp-main p.uppercase.text-emerald-600,
-.dark .sp-main p.uppercase.text-emerald-700 { color: #5eead4; }
-
-/* ---- Supplier canvas: calm neutral, no busy imagery behind text ---------- */
-.sp-shell {
-  background: #f2f5f2 !important;
-}
-.sp-shell::before, .sp-shell::after { display: none !important; content: none !important; }
-.dark .sp-shell { background: #070f0c !important; }
-
-/* ---- Supplier header: fresh agritech white glass ------------------------ */
-.sp-header {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(244, 247, 232, 0.85) 60%, rgba(216, 228, 194, 0.75)) !important;
-  border-bottom: 1px solid rgba(108, 158, 75, 0.18) !important;
-  box-shadow: 0 8px 20px -18px rgba(62, 140, 72, 0.25) !important;
-  backdrop-filter: blur(24px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
-}
-.sp-header::after {
-  background: linear-gradient(90deg, transparent, rgba(62, 140, 72, 0.4), rgba(168, 201, 127, 0.3), transparent) !important;
-  height: 2px;
-}
-
-/* ---- Supplier content: pure white cards, fresh green accents ------------- */
-/* NOTE: weather-hero is EXCLUDED from background override — it uses an inline
-   gradient from weatherPresentation.ts (sunny=blue/orange, rain=dark blue, etc.) */
-.sp-main .card {
-  background: #ffffff !important;
-  border: 1px solid rgba(108, 158, 75, 0.15) !important;
-  border-radius: 1.25rem !important;
-  box-shadow: 0 1px 2px rgba(15, 32, 26, 0.04), 0 12px 28px -24px rgba(62, 140, 72, 0.2) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-.sp-main .card-hover:hover {
-  transform: translateY(-2px) !important;
-  border-color: rgba(62, 140, 72, 0.35) !important;
-  box-shadow: 0 18px 36px -24px rgba(62, 140, 72, 0.3) !important;
-}
-.dark .sp-main .card {
-  background: #ffffff !important;
-  border-color: rgba(108, 158, 75, 0.15) !important;
-  box-shadow: 0 1px 2px rgba(15, 32, 26, 0.04), 0 12px 28px -24px rgba(62, 140, 72, 0.2) !important;
-}
-.dark .sp-main .card-hover:hover { border-color: rgba(62, 140, 72, 0.35) !important; }
-
-/* Weather hero: NO background override — inline gradient must show through.
-   Only set border + text color here. */
-.sp-main .weather-hero {
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  color: #ffffff !important;
-  border-radius: 1.75rem !important;
-  box-shadow: 0 12px 28px -20px rgba(0, 0, 0, 0.3) !important;
-}
-.dark .sp-main .weather-hero {
-  /* NO background override — let the inline gradient show */
-  color: #ffffff !important;
-}
-.sp-main .weather-glass {
-  backdrop-filter: blur(12px) saturate(140%) !important;
-  -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
-  background: rgba(255, 255, 255, 0.22) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
-}
-
-/* ---- Supplier dock: clean white bar with one fresh-green active pill ----- */
-.sp-dock {
-  background: #ffffff !important;
-  border: 1px solid rgba(108, 158, 75, 0.15) !important;
-  border-radius: 1.25rem !important;
-  box-shadow: 0 -1px 0 rgba(15, 32, 26, 0.04), 0 16px 32px -20px rgba(62, 140, 72, 0.3) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-.sp-dockitem { color: #64748b !important; gap: 0.15rem; letter-spacing: normal !important; }
-.sp-dockitem--on { color: #3e8c48 !important; }
-.sp-dockpill { color: inherit !important; border-radius: 0.75rem !important; }
-.sp-dockitem--on .sp-dockpill {
-  background: linear-gradient(135deg, #3e8c48, #6e9e4b) !important;
-  color: #ffffff !important;
-  box-shadow: 0 6px 14px -8px rgba(62, 140, 72, 0.7) !important;
-  animation: none !important;
-}
-.sp-docklabel { font-size: 10px !important; font-weight: 600 !important; letter-spacing: normal !important; }
-.sp-morebtn { color: #64748b !important; }
-.dark .sp-dock { background: #1a2415 !important; border-color: rgba(108, 158, 75, 0.2) !important; }
-.dark .sp-dockitem { color: #94a3b8 !important; }
-.dark .sp-dockitem--on { color: #a8c97f !important; }
-.dark .sp-dockitem--on .sp-dockpill { background: linear-gradient(135deg, #3e8c48, #6e9e4b) !important; color: #ffffff !important; }
-
-/* ---- Shared card surface: crisp instead of heavily shadowed ------------- */
-.card {
-  background: #ffffff;
-  border-color: #e3e8e4;
-  box-shadow: 0 1px 2px rgba(15, 32, 26, 0.04), 0 10px 24px -22px rgba(15, 32, 26, 0.4);
-}
-.dark .card {
-  background: #101a16;
-  border-color: #24352d;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 30px -24px rgba(0, 0, 0, 0.85);
-}
-
-/* ---- Retire the unused heavy login layers ------------------------------- */
-.lx-scene, .lx-glow, .lx-card, .lx-face, .lx-field, .lx-input-plain,
-.lx-cta, .lx-switcher, .lx-tab, .lx-chip, .lx-note, .lx-eyebrow, .lx-logo,
-.lx-title, .lx-cardfoot, .lx-trustdot, .lx-trustline { background-image: none; }
-.lx-scene, .lx-glow, .lx-cardfoot { display: none !important; }
-
-@media (prefers-reduced-motion: reduce) {
-  .auth-book__pages, .card-hover, .sp-main .card-hover:hover { transition: none !important; transform: none !important; }
-}
-
-/* Final typography guard: display faces keep natural tracking; only explicit
-   Latin-only accent text opts into negative tracking. */
-.font-display { letter-spacing: normal !important; }
-.sp-main :is(p, span, label, button, li, td, th, a, h1, h2, h3, h4) { letter-spacing: normal; }
-.sp-main .truncate { text-overflow: ellipsis; }
-:lang(si) :is(p, span, label, li, td, th, button, a), :lang(ta) :is(p, span, label, li, td, th, button, a) { line-height: 1.55; }
-
-/* ============================================================================
- * ROUND 80 — iOS 26 PREMIUM LOGIN (bright, airy, liquid glass)
- * Inspired by uploaded reference: Photography onboarding + iOS 26 widgets.
- * Vivid blue→teal gradient canvas, pure white form card, pill buttons.
- * NOTE: branding video/image (if set by admin) still overrides this canvas.
- * ========================================================================== */
-.login-stage { isolation: isolate; color-scheme: dark; }
-
-.login-mesh {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background:
-    radial-gradient(70rem 40rem at 15% 0%, rgba(56, 189, 248, 0.55), transparent 60%),
-    radial-gradient(60rem 36rem at 85% 5%, rgba(45, 212, 191, 0.45), transparent 62%),
-    radial-gradient(50rem 34rem at 50% 100%, rgba(99, 102, 241, 0.4), transparent 64%),
-    radial-gradient(40rem 28rem at 0% 60%, rgba(167, 243, 208, 0.3), transparent 66%),
-    linear-gradient(160deg, #0c4a6e 0%, #0e7490 35%, #0f766e 70%, #134e4a 100%);
-}
-.login-orb {
-  position: absolute;
-  z-index: 0;
-  border-radius: 999px;
-  filter: blur(90px);
-  opacity: 0.55;
-  pointer-events: none;
-  will-change: transform;
-}
-.login-orb--one {
-  width: 26rem; height: 26rem; left: -8rem; top: 4%;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.7), transparent 66%);
-  animation: loginFloat 18s ease-in-out infinite;
-}
-.login-orb--two {
-  width: 22rem; height: 22rem; right: -7rem; bottom: 2%;
-  background: radial-gradient(circle, rgba(45, 212, 191, 0.6), transparent 68%);
-  animation: loginFloat 24s ease-in-out infinite reverse;
-}
-.login-orb--three {
-  width: 18rem; height: 18rem; left: 35%; top: 35%;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.5), transparent 68%);
-  animation: loginFloat 20s ease-in-out infinite;
-  filter: blur(70px);
-  opacity: 0.4;
-}
-.login-grain {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-.login-card { position: relative; }
-.login-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
-.login-rise { animation: loginRise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
-@keyframes loginRise { from { opacity: 0; transform: translateY(16px) scale(0.985); } to { opacity: 1; transform: none; } }
-@keyframes loginFloat {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(3%, -4%, 0) scale(1.1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .login-orb--one, .login-orb--two, .login-rise { animation: none !important; }
-}
-
-/* ---------- Round 80 login: iOS 26 premium — pure white card, pill CTA ----- */
-.login-card {
-  background: #ffffff;
-  border-radius: 28px;
-  box-shadow:
-    0 50px 100px -30px rgba(0, 30, 60, 0.5),
-    0 20px 40px -16px rgba(12, 74, 110, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.8) inset;
-}
-.login-card__edge {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 4px;
-  background: linear-gradient(90deg, #38bdf8, #14b8a6 40%, #6366f1 80%, #38bdf8);
-  background-size: 220% 100%;
-  animation: loginEdge 9s linear infinite;
-  pointer-events: none;
-  border-radius: 28px 28px 0 0;
-}
-.login-card__sheen {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 40%;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.9) 0%, transparent 100%);
-  pointer-events: none;
-  z-index: 1;
-}
-.login-segmented {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 4px;
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
-}
-.login-segmented__btn {
-  position: relative;
-  z-index: 2;
-  border-radius: 12px;
-  transition: color 0.2s ease, background 0.25s ease, box-shadow 0.25s ease;
-  font-weight: 600;
-}
-.login-segmented__btn--active {
-  background: #ffffff;
-  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.04);
-}
-
-/* iOS 26-style inputs — cleaner, lighter */
-.login-input {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
-  height: 52px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #0f172a;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-.login-input:focus {
-  background: #ffffff;
-  border-color: #14b8a6;
-  box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.12);
-}
-.login-input::placeholder {
-  color: #94a3b8;
-  font-weight: 400;
-}
-
-/* iOS 26 pill CTA — solid gradient with shine */
-.login-cta {
-  border-radius: 999px;
-  height: 52px;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  box-shadow: 0 16px 32px -12px rgba(20, 184, 166, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  position: relative;
-  overflow: hidden;
-}
-.login-cta::after {
-  content: "";
-  position: absolute;
-  top: 0; left: -50%;
-  width: 50%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transform: skewX(-20deg);
-  animation: ctaShine 4s ease-in-out infinite;
-}
-@keyframes ctaShine {
-  0%, 100% { left: -50%; }
-  50% { left: 120%; }
-}
-.login-brand-lockup {
-  position: relative;
-}
-.login-brand-lockup::before {
-  content: "";
-  position: absolute;
-  inset: -24px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.35), rgba(45, 212, 191, 0.2), transparent 70%);
-  filter: blur(36px);
-  z-index: -1;
-  pointer-events: none;
-}
-
-/* Chrome/Safari autofill painted supplied fields grey — keep them white. */
-.login-input:-webkit-autofill,
-.login-input:-webkit-autofill:hover,
-.login-input:-webkit-autofill:focus,
-.login-input:-webkit-autofill:active {
-  -webkit-text-fill-color: #0f172a;
-  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
-  box-shadow: 0 0 0 1000px #ffffff inset;
-  caret-color: #14b8a6;
-  transition: background-color 9999s ease-out 0s;
-}
-
-.login-cta:hover:not(:disabled) {
-  transform: translateY(-2px);
-  filter: brightness(1.08);
-  box-shadow: 0 20px 38px -12px rgba(20, 184, 166, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-.login-cta:active:not(:disabled) { transform: translateY(0); }
-
-/* Brand lockup: gentle halo behind the configured logo */
-.login-stage .login-rise > span:first-child {
-  box-shadow: 0 12px 32px -12px rgba(56, 189, 248, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.25) inset;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .login-card__edge, .login-cta::after { animation: none !important; }
-  .login-cta:hover:not(:disabled) { transform: none; }
-}
-
-/* ============================================================================
- * ROUND 82 — GOOGLE STITCH MATERIAL 3 TEA DESIGN SYSTEM
- * Colors from Google Stitch Dalu Plus designs:
- *   primary #0E5E42, surface #F5F8F5, outline-variant #C7D6CE
- * ========================================================================== */
-:root {
-  --m3-primary: #0e5e42;
-  --m3-primary-container: #d3f0e3;
-  --m3-on-primary-container: #063726;
-  --m3-secondary-container: #dce9e2;
-  --m3-surface: #f5f8f5;
-  --m3-on-surface: #11221b;
-  --m3-surface-low: #f0f5f1;
-  --m3-surface-container: #e7efea;
-  --m3-outline-variant: #c7d6ce;
-  --m3-on-surface-variant: #465c52;
-  --m3-tertiary: #0d5c75;
-  --m3-info: #0369a1;
-}
-
-/* Supplier shell background — soft green-tinted surface */
-.supplier-device-stage {
-  background: var(--m3-surface) !important;
-}
-.dark .supplier-device-stage {
-  background: linear-gradient(160deg, #0e1a14 0%, #0a1410 100%) !important;
-}
-
-/* Supplier header — white top bar like Stitch */
-.sp-header {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-bottom: 1px solid var(--m3-outline-variant) !important;
-  box-shadow: 0 1px 0 rgba(17, 34, 27, 0.04) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-}
-.dark .sp-header {
-  background: rgba(14, 26, 20, 0.95) !important;
-  border-bottom-color: rgba(199, 214, 206, 0.12) !important;
-}
-
-/* Supplier cards — white with outline border (Stitch card-elevated) */
-.sp-main .card {
-  background: #ffffff !important;
-  border: 1px solid var(--m3-outline-variant) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 1px 2px rgba(17, 34, 27, 0.06) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-.sp-main .card-hover:hover {
-  transform: translateY(-1px) !important;
-  border-color: var(--m3-primary) !important;
-  box-shadow: 0 4px 12px rgba(17, 34, 27, 0.1) !important;
-}
-.dark .sp-main .card {
-  background: #14211b !important;
-  border-color: rgba(199, 214, 206, 0.14) !important;
-}
-
-/* Bottom dock — white bar like Stitch mobile nav */
-.sp-dock {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-top: 1px solid var(--m3-outline-variant) !important;
-  border-radius: 0 !important;
-  box-shadow: 0 -1px 0 rgba(17, 34, 27, 0.05) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-}
-.sp-dockitem--on { color: var(--m3-primary) !important; }
-.sp-dockitem--on .sp-dockpill {
-  background: var(--m3-primary-container) !important;
-  color: var(--m3-on-primary-container) !important;
-  box-shadow: none !important;
-}
-
-/* Supplier content bg */
-.dark .sp-main {
-  background: #0e1a14 !important;
-}
-
-/* Weather hero: Stitch style — tea estate photo + dark gradient + white glass chips.
-   The inline gradient still applies for weather mood; photo is added via component. */
-.dark .sp-main .card * {
-  color: inherit;
-}
-.dark .sp-main .stat-value,
-.dark .sp-main .tnum {
-  color: #f1f5f9 !important;
-}
-
-/* Bottom nav — always white for supplier, even in dark mode */
-.dark .supplier-device-stage nav.safe-bottom-nav {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-color: var(--m3-outline-variant) !important;
-}
-.dark .supplier-device-stage nav.safe-bottom-nav * {
-  color: var(--m3-on-surface-variant);
-}
-
-/* Header — always light for supplier */
-.dark .sp-header {
-  background: rgba(255, 255, 255, 0.95) !important;
-  color: var(--m3-on-surface) !important;
-}
-.dark .sp-header * {
-  color: inherit;
-}
-
-/* Weather atmosphere clouds — lighter, no dark blobs */
-.weather-atmosphere__cloud {
-  background: rgba(255, 255, 255, 0.35) !important;
-}
-.weather-atmosphere--rain .weather-atmosphere__cloud,
-.weather-atmosphere--storm .weather-atmosphere__cloud {
-  background: rgba(255, 255, 255, 0.25) !important;
-}
-
-/* Supplier content background — always light */
-.dark .sp-main {
-  background: var(--m3-surface) !important;
-}
-
-/* Dock items */
-.dark .sp-dock {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-top-color: var(--m3-outline-variant) !important;
-}
-.dark .sp-dockitem {
-  color: var(--m3-on-surface-variant) !important;
-}
-.dark .sp-dockitem--on {
-  color: var(--m3-primary) !important;
-}
-.dark .sp-dockitem--on .sp-dockpill {
-  background: var(--m3-primary-container) !important;
-  color: var(--m3-on-primary-container) !important;
-}
-
-/* IMPORTANT: Do NOT override text-white inside weather-hero — it needs
-   white text on the colored gradient background. */
-

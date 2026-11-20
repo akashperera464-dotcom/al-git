@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Leaf, Bell, Wallet, Package, ReceiptText, Sprout, ChevronRight, TrendingUp, AlertCircle, CheckCircle2, Droplets, Wind, Sun, CloudRain, Calendar, Award } from "lucide-react";
-import { Card, StatCard } from "@/components/ui";
+import { Leaf, Bell, Wallet, Package, ReceiptText, Sprout, ChevronRight, TrendingUp, TrendingDown, AlertCircle, CheckCircle2, Droplets, Wind, Sun, CloudRain, Calendar, Award } from "lucide-react";
+import { Card } from "@/components/ui";
 import { useApp } from "@/context/AppContext";
 import { fmtNum, fmtLKRShort } from "@/lib/data";
 import { readFarmActivities, readMyHarvestRecords } from "@/lib/repo";
@@ -18,6 +18,16 @@ import { WeatherAtmosphere } from "@/components/WeatherAtmosphere";
 import { getWeatherPresentation } from "@/lib/weatherPresentation";
 
 const LorryTracking = lazy(() => import("@/modules/LorryTracking"));
+
+/** Section header — Stitch title row with a muted right-side caption. */
+function SectionHead({ title, caption }: { title: string; caption?: string }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <h2 className="min-w-0 truncate font-display text-[15px] font-bold tracking-tight text-dalu-on-surface">{title}</h2>
+      {caption && <span className="shrink-0 text-[11px] font-semibold text-dalu-on-surface-variant">{caption}</span>}
+    </div>
+  );
+}
 
 export function SupplierHome() {
   const { t, i18n } = useTranslation();
@@ -143,16 +153,18 @@ export function SupplierHome() {
 
   const weatherToday = weather.today;
   const weatherVisual = useMemo(() => getWeatherPresentation(weatherToday), [weatherToday]);
+  const rateCards = useMemo(() => prices.filter((price) => price.grade !== "Coarse").slice(0, 3), [prices]);
 
   // ── Slide cards (ad-style carousel) ──────────────────────────────────────
   // Auto-rotating banner with tips/announcements relevant to the supplier.
+  // Gradients stay inside the Dalu tea palette (deep greens / teal / amber).
   const slides = useMemo(() => {
     const items: Array<{ icon: typeof Sun; title: string; body: string; gradient: string; cta?: string; module?: string }> = [];
     if (fertDue) {
       items.push({
         icon: Sprout, title: t("supplierHome.fertDueTitle"),
         body: t("supplierHome.fertDueBody"),
-        gradient: "linear-gradient(135deg, #3e8c48, #6e9e4b)",
+        gradient: "linear-gradient(135deg, #0e5e42, #0f8a5f)",
         cta: t("supplierHome.fertDueCta"), module: "supplier-fertilizer",
       });
     }
@@ -160,7 +172,7 @@ export function SupplierHome() {
       items.push({
         icon: Leaf, title: t("supplierHome.pruneDueTitle"),
         body: t("supplierHome.pruneDueBody"),
-        gradient: "linear-gradient(135deg, #0ea5e9, #2563eb)",
+        gradient: "linear-gradient(135deg, #0d5c75, #0369a1)",
         cta: t("supplierHome.pruneDueCta"), module: "supplier-farm",
       });
     }
@@ -168,27 +180,27 @@ export function SupplierHome() {
       items.push({
         icon: CloudRain, title: t("supplierHome.rainAlertTitle"),
         body: t("supplierHome.rainAlertBody", { prob: weatherToday.rainProb }),
-        gradient: "linear-gradient(135deg, #0369a1, #0f4c81)",
+        gradient: "linear-gradient(135deg, #073444, #0d5c75)",
       });
     }
     if (weatherToday && weatherToday.tempMax > 30) {
       items.push({
         icon: Sun, title: t("supplierHome.heatAlertTitle"),
         body: t("supplierHome.heatAlertBody"),
-        gradient: "linear-gradient(135deg, #f59e0b, #ea580c)",
+        gradient: "linear-gradient(135deg, #b45309, #d97706)",
       });
     }
     // Always-on tip slides so the carousel is never empty
     items.push({
       icon: Award, title: t("supplierHome.qualityTipTitle"),
       body: t("supplierHome.qualityTipBody"),
-      gradient: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+      gradient: "linear-gradient(135deg, #3f5c50, #0e5e42)",
       cta: t("supplierHome.qualityTipCta"), module: "supplier-deliveries",
     });
     items.push({
       icon: Calendar, title: t("supplierHome.calendarTipTitle"),
       body: t("supplierHome.calendarTipBody"),
-      gradient: "linear-gradient(135deg, #ec4899, #be185d)",
+      gradient: "linear-gradient(135deg, #0b4a53, #0e5e42)",
       cta: t("supplierHome.calendarTipCta"), module: "supplier-calendar",
     });
     return items;
@@ -206,56 +218,57 @@ export function SupplierHome() {
   const currentSlide = slides[slideIdx] ?? slides[0];
 
   return (
-    <div className="supplier-weather-surface -m-4 min-h-full p-4" style={{ background: weatherVisual.pageGradient }}>
-      {/* Weather-aware greeting hero — Stitch style: tea photo + dark gradient */}
-      <div className="weather-hero relative mb-4 overflow-hidden rounded-[1.5rem] p-5 text-white" style={{ background: weatherVisual.gradient }}>
-        {/* Tea estate photo underlay (behind the weather gradient tint) */}
+    <div className="supplier-weather-surface -m-4 min-h-full bg-dalu-surface p-4 pb-6">
+      {/* ═══ Weather & greeting hero — Stitch: tea photo + mood gradient ═══ */}
+      <div className="weather-hero relative mb-4 overflow-hidden rounded-3xl p-5 text-white" style={{ background: weatherVisual.gradient }}>
         <img src="/tea-estate-bg.jpg" alt="" aria-hidden="true" className="absolute inset-0 z-0 h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        {/* Weather-mood gradient tint over the photo */}
-        <div className="absolute inset-0 z-0 opacity-90" style={{ background: weatherVisual.gradient }} aria-hidden="true" />
+        {/* Weather-mood gradient tint over the photo (dynamic by real weather) */}
+        <div className="absolute inset-0 z-0 opacity-[0.92]" style={{ background: weatherVisual.gradient }} aria-hidden="true" />
         <WeatherAtmosphere mood={weatherVisual.mood} />
         <div className="relative z-10 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="mb-1 text-[11px] font-semibold text-white/75">
               {currentTime.toLocaleDateString(i18n.language === "si" ? "si-LK" : i18n.language === "ta" ? "ta-LK" : "en-LK", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Colombo" })}
             </p>
-            <h1 className="font-display text-xl font-extrabold tracking-tight sm:text-2xl">
+            <h1 className="font-display text-[24px] font-bold leading-tight tracking-tight sm:text-[26px]">
               {t("supplierHome.greetingWithName", { greeting: t(`supplierHome.greeting.${greeting}`), name: firstName })}
             </h1>
             <p className="mt-1 truncate text-xs font-medium text-white/80">
               {estate ? t("supplierHome.linkedEstate", { estate: estate.name }) : t("supplierHome.interface")}
             </p>
           </div>
-          <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-left transition hover:bg-white/20">
-            {weatherToday && <Icon name={weatherToday.icon} className="h-8 w-8 text-white" />}
-            <span><b className="block text-xl leading-none">{weatherToday ? `${weatherToday.tempMax}°` : "—°"}</b><span className="mt-1 block max-w-20 truncate text-[9px] font-semibold text-white/75">{t(weatherVisual.labelKey)}</span></span>
+          <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-left transition hover:bg-white/20">
+            {weatherToday && <Icon name={weatherToday.icon} className="h-7 w-7 text-white" />}
+            <span><b className="tnum block font-display text-lg leading-none">{weatherToday ? `${weatherToday.tempMax}°` : "—°"}</b><span className="mt-1 block max-w-[72px] truncate text-[9px] font-semibold text-white/75">{t(weatherVisual.labelKey)}</span></span>
           </button>
         </div>
 
+        {/* Three glass stat chips — Rain / Wind / Forecast */}
         <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
-          <div className="weather-glass rounded-xl p-2.5"><Droplets className="h-3.5 w-3.5 text-sky-100" /><p className="mt-1 text-sm font-extrabold">{weatherToday?.rainProb ?? "—"}%</p><p className="text-[9px] text-white/65">Rain</p></div>
-          <div className="weather-glass rounded-xl p-2.5"><Wind className="h-3.5 w-3.5 text-sky-100" /><p className="mt-1 text-sm font-extrabold">{weatherToday?.windKph ?? "—"} km/h</p><p className="text-[9px] text-white/65">Wind</p></div>
-          <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass rounded-xl p-2.5 text-left"><span className="text-[11px] font-bold">{weatherToday?.condition ?? "Weather"}</span><span className="mt-1 flex items-center text-[9px] text-white/70">Forecast <ChevronRight className="ml-0.5 h-3 w-3" /></span></button>
+          <div className="weather-glass min-w-0 rounded-lg p-2.5"><Droplets className="h-3.5 w-3.5 text-sky-100" /><p className="tnum mt-1 text-sm font-bold">{weatherToday?.rainProb ?? "—"}%</p><p className="truncate text-[9px] text-white/65">Rain</p></div>
+          <div className="weather-glass min-w-0 rounded-lg p-2.5"><Wind className="h-3.5 w-3.5 text-sky-100" /><p className="tnum mt-1 text-sm font-bold">{weatherToday?.windKph ?? "—"} km/h</p><p className="truncate text-[9px] text-white/65">Wind</p></div>
+          <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass min-w-0 rounded-lg p-2.5 text-left"><span className="block truncate text-[11px] font-bold">{weatherToday?.condition ?? "Weather"}</span><span className="mt-1 flex items-center text-[9px] text-white/70">Forecast <ChevronRight className="ml-0.5 h-3 w-3" /></span></button>
         </div>
 
-        <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass relative z-10 mt-3 flex w-full items-center justify-between gap-3 rounded-2xl px-3.5 py-3 text-left">
-          <span className="text-[11px] font-semibold leading-relaxed text-white/90">{t(weatherVisual.guidanceKey)}</span>
+        {/* Advisory strip */}
+        <button type="button" onClick={() => setActiveModule("supplier-weather")} className="weather-glass relative z-10 mt-3 flex w-full items-center justify-between gap-3 rounded-lg px-3.5 py-2.5 text-left">
+          <span className="text-[11px] font-medium leading-relaxed text-white/90">{t(weatherVisual.guidanceKey)}</span>
           <ChevronRight className="h-4 w-4 shrink-0 text-white/75" />
         </button>
 
-        {/* Connectivity badge */}
+        {/* Connectivity badge row */}
         <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2">
           {online ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold text-white/90 backdrop-blur-md">
+            <span className="inline-flex items-center gap-1 rounded-full bg-dalu-success-container px-2.5 py-1 text-[10px] font-bold text-dalu-on-success-container">
               <CheckCircle2 className="h-3 w-3" /> {t("common.online")}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/30 px-2.5 py-1 text-[10px] font-bold text-rose-100">
+            <span className="inline-flex items-center gap-1 rounded-full bg-dalu-error-container px-2.5 py-1 text-[10px] font-bold text-dalu-on-error-container">
               <AlertCircle className="h-3 w-3" /> {t("common.offline")}
             </span>
           )}
           {pendingSync > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/30 px-2.5 py-1 text-[10px] font-bold text-amber-100">
+            <span className="inline-flex items-center gap-1 rounded-full bg-dalu-warning-container px-2.5 py-1 text-[10px] font-bold text-dalu-on-warning-container">
               ⏳ {t("supplierHome.pendingSync", { count: pendingSync })}
             </span>
           )}
@@ -263,24 +276,42 @@ export function SupplierHome() {
         </div>
       </div>
 
+      {/* ═══ Plucking schedule strip — Stitch primary-container card ═══ */}
+      <button
+        type="button"
+        onClick={() => setActiveModule("supplier-calendar")}
+        className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-dalu-primary/20 bg-dalu-primary-container p-3.5 text-left shadow-sm transition hover:border-dalu-primary"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-dalu-primary text-white shadow-sm">
+            <Calendar className="h-5 w-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate font-display text-sm font-bold text-dalu-on-primary-container">{t("supplierHome.pluckingSchedule")}</span>
+            <span className="block truncate text-[11px] text-dalu-on-primary-container/80">{t("supplierHome.pluckingScheduleSub")}</span>
+          </span>
+        </span>
+        <ChevronRight className="h-5 w-5 shrink-0 text-dalu-on-primary-container" />
+      </button>
+
       {/* ── Slide cards (ad-style auto-rotating carousel) ───────────────────── */}
       {currentSlide && (
         <div className="mb-4">
           <button
             type="button"
             onClick={() => currentSlide.module ? setActiveModule(currentSlide.module) : undefined}
-            className="block w-full overflow-hidden rounded-[1.5rem] text-left transition active:scale-[0.99]"
+            className="block w-full overflow-hidden rounded-2xl text-left shadow-sm transition active:scale-[0.99]"
             style={{ background: currentSlide.gradient }}
           >
             <div className="flex items-center gap-3 p-4">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/25 backdrop-blur-sm">
-                <currentSlide.icon className="h-6 w-6 text-white" />
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                <currentSlide.icon className="h-5 w-5 text-white" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="font-display text-sm font-bold text-white">{currentSlide.title}</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-white/85">{currentSlide.body}</p>
+                <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/85">{currentSlide.body}</p>
                 {currentSlide.cta && (
-                  <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/25 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
+                  <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
                     {currentSlide.cta} <ChevronRight className="h-3 w-3" />
                   </span>
                 )}
@@ -295,7 +326,7 @@ export function SupplierHome() {
                   key={i}
                   type="button"
                   onClick={() => setSlideIdx(i)}
-                  className={`h-1.5 rounded-full transition-all ${i === slideIdx ? "w-6 bg-[#3e8c48]" : "w-1.5 bg-slate-300"}`}
+                  className={`h-1.5 rounded-full transition-all ${i === slideIdx ? "w-6 bg-dalu-primary" : "w-1.5 bg-dalu-outline-variant"}`}
                   aria-label={`Slide ${i + 1}`}
                 />
               ))}
@@ -304,21 +335,33 @@ export function SupplierHome() {
         </div>
       )}
 
-      {prices.length > 0 && (
+      {/* ═══ Today's leaf rates — Stitch: 2 white + 1 primary card ═══ */}
+      {rateCards.length > 0 && (
         <div className="mb-4">
+          <SectionHead title={t("supplierHome.todayRates")} caption={t("supplierHome.perKgFactory")} />
           <div className="grid grid-cols-3 gap-2.5">
-            {prices.filter((price) => price.grade !== "Coarse").map((price) => (
-              <Card key={price.grade} className="p-3 text-center">
-                <p className="text-[10px] font-semibold uppercase text-slate-400">{t(gradeKey(price.grade), { defaultValue: price.grade })}</p>
-                <p className="mt-1 text-base font-extrabold text-emerald-700">Rs {price.pricePerKg.toLocaleString()}</p>
-                <p className="text-[10px] text-slate-400">{t("supplierHome.perKgToday")}</p>
-              </Card>
-            ))}
+            {rateCards.map((price, index) => {
+              const primary = index === rateCards.length - 1;
+              return (
+                <Card key={price.grade} className={primary ? "card-tint-primary h-full p-3 text-center" : "h-full p-3 text-center"}>
+                  <p className={`truncate text-[10px] font-bold uppercase leading-none ${primary ? "text-dalu-primary-container" : "text-dalu-primary"}`}>
+                    {t(gradeKey(price.grade), { defaultValue: price.grade })}
+                  </p>
+                  <p className={`tnum mt-1.5 font-display text-[17px] font-bold leading-none ${primary ? "text-white" : "text-dalu-on-surface"}`}>
+                    Rs {price.pricePerKg.toLocaleString()}
+                  </p>
+                  <p className={`mt-1 truncate text-[10px] ${primary ? "text-white/75" : "text-dalu-on-surface-variant"}`}>
+                    {t("supplierHome.latestRate")}
+                  </p>
+                </Card>
+              );
+            })}
           </div>
-          <p className="mt-1.5 text-center text-[10px] text-slate-400">{t("supplierHome.priceReference")}</p>
+          <p className="mt-1.5 text-center text-[10px] text-dalu-on-surface-variant">{t("supplierHome.priceReference")}</p>
         </div>
       )}
 
+      {/* ═══ Office sync status — Stitch error-container alert ═══ */}
       <OfficeDataStatus
         freshness={officeFreshness}
         fetchedAt={officeFetchedAt}
@@ -328,79 +371,123 @@ export function SupplierHome() {
         onRefresh={refreshOfficeData}
       />
 
+      {/* ═══ Crop comparison (office vs statement) ═══ */}
       {cropComparison && (
-        <Card className="mb-4 border-sky-100 p-4">
+        <Card className="mb-4 p-4">
           <div className="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <h3 className="font-display text-sm font-bold text-slate-800">{t("officeSummary.cropComparison")}</h3>
-              <p className="mt-0.5 text-[10px] text-slate-500">{t("officeSummary.processingNote")}</p>
+            <div className="min-w-0">
+              <h3 className="font-display text-sm font-bold text-dalu-on-surface">{t("officeSummary.cropComparison")}</h3>
+              <p className="mt-0.5 text-[10px] text-dalu-on-surface-variant">{t("officeSummary.processingNote")}</p>
             </div>
-            <button type="button" onClick={() => setActiveModule("supplier-payments")} className="shrink-0 text-[10px] font-bold text-sky-700">
+            <button type="button" onClick={() => setActiveModule("supplier-payments")} className="shrink-0 text-[11px] font-bold text-dalu-tertiary">
               {t("officeSummary.detailedStatement")} →
             </button>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-xl bg-emerald-50 p-3">
-              <p className="text-[10px] font-semibold text-emerald-700">{t("officeSummary.currentCropRecorded")}</p>
-              <p className="mt-1 text-xl font-extrabold text-emerald-800">{fmtNum(cropComparison.currentCropKg)} kg</p>
+            <div className="min-w-0 rounded-xl bg-dalu-success-container p-3">
+              <p className="text-[10px] font-bold text-dalu-on-success-container">{t("officeSummary.currentCropRecorded")}</p>
+              <p className="tnum mt-1 font-display text-lg font-bold text-dalu-on-success-container">{fmtNum(cropComparison.currentCropKg)} kg</p>
             </div>
-            <div className="rounded-xl bg-sky-50 p-3">
-              <p className="text-[10px] font-semibold text-sky-700">{t("officeSummary.accountStatementQuantity")}</p>
-              <p className="mt-1 text-xl font-extrabold text-sky-800">{fmtNum(cropComparison.statementKg)} kg</p>
+            <div className="min-w-0 rounded-xl bg-dalu-info-container p-3">
+              <p className="text-[10px] font-bold text-dalu-on-info-container">{t("officeSummary.accountStatementQuantity")}</p>
+              <p className="tnum mt-1 font-display text-lg font-bold text-dalu-on-info-container">{fmtNum(cropComparison.statementKg)} kg</p>
             </div>
           </div>
           {cropComparison.differenceKg !== 0 && (
-            <p className="mt-2 text-center text-[10px] font-semibold text-slate-500">
+            <p className="mt-2 text-center text-[10px] font-semibold text-dalu-on-surface-variant">
               {t("officeSummary.sourceDifference")}: {cropComparison.differenceKg > 0 ? "+" : ""}{fmtNum(cropComparison.differenceKg)} kg
             </p>
           )}
         </Card>
       )}
 
+      {/* ═══ Yesterday's crop & month deductions — Stitch 2-col white cards ═══ */}
       <div className="mb-4 grid grid-cols-2 gap-2.5">
-        <Card className="p-3.5">
-          <p className="text-[10px] font-semibold uppercase text-slate-400">{t("officeSummary.yesterdayCrop")}</p>
+        <Card className="min-w-0 p-3.5">
+          <p className="text-[10px] font-bold uppercase leading-none text-dalu-primary">{t("officeSummary.yesterdayCrop")}</p>
           {officeMonthly ? yesterdayDelivery ? (
             <>
-              <p className="mt-1 text-lg font-extrabold text-slate-800">{fmtNum(yesterdayDelivery.totalQty)} kg</p>
-              <p className="text-[10px] text-slate-500">{t("officeSummary.normalAndSuper", { normal: fmtNum(yesterdayDelivery.normalLeafQty), super: fmtNum(yesterdayDelivery.superLeafQty) })}</p>
+              <p className="tnum mt-2 font-display text-lg font-bold text-dalu-on-surface">{fmtNum(yesterdayDelivery.totalQty)} kg</p>
+              <p className="mt-0.5 text-[10px] leading-snug text-dalu-on-surface-variant">{t("officeSummary.normalAndSuper", { normal: fmtNum(yesterdayDelivery.normalLeafQty), super: fmtNum(yesterdayDelivery.superLeafQty) })}</p>
             </>
-          ) : <p className="mt-2 text-xs font-semibold text-slate-500">{t("officeSummary.noYesterday")}</p>
-          : <p className="mt-2 text-xs font-semibold text-slate-400">{t("officeSummary.yesterdayUnavailable")}</p>}
+          ) : <p className="mt-2 text-xs font-semibold leading-snug text-dalu-on-surface-variant">{t("officeSummary.noYesterday")}</p>
+          : <p className="mt-2 text-xs font-semibold leading-snug text-dalu-on-surface-variant">{t("officeSummary.yesterdayUnavailable")}</p>}
         </Card>
-        <Card className="p-3.5">
-          <p className="text-[10px] font-semibold uppercase text-slate-400">{t("officeSummary.currentMonthDeductions")}</p>
-          <div className="mt-2 space-y-1.5">
-            <div className="flex items-center justify-between gap-2 text-xs"><span className="text-slate-500">{t("officeSummary.currentMonthAdvances")}</span><strong className="text-amber-700">{fmtLKRShort(advanceTotal)}</strong></div>
-            <div className="flex items-center justify-between gap-2 text-xs"><span className="text-slate-500">{t("officeSummary.fertilizerDeductions")}</span><strong className="text-rose-700">{fmtLKRShort(fertilizerTotal)}</strong></div>
+        <Card className="min-w-0 p-3.5">
+          <p className="text-[10px] font-bold uppercase leading-none text-dalu-primary">{t("officeSummary.currentMonthDeductions")}</p>
+          <div className="mt-2.5 space-y-1.5">
+            <div className="flex items-center justify-between gap-2 text-[11px]"><span className="truncate text-dalu-on-surface-variant">{t("officeSummary.currentMonthAdvances")}</span><strong className="tnum shrink-0 text-dalu-on-warning-container">{fmtLKRShort(advanceTotal)}</strong></div>
+            <div className="flex items-center justify-between gap-2 text-[11px]"><span className="truncate text-dalu-on-surface-variant">{t("officeSummary.fertilizerDeductions")}</span><strong className="tnum shrink-0 text-dalu-error">{fmtLKRShort(fertilizerTotal)}</strong></div>
           </div>
         </Card>
       </div>
 
-      <Suspense fallback={<div className="mb-4 h-64 animate-pulse rounded-2xl bg-slate-100" />}><LorryTracking userId={userUid} /></Suspense>
+      {/* ═══ Lorry location (on-demand map) ═══ */}
+      <Suspense fallback={<div className="mb-4 h-64 animate-pulse rounded-2xl bg-dalu-surface-container" />}><LorryTracking userId={userUid} /></Suspense>
 
-      {/* Key stats — operational results first, finance second */}
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
-        <StatCard icon={Package} label={t("supplierHome.monthSupplied")} value={`${fmtNum(totalKg)} kg`} tone="sky" />
-        <StatCard icon={ReceiptText} label={t("supplierHome.monthDeliveries")} value={fmtNum(monthDeliveries)} sub={t("supplierHome.recordedReceipts")} tone="violet" />
-        <StatCard icon={Wallet} label={t("supplierHome.monthEarnings")} value={fmtLKRShort(totalEarned)} tone="emerald" />
-        <StatCard icon={TrendingUp} label={t("supplierHome.monthExpenses")} value={fmtLKRShort(monthExpenses)} sub={t("supplierHome.laborFertilizer")} tone="rose" />
+      {/* ═══ Monthly summary — Stitch 2x2 KPI cards with tinted icon chips ═══ */}
+      <div className="mb-4">
+        <SectionHead
+          title={t("supplierHome.monthlySummary")}
+          caption={officeCrop || officeBalance ? t("officeSummary.officeSource") : t("officeSummary.emsSource")}
+        />
+        <div className="grid grid-cols-2 gap-2.5">
+          <Card className="flex h-full min-w-0 flex-col justify-between gap-2 p-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-dalu-info-container text-dalu-on-info-container"><Package className="h-4 w-4" /></span>
+              <span className="text-[10px] font-semibold text-dalu-on-surface-variant">{currentTime.toLocaleDateString(i18n.language === "si" ? "si-LK" : i18n.language === "ta" ? "ta-LK" : "en-LK", { month: "short", year: "numeric", timeZone: "Asia/Colombo" })}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[11px] text-dalu-on-surface-variant">{t("supplierHome.monthSupplied")}</p>
+              <p className="tnum font-display text-[20px] font-bold leading-tight text-dalu-on-surface">{fmtNum(totalKg)} kg</p>
+            </div>
+          </Card>
+          <Card className="flex h-full min-w-0 flex-col justify-between gap-2 p-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-dalu-secondary-container text-dalu-on-secondary-container"><ReceiptText className="h-4 w-4" /></span>
+              <span className="text-[10px] font-semibold text-dalu-on-surface-variant">{t("supplierHome.recordedReceipts")}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[11px] text-dalu-on-surface-variant">{t("supplierHome.monthDeliveries")}</p>
+              <p className="tnum font-display text-[20px] font-bold leading-tight text-dalu-on-surface">{fmtNum(monthDeliveries)}</p>
+            </div>
+          </Card>
+          <Card className="flex h-full min-w-0 flex-col justify-between gap-2 p-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-dalu-success-container text-dalu-on-success-container"><Wallet className="h-4 w-4" /></span>
+              <span className="text-[10px] font-semibold text-dalu-on-surface-variant">Gross</span>
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[11px] text-dalu-on-surface-variant">{t("supplierHome.monthEarnings")}</p>
+              <p className="tnum font-display text-[20px] font-bold leading-tight text-dalu-on-surface">{fmtLKRShort(totalEarned)}</p>
+            </div>
+          </Card>
+          <Card className="flex h-full min-w-0 flex-col justify-between gap-2 p-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-dalu-error-container text-dalu-on-error-container"><TrendingDown className="h-4 w-4" /></span>
+              <span className="text-[10px] font-semibold text-dalu-on-surface-variant">{t("supplierHome.monthExpenses")}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[11px] text-dalu-on-surface-variant">{t("supplierHome.laborFertilizer")}</p>
+              <p className="tnum font-display text-[20px] font-bold leading-tight text-dalu-on-surface">{fmtLKRShort(monthExpenses)}</p>
+            </div>
+          </Card>
+        </div>
       </div>
-      <p className="-mt-2 mb-4 text-center text-[10px] font-semibold text-slate-400">{officeCrop || officeBalance ? t("officeSummary.officeSource") : t("officeSummary.emsSource")}</p>
 
-      {/* Smart reminders */}
+      {/* ═══ Smart reminders — Stitch warning-container ═══ */}
       {(fertDue || pruneDue) && (
-        <Card className="mb-4 p-3.5 border-amber-200 bg-amber-50">
-          <p className="text-xs font-bold text-amber-700 mb-2">📋 {t("supplierHome.reminders")}</p>
+        <Card className="card-tint-warning mb-4 p-3.5">
+          <p className="mb-2 text-xs font-bold text-dalu-on-warning-container">📋 {t("supplierHome.reminders")}</p>
           <div className="space-y-1.5">
             {fertDue && (
-              <div className="flex items-center gap-2 text-xs text-amber-700">
+              <div className="flex items-center gap-2 text-xs text-dalu-on-warning-container">
                 <Sprout className="h-3.5 w-3.5 shrink-0" />
                 <span>{t("supplierHome.fertilizerReminder")}</span>
               </div>
             )}
             {pruneDue && (
-              <div className="flex items-center gap-2 text-xs text-amber-700">
+              <div className="flex items-center gap-2 text-xs text-dalu-on-warning-container">
                 <Leaf className="h-3.5 w-3.5 shrink-0" />
                 <span>{t("supplierHome.pruningReminder")}</span>
               </div>
@@ -408,67 +495,53 @@ export function SupplierHome() {
           </div>
           <button
             onClick={() => setActiveModule("supplier-alerts")}
-            className="mt-2 text-[10px] font-semibold text-amber-600 underline"
+            className="mt-2 text-[11px] font-bold text-dalu-on-warning-container underline"
           >
             {t("supplierHome.viewAlerts")} →
           </button>
         </Card>
       )}
 
-      {/* Quick actions */}
-      <h3 className="font-display text-sm font-bold text-slate-800 mb-2.5">⚡ {t("supplierHome.quickActions")}</h3>
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
-        {([
-          { key: "supplier-plot", icon: Leaf, label: t("supplierHome.myPlot"), tone: "amber" },
-          { key: "supplier-farm", icon: Sprout, label: t("supplierHome.farmLog"), tone: "emerald" },
-          { key: "supplier-deliveries", icon: Package, label: t("supplierHome.deliveries"), tone: "sky" },
-          { key: "supplier-requests", icon: Bell, label: t("supplierHome.requests"), tone: "violet" },
-        ] as const).map(({ key, icon: Icon, label, tone }) => (
-          <button
-            key={key}
-            onClick={() => setActiveModule(key)}
-            className={`flex items-center gap-3 rounded-xl border p-3.5 text-left transition hover:brightness-95 ${
-              tone === "emerald" ? "border-emerald-200 bg-emerald-50"
-              : tone === "sky" ? "border-sky-200 bg-sky-50"
-              : tone === "violet" ? "border-violet-200 bg-violet-50"
-              : "border-amber-200 bg-amber-50"
-            }`}
-          >
-            <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-              tone === "emerald" ? "bg-emerald-500 text-white"
-              : tone === "sky" ? "bg-sky-500 text-white"
-              : tone === "violet" ? "bg-violet-500 text-white"
-              : "bg-amber-500 text-white"
-            }`}>
-              <Icon className="h-4 w-4" />
-            </span>
-            <span className={`text-xs font-bold ${
-              tone === "emerald" ? "text-emerald-800"
-              : tone === "sky" ? "text-sky-800"
-              : tone === "violet" ? "text-violet-800"
-              : "text-amber-800"
-            }`}>
-              {label}
-            </span>
-          </button>
-        ))}
+      {/* ═══ Quick actions — Stitch 2x2 white cards, tinted icon chips ═══ */}
+      <div className="mb-4">
+        <SectionHead title={t("supplierHome.quickActions")} />
+        <div className="grid grid-cols-2 gap-2.5">
+          {([
+            { key: "supplier-plot", icon: Leaf, label: t("supplierHome.myPlot"), chip: "bg-dalu-warning-container text-dalu-on-warning-container" },
+            { key: "supplier-farm", icon: Sprout, label: t("supplierHome.farmLog"), chip: "bg-dalu-primary-container text-dalu-on-primary-container" },
+            { key: "supplier-deliveries", icon: Package, label: t("supplierHome.deliveries"), chip: "bg-dalu-info-container text-dalu-on-info-container" },
+            { key: "supplier-requests", icon: Bell, label: t("supplierHome.requests"), chip: "bg-dalu-secondary-container text-dalu-on-secondary-container" },
+          ] as const).map(({ key, icon: ActionIcon, label, chip }) => (
+            <button
+              key={key}
+              onClick={() => setActiveModule(key)}
+              className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-dalu-outline-variant bg-white p-3 text-left shadow-sm transition hover:border-dalu-primary"
+            >
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${chip}`}>
+                <ActionIcon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 truncate text-xs font-bold text-dalu-on-surface">{label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* B30 (Round #12) — Restored Earnings quick-link banner */}
+      {/* ═══ Net payable — Stitch success-container banner ═══ */}
       {(totalEarned > 0 || netPayable !== 0) && (
-        <Card className="p-3.5 border-emerald-200 bg-emerald-50 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-emerald-700">💰 {t("supplierHome.netPayable")}</p>
-              <p className="text-lg font-extrabold text-emerald-800 mt-0.5">{fmtLKRShort(netPayable)}</p>
-              <p className="text-[10px] text-emerald-600 mt-0.5">{officeBalance ? t("officeSummary.accountStatementBalance") : `⚠ ${t("supplierHome.financeDisclaimer")}`}</p>
+        <Card className="card-tint-success mb-2 p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-dalu-on-success-container">💰 {t("supplierHome.netPayable")}</p>
+              <p className="tnum mt-0.5 font-display text-lg font-bold text-dalu-on-success-container">{fmtLKRShort(netPayable)}</p>
+              <p className="mt-0.5 text-[10px] text-dalu-on-success-container/80">{officeBalance ? t("officeSummary.accountStatementBalance") : `⚠ ${t("supplierHome.financeDisclaimer")}`}</p>
             </div>
-            <button onClick={() => setActiveModule("supplier-payments")} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white">
+            <button onClick={() => setActiveModule("supplier-payments")} className="shrink-0 rounded-xl bg-dalu-primary px-3.5 py-2 text-xs font-bold text-white transition hover:bg-dalu-accent">
               {t("supplierHome.view")} →
             </button>
           </div>
         </Card>
       )}
+      <p className="mt-1 text-center text-[10px] font-semibold text-dalu-outline"><TrendingUp className="mr-1 inline h-3 w-3" />{officeCrop || officeBalance ? t("officeSummary.officeSource") : t("officeSummary.emsSource")}</p>
     </div>
   );
 }

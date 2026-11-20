@@ -41,18 +41,20 @@ function Brand({ compact }: { compact?: boolean }) {
   const lightMode = role === "supplier";
   return (
     <div className="flex items-center gap-2.5">
-      <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-sky-500 to-teal-500 shadow-lg shadow-sky-500/30">
+      <span className={cn(
+        "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg shadow-sm",
+        lightMode ? "bg-dalu-primary" : "bg-white",
+      )}>
         {logo ? (
           <img src={identity.logoUrl} alt={`${identity.name} logo`} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <Leaf className="h-5 w-5 text-white" />
+          <Leaf className={cn("h-5 w-5", lightMode ? "text-dalu-on-primary" : "text-dalu-primary")} style={{ fill: "currentColor" }} />
         )}
-        <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white" />
       </span>
       {!compact && (
-        <div className="leading-tight">
-          <p className={cn("font-display text-[15px] font-extrabold tracking-tight", lightMode ? "text-slate-900" : "text-white")}>{identity.name}</p>
-          <p className={cn("text-[10px] font-medium", lightMode ? "text-slate-500" : "text-emerald-300/80")}>{identity.tagline}</p>
+        <div className="min-w-0 leading-tight">
+          <p className={cn("truncate font-display text-[15px] font-bold tracking-tight", lightMode ? "text-dalu-on-surface" : "text-white")}>{identity.name}</p>
+          <p className={cn("truncate text-[10px] font-semibold", lightMode ? "text-dalu-primary" : "text-dalu-primary-container")}>{identity.tagline}</p>
         </div>
       )}
     </div>
@@ -399,25 +401,25 @@ function BottomNav({ onMore }: { onMore: () => void }) {
   const visible = tabs.slice(0, 4);
   const hasMore = allTabs.length > visible.length;
   return (
-    <nav className={cn("safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around px-2 py-1.5", role === "supplier" ? "mx-2 mb-2 rounded-2xl border border-slate-200 bg-white shadow-[0_-1px_0_rgba(15,32,26,0.04),0_14px_28px_-20px_rgba(62,140,72,0.35)]" : "border-t border-slate-200 bg-white/95 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900")}>
+    <nav aria-label="Primary navigation" className={cn("safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around gap-1 px-2 py-1.5", role === "supplier" ? "sp-dock" : "border-t border-slate-200 bg-white/95 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900")}>
       {visible.map((tab) => {
         const Icon = tab.icon;
         const active = activeModule === tab.key;
         return (
-          <button key={tab.key} onClick={() => setActiveModule(tab.key)} className={cn("flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5 transition", active ? "text-teal-700 dark:text-teal-300" : "text-slate-400")}>
-            <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition", active && (role === "supplier" ? "bg-teal-700 text-white shadow-sm dark:bg-teal-500 dark:text-teal-950" : "bg-emerald-100"))}>
+          <button key={tab.key} onClick={() => setActiveModule(tab.key)} className={cn("flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-1 transition", role === "supplier" ? (active ? "sp-dockitem sp-dockitem--on" : "sp-dockitem") : active ? "text-emerald-700 dark:text-emerald-300" : "text-slate-400")}>
+            <span className={cn("flex h-8 w-8 items-center justify-center rounded-lg transition", role === "supplier" ? (active ? "sp-dockpill" : "bg-transparent") : active ? "bg-emerald-100" : "")}>
               <Icon className="h-[18px] w-[18px]" />
             </span>
-            <span className="w-full truncate px-1 text-center text-[10px] font-semibold">{moduleShort(t, tab.key)}</span>
+            <span className="w-full truncate px-0.5 text-center text-[10px] font-semibold">{moduleShort(t, tab.key)}</span>
           </button>
         );
       })}
       {hasMore && (
-        <button onClick={onMore} className="flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-slate-400 transition hover:text-slate-600">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg">
+        <button onClick={onMore} className={cn("flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg py-1 transition", role === "supplier" ? "sp-dockitem" : "text-slate-400 hover:text-slate-600")}>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg">
             <Grid3x3 className="h-[18px] w-[18px]" />
           </span>
-          <span className="w-full truncate px-1 text-center text-[10px] font-semibold">More</span>
+          <span className="w-full truncate px-0.5 text-center text-[10px] font-semibold">More</span>
         </button>
       )}
     </nav>
@@ -449,12 +451,12 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
                   setActiveModule(m.key);
                   onClose();
                 }}
-                className={cn("flex flex-col items-center gap-1.5 rounded-2xl border p-3 text-center transition", active ? "border-emerald-300 bg-emerald-50" : "border-slate-100 hover:border-emerald-200 hover:bg-slate-50")}
+                className={cn("flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition", active ? "border-dalu-primary bg-dalu-primary-container" : "border-dalu-outline-variant hover:border-dalu-primary hover:bg-dalu-surface-low")}
               >
-                <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl", active ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600")}>
+                <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg", active ? "bg-dalu-primary text-white" : "bg-dalu-surface-container text-dalu-on-surface-variant")}>
                   <Icon className="h-4 w-4" />
                 </span>
-                <span className="text-[10px] font-semibold leading-tight text-slate-600">{moduleShort(t, m.key)}</span>
+                <span className="text-[10px] font-semibold leading-tight text-dalu-on-surface-variant">{moduleShort(t, m.key)}</span>
               </button>
             );
           })}
@@ -475,26 +477,29 @@ function MobileShell({ children }: { children: ReactNode }) {
     <div className={cn("min-h-screen", supplierMode ? "supplier-device-stage min-h-screen" : "app-aurora")}>
       {isAuthenticated && role === "supplier" && <SupplierWeatherMonitor />}
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-[#2b2b2b] md:shadow-2xl">
-        {/* Header — iOS 26 style: clean white glass, dark text. Light + airy. */}
-        <header className={cn("safe-top md:!pt-3 relative z-20 flex items-center justify-between gap-2 px-4 py-3 sp-header", supplierMode ? "text-slate-900" : "bg-gradient-to-r from-pine-900 to-pine-800 text-white")}>
+        {/* Header — Dalu Plus Stitch top app bar: white glass + hairline border */}
+        <header className={cn("safe-top md:!pt-3 relative z-20 flex items-center justify-between gap-2 px-4 py-2.5 sp-header", supplierMode ? "text-dalu-on-surface" : "bg-gradient-to-r from-pine-900 to-pine-800 text-white")}>
           <Brand />
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             {!embeddedAndroidApp && <LanguageSwitcher dark={!supplierMode} prominent={supplierMode} />}
             <ThemeToggle darkSurface={!supplierMode} prominent={supplierMode} />
-            {/* Always-visible sign-out button — now also duplicated at the bottom */}
             {isAuthenticated ? (
               <button
                 onClick={() => void signOut()}
                 title={t("common.logout")}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/90 text-white shadow-lg shadow-rose-950/40 ring-1 ring-white/20 transition hover:bg-rose-400 active:scale-95"
+                aria-label={t("common.logout")}
+                className={cn(
+                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition active:scale-95",
+                  supplierMode ? "border-dalu-outline-variant bg-dalu-error-container text-dalu-on-error-container hover:opacity-90" : "bg-rose-500/90 text-white ring-1 ring-white/20 hover:bg-rose-400",
+                )}
               >
-                <LogOut className="h-[18px] w-[18px]" />
+                <LogOut className="h-[17px] w-[17px]" />
               </button>
             ) : (
               <button
                 onClick={() => setActiveModule("dashboard")}
                 title={t("common.home")}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white transition hover:bg-white/20"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
               >
                 <Home className="h-[18px] w-[18px]" />
               </button>
@@ -502,18 +507,8 @@ function MobileShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         {/* Content */}
-        <main className={cn("flex-1 overflow-y-auto p-4 no-scrollbar", supplierMode ? "sp-main relative z-10 bg-slate-50" : "bg-slate-50")}>
+        <main className={cn("flex-1 overflow-y-auto overflow-x-hidden p-4 no-scrollbar", supplierMode ? "sp-main relative z-10" : "bg-slate-50")}>
           {children}
-          {/* Full-width logout button at the bottom — always visible & accessible */}
-          {isAuthenticated && (
-            <button
-              onClick={() => void signOut()}
-              className="mt-6 mb-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-rose-600/30 transition hover:bg-rose-700 active:scale-[0.99]"
-            >
-              <LogOut className="h-4 w-4" />
-              {t("common.logout") ?? "Sign out"}
-            </button>
-          )}
         </main>
         <BottomNav onMore={() => setMore(true)} />
       </div>

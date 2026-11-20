@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus, Sprout, UsersRound, BookOpen, ArrowRight } from "lucide-react";
+import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus, Sprout, UsersRound, BookOpen, ArrowRight, LockOpen } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { registerSupplier, signInWithEmail, signOutFirebase } from "@/lib/auth.hybrid";
-import { readFactories, readRoutes, readUserOperationalProfile, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
-import { usesAdminShell } from "@/lib/rbac";
-import type { Role } from "@/lib/data";
+import { readFactories, readRoutes, readDailyTeaPrices, readUserOperationalProfile, type FactoryOption, type RouteOption, type DailyTeaPrice } from "@/lib/supplierOperations";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useBranding, isMediaUrl, isVideoUrl } from "@/lib/branding";
@@ -14,14 +12,19 @@ import { RouteMultiSelect } from "@/components/RouteMultiSelect";
 import { assertMultiRouteSchemaReady, replaceUserRoutesBestEffort } from "@/lib/userRoutes";
 import { isAndroidEmbeddedWebView } from "@/lib/platform";
 import { isRoleAllowedForPortal, LOGIN_PORTAL_BLOCKED_UID_KEY, LOGIN_PORTAL_INTENT_KEY, type LoginPortal } from "@/lib/loginPortal";
+import { gradeKey } from "@/i18n/databaseValues";
 
 /**
  * Unified Login Screen — Email + Password (Firebase Auth).
  * ------------------------------------------------------------------
- * Round 74 "Clarity": a calm split-screen. The left panel carries estate
- * identity and photography; the right panel is a crisp, high-contrast form
- * surface. No heavy glass/blur over text, so every glyph — Latin, Sinhala and
- * Tamil — renders sharply on low-end phones.
+ * Dalu Plus (Google Stitch) design, implemented 1:1:
+ *  · Desktop — editorial split screen: tea-estate photography panel (7/12)
+ *    with brand, display headline and live leaf-rate chips + crisp white
+ *    sign-in workspace (5/12).
+ *  · Mobile — full-bleed tea photo with dark scrim, brand bar, headline and
+ *    three glass rate chips floating over the photo, elevated white card.
+ * Branding media (video or image URL set by the admin) overrides the default
+ * estate photograph everywhere it appears.
  *
  * Authentication behaviour is unchanged: both portals share Firebase
  * email/password, and the resolved Supabase profile role decides access.
@@ -42,6 +45,7 @@ export function Login() {
   const registrationInFlightRef = useRef(false);
   const [factories, setFactories] = useState<FactoryOption[]>([]);
   const [routes, setRoutes] = useState<RouteOption[]>([]);
+  const [rates, setRates] = useState<DailyTeaPrice[]>([]);
   const [registration, setRegistration] = useState({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeIds: [] as string[] });
 
   useEffect(() => {
@@ -54,6 +58,15 @@ export function Login() {
     setRegistration(current => ({ ...current, routeIds: [] }));
     if (registration.factoryId) void readRoutes(registration.factoryId).then(setRoutes).catch(() => setRoutes([]));
   }, [registration.factoryId]);
+  // Live leaf rates float over the photo (Stitch rate chips). Best-effort:
+  // anonymous read from the settings snapshot; strip stays hidden without data.
+  useEffect(() => {
+    let active = true;
+    void readDailyTeaPrices()
+      .then((rows) => { if (active) setRates(rows.filter((row) => row.grade !== "Coarse").slice(0, 3)); })
+      .catch(() => { if (active) setRates([]); });
+    return () => { active = false; };
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,7 +153,8 @@ export function Login() {
   };
 
   const hasBg = Boolean(branding.loginBackgroundUrl && isMediaUrl(branding.loginBackgroundUrl));
-  const accent = branding.accentColor || "#0f766e";
+  const bgIsVideo = hasBg && isVideoUrl(branding.loginBackgroundUrl);
+  const bgSrc = hasBg && !bgIsVideo ? branding.loginBackgroundUrl : "/tea-estate-bg.jpg";
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
 
   const changePortal = (nextPortal: LoginPortal) => {
@@ -153,9 +167,23 @@ export function Login() {
     setShowPw(false);
   };
 
-  const fieldClass = "h-12 w-full rounded-md border border-slate-300 bg-white px-3.5 text-[15px] font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0e5e42] focus:ring-2 focus:ring-[#d3f0e3] disabled:bg-slate-50";
-  const labelClass = "mb-1.5 block text-xs font-semibold text-[#11221b]";
-  const ctaClass = "inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#0e5e42] text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f8a5f] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
+  /* ---- Design tokens (Dalu Plus Stitch) ---- */
+  const fieldClass = "login-input h-12 w-full rounded-xl border border-dalu-outline-variant bg-white pl-10 pr-3 text-[15px] font-medium text-dalu-on-surface outline-none transition placeholder:text-dalu-outline focus:border-dalu-primary focus:ring-2 focus:ring-dalu-primary-container disabled:bg-dalu-surface-low";
+  const labelClass = "mb-1.5 block text-xs font-semibold text-dalu-on-surface";
+  const ctaClass = "inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-dalu-primary text-[14px] font-semibold text-white shadow-sm transition hover:bg-dalu-accent active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
+  const secondaryCtaClass = "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dalu-outline-variant bg-white px-3 py-2.5 text-[13px] font-semibold text-dalu-primary transition hover:bg-dalu-primary-container hover:text-dalu-on-primary-container";
+
+  /** Brand media for the photographic panel: admin video > admin image > estate photo. */
+  const renderBackdropMedia = (extraClass: string) =>
+    bgIsVideo ? (
+      <video src={branding.loginBackgroundUrl} autoPlay loop muted playsInline preload="auto" aria-hidden="true"
+        className={extraClass}
+        onCanPlay={(e) => { (e.target as HTMLVideoElement).play().catch(() => {}); }}
+        onError={(e) => { (e.target as HTMLVideoElement).style.display = "none"; }} />
+    ) : (
+      <img src={bgSrc} alt="Misty Ceylon tea plantation at morning light" className={extraClass}
+        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+    );
 
   const renderError = () => error ? (
     <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-700" role="alert">
@@ -164,6 +192,29 @@ export function Login() {
     </div>
   ) : null;
 
+  /** Live leaf-rate chips floating over the photography (hidden without data). */
+  const renderRateChips = (glass: boolean) => rates.length === 0 ? null : (
+    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      {rates.map((rate, index) => (
+        <div
+          key={rate.grade}
+          className={
+            glass
+              ? "min-w-0 rounded-xl border border-white/20 bg-[#11221b]/65 p-2.5 shadow-sm backdrop-blur-md sm:p-3"
+              : "min-w-0 rounded-xl border border-white/15 bg-[#11221b]/80 p-3 sm:p-4"
+          }
+        >
+          <p className={`truncate text-[10px] font-bold uppercase leading-none ${glass ? "text-dalu-primary-container" : "text-dalu-primary-container"}`}>
+            {t(gradeKey(rate.grade), { defaultValue: rate.grade })}
+          </p>
+          <p className={`tnum mt-1.5 font-display text-[15px] font-bold leading-none sm:text-base ${index === rates.length - 1 ? "text-dalu-primary-container" : "text-white"}`}>
+            Rs {rate.pricePerKg.toLocaleString()}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+
   const renderSignInForm = (kind: "supplier" | "staff", active: boolean) => {
     const staff = kind === "staff";
     return (
@@ -171,14 +222,14 @@ export function Login() {
         <div>
           <label className={labelClass}>{t("auth.emailUsername")}</label>
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-dalu-outline" />
             <input
               type="email"
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@kdu.com"
-              className={`${fieldClass} pl-10`}
+              className={fieldClass}
               disabled={busy}
               tabIndex={active ? 0 : -1}
             />
@@ -187,21 +238,21 @@ export function Login() {
         <div>
           <label className={labelClass}>{t("common.password")}</label>
           <div className="relative">
-            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-dalu-outline" />
             <input
               type={showPw ? "text" : "password"}
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="••••••••"
-              className={`${fieldClass} pl-10 pr-10`}
+              className={`${fieldClass} pr-10`}
               disabled={busy}
               tabIndex={active ? 0 : -1}
             />
             <button
               type="button"
               onClick={() => setShowPw((visible) => !visible)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:text-slate-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-dalu-outline transition hover:text-dalu-on-surface"
               tabIndex={active ? 0 : -1}
               aria-label={showPw ? "Hide password" : "Show password"}
             >
@@ -217,7 +268,7 @@ export function Login() {
           disabled={busy}
           tabIndex={active ? 0 : -1}
           className={ctaClass}
-          style={{ background: staff ? "linear-gradient(135deg,#4f46e5,#4338ca)" : `linear-gradient(135deg,${accent},#0d9488)` }}
+          style={staff ? { background: "#0d5c75" } : undefined}
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
           {busy ? t("auth.signingIn") : staff ? t("auth.staffSignIn") : t("auth.supplierSignIn")}
@@ -239,146 +290,158 @@ export function Login() {
       </div>
       <div>
         <label className={labelClass}>{t("auth.emailUsername")}</label>
-        <div className="relative"><Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type="email" autoComplete="email" value={registration.email} onChange={event => setRegistration({ ...registration, email: event.target.value })} placeholder="you@kdu.com" className={`${fieldClass} pl-10`} disabled={busy} /></div>
+        <div className="relative"><Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-dalu-outline" /><input type="email" autoComplete="email" value={registration.email} onChange={event => setRegistration({ ...registration, email: event.target.value })} placeholder="you@kdu.com" className={fieldClass} disabled={busy} /></div>
       </div>
       <div>
         <label className={labelClass}>{t("common.password")}</label>
-        <div className="relative"><Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input type={showPw ? "text" : "password"} autoComplete="new-password" value={registration.password} onChange={event => setRegistration({ ...registration, password: event.target.value })} placeholder="••••••••" className={`${fieldClass} pl-10 pr-10`} disabled={busy} /><button type="button" onClick={() => setShowPw((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400" aria-label={showPw ? "Hide password" : "Show password"}>{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
+        <div className="relative"><Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-dalu-outline" /><input type={showPw ? "text" : "password"} autoComplete="new-password" value={registration.password} onChange={event => setRegistration({ ...registration, password: event.target.value })} placeholder="••••••••" className={`${fieldClass} pr-10`} disabled={busy} /><button type="button" onClick={() => setShowPw((visible) => !visible)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-dalu-outline" aria-label={showPw ? "Hide password" : "Show password"}>{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>
       </div>
       <div><label className={labelClass}>{t("common.phone")}</label><input value={registration.phone} onChange={event => setRegistration({ ...registration, phone: event.target.value })} placeholder="+94 77 000 0000" className={fieldClass} disabled={busy} /></div>
 
-      {registrationDone && <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-700"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.registrationSuccess")}</span></div>}
-      {registrationWarning && <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{registrationWarning}</span></div>}
+      {registrationDone && <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-dalu-success-container p-3 text-xs leading-relaxed text-dalu-on-success-container"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.registrationSuccess")}</span></div>}
+      {registrationWarning && <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-dalu-warning-container p-3 text-xs leading-relaxed text-dalu-on-warning-container"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{registrationWarning}</span></div>}
       {renderError()}
 
-      <button type="submit" disabled={busy} className={ctaClass} style={{ background: `linear-gradient(135deg,${accent},#0d9488)` }}>
+      <button type="submit" disabled={busy} className={ctaClass}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
         {busy ? t("auth.registering") : t("auth.submitRegistration")}
       </button>
     </form>
   );
 
+  /** Shared portal switcher (Stitch tabs-with-icon). */
+  const renderPortalTabs = () => (
+    <div role="tablist" aria-label={t("auth.choosePortal")} className="grid grid-cols-2 gap-1.5 rounded-xl border border-dalu-outline-variant bg-dalu-surface-container p-1.5">
+      <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-[13px] font-semibold transition ${portal === "supplier" ? "bg-white text-dalu-primary shadow-sm" : "text-dalu-on-surface-variant hover:text-dalu-on-surface"}`}>
+        <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
+      </button>
+      <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-[13px] font-semibold transition ${portal === "staff" ? "bg-white text-dalu-primary shadow-sm" : "text-dalu-on-surface-variant hover:text-dalu-on-surface"}`}>
+        <ShieldCheck className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span>
+      </button>
+    </div>
+  );
+
+  const brandLockup = (compact: boolean) => (
+    <div className="flex min-w-0 items-center gap-2.5">
+      <span className="flex h-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-md" style={{ width: compact ? 40 : 44 }}>
+        {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
+          <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        ) : (
+          <Leaf className="h-5 w-5 text-dalu-primary" style={{ fill: "currentColor" }} />
+        )}
+      </span>
+      <div className="min-w-0">
+        <p className="truncate font-display text-[15px] font-bold leading-tight text-white">{branding.companyName || t("common.appName")}</p>
+        <p className="truncate text-[11px] font-medium text-dalu-primary-container">{branding.loginSubtitle || t("auth.platformSubtitle")}</p>
+      </div>
+    </div>
+  );
 
   return (
-    /* Google Stitch design: split-screen desktop (editorial tea panel + white form),
-       full-bleed mobile (tea photo + white card). Branding media overrides photo. */
-    <div className="login-stage relative min-h-[100dvh] overflow-hidden bg-[#0b4a53] lg:grid lg:grid-cols-12">
+    <div className="login-stage relative min-h-[100dvh] overflow-hidden bg-dalu-hero lg:grid lg:grid-cols-12">
       {/* ---------- LEFT: editorial tea-estate panel (desktop lg+) ---------- */}
-      <aside className="relative hidden lg:col-span-7 lg:flex lg:flex-col lg:justify-between lg:p-12 overflow-hidden">
-        {hasBg && isVideoUrl(branding.loginBackgroundUrl) ? (
-          <video src={branding.loginBackgroundUrl} autoPlay loop muted playsInline preload="auto" aria-hidden="true"
-            className="absolute inset-0 z-0 h-full w-full object-cover"
-            onCanPlay={(e) => { (e.target as HTMLVideoElement).play().catch(() => {}); }}
-            onError={(e) => { (e.target as HTMLVideoElement).style.display = "none"; }} />
-        ) : (
-          <img src={hasBg ? branding.loginBackgroundUrl : "/tea-estate-bg.jpg"}
-            alt="Misty Ceylon tea plantation at morning light"
-            className="absolute inset-0 z-0 h-full w-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        )}
+      <aside className="relative hidden overflow-hidden lg:col-span-7 lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:p-10 xl:p-12">
+        {renderBackdropMedia("absolute inset-0 z-0 h-full w-full object-cover")}
         {/* Stitch scrim: dark gradient for text legibility */}
         <div className="absolute inset-0 z-0 bg-gradient-to-t from-[#11221b]/95 via-[#11221b]/70 to-[#11221b]/80" />
         {hasBg && <div className="absolute inset-0 z-0 bg-black" style={{ opacity: branding.loginScrimOpacity / 100 }} aria-hidden="true" />}
 
         {/* Brand row */}
-        <header className="relative z-10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-white shadow-md overflow-hidden">
-              {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
-                <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-              ) : (
-                <Leaf className="h-6 w-6 text-[#0e5e42]" />
-              )}
-            </span>
-            <div>
-              <p className="font-display text-lg font-bold leading-tight text-white">{branding.companyName || t("common.appName")}</p>
-              <p className="text-[13px] text-emerald-100/80">{branding.loginSubtitle || t("auth.platformSubtitle")}</p>
-            </div>
-          </div>
+        <header className="relative z-10 flex items-center justify-between gap-3">
+          {brandLockup(false)}
           <span className="shrink-0 rounded-full border border-white/25 bg-black/40 px-4 py-1.5 text-[11px] font-semibold text-white/90">Ceylon Tea</span>
         </header>
 
-        {/* Editorial headline */}
-        <div className="relative z-10 max-w-xl pt-8">
-          <h1 className="font-display text-4xl font-bold leading-[1.15] tracking-tight text-white text-balance">
+        {/* Editorial headline + live leaf rates */}
+        <div className="relative z-10 flex max-w-2xl flex-col gap-6 py-10">
+          <h1 className="font-display text-[34px] font-bold leading-[1.18] tracking-tight text-white text-balance xl:text-[40px]">
             {t("auth.heroHeadline")}
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-emerald-100/85 text-pretty">
+          <p className="text-[15px] leading-relaxed text-dalu-primary-container text-pretty">
             {t("auth.heroSubheadline")}
           </p>
+          {renderRateChips(false)}
         </div>
 
         {/* Footer note */}
-        <div className="relative z-10 text-[12px] text-emerald-100/60">{t("common.offlineReady")}</div>
+        <div className="relative z-10 text-xs text-emerald-100/60">{t("common.offlineReady", { defaultValue: "Offline-ready PWA" })}</div>
       </aside>
 
-      {/* ---------- RIGHT: white sign-in workspace ---------- */}
-      <main className="relative min-h-[100dvh] bg-[#f5f8f5] lg:col-span-5 lg:flex lg:flex-col lg:justify-between lg:p-12">
-        {/* Mobile-only full-bleed tea background */}
-        {!hasBg && (
-          <div className="absolute inset-0 lg:hidden" aria-hidden="true">
-            <img src="/tea-estate-bg.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#11221b]/75 via-[#11221b]/55 to-[#11221b]/85" />
-          </div>
-        )}
-        {hasBg && !isVideoUrl(branding.loginBackgroundUrl) && (
-          <div className="absolute inset-0 lg:hidden" aria-hidden="true">
-            <img src={branding.loginBackgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#11221b]/75 via-[#11221b]/55 to-[#11221b]/85" />
-          </div>
-        )}
+      {/* ---------- RIGHT: sign-in workspace ---------- */}
+      <main className="relative min-h-[100dvh] bg-dalu-surface lg:col-span-5 lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:p-10 xl:p-12">
+        {/* Mobile-only full-bleed tea background (branding video/image still wins) */}
+        <div className="absolute inset-0 lg:hidden" aria-hidden="true">
+          {bgIsVideo ? (
+            <video src={branding.loginBackgroundUrl} autoPlay loop muted playsInline preload="auto"
+              className="absolute inset-0 h-full w-full object-cover"
+              onCanPlay={(e) => { (e.target as HTMLVideoElement).play().catch(() => {}); }}
+              onError={(e) => { (e.target as HTMLVideoElement).style.display = "none"; }} />
+          ) : (
+            <img src={bgSrc} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#11221b]/75 via-[#11221b]/55 to-[#11221b]/85" />
+          {hasBg && <div className="absolute inset-0 bg-black" style={{ opacity: branding.loginScrimOpacity / 100 }} />}
+        </div>
 
-        {/* Top controls */}
-        <div className="relative z-10 flex items-center justify-end gap-2 px-4 pt-5 lg:px-0 lg:pt-0">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-800 shadow-sm lg:border-slate-200">
+        {/* Top controls — white pill over the photo (mobile) / plain (desktop) */}
+        <div className="relative z-10 flex items-center justify-between gap-2 px-4 pt-4 lg:justify-end lg:px-0 lg:pt-0">
+          <div className="lg:hidden">{brandLockup(true)}</div>
+          <div className="flex shrink-0 items-center gap-2 rounded-full border border-white/30 bg-white/90 p-1 shadow-sm backdrop-blur-sm lg:border-dalu-outline-variant lg:bg-white lg:shadow-none">
             {!embeddedAndroidApp && <LanguageSwitcher />}
             <ThemeToggle />
-          </span>
+          </div>
         </div>
 
-        {/* Mobile hero headline (above card, on photo bg) */}
-        <div className="relative z-10 px-5 pt-8 lg:hidden">
-          <h1 className="font-display text-[24px] font-bold leading-[1.3] text-white text-balance">
+        {/* Mobile hero headline + live rate chips (over the photo) */}
+        <div className="relative z-10 flex-1 px-4 pb-2 pt-6 lg:hidden">
+          <h1 className="font-display text-[24px] font-bold leading-[1.3] tracking-tight text-white text-balance">
             {t("auth.heroHeadline")}
           </h1>
-          <p className="mt-1.5 text-[13px] text-emerald-100/85">{t("auth.heroSubheadlineMobile")}</p>
+          <p className="mt-1.5 text-[12.5px] font-medium text-dalu-primary-container">{t("auth.heroSubheadlineMobile")}</p>
+          <div className="mt-4">{renderRateChips(true)}</div>
         </div>
 
-        {/* Sign-in workspace */}
-        <div className="relative z-10 mx-auto w-full max-w-md flex-1 px-4 pb-8 pt-5 lg:max-w-md lg:px-0 lg:py-10">
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[#0e5e42]">{t("auth.portalEyebrow")}</span>
-            <h2 className="font-display text-[26px] font-bold leading-tight tracking-tight text-slate-900 lg:text-[30px]">
-              {registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}
+        {/* Desktop headline block (right panel, above form) */}
+        <div className="hidden lg:block" />
+        <div className="relative z-10 mx-auto w-full max-w-md flex-1 px-4 pb-6 pt-4 lg:max-w-md lg:px-0 lg:py-10">
+          <div className="hidden flex-col gap-1.5 lg:flex">
+            <span className="text-xs font-bold uppercase tracking-wide text-dalu-primary">{t("auth.portalEyebrow")}</span>
+            <h2 className="font-display text-[34px] font-bold leading-tight tracking-tight text-dalu-on-surface">
+              {t("auth.signInToAccount")}
             </h2>
-            <p className="text-sm leading-relaxed text-slate-500">{t("auth.workspaceHint")}</p>
+            <p className="text-sm leading-relaxed text-dalu-on-surface-variant">{t("auth.workspaceHint")}</p>
           </div>
-
-          {/* Portal switcher */}
-          <div className="mt-5 w-full">
-            <div role="tablist" aria-label={t("auth.choosePortal")} className="grid grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-[#e7efea] p-1.5">
-              <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "supplier" ? "bg-white text-[#0e5e42] shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
-                <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
-              </button>
-              <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 py-2.5 text-xs font-semibold transition sm:text-sm ${portal === "staff" ? "bg-white text-[#0e5e42] shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
-                <ShieldCheck className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span>
-              </button>
-            </div>
-          </div>
+          {/* Mobile card header lives inside the card (Stitch mobile login) */}
+          <div className="mt-1 lg:hidden" />
 
           {/* White form card */}
-          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:mt-5 lg:p-6">
-            <div className={`auth-book__pages ${portal === "staff" ? "is-flipped" : ""}`}>
+          <div className="mt-4 rounded-3xl border border-white/60 bg-white/95 p-5 shadow-xl backdrop-blur-md lg:mt-6 lg:rounded-3xl lg:border-dalu-outline-variant lg:bg-white lg:p-6 lg:shadow-sm">
+            {/* Mobile card header (Stitch: eyebrow + title + lock chip) */}
+            <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-dalu-primary">{t("auth.portalEyebrow")}</span>
+                <h2 className="mt-0.5 font-display text-[22px] font-bold leading-snug tracking-tight text-dalu-on-surface">
+                  {registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}
+                </h2>
+              </div>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-dalu-primary-container text-dalu-on-primary-container">
+                <LockOpen className="h-5 w-5" />
+              </span>
+            </div>
+
+            {renderPortalTabs()}
+
+            <div className={`auth-book__pages mt-4 ${portal === "staff" ? "is-flipped" : ""}`}>
               <section className="auth-book__page auth-book__page--front" aria-hidden={portal !== "supplier"}>
                 {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
-                <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-semibold text-[#0e5e42] transition hover:bg-[#d3f0e3] hover:text-[#063726]">
+                <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className={`mt-3 ${secondaryCtaClass}`}>
                   {registering ? <BookOpen className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
                 </button>
               </section>
 
               <section className="auth-book__page auth-book__page--back" aria-hidden={portal !== "staff"}>
                 {renderSignInForm("staff", portal === "staff")}
-                <div className="mt-4 flex items-start gap-2 rounded-lg border border-slate-200 bg-[#dce9e2]/60 p-3 text-[11.5px] leading-relaxed text-[#162a22]">
+                <div className="mt-4 flex items-start gap-2 rounded-xl border border-dalu-outline-variant bg-dalu-secondary-container/60 p-3 text-[11.5px] leading-relaxed text-dalu-on-secondary-container">
                   <UsersRound className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.staffRolesHint")}</span>
                 </div>
               </section>
@@ -387,11 +450,12 @@ export function Login() {
         </div>
 
         {/* Footer */}
-        <footer className="relative z-10 flex items-center justify-between px-5 pb-6 text-[12px] text-emerald-100/80 lg:px-0 lg:text-slate-500">
-          <span>{branding.companyName || t("common.appName")} · {t("common.appName")} PWA</span>
-          <span>{t("common.offlineReady")}</span>
+        <footer className="relative z-10 flex items-center justify-between px-4 pb-5 text-[11.5px] font-medium text-dalu-primary-container lg:px-0 lg:text-dalu-on-surface-variant">
+          <span className="truncate">{branding.companyName || t("common.appName")} · {branding.loginSubtitle || t("auth.platformSubtitle")}</span>
+          <span className="shrink-0">{t("common.offlineReady", { defaultValue: "Offline-ready PWA" })}</span>
         </footer>
       </main>
     </div>
   );
 }
+

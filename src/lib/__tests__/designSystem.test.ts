@@ -15,6 +15,12 @@ describe("trilingual typography", () => {
     expect(html).toContain("family=Noto+Sans+Tamil");
   });
 
+  it("loads the Stitch display/body faces with Sinhala/Tamil fallbacks", () => {
+    expect(css).toContain("Wix+Madefor+Display");
+    expect(css).toContain("Instrument+Sans");
+    expect(css).toContain('--font-display: "Wix Madefor Display", "Instrument Sans", "Noto Sans"');
+  });
+
   it("never forces wide tracking or a Latin-only mono face on content", () => {
     expect(css).toContain(':lang(si), :lang(ta)');
     expect(css).toContain("font-family: inherit !important");
@@ -52,16 +58,17 @@ describe("container-safe supplier layout", () => {
 });
 
 describe("login stage", () => {
-  it("uses a crisp white card on an animated CSS mesh canvas", () => {
-    expect(login).toContain("login-mesh");
-    expect(login).toContain("login-orb");
-    expect(login).toContain("rounded-2xl bg-white");
-    expect(css).toContain(".login-mesh");
-    expect(css).toContain("@keyframes loginFloat");
-    expect(css).toContain("@keyframes loginRise");
+  it("implements the Dalu Plus Stitch split-screen login", () => {
+    expect(login).toContain("login-stage");
+    expect(login).toContain("lg:grid-cols-12");
+    expect(login).toContain("/tea-estate-bg.jpg");
+    expect(login).toContain("renderRateChips");
+    expect(css).toContain(".login-stage");
+    expect(css).toContain("--color-dalu-primary: #0e5e42");
+    expect(css).toContain("--color-dalu-surface: #f5f8f5");
   });
 
-  it("keeps the form sharp: no backdrop blur behind inputs", () => {
+  it("keeps the form sharp: no heavy backdrop blur behind inputs", () => {
     expect(login).not.toContain("backdrop-blur-2xl");
     expect(login).not.toContain("lx-card");
   });
@@ -86,7 +93,7 @@ describe("login stage", () => {
 describe("shared surfaces", () => {
   it("keeps the supplier shell plain tailwind and leaves admin nav intact", () => {
     expect(shell).toContain("primaryTabsForRole(role)");
-    expect(shell).toContain('"border-t border-slate-200 bg-white/95 backdrop-blur-xl"');
+    expect(shell).toContain("border-t border-slate-200 bg-white/95 backdrop-blur-xl");
     expect(css).toContain(".sp-main .card");
   });
 
@@ -102,7 +109,8 @@ describe("admin branding media (regression guard)", () => {
     expect(login).toContain("branding.loginBackgroundUrl");
     expect(login).toContain("isVideoUrl(branding.loginBackgroundUrl)");
     expect(login).toMatch(/<video[\s\S]{0,600}src=\{branding\.loginBackgroundUrl\}/);
-    expect(login).toMatch(/<img[\s\S]{0,300}src=\{branding\.loginBackgroundUrl\}/);
+    // The image legibility goes through bgSrc (branding image > estate photo).
+    expect(login).toContain('const bgSrc = hasBg && !bgIsVideo ? branding.loginBackgroundUrl : "/tea-estate-bg.jpg";');
     expect(login).toContain("hasBg");
   });
 
@@ -118,9 +126,10 @@ describe("admin branding media (regression guard)", () => {
     expect(login).toContain("branding.loginScrimOpacity");
   });
 
-  it("shows the generated CSS stage only when no branding media exists", () => {
-    expect(login).toMatch(/\{hasBg \? \(/);
-    expect(login).toMatch(/\) : \(\s*<>\s*\{?\/?\*?[\s\S]{0,200}login-mesh/);
+  it("falls back to the estate photograph when no branding media is set", () => {
+    // bgSrc = branding image when present, otherwise the bundled estate photo.
+    expect(login).toContain('const bgSrc = hasBg && !bgIsVideo ? branding.loginBackgroundUrl : "/tea-estate-bg.jpg";');
+    expect(login).toMatch(/bgIsVideo \? \([\s\S]{0,400}src=\{branding\.loginBackgroundUrl\}/);
   });
 
   it("keeps autofilled credentials visually clean", () => {
