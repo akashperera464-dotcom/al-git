@@ -218,7 +218,7 @@ export function Login() {
   const renderSignInForm = (kind: "supplier" | "staff", active: boolean) => {
     const staff = kind === "staff";
     return (
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={submit} className="space-y-3 lg:space-y-4">
         <div>
           <label className={labelClass}>{t("auth.emailUsername")}</label>
           <div className="relative">
@@ -279,7 +279,7 @@ export function Login() {
   };
 
   const renderRegistrationForm = () => (
-    <form onSubmit={submitRegistration} className="space-y-4">
+    <form onSubmit={submitRegistration} className="space-y-3 lg:space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <div><label className={labelClass}>{t("auth.supplierNo")}</label><input value={registration.supplierNo} onChange={event => setRegistration({ ...registration, supplierNo: event.target.value })} placeholder="e.g., 237" className={fieldClass} disabled={busy} /></div>
         <div><label className={labelClass}>{t("common.name")}</label><input value={registration.name} onChange={event => setRegistration({ ...registration, name: event.target.value })} className={fieldClass} disabled={busy} /></div>
@@ -323,16 +323,16 @@ export function Login() {
 
   const brandLockup = (compact: boolean) => (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="flex h-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5" style={{ width: compact ? 48 : 56 }}>
+      <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5" style={{ width: compact ? 48 : 64, height: compact ? 48 : 64 }}>
         {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
           <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <Leaf className={compact ? "h-6 w-6 text-dalu-primary" : "h-7 w-7 text-dalu-primary"} style={{ fill: "currentColor" }} />
+          <Leaf className={compact ? "h-6 w-6 text-dalu-primary" : "h-8 w-8 text-dalu-primary"} style={{ fill: "currentColor" }} />
         )}
       </span>
       <div className="min-w-0">
-        <p className="truncate font-display text-[16px] font-bold leading-tight text-white">{branding.companyName || t("common.appName")}</p>
-        <p className="truncate text-[12px] font-medium text-dalu-primary-container">{branding.loginSubtitle || t("auth.platformSubtitle")}</p>
+        <p className={compact ? "truncate font-display text-[16px] font-bold leading-tight text-white" : "truncate font-display text-[18px] font-bold leading-tight text-white"}>{branding.companyName || t("common.appName")}</p>
+        <p className={compact ? "truncate text-[12px] font-medium text-dalu-primary-container" : "truncate text-[12.5px] font-medium text-dalu-primary-container"}>{branding.loginSubtitle || t("auth.platformSubtitle")}</p>
       </div>
     </div>
   );
@@ -395,18 +395,19 @@ export function Login() {
           </div>
         </div>
 
-        {/* Mobile hero headline + live rate chips (over the photo) */}
-        <div className="relative z-10 flex-1 px-4 pb-2 pt-6 lg:hidden">
-          <h1 className="font-display text-[24px] font-bold leading-[1.3] tracking-tight text-white text-balance">
+        {/* Mobile hero headline + live rate chips (over the photo) —
+            tightened so the whole page fits one screen with no scroll. */}
+        <div className="relative z-10 flex-1 px-4 pb-2 pt-3 lg:hidden">
+          <h1 className="font-display text-[21px] font-bold leading-[1.3] tracking-tight text-white text-balance">
             {t("auth.heroHeadline")}
           </h1>
-          <p className="mt-1.5 text-[12.5px] font-medium text-dalu-primary-container">{t("auth.heroSubheadlineMobile")}</p>
-          <div className="mt-4">{renderRateChips(true)}</div>
+          <p className="mt-1 text-[12.5px] font-medium text-dalu-primary-container">{t("auth.heroSubheadlineMobile")}</p>
+          <div className="mt-2">{renderRateChips(true)}</div>
         </div>
 
         {/* Desktop headline block (right panel, above form) */}
         <div className="hidden lg:block" />
-        <div className="relative z-10 mx-auto w-full max-w-md flex-1 px-4 pb-6 pt-4 lg:max-w-md lg:px-0 lg:py-10">
+        <div className="login-safe-bottom relative z-10 mx-auto w-full max-w-md flex-1 px-4 pt-2 lg:max-w-md lg:px-0 lg:py-10">
           <div className="hidden flex-col gap-1.5 lg:flex">
             <span className="text-xs font-bold uppercase tracking-wide text-dalu-primary">{t("auth.portalEyebrow")}</span>
             <h2 className="font-display text-[34px] font-bold leading-tight tracking-tight text-dalu-on-surface">
@@ -418,9 +419,9 @@ export function Login() {
           <div className="mt-1 lg:hidden" />
 
           {/* White form card */}
-          <div className="mt-4 rounded-3xl border border-white/60 bg-white/95 p-5 shadow-xl backdrop-blur-md lg:mt-6 lg:rounded-3xl lg:border-dalu-outline-variant lg:bg-white lg:p-6 lg:shadow-sm">
+          <div className="mt-2 rounded-3xl border border-white/60 bg-white/95 p-4 shadow-xl backdrop-blur-md lg:mt-6 lg:rounded-3xl lg:border-dalu-outline-variant lg:bg-white lg:p-6 lg:shadow-sm">
             {/* Mobile card header (Stitch: eyebrow + title + lock chip) */}
-            <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
+            <div className="mb-3 flex items-center justify-between gap-3 lg:hidden">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wide text-dalu-primary">{t("auth.portalEyebrow")}</span>
                 <h2 className="mt-0.5 font-display text-[22px] font-bold leading-snug tracking-tight text-dalu-on-surface">
@@ -437,7 +438,7 @@ export function Login() {
             <div className={`auth-book__pages mt-4 ${portal === "staff" ? "is-flipped" : ""}`}>
               <section className="auth-book__page auth-book__page--front" aria-hidden={portal !== "supplier"}>
                 {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
-                <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className={`mt-3 ${secondaryCtaClass}`}>
+                <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className={`mt-2 ${secondaryCtaClass}`}>
                   {registering ? <BookOpen className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
                 </button>
               </section>
@@ -452,8 +453,10 @@ export function Login() {
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="login-safe-bottom relative z-10 flex items-center justify-between px-4 text-[11.5px] font-medium text-dalu-primary-container lg:px-0 lg:text-dalu-on-surface-variant">
+        {/* Footer — desktop only. On mobile the bottom row is removed so the
+            page fits one screen; login-safe-bottom on the form container keeps
+            the submit button clear of the home indicator. */}
+        <footer className="hidden lg:flex relative z-10 items-center justify-between px-4 pb-6 text-[11.5px] font-medium text-dalu-on-surface-variant">
           <span className="truncate">{branding.companyName || t("common.appName")} · {branding.loginSubtitle || t("auth.platformSubtitle")}</span>
           <span className="shrink-0">{t("common.offlineReady", { defaultValue: "Offline-ready PWA" })}</span>
         </footer>
