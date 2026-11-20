@@ -401,6 +401,12 @@ video {
     background: #f5f8f5;
     color: #11221b;
   }
+  /* Supplier desktop sidebar rail (lg+) — Stitch white sidebar */
+  .sp-sidebar {
+    background: #ffffff;
+    border-right: 1px solid #c7d6ce;
+    box-shadow: 1px 0 0 rgba(17, 34, 27, 0.02);
+  }
   .sp-header {
     background: rgba(255, 255, 255, 0.95);
     border-bottom: 1px solid #c7d6ce;

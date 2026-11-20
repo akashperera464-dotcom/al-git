@@ -401,7 +401,7 @@ function BottomNav({ onMore }: { onMore: () => void }) {
   const visible = tabs.slice(0, 4);
   const hasMore = allTabs.length > visible.length;
   return (
-    <nav aria-label="Primary navigation" className={cn("safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around gap-1 px-2 py-1.5", role === "supplier" ? "sp-dock" : "border-t border-slate-200 bg-white/95 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900")}>
+    <nav aria-label="Primary navigation" className={cn("safe-bottom-nav sticky bottom-0 z-30 flex items-center justify-around gap-1 px-2 py-1.5", role === "supplier" ? "sp-dock lg:hidden" : "border-t border-slate-200 bg-white/95 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900")}>
       {visible.map((tab) => {
         const Icon = tab.icon;
         const active = activeModule === tab.key;
@@ -466,20 +466,79 @@ function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
+/* --------------------- Supplier Desktop Sidebar (lg+) --------------------- */
+function SupplierSidebar() {
+  const { t } = useTranslation();
+  const { role, activeModule, setActiveModule, estates, session, user } = useApp();
+  const items = modulesForRole(role);
+  const estateName = estates[0]?.name ?? session?.name ?? user.name;
+  return (
+    <div className="flex h-full flex-col">
+      <div className="px-5 pb-4 pt-5">
+        <Brand />
+      </div>
+      <nav className="no-scrollbar flex-1 space-y-1 overflow-y-auto px-3 pb-3">
+        {items.map((m) => {
+          const Icon = m.icon;
+          const active = activeModule === m.key;
+          return (
+            <button
+              key={m.key}
+              onClick={() => setActiveModule(m.key)}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[13px] font-semibold transition",
+                active
+                  ? "bg-dalu-primary text-white shadow-md shadow-dalu-primary/25"
+                  : "text-dalu-on-surface-variant hover:bg-dalu-primary-container hover:text-dalu-on-primary-container",
+              )}
+            >
+              <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-white" : "text-dalu-primary")} />
+              <span className="min-w-0 truncate">{moduleLabel(t, m.key)}</span>
+              {active && <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" />}
+            </button>
+          );
+        })}
+      </nav>
+      <div className="border-t border-dalu-outline-variant p-3">
+        <div className="rounded-xl border border-dalu-outline-variant bg-white p-3 shadow-sm">
+          <p className="text-[9px] font-bold uppercase tracking-wider text-dalu-outline">{t("common.activeEstate", { defaultValue: "Active estate" })}</p>
+          <p className="mt-0.5 truncate text-xs font-bold text-dalu-on-surface">{estateName}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ----------------------------- Mobile Shell ----------------------------- */
 function MobileShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { isAuthenticated, signOut, setActiveModule, role } = useApp();
+  const { isAuthenticated, signOut, setActiveModule, activeModule, role } = useApp();
   const [more, setMore] = useState(false);
   const embeddedAndroidApp = isAndroidEmbeddedWebView();
   const supplierMode = role === "supplier";
   return (
-    <div className={cn("min-h-screen", supplierMode ? "supplier-device-stage min-h-screen" : "app-aurora")}>
+    <div className={cn("min-h-screen", supplierMode ? "supplier-device-stage min-h-screen lg:flex" : "app-aurora")}>
       {isAuthenticated && role === "supplier" && <SupplierWeatherMonitor />}
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-[#2b2b2b] md:shadow-2xl">
+      {/* Supplier desktop sidebar (lg+) — Stitch light rail with all modules.
+          Below lg it stays hidden and the phone layout + bottom dock rule. */}
+      {supplierMode && (
+        <aside className="sp-sidebar sticky top-0 hidden h-screen w-64 shrink-0 flex-col lg:flex">
+          <SupplierSidebar />
+        </aside>
+      )}
+      {/* Phone frame on md (768–1023px) only — lg+ becomes the real desktop
+          layout: full width, no bezel, no fake phone. */}
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col md:my-5 md:max-w-[430px] md:min-h-[calc(100vh-2.5rem)] md:overflow-hidden md:rounded-[2.5rem] md:border-[10px] md:border-[#2b2b2b] md:shadow-2xl lg:my-0 lg:min-h-screen lg:max-w-none lg:flex-1 lg:rounded-none lg:border-0 lg:shadow-none">
         {/* Header — Dalu Plus Stitch top app bar: white glass + hairline border */}
         <header className={cn("safe-top md:!pt-3 relative z-20 flex items-center justify-between gap-2 px-4 py-2.5 sp-header", supplierMode ? "text-dalu-on-surface" : "bg-gradient-to-r from-pine-900 to-pine-800 text-white")}>
-          <Brand />
+          {/* Mobile/tablet: brand. Desktop (lg+): current module title — the
+              sidebar carries the brand on desktop. */}
+          <div className="lg:hidden">
+            <Brand />
+          </div>
+          <h1 className="hidden min-w-0 truncate font-display text-base font-bold tracking-tight text-dalu-on-surface lg:block">
+            {activeModule ? moduleLabel(t, activeModule) : t("common.home")}
+          </h1>
           <div className="flex shrink-0 items-center gap-1.5">
             {!embeddedAndroidApp && <LanguageSwitcher dark={!supplierMode} prominent={supplierMode} />}
             <ThemeToggle darkSurface={!supplierMode} prominent={supplierMode} />
@@ -506,9 +565,16 @@ function MobileShell({ children }: { children: ReactNode }) {
             )}
           </div>
         </header>
-        {/* Content */}
-        <main className={cn("flex-1 overflow-y-auto overflow-x-hidden p-4 no-scrollbar", supplierMode ? "sp-main relative z-10" : "bg-slate-50")}>
-          {children}
+        {/* Content — supplier desktop gets a centered max-width canvas
+            (dashboard wide, other modules reading width) */}
+        <main className={cn("flex-1 overflow-y-auto overflow-x-hidden p-4 no-scrollbar lg:p-6", supplierMode ? "sp-main relative z-10" : "bg-slate-50")}>
+          {supplierMode ? (
+            <div className={cn("mx-auto w-full", activeModule === "supplier-home" ? "max-w-6xl" : "max-w-3xl")}>
+              {children}
+            </div>
+          ) : (
+            children
+          )}
         </main>
         <BottomNav onMore={() => setMore(true)} />
       </div>

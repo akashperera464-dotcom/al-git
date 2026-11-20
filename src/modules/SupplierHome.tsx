@@ -431,7 +431,7 @@ export function SupplierHome() {
           title={t("supplierHome.monthlySummary")}
           caption={officeCrop || officeBalance ? t("officeSummary.officeSource") : t("officeSummary.emsSource")}
         />
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           <Card className="flex h-full min-w-0 flex-col justify-between gap-2 p-3.5">
             <div className="flex items-center justify-between gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-dalu-info-container text-dalu-on-info-container"><Package className="h-4 w-4" /></span>
@@ -505,7 +505,7 @@ export function SupplierHome() {
       {/* ═══ Quick actions — Stitch 2x2 white cards, tinted icon chips ═══ */}
       <div className="mb-4">
         <SectionHead title={t("supplierHome.quickActions")} />
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           {([
             { key: "supplier-plot", icon: Leaf, label: t("supplierHome.myPlot"), chip: "bg-dalu-warning-container text-dalu-on-warning-container" },
             { key: "supplier-farm", icon: Sprout, label: t("supplierHome.farmLog"), chip: "bg-dalu-primary-container text-dalu-on-primary-container" },
