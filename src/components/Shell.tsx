@@ -364,8 +364,8 @@ function AdminShell({ children }: { children: ReactNode }) {
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
             <SyncPill compactOnMobile />
-            {!embeddedAndroidApp && <LanguageSwitcher />}
-            <ThemeToggle />
+            {!embeddedAndroidApp && <LanguageSwitcher pill />}
+            <ThemeToggle pill />
             <div title={weather.status === "live" ? "Live estate weather" : "Live estate weather unavailable"} className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 xl:flex">
               <CloudSun className="h-4 w-4 text-amber-500" />
               <span className="text-xs font-bold text-slate-700">{weather.status === "live" ? `${weather.today?.tempMax ?? "—"}°C` : "—°C"}</span>
@@ -561,8 +561,11 @@ function MobileShell({ children }: { children: ReactNode }) {
             {activeModule ? moduleLabel(t, activeModule) : t("common.home")}
           </h1>
           <div className="flex shrink-0 items-center gap-1.5">
-            {!embeddedAndroidApp && <LanguageSwitcher dark={!supplierMode} prominent={supplierMode} />}
-            <ThemeToggle darkSurface={!supplierMode} prominent={supplierMode} />
+            {/* Same Stitch pill/circle pair as the login page — white pill with
+                translate glyph + language code, white circle moon toggle. White
+                on the dark staff header and on the light supplier glass alike. */}
+            {!embeddedAndroidApp && <LanguageSwitcher pill />}
+            <ThemeToggle pill />
             {isAuthenticated ? (
               <button
                 onClick={() => void signOut()}

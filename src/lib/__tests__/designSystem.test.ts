@@ -62,7 +62,10 @@ describe("login stage", () => {
     expect(login).toContain("login-stage");
     expect(login).toContain("lg:grid-cols-12");
     expect(login).toContain("/tea-estate-bg.jpg");
-    expect(login).toContain("renderRateChips");
+    // Rate chips were replaced by supplier feature pills (user decision).
+    expect(login).toContain("renderFeaturePills");
+    expect(login).toContain("SUPPLIER_FEATURES");
+    expect(login).not.toContain("renderRateChips");
     expect(css).toContain(".login-stage");
     expect(css).toContain("--color-dalu-primary: #0e5e42");
     expect(css).toContain("--color-dalu-surface: #f5f8f5");
@@ -95,6 +98,13 @@ describe("shared surfaces", () => {
     expect(shell).toContain("primaryTabsForRole(role)");
     expect(shell).toContain("border-t border-slate-200 bg-white/95 backdrop-blur-xl");
     expect(css).toContain(".sp-main .card");
+  });
+
+  it("uses the Stitch pill language/theme controls in login AND app headers", () => {
+    expect(login).toContain("<LanguageSwitcher pill />");
+    expect(login).toContain("<ThemeToggle pill />");
+    expect(shell).toContain("<LanguageSwitcher pill />");
+    expect(shell).toContain("<ThemeToggle pill />");
   });
 
   it("preserves the iOS input-zoom prevention", () => {
