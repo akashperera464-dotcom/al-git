@@ -386,15 +386,15 @@ export function Login() {
           {hasBg && <div className="absolute inset-0 bg-black" style={{ opacity: branding.loginScrimOpacity / 100 }} />}
         </div>
 
-        {/* Top controls — white pill over the photo (mobile) / plain (desktop).
-            login-safe-top keeps this row below the iPhone notch / Dynamic Island.
-            z-30 lifts the language dropdown ABOVE the hero/form so its options
-            stay tappable (hero & form are z-10 and would otherwise paint over). */}
+        {/* Top controls — two standalone white buttons (Stitch reference:
+            translate-pill + moon circle). login-safe-top keeps this row below
+            the iPhone notch / Dynamic Island. z-30 lifts the language dropdown
+            ABOVE the hero/form so its options stay tappable. */}
         <div className="login-safe-top relative z-30 flex items-center justify-between gap-2 px-4 lg:justify-end lg:px-0">
           <div className="lg:hidden">{brandLockup(true)}</div>
-          <div className="flex shrink-0 items-center gap-2 rounded-full border border-white/30 bg-white/90 p-1 shadow-sm backdrop-blur-sm lg:border-dalu-outline-variant lg:bg-white lg:shadow-none">
-            {!embeddedAndroidApp && <LanguageSwitcher />}
-            <ThemeToggle />
+          <div className="flex shrink-0 items-center gap-2">
+            {!embeddedAndroidApp && <LanguageSwitcher pill />}
+            <ThemeToggle pill />
           </div>
         </div>
 

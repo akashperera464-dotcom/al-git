@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Globe, Check, ChevronDown } from "lucide-react";
+import { Globe, Languages, Check, ChevronDown } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { SUPPORTED_LANGUAGES, type LanguageCode } from "@/i18n";
 
 /**
  * LanguageSwitcher — compact dropdown to toggle EN / SI / TA globally.
  * `dark` variant for placement on the emerald app headers.
+ * `pill` variant — Stitch login style: white rounded pill with the translate
+ * glyph + current language code (e.g. "EN"), dropdown unchanged.
  */
-export function LanguageSwitcher({ dark, prominent }: { dark?: boolean; prominent?: boolean }) {
+export function LanguageSwitcher({ dark, prominent, pill }: { dark?: boolean; prominent?: boolean; pill?: boolean }) {
   const { i18n, t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -61,6 +63,43 @@ export function LanguageSwitcher({ dark, prominent }: { dark?: boolean; prominen
         <Globe className="h-5 w-5" />
         <span className="sr-only">Language: {i18n.language.toUpperCase()}</span>
       </button>
+    );
+  }
+
+  // Stitch login pill — translate glyph + language code on a white pill.
+  // Opens the same dropdown below; no chevron to match the reference design.
+  if (pill) {
+    return (
+      <div ref={ref} className="relative">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-label={t("common.language")}
+          title={t("common.language")}
+          className="ring-focus inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-dalu-outline-variant bg-white px-3 text-xs font-bold text-dalu-primary shadow-sm transition hover:bg-slate-50 active:scale-95"
+        >
+          <Languages className="h-4 w-4 shrink-0" />
+          <span className="leading-none">{current.code.toUpperCase()}</span>
+        </button>
+        {open && (
+          <div className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl animate-scale-in">
+            <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{t("common.language")}</p>
+            {SUPPORTED_LANGUAGES.map((l) => (
+              <button
+                key={l.code}
+                onClick={() => change(l.code)}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-slate-50",
+                  l.code === i18n.language ? "bg-emerald-50 font-bold text-emerald-700" : "text-slate-700"
+                )}
+              >
+                <span className="text-base leading-none">{l.flag}</span>
+                <span className="flex-1">{t(l.labelKey)}</span>
+                {l.code === i18n.language && <Check className="h-4 w-4 text-emerald-600" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     );
   }
 
