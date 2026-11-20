@@ -164,10 +164,10 @@ export function Login() {
   };
 
   /* ---- Design tokens (Dalu Plus Stitch) ---- */
-  const fieldClass = "login-input h-12 w-full rounded-xl border border-dalu-outline-variant bg-white pl-10 pr-3 text-[15px] font-medium text-dalu-on-surface outline-none transition placeholder:text-dalu-outline focus:border-dalu-primary focus:ring-2 focus:ring-dalu-primary-container disabled:bg-dalu-surface-low";
-  const labelClass = "mb-1.5 block text-xs font-semibold text-dalu-on-surface";
-  const ctaClass = "inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-dalu-primary text-[14px] font-semibold text-white shadow-sm transition hover:bg-dalu-accent active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
-  const secondaryCtaClass = "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dalu-outline-variant bg-white px-3 py-2.5 text-[13px] font-semibold text-dalu-primary transition hover:bg-dalu-primary-container hover:text-dalu-on-primary-container";
+  const fieldClass = "login-input h-11 lg:h-12 w-full rounded-xl border border-dalu-outline-variant bg-white pl-10 pr-3 text-[15px] font-medium text-dalu-on-surface outline-none transition placeholder:text-dalu-outline focus:border-dalu-primary focus:ring-2 focus:ring-dalu-primary-container disabled:bg-dalu-surface-low";
+  const labelClass = "mb-1 lg:mb-1.5 block text-xs font-semibold text-dalu-on-surface";
+  const ctaClass = "inline-flex h-11 lg:h-12 w-full items-center justify-center gap-2 rounded-xl bg-dalu-primary text-[14px] font-semibold text-white shadow-sm transition hover:bg-dalu-accent active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
+  const secondaryCtaClass = "inline-flex min-h-10 lg:min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dalu-outline-variant bg-white px-3 py-2 lg:py-2.5 text-[13px] font-semibold text-dalu-primary transition hover:bg-dalu-primary-container hover:text-dalu-on-primary-container";
 
   /** Brand media for the photographic panel: admin video > admin image > estate photo. */
   const renderBackdropMedia = (extraClass: string) =>
@@ -219,7 +219,7 @@ export function Login() {
   const renderSignInForm = (kind: "supplier" | "staff", active: boolean) => {
     const staff = kind === "staff";
     return (
-      <form onSubmit={submit} className="space-y-3 lg:space-y-4">
+      <form onSubmit={submit} className="space-y-2.5 lg:space-y-4">
         <div>
           <label className={labelClass}>{t("auth.emailUsername")}</label>
           <div className="relative">
@@ -280,12 +280,12 @@ export function Login() {
   };
 
   const renderRegistrationForm = () => (
-    <form onSubmit={submitRegistration} className="space-y-3 lg:space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <form onSubmit={submitRegistration} className="space-y-2.5 lg:space-y-4">
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:gap-3">
         <div><label className={labelClass}>{t("auth.supplierNo")}</label><input value={registration.supplierNo} onChange={event => setRegistration({ ...registration, supplierNo: event.target.value })} placeholder="e.g., 237" className={fieldClass} disabled={busy} /></div>
         <div><label className={labelClass}>{t("common.name")}</label><input value={registration.name} onChange={event => setRegistration({ ...registration, name: event.target.value })} className={fieldClass} disabled={busy} /></div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:gap-3">
         <div><label className={labelClass}>{t("auth.factory")}</label><select value={registration.factoryId} onChange={event => setRegistration({ ...registration, factoryId: event.target.value, routeIds: [] })} className={fieldClass} disabled={busy}><option value="">{t("auth.selectFactory")}</option>{factories.map(factory => <option key={factory.id} value={factory.id}>{factory.name}</option>)}</select></div>
         <div><label className={labelClass}>{t("auth.routes")}</label><RouteMultiSelect routes={routes} selected={registration.routeIds} onChange={(routeIds) => setRegistration({ ...registration, routeIds })} disabled={!registration.factoryId || busy} emptyText={t("auth.selectFactoryFirst")} /></div>
       </div>
@@ -312,11 +312,11 @@ export function Login() {
 
   /** Shared portal switcher (Stitch tabs-with-icon). */
   const renderPortalTabs = () => (
-    <div role="tablist" aria-label={t("auth.choosePortal")} className="grid grid-cols-2 gap-1.5 rounded-xl border border-dalu-outline-variant bg-dalu-surface-container p-1.5">
-      <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-[13px] font-semibold transition ${portal === "supplier" ? "bg-white text-dalu-primary shadow-sm" : "text-dalu-on-surface-variant hover:text-dalu-on-surface"}`}>
+    <div role="tablist" aria-label={t("auth.choosePortal")} className="grid grid-cols-2 gap-1 rounded-xl border border-dalu-outline-variant bg-dalu-surface-container p-1 lg:gap-1.5 lg:p-1.5">
+      <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[12.5px] font-semibold transition lg:py-2.5 lg:text-[13px] ${portal === "supplier" ? "bg-white text-dalu-primary shadow-sm" : "text-dalu-on-surface-variant hover:text-dalu-on-surface"}`}>
         <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
       </button>
-      <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-[13px] font-semibold transition ${portal === "staff" ? "bg-white text-dalu-primary shadow-sm" : "text-dalu-on-surface-variant hover:text-dalu-on-surface"}`}>
+      <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[12.5px] font-semibold transition lg:py-2.5 lg:text-[13px] ${portal === "staff" ? "bg-white text-dalu-primary shadow-sm" : "text-dalu-on-surface-variant hover:text-dalu-on-surface"}`}>
         <ShieldCheck className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span>
       </button>
     </div>
@@ -423,23 +423,23 @@ export function Login() {
           <div className="mt-1 lg:hidden" />
 
           {/* White form card */}
-          <div className="mt-2 rounded-3xl border border-white/60 bg-white/95 p-4 shadow-xl backdrop-blur-md lg:mt-6 lg:rounded-3xl lg:border-dalu-outline-variant lg:bg-white lg:p-6 lg:shadow-sm">
+          <div className="mt-2 rounded-3xl border border-white/60 bg-white/95 p-3.5 shadow-xl backdrop-blur-md lg:mt-6 lg:rounded-3xl lg:border-dalu-outline-variant lg:bg-white lg:p-6 lg:shadow-sm">
             {/* Mobile card header (Stitch: eyebrow + title + lock chip) */}
-            <div className="mb-3 flex items-center justify-between gap-3 lg:hidden">
+            <div className="mb-2.5 flex items-center justify-between gap-3 lg:hidden">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wide text-dalu-primary">{t("auth.portalEyebrow")}</span>
-                <h2 className="mt-0.5 font-display text-[22px] font-bold leading-snug tracking-tight text-dalu-on-surface">
+                <h2 className="mt-0.5 font-display text-[20px] font-bold leading-snug tracking-tight text-dalu-on-surface">
                   {registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}
                 </h2>
               </div>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-dalu-primary-container text-dalu-on-primary-container">
-                <LockOpen className="h-5 w-5" />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-dalu-primary-container text-dalu-on-primary-container">
+                <LockOpen className="h-[18px] w-[18px]" />
               </span>
             </div>
 
             {renderPortalTabs()}
 
-            <div className={`auth-book__pages mt-4 ${portal === "staff" ? "is-flipped" : ""}`}>
+            <div className={`auth-book__pages mt-3 lg:mt-4 ${portal === "staff" ? "is-flipped" : ""}`}>
               <section className="auth-book__page auth-book__page--front" aria-hidden={portal !== "supplier"}>
                 {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
                 <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className={`mt-2 ${secondaryCtaClass}`}>
