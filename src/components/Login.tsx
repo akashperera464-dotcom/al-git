@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus, Sprout, UsersRound, BookOpen, ArrowRight, LockOpen } from "lucide-react";
+import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus, Sprout, UsersRound, BookOpen, ArrowRight, LockOpen, Trees, CloudSun, Package } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { registerSupplier, signInWithEmail, signOutFirebase } from "@/lib/auth.hybrid";
-import { readFactories, readRoutes, readDailyTeaPrices, readUserOperationalProfile, type FactoryOption, type RouteOption, type DailyTeaPrice } from "@/lib/supplierOperations";
+import { readFactories, readRoutes, readUserOperationalProfile, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useBranding, isMediaUrl, isVideoUrl } from "@/lib/branding";
@@ -12,17 +12,25 @@ import { RouteMultiSelect } from "@/components/RouteMultiSelect";
 import { assertMultiRouteSchemaReady, replaceUserRoutesBestEffort } from "@/lib/userRoutes";
 import { isAndroidEmbeddedWebView } from "@/lib/platform";
 import { isRoleAllowedForPortal, LOGIN_PORTAL_BLOCKED_UID_KEY, LOGIN_PORTAL_INTENT_KEY, type LoginPortal } from "@/lib/loginPortal";
-import { gradeKey } from "@/i18n/databaseValues";
+
+/** The three most valuable supplier capabilities, shown as pills over the photo
+    (Stitch-style). Icons mirror the supplier bottom-nav modules so the login
+    promise matches what the supplier actually sees after signing in. */
+const SUPPLIER_FEATURES = [
+  { icon: Trees, labelKey: "auth.featureTeaLands" },
+  { icon: CloudSun, labelKey: "auth.featureWeather" },
+  { icon: Package, labelKey: "auth.featureDeliveries" },
+] as const;
 
 /**
  * Unified Login Screen — Email + Password (Firebase Auth).
  * ------------------------------------------------------------------
  * Dalu Plus (Google Stitch) design, implemented 1:1:
  *  · Desktop — editorial split screen: tea-estate photography panel (7/12)
- *    with brand, display headline and live leaf-rate chips + crisp white
+ *    with brand, display headline and supplier feature pills + crisp white
  *    sign-in workspace (5/12).
  *  · Mobile — full-bleed tea photo with dark scrim, brand bar, headline and
- *    three glass rate chips floating over the photo, elevated white card.
+ *    three glass feature pills floating over the photo, elevated white card.
  * Branding media (video or image URL set by the admin) overrides the default
  * estate photograph everywhere it appears.
  *
@@ -45,7 +53,6 @@ export function Login() {
   const registrationInFlightRef = useRef(false);
   const [factories, setFactories] = useState<FactoryOption[]>([]);
   const [routes, setRoutes] = useState<RouteOption[]>([]);
-  const [rates, setRates] = useState<DailyTeaPrice[]>([]);
   const [registration, setRegistration] = useState({ supplierNo: "", name: "", email: "", password: "", phone: "", factoryId: "", routeIds: [] as string[] });
 
   useEffect(() => {
@@ -58,15 +65,6 @@ export function Login() {
     setRegistration(current => ({ ...current, routeIds: [] }));
     if (registration.factoryId) void readRoutes(registration.factoryId).then(setRoutes).catch(() => setRoutes([]));
   }, [registration.factoryId]);
-  // Live leaf rates float over the photo (Stitch rate chips). Best-effort:
-  // anonymous read from the settings snapshot; strip stays hidden without data.
-  useEffect(() => {
-    let active = true;
-    void readDailyTeaPrices()
-      .then((rows) => { if (active) setRates(rows.filter((row) => row.grade !== "Coarse").slice(0, 3)); })
-      .catch(() => { if (active) setRates([]); });
-    return () => { active = false; };
-  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,26 +190,28 @@ export function Login() {
     </div>
   ) : null;
 
-  /** Live leaf-rate chips floating over the photography (hidden without data). */
-  const renderRateChips = (glass: boolean) => rates.length === 0 ? null : (
+  /** Supplier feature pills floating over the photography (Stitch style:
+      dark rounded tile, icon on top, label below). */
+  const renderFeaturePills = (glass: boolean) => (
     <div className="grid grid-cols-3 gap-2 sm:gap-3">
-      {rates.map((rate, index) => (
-        <div
-          key={rate.grade}
-          className={
-            glass
-              ? "min-w-0 rounded-xl border border-white/20 bg-[#11221b]/65 p-2.5 shadow-sm backdrop-blur-md sm:p-3"
-              : "min-w-0 rounded-xl border border-white/15 bg-[#11221b]/80 p-3 sm:p-4"
-          }
-        >
-          <p className={`truncate text-[10px] font-bold uppercase leading-none ${glass ? "text-dalu-primary-container" : "text-dalu-primary-container"}`}>
-            {t(gradeKey(rate.grade), { defaultValue: rate.grade })}
-          </p>
-          <p className={`tnum mt-1.5 font-display text-[15px] font-bold leading-none sm:text-base ${index === rates.length - 1 ? "text-dalu-primary-container" : "text-white"}`}>
-            Rs {rate.pricePerKg.toLocaleString()}
-          </p>
-        </div>
-      ))}
+      {SUPPLIER_FEATURES.map((feature) => {
+        const Icon = feature.icon;
+        return (
+          <div
+            key={feature.labelKey}
+            className={
+              glass
+                ? "min-w-0 rounded-xl border border-white/20 bg-[#11221b]/65 p-2.5 shadow-sm backdrop-blur-md sm:p-3"
+                : "min-w-0 rounded-xl border border-white/15 bg-[#11221b]/80 p-3 sm:p-4"
+            }
+          >
+            <Icon className="h-4 w-4 text-dalu-primary-container" strokeWidth={2} />
+            <p className="mt-1.5 truncate text-[10.5px] font-bold leading-none text-white">
+              {t(feature.labelKey)}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 
@@ -352,7 +352,7 @@ export function Login() {
           <span className="shrink-0 rounded-full border border-white/25 bg-black/40 px-4 py-1.5 text-[11px] font-semibold text-white/90">Ceylon Tea</span>
         </header>
 
-        {/* Editorial headline + live leaf rates */}
+        {/* Editorial headline + supplier feature pills */}
         <div className="relative z-10 flex max-w-2xl flex-col gap-6 py-10">
           <h1 className="font-display text-[34px] font-bold leading-[1.18] tracking-tight text-white text-balance xl:text-[40px]">
             {t("auth.heroHeadline")}
@@ -360,7 +360,7 @@ export function Login() {
           <p className="text-[15px] leading-relaxed text-dalu-primary-container text-pretty">
             {t("auth.heroSubheadline")}
           </p>
-          {renderRateChips(false)}
+          {renderFeaturePills(false)}
         </div>
 
         {/* Footer note */}
@@ -395,14 +395,14 @@ export function Login() {
           </div>
         </div>
 
-        {/* Mobile hero headline + live rate chips (over the photo) —
+        {/* Mobile hero headline + feature pills (over the photo) —
             tightened so the whole page fits one screen with no scroll. */}
         <div className="relative z-10 flex-1 px-4 pb-2 pt-3 lg:hidden">
           <h1 className="font-display text-[21px] font-bold leading-[1.3] tracking-tight text-white text-balance">
             {t("auth.heroHeadline")}
           </h1>
           <p className="mt-1 text-[12.5px] font-medium text-dalu-primary-container">{t("auth.heroSubheadlineMobile")}</p>
-          <div className="mt-2">{renderRateChips(true)}</div>
+          <div className="mt-2">{renderFeaturePills(true)}</div>
         </div>
 
         {/* Desktop headline block (right panel, above form) */}

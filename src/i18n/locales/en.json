@@ -97,6 +97,9 @@
     "heroHeadline": "Daily leaf rates, lorry tracking, and field logs in one place.",
     "heroSubheadline": "Built for estate suppliers and factory staff to check live leaf prices, record plucking cycles, and stay synced across desktop and Android.",
     "heroSubheadlineMobile": "Synced for estate suppliers and factory staff.",
+    "featureTeaLands": "Tea Lands",
+    "featureWeather": "Weather",
+    "featureDeliveries": "Leaf Deliveries",
     "workspaceHint": "View leaf records, account details, estates, and collection services.",
     "portalEyebrow": "Supplier Portal"
   },
