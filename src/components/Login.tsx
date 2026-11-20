@@ -322,17 +322,17 @@ export function Login() {
   );
 
   const brandLockup = (compact: boolean) => (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <span className="flex h-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-md" style={{ width: compact ? 40 : 44 }}>
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="flex h-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5" style={{ width: compact ? 48 : 56 }}>
         {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
           <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <Leaf className="h-5 w-5 text-dalu-primary" style={{ fill: "currentColor" }} />
+          <Leaf className={compact ? "h-6 w-6 text-dalu-primary" : "h-7 w-7 text-dalu-primary"} style={{ fill: "currentColor" }} />
         )}
       </span>
       <div className="min-w-0">
-        <p className="truncate font-display text-[15px] font-bold leading-tight text-white">{branding.companyName || t("common.appName")}</p>
-        <p className="truncate text-[11px] font-medium text-dalu-primary-container">{branding.loginSubtitle || t("auth.platformSubtitle")}</p>
+        <p className="truncate font-display text-[16px] font-bold leading-tight text-white">{branding.companyName || t("common.appName")}</p>
+        <p className="truncate text-[12px] font-medium text-dalu-primary-container">{branding.loginSubtitle || t("auth.platformSubtitle")}</p>
       </div>
     </div>
   );
@@ -383,8 +383,9 @@ export function Login() {
           {hasBg && <div className="absolute inset-0 bg-black" style={{ opacity: branding.loginScrimOpacity / 100 }} />}
         </div>
 
-        {/* Top controls — white pill over the photo (mobile) / plain (desktop) */}
-        <div className="relative z-10 flex items-center justify-between gap-2 px-4 pt-4 lg:justify-end lg:px-0 lg:pt-0">
+        {/* Top controls — white pill over the photo (mobile) / plain (desktop).
+            login-safe-top keeps this row below the iPhone notch / Dynamic Island. */}
+        <div className="login-safe-top relative z-10 flex items-center justify-between gap-2 px-4 lg:justify-end lg:px-0">
           <div className="lg:hidden">{brandLockup(true)}</div>
           <div className="flex shrink-0 items-center gap-2 rounded-full border border-white/30 bg-white/90 p-1 shadow-sm backdrop-blur-sm lg:border-dalu-outline-variant lg:bg-white lg:shadow-none">
             {!embeddedAndroidApp && <LanguageSwitcher />}
@@ -450,7 +451,7 @@ export function Login() {
         </div>
 
         {/* Footer */}
-        <footer className="relative z-10 flex items-center justify-between px-4 pb-5 text-[11.5px] font-medium text-dalu-primary-container lg:px-0 lg:text-dalu-on-surface-variant">
+        <footer className="login-safe-bottom relative z-10 flex items-center justify-between px-4 text-[11.5px] font-medium text-dalu-primary-container lg:px-0 lg:text-dalu-on-surface-variant">
           <span className="truncate">{branding.companyName || t("common.appName")} · {branding.loginSubtitle || t("auth.platformSubtitle")}</span>
           <span className="shrink-0">{t("common.offlineReady", { defaultValue: "Offline-ready PWA" })}</span>
         </footer>

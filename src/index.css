@@ -237,6 +237,21 @@ video {
   .login-stage {
     isolation: isolate;
   }
+
+  /* iPhone notch / Dynamic Island: push the brand row + language pill below the
+     top safe area (status bar is black-translucent, page renders under it). */
+  .login-safe-top {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem) !important;
+  }
+  /* Keep the login footer clear of the home indicator. */
+  .login-safe-bottom {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem) !important;
+  }
+  @media (min-width: 1024px) {
+    .login-safe-top {
+      padding-top: 0 !important;
+    }
+  }
   .auth-book {
     perspective: 1500px;
     -webkit-perspective: 1500px;
