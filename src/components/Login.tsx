@@ -338,7 +338,7 @@ export function Login() {
   );
 
   return (
-    <div className="login-stage relative min-h-[100dvh] overflow-hidden bg-dalu-hero lg:grid lg:grid-cols-12">
+    <div className="login-stage relative min-h-[100dvh] overflow-y-auto overflow-x-hidden bg-dalu-hero lg:grid lg:grid-cols-12 lg:overflow-hidden">
       {/* ---------- LEFT: editorial tea-estate panel (desktop lg+) ---------- */}
       <aside className="relative hidden overflow-hidden lg:col-span-7 lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:p-10 xl:p-12">
         {renderBackdropMedia("absolute inset-0 z-0 h-full w-full object-cover")}
@@ -384,8 +384,10 @@ export function Login() {
         </div>
 
         {/* Top controls — white pill over the photo (mobile) / plain (desktop).
-            login-safe-top keeps this row below the iPhone notch / Dynamic Island. */}
-        <div className="login-safe-top relative z-10 flex items-center justify-between gap-2 px-4 lg:justify-end lg:px-0">
+            login-safe-top keeps this row below the iPhone notch / Dynamic Island.
+            z-30 lifts the language dropdown ABOVE the hero/form so its options
+            stay tappable (hero & form are z-10 and would otherwise paint over). */}
+        <div className="login-safe-top relative z-30 flex items-center justify-between gap-2 px-4 lg:justify-end lg:px-0">
           <div className="lg:hidden">{brandLockup(true)}</div>
           <div className="flex shrink-0 items-center gap-2 rounded-full border border-white/30 bg-white/90 p-1 shadow-sm backdrop-blur-sm lg:border-dalu-outline-variant lg:bg-white lg:shadow-none">
             {!embeddedAndroidApp && <LanguageSwitcher />}
