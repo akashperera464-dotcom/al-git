@@ -23,7 +23,6 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Onboarding } from "@/components/Onboarding";
 import { useBranding, isMediaUrl } from "@/lib/branding";
 import { resolveShellBrandIdentity } from "@/lib/brandIdentity";
-import { isAndroidEmbeddedWebView } from "@/lib/platform";
 import { readMyEstates } from "@/lib/estateRepo";
 import { useEstateWeather } from "@/lib/useEstateWeather";
 import { SupplierWeatherMonitor } from "@/components/SupplierWeatherMonitor";
@@ -328,7 +327,6 @@ function AdminShell({ children }: { children: ReactNode }) {
   const { activeModule, isAuthenticated, signOut, estates } = useApp();
   const [drawer, setDrawer] = useState(false);
   const current = MODULES.find((m) => m.key === activeModule);
-  const embeddedAndroidApp = isAndroidEmbeddedWebView();
   const weatherEstate = estates.find((estate) => estate.latitude !== undefined && estate.longitude !== undefined) ?? estates[0];
   const weather = useEstateWeather(weatherEstate?.latitude, weatherEstate?.longitude);
 
@@ -364,7 +362,11 @@ function AdminShell({ children }: { children: ReactNode }) {
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
             <SyncPill compactOnMobile />
-            {!embeddedAndroidApp && <LanguageSwitcher pill />}
+            {/* Language switcher is ALWAYS rendered — including inside the Expo
+                Android shell. The shell no longer draws its own native language
+                overlay, so suppressing this left Android users with no way to
+                switch language (the iPhone PWA always had the control). */}
+            <LanguageSwitcher pill />
             <ThemeToggle pill />
             <div title={weather.status === "live" ? "Live estate weather" : "Live estate weather unavailable"} className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 xl:flex">
               <CloudSun className="h-4 w-4 text-amber-500" />
@@ -535,7 +537,6 @@ function MobileShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { isAuthenticated, signOut, setActiveModule, activeModule, role } = useApp();
   const [more, setMore] = useState(false);
-  const embeddedAndroidApp = isAndroidEmbeddedWebView();
   const supplierMode = role === "supplier";
   return (
     <div className={cn("min-h-screen", supplierMode ? "supplier-device-stage min-h-screen lg:flex" : "app-aurora")}>
@@ -564,7 +565,11 @@ function MobileShell({ children }: { children: ReactNode }) {
             {/* Same Stitch pill/circle pair as the login page — white pill with
                 translate glyph + language code, white circle moon toggle. White
                 on the dark staff header and on the light supplier glass alike. */}
-            {!embeddedAndroidApp && <LanguageSwitcher pill />}
+            {/* Language switcher is ALWAYS rendered — including inside the Expo
+                Android shell. The shell no longer draws its own native language
+                overlay, so suppressing this left Android users with no way to
+                switch language (the iPhone PWA always had the control). */}
+            <LanguageSwitcher pill />
             <ThemeToggle pill />
             {isAuthenticated ? (
               <button

@@ -1,7 +1,12 @@
 /**
- * Detect the embedded Android WebView used by separately packaged APK shells.
- * Normal Chrome and installed browser PWAs must keep the web language control;
- * APK shells often add their own native language overlay in the same corner.
+ * Detect the embedded Android WebView used by separately packaged Expo shells
+ * (native bridge, "wv" UA marker, or the legacy WebView UA).
+ *
+ * Policy note (Nov 2026): this used to suppress the web language switcher
+ * because the shell drew its own native language overlay in the same corner.
+ * That overlay is gone, so the language switcher is now rendered everywhere —
+ * keeping the detector as a utility for future shell-specific tweaks (safe
+ * areas, keyboard insets, native bridges).
  */
 export function isAndroidEmbeddedWebView(
   userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent,

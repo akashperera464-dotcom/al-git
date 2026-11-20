@@ -10,7 +10,6 @@ import { useTranslation } from "react-i18next";
 import { validateRegistration, withTimeout, REGISTRATION_FIREBASE_TIMEOUT_MS, REGISTRATION_STEP_TIMEOUT_MS, REGISTRATION_UI_STUCK_TIMEOUT_MS } from "@/lib/registrationHardening";
 import { RouteMultiSelect } from "@/components/RouteMultiSelect";
 import { assertMultiRouteSchemaReady, replaceUserRoutesBestEffort } from "@/lib/userRoutes";
-import { isAndroidEmbeddedWebView } from "@/lib/platform";
 import { isRoleAllowedForPortal, LOGIN_PORTAL_BLOCKED_UID_KEY, LOGIN_PORTAL_INTENT_KEY, type LoginPortal } from "@/lib/loginPortal";
 
 /** The three most valuable supplier capabilities, shown as pills over the photo
@@ -153,7 +152,6 @@ export function Login() {
   const hasBg = Boolean(branding.loginBackgroundUrl && isMediaUrl(branding.loginBackgroundUrl));
   const bgIsVideo = hasBg && isVideoUrl(branding.loginBackgroundUrl);
   const bgSrc = hasBg && !bgIsVideo ? branding.loginBackgroundUrl : "/tea-estate-bg.jpg";
-  const embeddedAndroidApp = isAndroidEmbeddedWebView();
 
   const changePortal = (nextPortal: LoginPortal) => {
     if (busy || nextPortal === portal) return;
@@ -393,7 +391,10 @@ export function Login() {
         <div className="login-safe-top relative z-30 flex items-center justify-between gap-2 px-4 lg:justify-end lg:px-0">
           <div className="lg:hidden">{brandLockup(true)}</div>
           <div className="flex shrink-0 items-center gap-2">
-            {!embeddedAndroidApp && <LanguageSwitcher pill />}
+            {/* Always rendered — also inside the Expo Android shell, which no
+                longer has its own native language overlay. Without it Android
+                users had no language control at all. */}
+            <LanguageSwitcher pill />
             <ThemeToggle pill />
           </div>
         </div>

@@ -29,11 +29,17 @@ describe("Android application shell detection", () => {
     )).toBe(false);
   });
 
-  it("suppresses the duplicate selector in both authenticated shell headers", () => {
-    const source = readFileSync(resolve(process.cwd(), "src/components/Shell.tsx"), "utf8");
-    const guardedSelectors = source.match(/!embeddedAndroidApp\s*&&\s*<LanguageSwitcher/g) ?? [];
+  it("renders the language selector everywhere — never suppressed in the Android shell", () => {
+    // Policy change (Nov 2026): the Expo shell dropped its native language
+    // overlay, so suppressing the web control left Android users with no way
+    // to switch language. Both shell headers and the login page must render
+    // the switcher unconditionally; any re-added guard fails this test.
+    const shell = readFileSync(resolve(process.cwd(), "src/components/Shell.tsx"), "utf8");
+    const login = readFileSync(resolve(process.cwd(), "src/components/Login.tsx"), "utf8");
 
-    expect(source).toContain('from "@/lib/platform"');
-    expect(guardedSelectors).toHaveLength(2);
+    expect(shell.match(/<LanguageSwitcher pill \/>/g) ?? []).toHaveLength(2);
+    expect(login).toContain("<LanguageSwitcher pill />");
+    expect(shell).not.toMatch(/!embeddedAndroidApp\s*&&\s*<LanguageSwitcher/);
+    expect(login).not.toMatch(/!embeddedAndroidApp\s*&&\s*<LanguageSwitcher/);
   });
 });
