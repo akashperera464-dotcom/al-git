@@ -1806,72 +1806,110 @@ body, .font-display, .font-sans { letter-spacing: normal; }
   .login-cta:hover:not(:disabled) { transform: none; }
 }
 
-/* Desktop canvas around the supplier phone preview. Fresh agritech palette
-   from the uploaded CROP CARE reference: cream → soft green gradient. */
-.supplier-device-stage {
-  background:
-    radial-gradient(54rem 32rem at 12% 8%, rgba(168, 201, 127, 0.45), transparent 62%),
-    radial-gradient(50rem 30rem at 90% 14%, rgba(110, 158, 75, 0.32), transparent 64%),
-    radial-gradient(42rem 28rem at 72% 100%, rgba(244, 247, 232, 0.6), transparent 66%),
-    linear-gradient(145deg, #f4f7e8 0%, #e8efd8 48%, #d8e4c2 100%);
-}
-.dark .supplier-device-stage {
-  background:
-    radial-gradient(54rem 32rem at 12% 8%, rgba(108, 158, 75, 0.3), transparent 62%),
-    radial-gradient(50rem 30rem at 90% 14%, rgba(62, 140, 72, 0.22), transparent 64%),
-    radial-gradient(42rem 28rem at 72% 100%, rgba(26, 36, 21, 0.6), transparent 66%),
-    linear-gradient(145deg, #1a2415 0%, #161e12 48%, #121810 100%);
-}
-
 /* ============================================================================
- * ROUND 81 — FORCE LIGHT MODE FOR SUPPLIER INTERFACE
- * The supplier app is designed to be bright and airy. Dark mode makes it
- * look muddy (ගොම පාට). These overrides force light colors even when
- * the browser/phone is in dark mode.
+ * ROUND 82 — GOOGLE STITCH MATERIAL 3 TEA DESIGN SYSTEM
+ * Colors from Google Stitch Dalu Plus designs:
+ *   primary #0E5E42, surface #F5F8F5, outline-variant #C7D6CE
  * ========================================================================== */
+:root {
+  --m3-primary: #0e5e42;
+  --m3-primary-container: #d3f0e3;
+  --m3-on-primary-container: #063726;
+  --m3-secondary-container: #dce9e2;
+  --m3-surface: #f5f8f5;
+  --m3-on-surface: #11221b;
+  --m3-surface-low: #f0f5f1;
+  --m3-surface-container: #e7efea;
+  --m3-outline-variant: #c7d6ce;
+  --m3-on-surface-variant: #465c52;
+  --m3-tertiary: #0d5c75;
+  --m3-info: #0369a1;
+}
 
-/* Supplier shell — always light, ignore dark mode */
-.supplier-device-stage .dark,
-.supplier-device-stage.dark,
+/* Supplier shell background — soft green-tinted surface */
+.supplier-device-stage {
+  background: var(--m3-surface) !important;
+}
 .dark .supplier-device-stage {
-  background: linear-gradient(145deg, #f4f7e8 0%, #e8efd8 48%, #d8e4c2 100%) !important;
+  background: linear-gradient(160deg, #0e1a14 0%, #0a1410 100%) !important;
 }
 
-/* Force the phone frame content to light mode */
-.supplier-device-stage .sp-main,
-.supplier-device-stage .sp-header,
-.supplier-device-stage .sp-dock {
-  color-scheme: light !important;
+/* Supplier header — white top bar like Stitch */
+.sp-header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid var(--m3-outline-variant) !important;
+  box-shadow: 0 1px 0 rgba(17, 34, 27, 0.04) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+.dark .sp-header {
+  background: rgba(14, 26, 20, 0.95) !important;
+  border-bottom-color: rgba(199, 214, 206, 0.12) !important;
 }
 
-/* Override dark mode card backgrounds inside supplier shell
-   — BUT NOT the weather-hero (it uses an inline gradient + white text). */
-.dark .sp-main .card {
+/* Supplier cards — white with outline border (Stitch card-elevated) */
+.sp-main .card {
   background: #ffffff !important;
-  border-color: rgba(108, 158, 75, 0.15) !important;
-  color: #0f172a !important;
+  border: 1px solid var(--m3-outline-variant) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 1px 2px rgba(17, 34, 27, 0.06) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
+.sp-main .card-hover:hover {
+  transform: translateY(-1px) !important;
+  border-color: var(--m3-primary) !important;
+  box-shadow: 0 4px 12px rgba(17, 34, 27, 0.1) !important;
+}
+.dark .sp-main .card {
+  background: #14211b !important;
+  border-color: rgba(199, 214, 206, 0.14) !important;
+}
+
+/* Bottom dock — white bar like Stitch mobile nav */
+.sp-dock {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-top: 1px solid var(--m3-outline-variant) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 -1px 0 rgba(17, 34, 27, 0.05) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+.sp-dockitem--on { color: var(--m3-primary) !important; }
+.sp-dockitem--on .sp-dockpill {
+  background: var(--m3-primary-container) !important;
+  color: var(--m3-on-primary-container) !important;
+  box-shadow: none !important;
+}
+
+/* Supplier content bg */
+.dark .sp-main {
+  background: #0e1a14 !important;
+}
+
+/* Weather hero: Stitch style — tea estate photo + dark gradient + white glass chips.
+   The inline gradient still applies for weather mood; photo is added via component. */
 .dark .sp-main .card * {
   color: inherit;
 }
 .dark .sp-main .stat-value,
 .dark .sp-main .tnum {
-  color: #0f172a !important;
+  color: #f1f5f9 !important;
 }
 
 /* Bottom nav — always white for supplier, even in dark mode */
 .dark .supplier-device-stage nav.safe-bottom-nav {
-  background: #ffffff !important;
-  border-color: rgba(108, 158, 75, 0.15) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: var(--m3-outline-variant) !important;
 }
 .dark .supplier-device-stage nav.safe-bottom-nav * {
-  color: #64748b;
+  color: var(--m3-on-surface-variant);
 }
 
 /* Header — always light for supplier */
 .dark .sp-header {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(244, 247, 232, 0.85) 60%, rgba(216, 228, 194, 0.75)) !important;
-  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: var(--m3-on-surface) !important;
 }
 .dark .sp-header * {
   color: inherit;
@@ -1888,25 +1926,25 @@ body, .font-display, .font-sans { letter-spacing: normal; }
 
 /* Supplier content background — always light */
 .dark .sp-main {
-  background: #f8fafc !important;
-  color: #0f172a !important;
+  background: var(--m3-surface) !important;
 }
 
-/* Dock items — always light for supplier */
+/* Dock items */
 .dark .sp-dock {
-  background: #ffffff !important;
-  border-color: rgba(108, 158, 75, 0.15) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-top-color: var(--m3-outline-variant) !important;
 }
 .dark .sp-dockitem {
-  color: #64748b !important;
+  color: var(--m3-on-surface-variant) !important;
 }
 .dark .sp-dockitem--on {
-  color: #3e8c48 !important;
+  color: var(--m3-primary) !important;
 }
 .dark .sp-dockitem--on .sp-dockpill {
-  background: linear-gradient(135deg, #3e8c48, #6e9e4b) !important;
-  color: #ffffff !important;
+  background: var(--m3-primary-container) !important;
+  color: var(--m3-on-primary-container) !important;
 }
 
 /* IMPORTANT: Do NOT override text-white inside weather-hero — it needs
    white text on the colored gradient background. */
+

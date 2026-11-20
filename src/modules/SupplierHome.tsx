@@ -207,8 +207,12 @@ export function SupplierHome() {
 
   return (
     <div className="supplier-weather-surface -m-4 min-h-full p-4" style={{ background: weatherVisual.pageGradient }}>
-      {/* Weather-aware greeting hero */}
-      <div className="weather-hero relative mb-4 overflow-hidden rounded-[1.75rem] p-5 text-white" style={{ background: weatherVisual.gradient }}>
+      {/* Weather-aware greeting hero — Stitch style: tea photo + dark gradient */}
+      <div className="weather-hero relative mb-4 overflow-hidden rounded-[1.5rem] p-5 text-white" style={{ background: weatherVisual.gradient }}>
+        {/* Tea estate photo underlay (behind the weather gradient tint) */}
+        <img src="/tea-estate-bg.jpg" alt="" aria-hidden="true" className="absolute inset-0 z-0 h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        {/* Weather-mood gradient tint over the photo */}
+        <div className="absolute inset-0 z-0 opacity-90" style={{ background: weatherVisual.gradient }} aria-hidden="true" />
         <WeatherAtmosphere mood={weatherVisual.mood} />
         <div className="relative z-10 flex items-start justify-between gap-3">
           <div className="min-w-0">
