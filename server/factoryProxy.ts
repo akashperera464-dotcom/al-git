@@ -46,7 +46,7 @@ function bearerToken(request: Request): string {
   return match[1];
 }
 
-async function verifyFirebaseUser(idToken: string): Promise<string> {
+export async function verifyFirebaseUser(idToken: string): Promise<string> {
   const apiKey = process.env.FIREBASE_API_KEY?.trim() || env("VITE_FIREBASE_API_KEY");
   const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idToken }),
@@ -56,6 +56,20 @@ async function verifyFirebaseUser(idToken: string): Promise<string> {
   const account = payload.users?.[0];
   if (!account?.localId || account.disabled) throw new Error("AUTH_INVALID");
   return account.localId;
+}
+
+/**
+ * Reuse the protected Office mapping/cache pipeline from other server routes.
+ * This deliberately never exposes factory credentials or mapping identifiers
+ * to the browser.
+ */
+export async function getFactoryDataForUser(
+  kind: Exclude<EndpointKind, "lorry">,
+  uid: string,
+  forceRefresh = false,
+): Promise<unknown> {
+  const mapping = await resolveMapping(uid);
+  return fetchFactory(kind, mapping, forceRefresh);
 }
 
 async function supabaseRows<T>(path: string): Promise<T[]> {

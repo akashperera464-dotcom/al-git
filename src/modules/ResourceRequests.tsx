@@ -4,6 +4,7 @@ import { PageHeader, StatCard, Card, Badge, Meter, IconChip, Segmented } from "@
 import { useApp } from "@/context/AppContext";
 import { fmtNum, type RequestStatus, type RealAvailability } from "@/lib/data";
 import { getRealWorkerAvailability, getRealStockAvailability, fulfillResourceRequest, completeResourceRequest } from "@/lib/repo.phase2";
+import { SmartServiceRequestAdmin } from "./SmartServiceRequestAdmin";
 
 type Filter = "ALL" | RequestStatus;
 
@@ -116,6 +117,15 @@ export function ResourceRequests() {
 
   return (
     <div>
+      <SmartServiceRequestAdmin />
+
+      <details className="group mt-8 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+        <summary className="cursor-pointer list-none rounded-xl px-3 py-2 text-sm font-bold text-slate-600 marker:hidden">
+          <span className="inline-flex items-center gap-2"><Boxes className="h-4 w-4" /> Equipment & operational allocations <span className="text-xs font-normal text-slate-400">(legacy workflow)</span></span>
+        </summary>
+      <div className="mb-6 mt-4 border-t border-slate-200 pt-8">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Equipment & operational allocations</p>
+      </div>
       <PageHeader
         eyebrow="Field Operations · Supplier Requests"
         title="Resource Requisitions Inbox"
@@ -275,6 +285,7 @@ export function ResourceRequests() {
           Availability numbers are fetched <strong>live from the database</strong> (workers table + stock_items table), not hardcoded.
         </p>
       </div>
+      </details>
     </div>
   );
 }

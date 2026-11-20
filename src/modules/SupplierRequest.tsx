@@ -12,6 +12,7 @@ import {
   type RealAvailability,
 } from "@/lib/data";
 import { getRealWorkerAvailability, getRealStockAvailability } from "@/lib/repo.phase2";
+import { SmartSupplierRequestForm } from "./SmartSupplierRequest";
 
 const STATUS_META: Record<ResourceRequest["status"], { tone: "amber" | "emerald" | "rose"; icon: typeof Clock3; labelKey: string }> = {
   PENDING: { tone: "amber", icon: Clock3, labelKey: "request.pendingReview" },
@@ -29,6 +30,11 @@ function timeAgo(ts: number, t: (k: string, opts?: Record<string, unknown>) => s
 
 /** Supplier Portal · "Request Resources" tab (mobile-first). */
 export function SupplierRequestForm() {
+  return <SmartSupplierRequestForm />;
+}
+
+/** Retained for the older equipment/agrochemical workflow; no longer routed. */
+export function LegacySupplierRequestForm() {
   const { t } = useTranslation();
   const { resourceRequests, submitRequest, notify, userUid } = useApp();
   const [type, setType] = useState<RequestType>("Equipment");

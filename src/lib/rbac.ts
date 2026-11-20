@@ -178,7 +178,7 @@ export const MODULES: NavItem[] = [
   { key: "labor", label: "Labor Management", short: "Labor", icon: Users, category: "operations", roles: ["admin"], capability: "labor.view" },
   { key: "harvest", label: "Harvest Management", short: "Weigh", icon: Scale, category: "operations", roles: ["admin"], capability: "harvest.view" },
   { key: "vehicles", label: "Vehicle & Fuel", short: "Fleet", icon: Truck, category: "more", roles: ["admin"], capability: "vehicles.manage" },
-  { key: "resource-requests", label: "Resource Requisitions", short: "Inbox", icon: Inbox, category: "operations", roles: ["admin"], capability: "requests.manage" },
+  { key: "resource-requests", label: "Supplier Request Inbox", short: "Requests", icon: Inbox, category: "operations", roles: ["admin"], capability: "requests.manage" },
   { key: "factory", label: "Factory Integration", short: "Factory", icon: Factory, category: "more", roles: ["admin"], capability: "factory.view" },
   { key: "inventory", label: "Inventory", short: "Stores", icon: Boxes, category: "factory", roles: ["admin"], capability: "inventory.manage" },
   { key: "fertilizer", label: "Fertilizer", short: "Fertilizer", icon: Sprout, category: "inputs", roles: ["admin"], capability: "fertilizer.manage" },
@@ -229,7 +229,7 @@ export const MODULES: NavItem[] = [
   { key: "supplier-tips", label: "Tips & Guidance", short: "Tips", icon: Lightbulb, category: "supplier", roles: ["supplier"], capability: "tips.own" },
   { key: "supplier-fertilizer", label: "My Fertilizer", short: "Fertilizer", icon: Sprout, category: "supplier", roles: ["supplier"], capability: "fertilizer.own" },
   { key: "supplier-announcements", label: "Estate Updates", short: "Updates", icon: Newspaper, category: "supplier", roles: ["supplier"], capability: "announcements.view" },
-  { key: "supplier-requests", label: "Request Resources", short: "Request", icon: PackageOpen, category: "supplier", roles: ["supplier"], capability: "requests.create" },
+  { key: "supplier-requests", label: "Smart Requests", short: "Request", icon: PackageOpen, category: "supplier", roles: ["supplier"], capability: "requests.create" },
   // B32 (Round #14) — Supplier Labor: track daily labor cost (own workers from village)
   { key: "supplier-labor", label: "My Labor", short: "Labor", icon: Users, category: "supplier", roles: ["supplier"], capability: "labor.own" },
   { key: "supplier-profile", label: "My Profile", short: "Profile", icon: UserCog, category: "supplier", roles: ["supplier"], capability: "profile.own" },

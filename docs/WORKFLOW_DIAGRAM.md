@@ -4660,3 +4660,13 @@ key change. Verified: typecheck clean, 144/144 tests, production build OK.
 - Restored narrow-container card grids so supplier content does not stretch or lose its mobile-app proportions.
 - Replaced the dark empty desktop canvas around the supplier phone preview with a light tea-green/sky gradient in both application themes.
 - Authentication, registration, role validation, database access and Office API request behaviour were not changed.
+
+## Smart supplier service requests — 2026-11-20
+
+- Added a separate server-controlled `supplier_service_requests` workflow for cash advances, tea packets and fertilizer without changing the older equipment/resource fulfillment ledger.
+- Added `/api/supplier-requests`, which verifies the Firebase ID token, resolves the active Supabase user and uses the protected Office balance cache pipeline; crop is a fallback only when an older balance payload omits kg quantity.
+- Eligibility is calculated server-side from current-month leaf kg, configurable base rate/percentage/cap, Office deductions and pending/approved EMS cash advances.
+- Final creation uses the `create_supplier_service_request` PostgreSQL function with a per-supplier/month advisory transaction lock, preventing concurrent requests from spending the same remaining limit.
+- The full financial ledger is revoked from the browser anon role. Realtime publishes a separate status-only event table; the client reloads authorized rows through the Vercel gateway and does not poll Office APIs.
+- Added responsive Supplier and Admin interfaces, policy controls, approve/reject/fulfilled transitions and approved CSV export.
+- Office integration remains read-only. Exporting or approving an EMS request does not write to the Factory system; the office must import/process the CSV manually until a separate write API is approved.

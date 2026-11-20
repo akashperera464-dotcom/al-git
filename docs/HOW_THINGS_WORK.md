@@ -479,6 +479,74 @@ Supplier Home එක open තබාගැනීමෙන් crop, balance හෝ
 
 ---
 
+## Smart Supplier Requests වැඩ කරන ආකාරය
+
+Supplier කෙනෙකුට cash advance, tea packets හෝ fertilizer ඉල්ලීමට හැකි workflow එක Factory Office system එකට write නොකර EMS තුළම ක්‍රියා කරයි. Office APIs eligibility calculation සඳහා read-only source එකක් පමණි; request status සහ review history Supabase තුළ වෙනම ledger එකක පවතී.
+
+### Supplier page එක open කරන විට
+
+```text
+Supplier opens Smart Requests
+  -> browser sends one authenticated GET to /api/supplier-requests?mode=eligibility
+  -> Vercel verifies the Firebase ID token
+  -> server resolves the signed-in supplier mapping
+  -> balance Office data is read through the protected cache pipeline
+  -> crop endpoint is used only as a fallback if an older balance payload has no kg quantity
+  -> current-month kg and Office deductions are normalized
+  -> pending/approved EMS cash advances are read from Supabase
+  -> eligible amount is calculated on the server
+  -> safe snapshot + configurable request catalog returns to the UI
+```
+
+මෙම screen එකේ `setInterval` polling loop එකක් නැත. සාමාන්‍යයෙන් eligibility check එකකට Office balance request එකක් පමණක් ප්‍රමාණවත්ය. Page open, explicit refresh සහ final submit verification වෙලාවට පමණක් eligibility endpoint එක භාවිත වේ. Admin inbox එක Office API call නොකර, request එක සමඟ save කළ snapshot එක පෙන්වයි.
+
+### Eligibility formula
+
+```text
+Gross leaf value = current month kg × configured base rate
+Policy limit     = min(gross leaf value × advance percentage, configured maximum)
+Eligible now     = max(0, policy limit − Office deductions − pending/approved EMS advances)
+```
+
+Base rate, percentage, maximum cash advance සහ tea/fertilizer quantity limits `settings.key='supplier_request_policy'` row එකේ data ලෙස පවතී. ඒවා Admin Request Inbox එකේ Policy panel එකෙන් වෙනස් කළ හැක. Policy change එක පරණ request snapshot rewrite නොකරයි.
+
+### Final submit සහ concurrent safety
+
+Supplier submit කරන විට browser calculation එක විශ්වාස නොකර server එක Office data සහ current commitments නැවත validate කරයි. `create_supplier_service_request(...)` PostgreSQL function එක supplier/month සඳහා transaction advisory lock එකක් ගෙන pending/approved advances නැවත එකතු කරයි. එමඟින් එකවර requests දෙකක් submit කර එකම eligible balance දෙවරක් භාවිත කිරීම නවතී.
+
+Cash advance එකට amount සහ `bank_transfer`, `cash`, හෝ `lorry` payment method එක save වේ. Tea/fertilizer request එකට configured item code, label, quantity සහ unit save වේ. Current-month kg, Office deductions, policy rate/percentage, committed advances, eligible limit සහ Office fetched time request එක සමඟ immutable review snapshot එකක් ලෙස save වේ.
+
+### Admin review, status update සහ export
+
+```text
+pending
+  -> Admin approves or rejects
+approved
+  -> Office processes/imports the request
+  -> Admin marks fulfilled
+```
+
+Adminට supplier number, request details, monthly kg snapshot, Office deductions සහ request-time eligible limit එක එකම card එකේ පෙනේ. Approved/fulfilled rows CSV ලෙස export කළ හැක. Factory system එකට write API එකක් නොමැති නිසා CSV/manual import කිරීමෙන් පසුව පමණක් Office system එක වෙනස් වේ.
+
+### Realtime සහ security boundary
+
+- Financial request ledger: `supplier_service_requests` — browser anon client එකට direct permissions නැත; Firebase-authenticated Vercel endpoint එක මඟින් පමණක් read/write වේ.
+- Realtime wake-up ledger: `supplier_service_request_events` — request ID, supplier ID, status සහ changed time පමණක් තබයි; amounts, deductions හෝ Office snapshots එහි නැත.
+- Realtime event එක ලැබුණු විට UI එක authorized Vercel endpoint එකෙන් තම rows නැවත ලබාගනී. Office APIs නැවත call නොකරයි.
+- `FACTORY_API_SECRET` සහ `SUPABASE_SERVICE_ROLE_KEY` browser bundle එකට නොයයි.
+
+### අදාළ files
+
+- `api/supplier-requests.ts` — Vercel route entry.
+- `server/serviceRequestVercelAdapter.ts` — Vercel Node request adapter.
+- `server/serviceRequestWorkflow.ts` — Firebase verification, policy, Office eligibility, server validation සහ admin decisions.
+- `src/lib/supplierServiceRequests.ts` — authenticated frontend client සහ status-only Realtime listener.
+- `src/modules/SmartSupplierRequest.tsx` — Supplier cash/tea/fertilizer UI.
+- `src/modules/SmartServiceRequestAdmin.tsx` — Admin review, policy සහ CSV UI.
+- `docs/migration_smart_supplier_requests.sql` — tables, safe event trigger සහ atomic create function.
+
+---
+
 ## Lorry location systems දෙක වැඩ කරන ආකාරය
 
 Supplier map එකට location source දෙකක් තිබිය හැක.

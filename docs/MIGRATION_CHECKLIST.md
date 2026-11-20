@@ -210,3 +210,19 @@ order by e.name,b.name;
 ```
 
 Expected column result: `boundary_geojson jsonb` and `land_type text`. Existing blocks remain valid with `land_type='tea'` and a null boundary until they are mapped.
+
+# Smart supplier advances, tea and fertilizer requests
+
+1. Take a Supabase backup/export.
+2. Run `docs/migration_smart_supplier_requests.sql` once in Supabase SQL Editor.
+3. Confirm both verification results are non-null and the `supplier_request_policy` row is returned.
+4. Open Admin → Supplier Request Inbox → Policy and confirm the base rate, percentage, maximum advance and item quantity limits with the Factory office before enabling production use.
+5. Sign in as a mapped supplier with current-month leaf data. Open Smart Requests and verify the eligible amount, submit one small request, then approve it from the Admin inbox.
+6. Keep `SUPABASE_SERVICE_ROLE_KEY`, `FACTORY_API_SECRET` and `FIREBASE_API_KEY` as server-only Vercel variables. Never add a `VITE_` prefix to the service-role or Factory secret.
+
+```sql
+select key,data from public.settings where key='supplier_request_policy';
+select id,supplier_no,request_type,status,monthly_kg_snapshot,eligible_limit_snapshot,requested_at
+from public.supplier_service_requests
+order by requested_at desc limit 20;
+```
