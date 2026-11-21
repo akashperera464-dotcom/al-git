@@ -41,14 +41,19 @@ function Brand({ compact }: { compact?: boolean }) {
   const lightMode = role === "supplier";
   return (
     <div className="flex items-center gap-2.5">
+      {/* 40px badge (was 36) — mark-first lockup, same as the login page. */}
       <span className={cn(
-        "relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg shadow-sm",
+        "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg shadow-sm",
         lightMode ? "bg-dalu-primary" : "bg-white",
       )}>
+        {/* Same zoom treatment as the login lockup: the logo file's baked-in
+            white margin + wordmark band get cropped (scale 1.55, origin tuned
+            to the mark's position in the file) so the mark fills the badge instead of reading as
+            a small icon lost in a white square. */}
         {logo ? (
-          <img src={identity.logoUrl} alt={`${identity.name} logo`} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <img src={identity.logoUrl} alt={`${identity.name} logo`} className="h-full w-full scale-[1.55] origin-[47.5%_20.7%] object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <Leaf className={cn("h-5 w-5", lightMode ? "text-dalu-on-primary" : "text-dalu-primary")} style={{ fill: "currentColor" }} />
+          <Leaf className={cn("h-6 w-6", lightMode ? "text-dalu-on-primary" : "text-dalu-primary")} style={{ fill: "currentColor" }} />
         )}
       </span>
       {!compact && (

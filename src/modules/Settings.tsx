@@ -269,7 +269,7 @@ export default function Settings() {
             <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-slate-900 to-emerald-950 px-3 py-2.5">
               <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600">
                 {draft.companyLogoUrl && isMediaUrl(draft.companyLogoUrl) ? (
-                  <img src={draft.companyLogoUrl} alt="" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <img src={draft.companyLogoUrl} alt="" className="h-full w-full scale-[1.55] origin-[47.5%_20.7%] object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : (
                   <Leaf className="h-4 w-4 text-white" />
                 )}
@@ -284,7 +284,7 @@ export default function Settings() {
             <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-violet-950 to-emerald-950 px-3 py-2.5">
               <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-violet-500 to-emerald-600">
                 {supplierPreview.logoUrl && isMediaUrl(supplierPreview.logoUrl) ? (
-                  <img src={supplierPreview.logoUrl} alt={`${supplierPreview.name} logo`} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <img src={supplierPreview.logoUrl} alt={`${supplierPreview.name} logo`} className="h-full w-full scale-[1.55] origin-[47.5%_20.7%] object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : (
                   <Leaf className="h-4 w-4 text-white" />
                 )}

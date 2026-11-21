@@ -324,11 +324,19 @@ export function Login() {
 
   const brandLockup = (compact: boolean) => (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5" style={{ width: compact ? 48 : 64, height: compact ? 48 : 64 }}>
+      {/* 72/54 badge (was 64/48) — the mark itself now carries the lockup. */}
+      <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5" style={{ width: compact ? 54 : 72, height: compact ? 54 : 72 }}>
+        {/* The Dalu Plus logo file ships with ~20% baked-in white margin around
+            the mark plus a "Dalu Plus +" wordmark band below it. At badge sizes
+            that margin reads as an empty white square ("white overdisplaying").
+            scale(1.55) with the origin tuned to the mark's position inside the
+            file (mark spans y 9-70%, wordmark below) centers the cropped
+            window on the mark: it fills ~92% of the badge like a proper app
+            icon and the wordmark is cropped away. overflow-hidden clips the bleed. */}
         {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
-          <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full scale-[1.55] origin-[47.5%_20.7%] object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <Leaf className={compact ? "h-6 w-6 text-dalu-primary" : "h-8 w-8 text-dalu-primary"} style={{ fill: "currentColor" }} />
+          <Leaf className={compact ? "h-7 w-7 text-dalu-primary" : "h-9 w-9 text-dalu-primary"} style={{ fill: "currentColor" }} />
         )}
       </span>
       <div className="min-w-0">
