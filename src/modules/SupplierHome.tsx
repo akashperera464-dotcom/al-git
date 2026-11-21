@@ -291,7 +291,7 @@ export function SupplierHome() {
       <button
         type="button"
         onClick={() => setActiveModule("supplier-calendar")}
-        className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-dalu-primary/20 bg-dalu-primary-container p-3.5 text-left shadow-sm transition hover:border-dalu-primary lg:col-span-5 lg:mb-0"
+        className="glow-ring glow-halo mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-dalu-primary/20 bg-dalu-primary-container p-3.5 text-left shadow-sm transition hover:border-dalu-primary lg:col-span-5 lg:mb-0"
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-dalu-primary text-white shadow-sm">
@@ -354,7 +354,7 @@ export function SupplierHome() {
             {rateCards.map((price, index) => {
               const primary = index === rateCards.length - 1;
               return (
-                <Card key={price.grade} className={primary ? "card-tint-primary h-full p-3 text-center" : "h-full p-3 text-center"}>
+                <Card key={price.grade} className={primary ? "card-tint-primary glow-ring glow-halo h-full p-3 text-center" : "h-full p-3 text-center"}>
                   <p className={`truncate text-[10px] font-bold uppercase leading-none ${primary ? "text-dalu-primary-container" : "text-dalu-primary"}`}>
                     {t(gradeKey(price.grade), { defaultValue: price.grade })}
                   </p>

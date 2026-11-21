@@ -199,8 +199,8 @@ export function Login() {
             key={feature.labelKey}
             className={
               glass
-                ? "min-w-0 rounded-xl border border-white/20 bg-[#11221b]/65 p-2.5 shadow-sm backdrop-blur-md sm:p-3"
-                : "min-w-0 rounded-xl border border-white/15 bg-[#11221b]/80 p-3 sm:p-4"
+                ? "glow-ring min-w-0 rounded-xl border border-white/20 bg-[#11221b]/65 p-2.5 backdrop-blur-md sm:p-3"
+                : "glow-ring min-w-0 rounded-xl border border-white/15 bg-[#11221b]/80 p-3 sm:p-4"
             }
           >
             <Icon className="h-4 w-4 text-dalu-primary-container" strokeWidth={2} />
@@ -423,7 +423,7 @@ export function Login() {
           <div className="mt-1 lg:hidden" />
 
           {/* White form card */}
-          <div className="mt-2 rounded-3xl border border-white/60 bg-white/95 p-3.5 shadow-xl backdrop-blur-md lg:mt-6 lg:rounded-3xl lg:border-dalu-outline-variant lg:bg-white lg:p-6 lg:shadow-sm">
+          <div className="glow-ring glow-ring--spin glow-halo mt-2 rounded-3xl border border-white/60 bg-white/95 p-3.5 backdrop-blur-md lg:mt-6 lg:rounded-3xl lg:border-dalu-outline-variant lg:bg-white lg:p-6">
             {/* Mobile card header (Stitch: eyebrow + title + lock chip) */}
             <div className="mb-2.5 flex items-center justify-between gap-3 lg:hidden">
               <div>
@@ -432,7 +432,7 @@ export function Login() {
                   {registering ? t("auth.submitRegistration") : t("auth.signInToAccount")}
                 </h2>
               </div>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-dalu-primary-container text-dalu-on-primary-container">
+              <span className="glow-chip flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
                 <LockOpen className="h-[18px] w-[18px]" />
               </span>
             </div>

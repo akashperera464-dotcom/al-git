@@ -436,6 +436,10 @@ video {
   .sp-dockitem--on .sp-dockpill {
     background: #d3f0e3;
     color: #063726;
+    /* Magic-indicator nod: the active dock icon carries a soft emerald glow. */
+    box-shadow:
+      0 0 0 1px rgba(16, 185, 129, 0.35),
+      0 4px 14px -4px rgba(16, 185, 129, 0.6);
   }
 
   /* Supplier statistics/mono: never let a Latin-only mono face distort
@@ -673,6 +677,72 @@ video {
 .card-tint-success {
   background: #dcfce7 !important;
   border-color: rgba(21, 128, 61, 0.3) !important;
+}
+
+/* ============================================================================
+ * Glow gradient borders + gradient chips (brand palette)
+ * The classic "gradient border card" pattern, retuned to tea greens: a conic
+ * ring drawn with a masked ::before, so card backgrounds stay translucent and
+ * no extra markup is needed. @property animates the ring angle; browsers
+ * without @property simply render a static ring (graceful degradation).
+ * ========================================================================== */
+@property --glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes glow-angle-spin {
+  to {
+    --glow-angle: 360deg;
+  }
+}
+
+.glow-ring {
+  position: relative;
+}
+.glow-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    #059669,
+    #34d399,
+    #14b8a6,
+    #a3e635,
+    #059669
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.glow-ring--spin::before {
+  animation: glow-angle-spin 7s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow-ring--spin::before {
+    animation: none;
+  }
+}
+
+/* Soft emerald halo — pairs with .glow-ring (or stands alone). Unlayered, so
+   it intentionally overrides any Tailwind shadow utility on the same element. */
+.glow-halo {
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.22),
+    0 10px 34px -14px rgba(16, 185, 129, 0.55);
+}
+
+/* Gradient icon chip (login lock chip): brand-green fill + gentle glow. */
+.glow-chip {
+  background: linear-gradient(135deg, #047857, #10b981 55%, #34d399);
+  box-shadow: 0 6px 18px -6px rgba(16, 185, 129, 0.65);
+  color: #ffffff;
 }
 
 /* ============================================================================
