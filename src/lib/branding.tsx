@@ -38,17 +38,17 @@ export const DEFAULT_BRANDING: Branding = {
   companyTagline: "Powered by KDU Group",
   // Bundled official artwork (public/branding/). Root-relative paths are
   // accepted by isMediaUrl, so the default works offline & in the Expo shell.
-  // companyLogoUrl = square mark for the 40px app-header badge (name renders
-  // as text beside it); loginLogoUrl = full horizontal lockup (mark + "Dalu
-  // Plus" + "Powered by KDU Group") so the login hero shows the official
-  // artwork with the names baked in, exactly as supplied.
+  // Both slots use the square mark: the name ("Dalu Plus" / "Powered by KDU
+  // Group") renders as crisp text BESIDE the badge — the user-preferred look.
+  // The horizontal lockup stays bundled for PDFs/exports but is not the
+  // default login image: names would appear twice (in the artwork + beside).
   companyLogoUrl: "/branding/dalu-plus-mark.png",
   supplierCompanyName: "",
   supplierCompanyTagline: "",
   supplierCompanyLogoUrl: "",
   loginTitle: "Dalu Plus",
   loginSubtitle: "Powered by KDU Group",
-  loginLogoUrl: "/branding/dalu-plus-lockup.png",
+  loginLogoUrl: "/branding/dalu-plus-mark.png",
   loginBackgroundUrl: "",
   loginScrimOpacity: 70,
   accentColor: "#10b981",
@@ -82,11 +82,13 @@ const LEGACY_LOGO_VALUES = new Set([
   "/kdu-logo.png",
   "/kdu-icon-1024.png",
   "/logo.svg",
-  // The mark was previously also the login default; the login hero now uses
-  // the full horizontal lockup (names baked in). Mapping it here migrates
-  // stored login rows to the lockup — for companyLogoUrl it is a no-op
-  // (DEFAULT_BRANDING.companyLogoUrl is the same mark path).
+  // The mark was briefly mapped here when the login default pointed at the
+  // lockup; now both defaults are the mark, so this entry is a no-op for
+  // company/login (same value) and still resets the supplier slot to inherit.
   "/branding/dalu-plus-mark.png",
+  // Devices that cached the lockup as the login default during the brief
+  // lockup-as-default release reset to the current defaults.
+  "/branding/dalu-plus-lockup.png",
   // The first manual configuration stored the full lockup JPEG (white margins,
   // names baked in — unreadable when force-cropped into a small badge) on
   // Cloudinary. Same artwork is now bundled pre-trimmed for clear rendering.

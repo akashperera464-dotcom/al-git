@@ -54,7 +54,7 @@ describe("iPhone PWA shell", () => {
     expect(DEFAULT_BRANDING.companyName).toBe("Dalu Plus");
     expect(DEFAULT_BRANDING.companyTagline).toBe("Powered by KDU Group");
     expect(DEFAULT_BRANDING.companyLogoUrl).toBe("/branding/dalu-plus-mark.png");
-    expect(DEFAULT_BRANDING.loginLogoUrl).toBe("/branding/dalu-plus-lockup.png");
+    expect(DEFAULT_BRANDING.loginLogoUrl).toBe("/branding/dalu-plus-mark.png");
     // Legacy stored values migrate to the new defaults…
     const legacy = migrateLegacyBranding({
       ...DEFAULT_BRANDING,
@@ -70,7 +70,7 @@ describe("iPhone PWA shell", () => {
     expect(legacy.loginTitle).toBe("Dalu Plus");
     expect(legacy.loginSubtitle).toBe("Powered by KDU Group");
     expect(legacy.companyLogoUrl).toBe("/branding/dalu-plus-mark.png");
-    expect(legacy.loginLogoUrl).toBe("/branding/dalu-plus-lockup.png");
+    expect(legacy.loginLogoUrl).toBe("/branding/dalu-plus-mark.png");
     // …while deliberately configured branding is preserved.
     const custom = migrateLegacyBranding({
       ...DEFAULT_BRANDING,
@@ -100,21 +100,30 @@ describe("iPhone PWA shell", () => {
     expect(live.companyTagline).toBe("Powered by KDU Group");
     expect(live.loginSubtitle).toBe("Powered by KDU Group");
     expect(live.companyLogoUrl).toBe("/branding/dalu-plus-mark.png");
-    expect(live.loginLogoUrl).toBe("/branding/dalu-plus-lockup.png");
+    expect(live.loginLogoUrl).toBe("/branding/dalu-plus-mark.png");
     // supplier logo falls back to blank → inherits the company mark
     expect(live.supplierCompanyLogoUrl).toBe("");
   });
 
-  it("migrates a stored mark-path login logo to the full lockup default", () => {
-    // Devices that already stored the pre-lockup default (mark) for the login
-    // hero must migrate to the lockup; the company header keeps the mark.
+  it("migrates away the briefly-shipped lockup login default back to the mark", () => {
+    // Devices that cached loginLogoUrl=/branding/dalu-plus-lockup.png during
+    // the lockup-as-default release must return to the mark badge + name text
+    // (the user-preferred look); the company header keeps the mark.
     const stored = migrateLegacyBranding({
+      ...DEFAULT_BRANDING,
+      companyLogoUrl: "/branding/dalu-plus-lockup.png",
+      loginLogoUrl: "/branding/dalu-plus-lockup.png",
+    });
+    expect(stored.companyLogoUrl).toBe("/branding/dalu-plus-mark.png");
+    expect(stored.loginLogoUrl).toBe("/branding/dalu-plus-mark.png");
+    // A stored mark value is a no-op for both slots (mark is the default).
+    const markStored = migrateLegacyBranding({
       ...DEFAULT_BRANDING,
       companyLogoUrl: "/branding/dalu-plus-mark.png",
       loginLogoUrl: "/branding/dalu-plus-mark.png",
     });
-    expect(stored.companyLogoUrl).toBe("/branding/dalu-plus-mark.png");
-    expect(stored.loginLogoUrl).toBe("/branding/dalu-plus-lockup.png");
+    expect(markStored.companyLogoUrl).toBe("/branding/dalu-plus-mark.png");
+    expect(markStored.loginLogoUrl).toBe("/branding/dalu-plus-mark.png");
   });
 
   it("does not let an old service worker hide a newly deployed app shell", () => {

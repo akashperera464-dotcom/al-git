@@ -5,7 +5,7 @@ import { registerSupplier, signInWithEmail, signOutFirebase } from "@/lib/auth.h
 import { readFactories, readRoutes, readUserOperationalProfile, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useBranding, isMediaUrl, isVideoUrl, DEFAULT_BRANDING } from "@/lib/branding";
+import { useBranding, isMediaUrl, isVideoUrl } from "@/lib/branding";
 import { useTranslation } from "react-i18next";
 import { validateRegistration, withTimeout, REGISTRATION_FIREBASE_TIMEOUT_MS, REGISTRATION_STEP_TIMEOUT_MS, REGISTRATION_UI_STUCK_TIMEOUT_MS } from "@/lib/registrationHardening";
 import { RouteMultiSelect } from "@/components/RouteMultiSelect";
@@ -322,42 +322,26 @@ export function Login() {
     </div>
   );
 
-  const brandLockup = (compact: boolean) => {
-    // Default login logo = the official horizontal lockup (mark + "Dalu Plus" +
-    // "Powered by KDU Group" baked in). Show it whole on a white plate — names
-    // are part of the artwork, so no duplicate text beside it.
-    if (branding.loginLogoUrl.trim() === DEFAULT_BRANDING.loginLogoUrl) {
-      return (
-        <span
-          className="flex shrink-0 items-center overflow-hidden rounded-xl bg-white p-1 shadow-md ring-1 ring-black/5"
-          style={{ height: compact ? 52 : 76 }}
-        >
-          <img
-            src={branding.loginLogoUrl}
-            alt={`${branding.companyName || "Dalu Plus"} logo`}
-            className="h-full w-auto object-contain"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
-        </span>
-      );
-    }
-    // Custom logo set from Brandings — square badge + brand text beside it.
-    return (
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5" style={{ width: compact ? 54 : 72, height: compact ? 54 : 72 }}>
-          {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
-            <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-          ) : (
-            <Leaf className={compact ? "h-7 w-7 text-dalu-primary" : "h-9 w-9 text-dalu-primary"} style={{ fill: "currentColor" }} />
-          )}
-        </span>
-        <div className="min-w-0">
-          <p className={compact ? "truncate font-display text-[16px] font-bold leading-tight text-white" : "truncate font-display text-[18px] font-bold leading-tight text-white"}>{branding.companyName || t("common.appName")}</p>
-          <p className={compact ? "truncate text-[12px] font-medium text-dalu-primary-container" : "truncate text-[12.5px] font-medium text-dalu-primary-container"}>{branding.loginSubtitle || t("auth.platformSubtitle")}</p>
-        </div>
+  const brandLockup = (compact: boolean) => (
+    <div className="flex min-w-0 items-center gap-3">
+      {/* 72/54 badge + the brand name beside it (user-preferred look): the
+          default /branding/dalu-plus-mark.png is pre-trimmed to a square with
+          transparent corners, so plain object-cover fills the badge crisply
+          and "Dalu Plus / Powered by KDU Group" renders as live text next to
+          it. A custom Brandings URL renders the same predictable way. */}
+      <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5" style={{ width: compact ? 54 : 72, height: compact ? 54 : 72 }}>
+        {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
+          <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        ) : (
+          <Leaf className={compact ? "h-7 w-7 text-dalu-primary" : "h-9 w-9 text-dalu-primary"} style={{ fill: "currentColor" }} />
+        )}
+      </span>
+      <div className="min-w-0">
+        <p className={compact ? "truncate font-display text-[16px] font-bold leading-tight text-white" : "truncate font-display text-[18px] font-bold leading-tight text-white"}>{branding.companyName || t("common.appName")}</p>
+        <p className={compact ? "truncate text-[12px] font-medium text-dalu-primary-container" : "truncate text-[12.5px] font-medium text-dalu-primary-container"}>{branding.loginSubtitle || t("auth.platformSubtitle")}</p>
       </div>
-    );
-  };
+    </div>
+  );
 
   return (
     <div className="login-stage relative min-h-[100dvh] overflow-y-auto overflow-x-hidden bg-dalu-hero lg:grid lg:grid-cols-12 lg:overflow-hidden">

@@ -145,7 +145,7 @@ export default function Settings() {
                 <label className={labelCls}><Type className="mr-1 inline h-3 w-3" />Login Subtitle</label>
                 <input value={draft.loginSubtitle} onChange={(e) => update("loginSubtitle", e.target.value)} className={inputCls} placeholder="Powered by KDU Group" />
               </div>
-              <MediaField label="Login Logo URL" icon={ImageIcon} hint="The hero logo on the login card. Empty = the official Dalu Plus lockup (logo + name). Paste a Cloudinary (or any CDN) URL to override it." value={draft.loginLogoUrl} onChange={(v) => update("loginLogoUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="logo" />
+              <MediaField label="Login Logo URL" icon={ImageIcon} hint="The hero logo on the login card. Empty = the built-in Dalu Plus mark (name shows beside it). Paste a Cloudinary (or any CDN) URL to override it." value={draft.loginLogoUrl} onChange={(v) => update("loginLogoUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="logo" />
               <MediaField label="Login Background Image / Video URL" icon={ImageIcon} hint="Cloudinary image or .mp4 video. A dark scrim auto-applies so text stays readable." value={draft.loginBackgroundUrl} onChange={(v) => update("loginBackgroundUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="bg" video={isVideoUrl(draft.loginBackgroundUrl)} />
               <div className="sm:col-span-2">
                 <label className={labelCls}>Text Readability Scrim: {draft.loginScrimOpacity}%</label>
