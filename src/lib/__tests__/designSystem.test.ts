@@ -86,6 +86,15 @@ describe("login stage", () => {
     expect(login).toContain("auth-book__pages");
   });
 
+  it("supports accessible recovery and clear portal panels", () => {
+    expect(login).toContain("requestPasswordReset");
+    expect(login).toContain('role="tabpanel"');
+    expect(login).toContain('aria-controls="supplier-login-panel"');
+    expect(login).toContain('aria-live="assertive"');
+    expect(login).toContain('t("auth.offlineSignIn")');
+    expect(login).not.toContain("<ArrowRight");
+  });
+
   it("keeps the reduced-motion fallback and the book-page turn", () => {
     expect(css).toContain(".auth-book__pages.is-flipped");
     expect(css).toContain("rotateY(-180deg)");

@@ -50,7 +50,7 @@ Firebase authentication සඳහා පමණක් භාවිත වේ. Bus
 
 ## Login සහ user access වැඩ කරන ආකාරය
 
-Login screen එකේ පසුබිම **Branding & Settings** හි set කරන ලද media එකෙන් තීරණය වේ: `loginBackgroundUrl` එකක් තිබේ නම් එය video එකක් නම් autoplay/loop/muted/playsInline ලෙසත්, නැතිනම් image එකක් ලෙසත් full-bleed (object-cover) ලෙස render වේ. ඒ මත Super Admin `loginScrimOpacity` අගයෙන් readability scrim එකක් සහ depth gradient එකක් යෙදේ. Branding media එකක් set කර නොමැති විට පමණක් generated deep-emerald CSS mesh stage එකක් (drifting light orbs + fine grain) පෙන්වයි. Form එක සැමවිටම **crisp white card** එකක් ලෙස පවතින අතර text පිටුපසින් blur හෝ photography නොයෙදේ; browser autofill කරන fields ද white ලෙසම රැඳේ. Typography සඳහා **Noto Sans + Noto Sans Sinhala + Noto Sans Tamil** පවුල භාවිත වන අතර සිංහල/දෙමළ අකුරුවලට letter-spacing යෙදෙන්නේ නැත.
+Login screen එකේ පසුබිම **Branding & Settings** හි set කරන ලද media එකෙන් තීරණය වේ: `loginBackgroundUrl` එකක් තිබේ නම් එය video එකක් නම් autoplay/loop/muted/playsInline ලෙසත්, නැතිනම් image එකක් ලෙසත් full-bleed (object-cover) ලෙස render වේ. ඒ මත Super Admin `loginScrimOpacity` අගයෙන් readability scrim එකක් සහ depth gradient එකක් යෙදේ. Branding media එකක් set කර නොමැති විට bundled tea-estate photograph එක fallback ලෙස පෙන්වයි. Form එක සැමවිටම **crisp white card** එකක් ලෙස පවතින අතර browser autofill කරන fields ද white ලෙසම රැඳේ. Desktop එකේ editorial split-screen workspace එකක්ද, phone එකේ safe-area-aware full-bleed background එක මත compact form card එකක්ද භාවිත වේ. Typography සඳහා **Noto Sans + Noto Sans Sinhala + Noto Sans Tamil** පවුල භාවිත වන අතර සිංහල/දෙමළ අකුරුවලට letter-spacing යෙදෙන්නේ නැත.
 
 - **Supplier Login** `supplier` role account සඳහා පමණි. වෙනත් approved role credentials මෙහි භාවිත කළොත් Firebase session එක වහාම close කර Staff Login භාවිත කිරීමට message එකක් පෙන්වයි.
 - **Staff Login** approved non-supplier accounts සඳහා පමණි. Supplier credentials මෙහි භාවිත කළොත් session එක close කර Supplier Login භාවිත කිරීමට message එකක් පෙන්වයි.
@@ -60,6 +60,8 @@ Login screen එකේ පසුබිම **Branding & Settings** හි set ක
 - **Staff Login** පැත්ත approved operational සහ administrative staff accounts සඳහා පැහැදිලි පිවිසුම් මුහුණතක් ලබාදෙයි. Staff registration මෙහි නොමැත.
 - පැති දෙකම එකම Firebase email/password authentication function එක භාවිත කරයි.
 - User තෝරන page එකෙන් role එක තීරණය නොවේ. Firebase login පසු Supabase `users` profile එකේ approved role/status අනුව නිවැරදි interface එක ස්වයංක්‍රීයව විවෘත වේ.
+- **Forgot password** ක්‍රියාව `src/lib/passwordReset.ts` හරහා Firebase වෙත reset email එකක් ඉල්ලයි. Unknown/disabled email එකක්දැයි UI එකෙන් හෙළි නොකර එකම privacy-safe success message එක පෙන්වයි. Offline, malformed email සහ rate-limit states පැහැදිලිව පෙන්වන අතර මෙම flow එක role gate හෝ Supabase profile එක වෙනස් නොකරයි.
+- Email/password fields සඳහා explicit labels, Supplier/Staff tabs සඳහා tab/tabpanel semantics, keyboard focus indicators සහ error/success live regions ඇත. Sign-in සහ reset request online connection එකක් අවශ්‍ය කරයි; offline නම් Firebase call එක ආරම්භ නොවේ.
 - Reduced-motion setting සක්‍රීය device එකක 3D animation වෙනුවට motion-free page switch එකක් භාවිත වේ.
 
 ```text

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus, Sprout, UsersRound, BookOpen, ArrowRight, LockOpen, Trees, CloudSun, Package } from "lucide-react";
+import { Leaf, Mail, Lock, LogIn, Eye, EyeOff, ShieldCheck, AlertCircle, Loader2, UserPlus, Sprout, UsersRound, BookOpen, LockOpen, Trees, CloudSun, Package, CheckCircle2 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { registerSupplier, signInWithEmail, signOutFirebase } from "@/lib/auth.hybrid";
 import { readFactories, readRoutes, readUserOperationalProfile, type FactoryOption, type RouteOption } from "@/lib/supplierOperations";
@@ -12,6 +12,7 @@ import { RouteMultiSelect } from "@/components/RouteMultiSelect";
 import { BrandMark } from "@/components/BrandMark";
 import { assertMultiRouteSchemaReady, replaceUserRoutesBestEffort } from "@/lib/userRoutes";
 import { isRoleAllowedForPortal, LOGIN_PORTAL_BLOCKED_UID_KEY, LOGIN_PORTAL_INTENT_KEY, type LoginPortal } from "@/lib/loginPortal";
+import { requestPasswordReset } from "@/lib/passwordReset";
 
 /** The three most valuable supplier capabilities, shown as pills over the photo
     (Stitch-style). Icons mirror the supplier bottom-nav modules so the login
@@ -46,7 +47,9 @@ export function Login() {
   const [showPw, setShowPw] = useState(false);
   const [portal, setPortal] = useState<LoginPortal>("supplier");
   const [busy, setBusy] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetNotice, setResetNotice] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
   const [registrationDone, setRegistrationDone] = useState(false);
   const [registrationWarning, setRegistrationWarning] = useState<string | null>(null);
@@ -69,8 +72,13 @@ export function Login() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setResetNotice(null);
     if (!email.trim() || !password) {
       setError(t("auth.enterEmailPassword"));
+      return;
+    }
+    if (!navigator.onLine) {
+      setError(t("auth.offlineSignIn"));
       return;
     }
     setBusy(true);
@@ -104,6 +112,31 @@ export function Login() {
       setError(err instanceof Error ? err.message : t("auth.signInFailed"));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const resetPassword = async () => {
+    setError(null);
+    setResetNotice(null);
+    const normalizedEmail = email.trim();
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setError(t("auth.resetEmailRequired"));
+      return;
+    }
+    if (!navigator.onLine) {
+      setError(t("auth.offlineReset"));
+      return;
+    }
+
+    setResetBusy(true);
+    try {
+      await requestPasswordReset(normalizedEmail);
+      setResetNotice(t("auth.resetEmailSent"));
+    } catch (resetError: unknown) {
+      const reason = resetError instanceof Error ? resetError.message : "";
+      setError(t(reason === "rate-limit" ? "auth.resetRateLimited" : reason === "network" ? "auth.offlineReset" : "auth.resetFailed"));
+    } finally {
+      setResetBusy(false);
     }
   };
 
@@ -161,12 +194,13 @@ export function Login() {
     setRegistrationDone(false);
     setRegistrationWarning(null);
     setError(null);
+    setResetNotice(null);
     setShowPw(false);
   };
 
   /* ---- Design tokens (Dalu Plus Stitch) ---- */
   const fieldClass = "login-input h-11 lg:h-12 w-full rounded-xl border border-dalu-outline-variant bg-white pl-10 pr-3 text-[15px] font-medium text-dalu-on-surface outline-none transition placeholder:text-dalu-outline focus:border-dalu-primary focus:ring-2 focus:ring-dalu-primary-container disabled:bg-dalu-surface-low";
-  const labelClass = "mb-1 lg:mb-1.5 block text-xs font-semibold text-dalu-on-surface";
+  const labelClass = "mb-1.5 block text-sm font-semibold text-dalu-on-surface";
   const ctaClass = "inline-flex h-11 lg:h-12 w-full items-center justify-center gap-2 rounded-xl bg-dalu-primary text-[14px] font-semibold text-white shadow-sm transition hover:bg-dalu-accent active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60";
   const secondaryCtaClass = "inline-flex min-h-10 lg:min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dalu-outline-variant bg-white px-3 py-2 lg:py-2.5 text-[13px] font-semibold text-dalu-primary transition hover:bg-dalu-primary-container hover:text-dalu-on-primary-container";
 
@@ -183,9 +217,16 @@ export function Login() {
     );
 
   const renderError = () => error ? (
-    <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-700" role="alert">
+    <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm leading-relaxed text-rose-700" role="alert" aria-live="assertive">
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
       <span>{error}</span>
+    </div>
+  ) : null;
+
+  const renderResetNotice = () => resetNotice ? (
+    <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm leading-relaxed text-emerald-800" role="status" aria-live="polite">
+      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{resetNotice}</span>
     </div>
   ) : null;
 
@@ -200,8 +241,8 @@ export function Login() {
             key={feature.labelKey}
             className={
               glass
-                ? "glow-ring min-w-0 rounded-xl border border-white/20 bg-[#11221b]/65 p-2.5 backdrop-blur-md sm:p-3"
-                : "glow-ring min-w-0 rounded-xl border border-white/15 bg-[#11221b]/80 p-3 sm:p-4"
+                ? "min-w-0 rounded-xl border border-white/25 bg-[#11221b]/68 p-2.5 backdrop-blur-md sm:p-3"
+                : "min-w-0 rounded-xl border border-white/20 bg-[#11221b]/78 p-3 sm:p-4"
             }
           >
             <Icon className="h-4 w-4 text-dalu-primary-container" strokeWidth={2} />
@@ -219,42 +260,57 @@ export function Login() {
 
   const renderSignInForm = (kind: "supplier" | "staff", active: boolean) => {
     const staff = kind === "staff";
+    const emailId = `${kind}-email`;
+    const passwordId = `${kind}-password`;
     return (
       <form onSubmit={submit} className="space-y-2.5 lg:space-y-4">
         <div>
-          <label className={labelClass}>{t("auth.emailUsername")}</label>
+          <label htmlFor={emailId} className={labelClass}>{t("auth.emailUsername")}</label>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-dalu-outline" />
             <input
               type="email"
+              id={emailId}
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@kdu.com"
               className={fieldClass}
-              disabled={busy}
+              disabled={busy || resetBusy}
               tabIndex={active ? 0 : -1}
             />
           </div>
         </div>
         <div>
-          <label className={labelClass}>{t("common.password")}</label>
+          <div className="mb-1.5 flex items-center justify-between gap-3">
+            <label htmlFor={passwordId} className="text-sm font-semibold text-dalu-on-surface">{t("common.password")}</label>
+            <button
+              type="button"
+              onClick={resetPassword}
+              disabled={busy || resetBusy}
+              tabIndex={active ? 0 : -1}
+              className="rounded-md px-1 py-0.5 text-xs font-semibold text-dalu-primary underline-offset-4 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dalu-primary focus-visible:ring-offset-2 disabled:opacity-60"
+            >
+              {resetBusy ? t("auth.sendingReset") : t("auth.forgotPassword")}
+            </button>
+          </div>
           <div className="relative">
             <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-dalu-outline" />
             <input
               type={showPw ? "text" : "password"}
+              id={passwordId}
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="••••••••"
               className={`${fieldClass} pr-10`}
-              disabled={busy}
+              disabled={busy || resetBusy}
               tabIndex={active ? 0 : -1}
             />
             <button
               type="button"
               onClick={() => setShowPw((visible) => !visible)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-dalu-outline transition hover:text-dalu-on-surface"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-dalu-outline transition hover:text-dalu-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dalu-primary focus-visible:ring-offset-2"
               tabIndex={active ? 0 : -1}
               aria-label={showPw ? "Hide password" : "Show password"}
             >
@@ -264,17 +320,17 @@ export function Login() {
         </div>
 
         {renderError()}
+        {renderResetNotice()}
 
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || resetBusy}
           tabIndex={active ? 0 : -1}
           className={ctaClass}
           style={staff ? { background: "#0d5c75" } : undefined}
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
           {busy ? t("auth.signingIn") : staff ? t("auth.staffSignIn") : t("auth.supplierSignIn")}
-          {!busy && <ArrowRight className="h-4 w-4" />}
         </button>
       </form>
     );
@@ -314,10 +370,10 @@ export function Login() {
   /** Shared portal switcher (Stitch tabs-with-icon). */
   const renderPortalTabs = () => (
     <div role="tablist" aria-label={t("auth.choosePortal")} className="grid grid-cols-2 gap-1 rounded-xl border border-dalu-outline-variant bg-dalu-surface-container p-1 lg:gap-1.5 lg:p-1.5">
-      <button type="button" role="tab" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[12.5px] font-semibold transition lg:py-2.5 lg:text-[13px] ${portal === "supplier" ? "bg-white text-dalu-primary shadow-sm" : "text-dalu-on-surface-variant hover:text-dalu-on-surface"}`}>
+      <button type="button" role="tab" id="supplier-login-tab" aria-controls="supplier-login-panel" aria-selected={portal === "supplier"} onClick={() => changePortal("supplier")} disabled={busy || resetBusy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dalu-primary focus-visible:ring-offset-2 lg:py-2.5 ${portal === "supplier" ? "bg-white text-dalu-primary shadow-sm" : "text-dalu-on-surface-variant hover:text-dalu-on-surface"}`}>
         <Sprout className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.supplierPortal")}</span>
       </button>
-      <button type="button" role="tab" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[12.5px] font-semibold transition lg:py-2.5 lg:text-[13px] ${portal === "staff" ? "bg-white text-dalu-primary shadow-sm" : "text-dalu-on-surface-variant hover:text-dalu-on-surface"}`}>
+      <button type="button" role="tab" id="staff-login-tab" aria-controls="staff-login-panel" aria-selected={portal === "staff"} onClick={() => changePortal("staff")} disabled={busy || resetBusy} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dalu-primary focus-visible:ring-offset-2 lg:py-2.5 ${portal === "staff" ? "bg-white text-dalu-primary shadow-sm" : "text-dalu-on-surface-variant hover:text-dalu-on-surface"}`}>
         <ShieldCheck className="h-4 w-4 shrink-0" /><span className="truncate">{t("auth.staffPortal")}</span>
       </button>
     </div>
@@ -375,7 +431,7 @@ export function Login() {
       </aside>
 
       {/* ---------- RIGHT: sign-in workspace ---------- */}
-      <main className="relative min-h-[100dvh] bg-dalu-surface lg:col-span-5 lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:p-10 xl:p-12">
+      <main className="relative min-h-[100dvh] bg-dalu-surface lg:col-span-5 lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:px-8 lg:py-8 xl:px-12 xl:py-10">
         {/* Mobile-only full-bleed tea background (branding video/image still wins) */}
         <div className="absolute inset-0 lg:hidden" aria-hidden="true">
           {bgIsVideo ? (
@@ -386,7 +442,7 @@ export function Login() {
           ) : (
             <img src={bgSrc} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#11221b]/75 via-[#11221b]/55 to-[#11221b]/85" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#11221b]/78 via-[#11221b]/58 to-[#11221b]/88" />
           {hasBg && <div className="absolute inset-0 bg-black" style={{ opacity: branding.loginScrimOpacity / 100 }} />}
         </div>
 
@@ -407,19 +463,19 @@ export function Login() {
 
         {/* Mobile hero headline + feature pills (over the photo) —
             tightened so the whole page fits one screen with no scroll. */}
-        <div className="relative z-10 flex-1 px-4 pb-2 pt-3 lg:hidden">
+        <div className="relative z-10 px-4 pb-1.5 pt-2.5 lg:hidden">
           <h1 className="font-display text-[21px] font-bold leading-[1.3] tracking-tight text-white text-balance">
             {t("auth.heroHeadline")}
           </h1>
-          <p className="mt-1 text-[12.5px] font-medium text-dalu-primary-container">{t("auth.heroSubheadlineMobile")}</p>
+          <p className="mt-1 text-sm font-medium text-dalu-primary-container">{t("auth.heroSubheadlineMobile")}</p>
           <div className="mt-2">{renderFeaturePills(true)}</div>
         </div>
 
         {/* Desktop headline block (right panel, above form) */}
         <div className="hidden lg:block" />
-        <div className="login-safe-bottom relative z-10 mx-auto w-full max-w-md flex-1 px-4 pt-2 lg:max-w-md lg:px-0 lg:py-10">
+        <div className="login-safe-bottom relative z-10 mx-auto w-full max-w-md flex-1 px-4 pt-1.5 lg:flex lg:max-w-lg lg:flex-col lg:justify-center lg:px-0 lg:py-8">
           <div className="hidden flex-col gap-1.5 lg:flex">
-            <span className="text-xs font-bold uppercase tracking-wide text-dalu-primary">{t("auth.portalEyebrow")}</span>
+            <span className="text-sm font-bold uppercase tracking-wide text-dalu-primary">{t(portal === "supplier" ? "auth.supplierPortal" : "auth.staffPortal")}</span>
             <h2 className="font-display text-[34px] font-bold leading-tight tracking-tight text-dalu-on-surface">
               {t("auth.signInToAccount")}
             </h2>
@@ -429,7 +485,7 @@ export function Login() {
           <div className="mt-1 lg:hidden" />
 
           {/* White form card */}
-          <div className="glow-ring glow-ring--spin glow-halo mt-2 rounded-3xl border border-white/60 bg-white/95 p-3.5 backdrop-blur-md lg:mt-6 lg:rounded-3xl lg:border-dalu-outline-variant lg:bg-white lg:p-6">
+          <div className="login-card mt-2 rounded-3xl border border-white/70 bg-white/95 p-3.5 shadow-2xl shadow-black/15 backdrop-blur-md lg:mt-6 lg:rounded-3xl lg:border-dalu-outline-variant lg:bg-white lg:p-7 lg:shadow-xl lg:shadow-emerald-950/10">
             {/* Mobile card header (Stitch: eyebrow + title + lock chip) */}
             <div className="mb-2.5 flex items-center justify-between gap-3 lg:hidden">
               <div>
@@ -446,14 +502,14 @@ export function Login() {
             {renderPortalTabs()}
 
             <div className={`auth-book__pages mt-3 lg:mt-4 ${portal === "staff" ? "is-flipped" : ""}`}>
-              <section className="auth-book__page auth-book__page--front" aria-hidden={portal !== "supplier"}>
+              <section id="supplier-login-panel" role="tabpanel" aria-labelledby="supplier-login-tab" className="auth-book__page auth-book__page--front" aria-hidden={portal !== "supplier"}>
                 {registering ? renderRegistrationForm() : renderSignInForm("supplier", portal === "supplier")}
                 <button type="button" onClick={() => { setRegistering(value => !value); setError(null); setRegistrationDone(false); setRegistrationWarning(null); setShowPw(false); }} tabIndex={portal === "supplier" ? 0 : -1} className={`mt-2 ${secondaryCtaClass}`}>
                   {registering ? <BookOpen className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />} {registering ? t("auth.backToSignIn") : t("auth.newSupplier")}
                 </button>
               </section>
 
-              <section className="auth-book__page auth-book__page--back" aria-hidden={portal !== "staff"}>
+              <section id="staff-login-panel" role="tabpanel" aria-labelledby="staff-login-tab" className="auth-book__page auth-book__page--back" aria-hidden={portal !== "staff"}>
                 {renderSignInForm("staff", portal === "staff")}
                 <div className="mt-4 flex items-start gap-2 rounded-xl border border-dalu-outline-variant bg-dalu-secondary-container/60 p-3 text-[11.5px] leading-relaxed text-dalu-on-secondary-container">
                   <UsersRound className="mt-0.5 h-4 w-4 shrink-0" /><span>{t("auth.staffRolesHint")}</span>

@@ -238,6 +238,13 @@ video {
     isolation: isolate;
   }
 
+  .login-card {
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 22px 56px -28px rgba(4, 120, 87, 0.38),
+      0 14px 28px -22px rgba(17, 34, 27, 0.34);
+  }
+
   /* iPhone notch / Dynamic Island: push the brand row + form card clear of the
      top/bottom safe areas (status bar is black-translucent, page renders under
      it). Scoped to <1024px so the desktop split-screen layout is unaffected. */
@@ -246,7 +253,7 @@ video {
       padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem) !important;
     }
     .login-safe-bottom {
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.25rem) !important;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem) !important;
     }
   }
   .auth-book {

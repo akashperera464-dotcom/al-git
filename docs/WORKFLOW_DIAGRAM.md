@@ -3140,6 +3140,14 @@ Run `docs/migration_phase3_round10.sql` in Supabase SQL Editor. It creates and s
 - Removed the role-list, account-creation and Firebase/Supabase informational sentences from the login screen.
 - Authentication behavior, supplier registration and language selection remain unchanged.
 
+### Login UX and recovery hardening — November 2026
+
+- Supplier/Staff portal tabs now expose explicit `tab` → `tabpanel` relationships, visible keyboard focus states and correctly associated form labels.
+- The primary sign-in action uses one clear login icon; the redundant trailing arrow was removed.
+- `src/lib/passwordReset.ts` owns Firebase password-reset requests without changing the established `auth.hybrid.ts` sign-in/role-resolution pipeline.
+- Reset responses are account-enumeration safe: known, unknown and disabled accounts receive the same public success copy. Invalid email, offline and rate-limit conditions use distinct user-facing states.
+- Desktop uses a wider, vertically balanced form workspace. Mobile retains notch/home-indicator safe areas while using tighter vertical spacing, a consistent background scrim and a quieter single-border card treatment.
+
 ---
 
 ## 38. Login Language Selector Position
