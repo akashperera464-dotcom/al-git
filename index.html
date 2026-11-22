@@ -24,8 +24,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Sinhala:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      as="style"
+      onload="this.onload=null;this.rel='stylesheet'"
     />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Sinhala:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap" /></noscript>
     <title>Dalu Plus · Tea Estate Supplier Management Platform</title>
   </head>
   <body>
@@ -107,17 +110,13 @@
         }, true);
         // Vite emits this when a preloaded chunk 404s after a deploy.
         window.addEventListener("vite:preloadError", function () { recover(true); });
-        // Cold-cache first load after a deploy re-downloads every chunk — slow
-        // networks routinely exceed 15s. Nudge the user first, and only attempt
-        // gated recovery at 30s (React mounts long before that on warm loads).
+        // ONLY real failures wipe: script error / preload error. A slow load
+        // must never be restarted — wiping mid-download restarts the whole
+        // bundle fetch, which is exactly what made the loader look stuck.
         setTimeout(function () {
           var root = document.getElementById("root");
-          if (root && root.querySelector("#boot-splash") && status) status.textContent = "Still loading… slow connection";
-        }, 15000);
-        setTimeout(function () {
-          var root = document.getElementById("root");
-          if (root && root.querySelector("#boot-splash")) { showRecovery("Taking longer than usual…"); recover(true); }
-        }, 30000);
+          if (root && root.querySelector("#boot-splash")) { showRecovery("Still loading… slow connection. Keep waiting, or tap Reload."); }
+        }, 20000);
         // Successful mount: clear the ledger so future deploys get fresh retries.
         setTimeout(function () {
           var root = document.getElementById("root");
