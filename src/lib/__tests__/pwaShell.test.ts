@@ -42,6 +42,10 @@ describe("iPhone PWA shell", () => {
     expect(mark.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
     expect(mark.readUInt32BE(16)).toBe(512);
     expect(mark.readUInt32BE(20)).toBe(512);
+    // The login hero uses the full horizontal lockup (names baked in).
+    const lockup = readFileSync(resolve(process.cwd(), "public/branding/dalu-plus-lockup.png"));
+    expect(lockup.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    expect(lockup.readUInt32BE(16) / lockup.readUInt32BE(20)).toBeGreaterThan(2); // wider than tall
   });
 
   it("defaults the branding to the official Dalu Plus identity", () => {
@@ -50,7 +54,7 @@ describe("iPhone PWA shell", () => {
     expect(DEFAULT_BRANDING.companyName).toBe("Dalu Plus");
     expect(DEFAULT_BRANDING.companyTagline).toBe("Powered by KDU Group");
     expect(DEFAULT_BRANDING.companyLogoUrl).toBe("/branding/dalu-plus-mark.png");
-    expect(DEFAULT_BRANDING.loginLogoUrl).toBe("/branding/dalu-plus-mark.png");
+    expect(DEFAULT_BRANDING.loginLogoUrl).toBe("/branding/dalu-plus-lockup.png");
     // Legacy stored values migrate to the new defaults…
     const legacy = migrateLegacyBranding({
       ...DEFAULT_BRANDING,
@@ -66,7 +70,7 @@ describe("iPhone PWA shell", () => {
     expect(legacy.loginTitle).toBe("Dalu Plus");
     expect(legacy.loginSubtitle).toBe("Powered by KDU Group");
     expect(legacy.companyLogoUrl).toBe("/branding/dalu-plus-mark.png");
-    expect(legacy.loginLogoUrl).toBe("/branding/dalu-plus-mark.png");
+    expect(legacy.loginLogoUrl).toBe("/branding/dalu-plus-lockup.png");
     // …while deliberately configured branding is preserved.
     const custom = migrateLegacyBranding({
       ...DEFAULT_BRANDING,
@@ -96,9 +100,21 @@ describe("iPhone PWA shell", () => {
     expect(live.companyTagline).toBe("Powered by KDU Group");
     expect(live.loginSubtitle).toBe("Powered by KDU Group");
     expect(live.companyLogoUrl).toBe("/branding/dalu-plus-mark.png");
-    expect(live.loginLogoUrl).toBe("/branding/dalu-plus-mark.png");
+    expect(live.loginLogoUrl).toBe("/branding/dalu-plus-lockup.png");
     // supplier logo falls back to blank → inherits the company mark
     expect(live.supplierCompanyLogoUrl).toBe("");
+  });
+
+  it("migrates a stored mark-path login logo to the full lockup default", () => {
+    // Devices that already stored the pre-lockup default (mark) for the login
+    // hero must migrate to the lockup; the company header keeps the mark.
+    const stored = migrateLegacyBranding({
+      ...DEFAULT_BRANDING,
+      companyLogoUrl: "/branding/dalu-plus-mark.png",
+      loginLogoUrl: "/branding/dalu-plus-mark.png",
+    });
+    expect(stored.companyLogoUrl).toBe("/branding/dalu-plus-mark.png");
+    expect(stored.loginLogoUrl).toBe("/branding/dalu-plus-lockup.png");
   });
 
   it("does not let an old service worker hide a newly deployed app shell", () => {

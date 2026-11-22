@@ -81,10 +81,12 @@ registerRoute(
 );
 
 // Images and fonts are content-stable across releases and safe to cache.
+// v4: branding artwork rebuild (tight mark + unclipped lockup) — the old
+// verda-media-v3 cache would keep serving the clipped lockup for 30 days.
 registerRoute(
   ({ request }) => ["image", "font"].includes(request.destination),
   new CacheFirst({
-    cacheName: "verda-media-v3",
+    cacheName: "verda-media-v4",
     plugins: [new ExpirationPlugin({ maxAgeSeconds: 30 * 24 * 60 * 60, maxEntries: 250 })],
   })
 );
@@ -110,7 +112,7 @@ self.addEventListener("activate", (event) => {
   // how a released shell keeps requesting chunk hashes that no longer exist —
   // which is what turned a deployment into a white screen.
   event.waitUntil((async () => {
-    const CURRENT = new Set(["verda-supabase-api", "verda-navigation-v2", "verda-code-v3", "verda-media-v3"]);
+    const CURRENT = new Set(["verda-supabase-api", "verda-navigation-v2", "verda-code-v3", "verda-media-v4"]);
     const names = await caches.keys();
     await Promise.all(
       names.filter((name) => name.startsWith("verda-") && !CURRENT.has(name)).map((name) => caches.delete(name)),

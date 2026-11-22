@@ -38,13 +38,17 @@ export const DEFAULT_BRANDING: Branding = {
   companyTagline: "Powered by KDU Group",
   // Bundled official artwork (public/branding/). Root-relative paths are
   // accepted by isMediaUrl, so the default works offline & in the Expo shell.
+  // companyLogoUrl = square mark for the 40px app-header badge (name renders
+  // as text beside it); loginLogoUrl = full horizontal lockup (mark + "Dalu
+  // Plus" + "Powered by KDU Group") so the login hero shows the official
+  // artwork with the names baked in, exactly as supplied.
   companyLogoUrl: "/branding/dalu-plus-mark.png",
   supplierCompanyName: "",
   supplierCompanyTagline: "",
   supplierCompanyLogoUrl: "",
   loginTitle: "Dalu Plus",
   loginSubtitle: "Powered by KDU Group",
-  loginLogoUrl: "/branding/dalu-plus-mark.png",
+  loginLogoUrl: "/branding/dalu-plus-lockup.png",
   loginBackgroundUrl: "",
   loginScrimOpacity: 70,
   accentColor: "#10b981",
@@ -62,7 +66,7 @@ export const DEFAULT_BRANDING: Branding = {
  * new official defaults on read, so every device shows the crisp bundled mark
  * without a DB write — while anything set deliberately afterwards is kept.
  */
-/** Logo sources that must resolve to the bundled official mark. */
+/** Logo sources that must resolve to the bundled official artwork. */
 const LEGACY_LOGO_VALUES = new Set([
   // Paths that used to ship in /public but are gone with the old artwork.
   "/dalu-plus-source.png",
@@ -78,8 +82,14 @@ const LEGACY_LOGO_VALUES = new Set([
   "/kdu-logo.png",
   "/kdu-icon-1024.png",
   "/logo.svg",
-  // The full lockup JPEG the Super Admin uploaded to Cloudinary — same
-  // artwork, now bundled pre-trimmed (mark / lockup) for clear rendering.
+  // The mark was previously also the login default; the login hero now uses
+  // the full horizontal lockup (names baked in). Mapping it here migrates
+  // stored login rows to the lockup — for companyLogoUrl it is a no-op
+  // (DEFAULT_BRANDING.companyLogoUrl is the same mark path).
+  "/branding/dalu-plus-mark.png",
+  // The first manual configuration stored the full lockup JPEG (white margins,
+  // names baked in — unreadable when force-cropped into a small badge) on
+  // Cloudinary. Same artwork is now bundled pre-trimmed for clear rendering.
   "https://res.cloudinary.com/dhd06wdov/image/upload/v1795158484/image_e40f48c1_anlnnz.jpg",
 ]);
 
