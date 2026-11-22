@@ -51,20 +51,41 @@
     </div>
     <script>
       (function () {
-        var KEY = "kdu.boot.recovery";
+        var KEY = "kdu.boot.recovery"; // JSON ledger {count,last} of auto-recoveries
+        var MAX_AUTO = 3, COOLDOWN = 30000;
         var splash = document.getElementById("boot-splash");
         var status = document.getElementById("boot-status");
         var button = document.getElementById("boot-recover");
+        function ledger() {
+          try {
+            var v = JSON.parse(sessionStorage.getItem(KEY));
+            if (v && typeof v.count === "number" && typeof v.last === "number") return v;
+          } catch (e) {}
+          return { count: 0, last: 0 };
+        }
+        function canAuto() {
+          var l = ledger();
+          return l.count < MAX_AUTO && Date.now() - l.last > COOLDOWN;
+        }
         function showRecovery(message) {
           if (!splash) return;
           if (status) status.textContent = message;
           if (button) button.style.display = "inline-block";
         }
         function recover(auto) {
-          try {
-            if (auto && sessionStorage.getItem(KEY) === "1") { showRecovery("Please close other tabs or reload manually."); return; }
-            if (auto) sessionStorage.setItem(KEY, "1");
-          } catch (e) {}
+          // Auto-recovery is rate-limited: the first reload after a deploy is a
+          // fully COLD load (worker unregistered, every cache wiped), and on
+          // mobile data it can take 20-30s to re-download the bundle. A dead
+          // "close other tabs" message while the page is still downloading is
+          // exactly what looked like a stuck loader — so allow up to MAX_AUTO
+          // gated attempts, keep the manual button always available.
+          if (auto && !canAuto()) { showRecovery("Tap \"Reload the latest version\" below."); return; }
+          if (auto) {
+            var l = ledger();
+            l.count += 1;
+            l.last = Date.now();
+            try { sessionStorage.setItem(KEY, JSON.stringify(l)); } catch (e) {}
+          }
           var tasks = [];
           if ("serviceWorker" in navigator) {
             tasks.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
@@ -86,11 +107,18 @@
         }, true);
         // Vite emits this when a preloaded chunk 404s after a deploy.
         window.addEventListener("vite:preloadError", function () { recover(true); });
-        // If React has not mounted in 12s, the shell is stale: recover once.
+        // Cold-cache first load after a deploy re-downloads every chunk — slow
+        // networks routinely exceed 15s. Nudge the user first, and only attempt
+        // gated recovery at 30s (React mounts long before that on warm loads).
+        setTimeout(function () {
+          var root = document.getElementById("root");
+          if (root && root.querySelector("#boot-splash") && status) status.textContent = "Still loading… slow connection";
+        }, 15000);
         setTimeout(function () {
           var root = document.getElementById("root");
           if (root && root.querySelector("#boot-splash")) { showRecovery("Taking longer than usual…"); recover(true); }
-        }, 12000);
+        }, 30000);
+        // Successful mount: clear the ledger so future deploys get fresh retries.
         setTimeout(function () {
           var root = document.getElementById("root");
           if (root && !root.querySelector("#boot-splash")) { try { sessionStorage.removeItem(KEY); } catch (e) {} }
