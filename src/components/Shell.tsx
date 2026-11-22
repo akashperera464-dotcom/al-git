@@ -20,6 +20,7 @@ import { cn } from "@/utils/cn";
 import { useApp } from "@/context/AppContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { BrandMark } from "@/components/BrandMark";
 import { Onboarding } from "@/components/Onboarding";
 import { useBranding, isMediaUrl } from "@/lib/branding";
 import { resolveShellBrandIdentity } from "@/lib/brandIdentity";
@@ -41,18 +42,18 @@ function Brand({ compact }: { compact?: boolean }) {
   const lightMode = role === "supplier";
   return (
     <div className="flex items-center gap-2.5">
-      {/* 40px badge (was 36) — mark-first lockup, same as the login page. */}
-      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm">
-        {/* The default logo (/branding/dalu-plus-mark.png) is the official
-            mark pre-trimmed to square with transparent corners, so plain
-            object-cover fills the badge crisply. A custom Brandings URL is
-            rendered the same predictable way. */}
-        {logo ? (
-          <img src={identity.logoUrl} alt={`${identity.name} logo`} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        ) : (
+      {/* 40px badge (was 36) — mark-first lockup, same as the login page.
+          The bundled default mark floats free via BrandMark: its own rounded
+          shape has transparent corners and the old white plate showed through
+          as a white rim on the dark drawer/sidebar/app bar. Custom Brandings
+          URLs keep the white chip for legibility. */}
+      {logo ? (
+        <BrandMark url={identity.logoUrl} size={40} alt={`${identity.name} logo`} />
+      ) : (
+        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm">
           <Leaf className="h-6 w-6 text-dalu-primary" style={{ fill: "currentColor" }} />
-        )}
-      </span>
+        </span>
+      )}
       {!compact && (
         <div className="min-w-0 leading-tight">
           <p className={cn("truncate font-display text-[15px] font-bold tracking-tight", lightMode ? "text-dalu-on-surface" : "text-white")}>{identity.name}</p>

@@ -9,6 +9,7 @@ import { useBranding, isMediaUrl, isVideoUrl } from "@/lib/branding";
 import { useTranslation } from "react-i18next";
 import { validateRegistration, withTimeout, REGISTRATION_FIREBASE_TIMEOUT_MS, REGISTRATION_STEP_TIMEOUT_MS, REGISTRATION_UI_STUCK_TIMEOUT_MS } from "@/lib/registrationHardening";
 import { RouteMultiSelect } from "@/components/RouteMultiSelect";
+import { BrandMark } from "@/components/BrandMark";
 import { assertMultiRouteSchemaReady, replaceUserRoutesBestEffort } from "@/lib/userRoutes";
 import { isRoleAllowedForPortal, LOGIN_PORTAL_BLOCKED_UID_KEY, LOGIN_PORTAL_INTENT_KEY, type LoginPortal } from "@/lib/loginPortal";
 
@@ -324,18 +325,18 @@ export function Login() {
 
   const brandLockup = (compact: boolean) => (
     <div className="flex min-w-0 items-center gap-3">
-      {/* 72/54 badge + the brand name beside it (user-preferred look): the
-          default /branding/dalu-plus-mark.png is pre-trimmed to a square with
-          transparent corners, so plain object-cover fills the badge crisply
-          and "Dalu Plus / Powered by KDU Group" renders as live text next to
-          it. A custom Brandings URL renders the same predictable way. */}
-      <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5" style={{ width: compact ? 54 : 72, height: compact ? 54 : 72 }}>
-        {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
-          <img src={branding.loginLogoUrl} alt="logo" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        ) : (
+      {/* 72/54 badge + the brand name beside it (user-preferred look). The
+          bundled default mark floats free via BrandMark: its own rounded
+          shape has transparent corners, and the old white plate showed
+          through those corners as an uneven white rim on the dark hero.
+          Custom Brandings URLs keep the white chip for legibility. */}
+      {branding.loginLogoUrl && isMediaUrl(branding.loginLogoUrl) ? (
+        <BrandMark url={branding.loginLogoUrl} size={compact ? 54 : 72} />
+      ) : (
+        <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5" style={{ width: compact ? 54 : 72, height: compact ? 54 : 72 }}>
           <Leaf className={compact ? "h-7 w-7 text-dalu-primary" : "h-9 w-9 text-dalu-primary"} style={{ fill: "currentColor" }} />
-        )}
-      </span>
+        </span>
+      )}
       <div className="min-w-0">
         <p className={compact ? "truncate font-display text-[16px] font-bold leading-tight text-white" : "truncate font-display text-[18px] font-bold leading-tight text-white"}>{branding.companyName || t("common.appName")}</p>
         <p className={compact ? "truncate text-[12px] font-medium text-dalu-primary-container" : "truncate text-[12.5px] font-medium text-dalu-primary-container"}>{branding.loginSubtitle || t("auth.platformSubtitle")}</p>
