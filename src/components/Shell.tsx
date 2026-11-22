@@ -42,18 +42,15 @@ function Brand({ compact }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
       {/* 40px badge (was 36) — mark-first lockup, same as the login page. */}
-      <span className={cn(
-        "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg shadow-sm",
-        lightMode ? "bg-dalu-primary" : "bg-white",
-      )}>
-        {/* Same zoom treatment as the login lockup: the logo file's baked-in
-            white margin + wordmark band get cropped (scale 1.55, origin tuned
-            to the mark's position in the file) so the mark fills the badge instead of reading as
-            a small icon lost in a white square. */}
+      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm">
+        {/* The default logo (/branding/dalu-plus-mark.png) is the official
+            mark pre-trimmed to square with transparent corners, so plain
+            object-cover fills the badge crisply. A custom Brandings URL is
+            rendered the same predictable way. */}
         {logo ? (
-          <img src={identity.logoUrl} alt={`${identity.name} logo`} className="h-full w-full scale-[1.55] origin-[47.5%_20.7%] object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <img src={identity.logoUrl} alt={`${identity.name} logo`} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <Leaf className={cn("h-6 w-6", lightMode ? "text-dalu-on-primary" : "text-dalu-primary")} style={{ fill: "currentColor" }} />
+          <Leaf className="h-6 w-6 text-dalu-primary" style={{ fill: "currentColor" }} />
         )}
       </span>
       {!compact && (
@@ -330,6 +327,7 @@ function SidebarContent() {
 function AdminShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const { activeModule, isAuthenticated, signOut, estates } = useApp();
+  const { branding } = useBranding();
   const [drawer, setDrawer] = useState(false);
   const current = MODULES.find((m) => m.key === activeModule);
   const weatherEstate = estates.find((estate) => estate.latitude !== undefined && estate.longitude !== undefined) ?? estates[0];
@@ -362,7 +360,7 @@ function AdminShell({ children }: { children: ReactNode }) {
             <Menu className="h-5 w-5" />
           </button>
           <div className="min-w-0 flex-1 lg:flex-none">
-            <p className="hidden text-[11px] font-medium text-slate-400 md:block">Estate Pulse</p>
+            <p className="hidden text-[11px] font-medium text-slate-400 md:block">{branding.companyName}</p>
             <h1 className="truncate font-display text-sm font-bold tracking-tight text-slate-900 sm:text-base md:text-lg">{current ? moduleLabel(t, current.key) : t("common.home")}</h1>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">

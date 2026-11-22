@@ -17,7 +17,7 @@ export function resolveShellBrandIdentity(branding: Branding, role: Role): Shell
   return {
     name: (isSupplierBrand ? branding.supplierCompanyName : branding.companyName).trim()
       || branding.companyName.trim()
-      || "Estate Pulse",
+      || "Dalu Plus",
     tagline: (isSupplierBrand ? branding.supplierCompanyTagline : branding.companyTagline).trim()
       || branding.companyTagline.trim(),
     logoUrl: (isSupplierBrand ? branding.supplierCompanyLogoUrl : branding.companyLogoUrl).trim()

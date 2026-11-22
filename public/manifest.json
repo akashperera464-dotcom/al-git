@@ -1,6 +1,6 @@
 {
-  "name": "Estate Pulse · Integrated Tea Estate ERP Platform",
-  "short_name": "Estate Pulse",
+  "name": "Dalu Plus · Tea Estate Supplier Management Platform",
+  "short_name": "Dalu Plus",
   "description": "Offline-first PWA for tea estates, field supervisors and VVIP green-leaf suppliers.",
   "id": "/",
   "start_url": "/",
@@ -16,7 +16,7 @@
   "icons": [
     { "src": "/dalu-plus-pwa-192-v2.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/dalu-plus-pwa-512-v2.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/dalu-plus-pwa-512-v2.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/dalu-plus-pwa-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     { "name": "Estate Dashboard", "url": "/?m=dashboard" },

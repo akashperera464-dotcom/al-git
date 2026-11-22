@@ -34,15 +34,17 @@ export interface Branding {
 }
 
 export const DEFAULT_BRANDING: Branding = {
-  companyName: "Estate Pulse",
-  companyTagline: "Supplier Management System",
-  companyLogoUrl: "",
+  companyName: "Dalu Plus",
+  companyTagline: "Powered by KDU Group",
+  // Bundled official artwork (public/branding/). Root-relative paths are
+  // accepted by isMediaUrl, so the default works offline & in the Expo shell.
+  companyLogoUrl: "/branding/dalu-plus-mark.png",
   supplierCompanyName: "",
   supplierCompanyTagline: "",
   supplierCompanyLogoUrl: "",
-  loginTitle: "Estate Pulse",
-  loginSubtitle: "Tea Estate Supplier Management Platform",
-  loginLogoUrl: "",
+  loginTitle: "Dalu Plus",
+  loginSubtitle: "Powered by KDU Group",
+  loginLogoUrl: "/branding/dalu-plus-mark.png",
   loginBackgroundUrl: "",
   loginScrimOpacity: 70,
   accentColor: "#10b981",
@@ -50,6 +52,73 @@ export const DEFAULT_BRANDING: Branding = {
   officeLorryTrackingUpdatedAt: "",
   officeLorryTrackingUpdatedBy: "",
 };
+
+/**
+ * One-time migration: branding rows saved before the official Dalu Plus
+ * artwork existed carry the old "Estate Pulse" defaults (and/or blank or
+ * now-removed logo paths), and the first manual attempt stored the full
+ * lockup JPEG (white margins + baked-in names — unreadable in a 40px badge)
+ * under a reversed name/tagline pair. Those legacy values are swapped for the
+ * new official defaults on read, so every device shows the crisp bundled mark
+ * without a DB write — while anything set deliberately afterwards is kept.
+ */
+/** Logo sources that must resolve to the bundled official mark. */
+const LEGACY_LOGO_VALUES = new Set([
+  // Paths that used to ship in /public but are gone with the old artwork.
+  "/dalu-plus-source.png",
+  "/dalu-plus-icon-1024.png",
+  "/dalu-plus-icon-512.png",
+  "/dalu-plus-icon-192.png",
+  "/dalu-plus-icon-180.png",
+  "/dalu-plus-pwa-192-v2.png",
+  "/dalu-plus-pwa-512-v2.png",
+  "/apple-touch-icon.png",
+  "/apple-touch-icon-v2.png",
+  "/apple-touch-icon-precomposed.png",
+  "/kdu-logo.png",
+  "/kdu-icon-1024.png",
+  "/logo.svg",
+  // The full lockup JPEG the Super Admin uploaded to Cloudinary — same
+  // artwork, now bundled pre-trimmed (mark / lockup) for clear rendering.
+  "https://res.cloudinary.com/dhd06wdov/image/upload/v1795158484/image_e40f48c1_anlnnz.jpg",
+]);
+
+/** Legacy text values (old defaults + the first manual configuration). */
+const LEGACY_TEXT_MAP: Record<"companyName" | "companyTagline" | "loginTitle" | "loginSubtitle", ReadonlySet<string>> = {
+  companyName: new Set(["Estate Pulse", "KDU GROUP"]),
+  loginTitle: new Set(["Estate Pulse", "KDU GROUP"]),
+  companyTagline: new Set(["Supplier Management System"]),
+  loginSubtitle: new Set(["Tea Estate Supplier Management Platform"]),
+};
+
+/**
+ * Fake-bold-Unicode text (Mathematical Alphanumeric Symbols, U+1D400–U+1D7FF)
+ * typed into the tagline/subtitle fields of the first manual configuration.
+ * Any value containing those characters is migrated to the official text.
+ */
+const FAKE_BOLD_UNICODE = /[\u{1D400}-\u{1D7FF}]/u;
+
+export function migrateLegacyBranding(b: Branding): Branding {
+  const out = { ...b };
+  for (const key of ["companyName", "companyTagline", "loginTitle", "loginSubtitle"] as const) {
+    if (LEGACY_TEXT_MAP[key].has((out[key] ?? "").trim())) {
+      out[key] = DEFAULT_BRANDING[key];
+    }
+  }
+  // Fake-bold-Unicode tagline on either text slot.
+  for (const key of ["companyTagline", "loginSubtitle"] as const) {
+    if (FAKE_BOLD_UNICODE.test(out[key] ?? "")) out[key] = DEFAULT_BRANDING[key];
+  }
+  for (const key of ["companyLogoUrl", "loginLogoUrl"] as const) {
+    const v = (out[key] ?? "").trim();
+    if (!v || LEGACY_LOGO_VALUES.has(v)) out[key] = DEFAULT_BRANDING[key];
+  }
+  // Supplier logo: legacy sources reset to blank so it inherits the company mark.
+  if (LEGACY_LOGO_VALUES.has((out.supplierCompanyLogoUrl ?? "").trim())) {
+    out.supplierCompanyLogoUrl = "";
+  }
+  return out;
+}
 
 const CACHE_KEY = "estate_pulse.branding.cache";
 // Legacy cache key from before the Estate Pulse rebrand. We fall back to
@@ -77,11 +146,11 @@ function readCache(): Branding | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
-    if (raw) return { ...DEFAULT_BRANDING, ...(JSON.parse(raw) as Partial<Branding>) };
+    if (raw) return migrateLegacyBranding({ ...DEFAULT_BRANDING, ...(JSON.parse(raw) as Partial<Branding>) });
     // Fall back to legacy cache (pre-rebrand key)
     const legacyRaw = window.localStorage.getItem(LEGACY_CACHE_KEY);
     if (legacyRaw) {
-      const legacy = { ...DEFAULT_BRANDING, ...(JSON.parse(legacyRaw) as Partial<Branding>) };
+      const legacy = migrateLegacyBranding({ ...DEFAULT_BRANDING, ...(JSON.parse(legacyRaw) as Partial<Branding>) });
       // Migrate: write to new cache so we don't need the legacy lookup next time.
       try { window.localStorage.setItem(CACHE_KEY, JSON.stringify(legacy)); } catch { /* ignore */ }
       return legacy;
@@ -118,7 +187,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
         const data = await readBrandingFromDb();
         if (!active) return;
         if (data && Object.keys(data).length) {
-          const merged = { ...DEFAULT_BRANDING, ...(data as Partial<Branding>) };
+          const merged = migrateLegacyBranding({ ...DEFAULT_BRANDING, ...(data as Partial<Branding>) });
           setBrandingState(merged);
           writeCache(merged);
           setSource("database");
@@ -176,8 +245,10 @@ export function useBranding(): BrandingContextValue {
 
 /* ----------------------------- helpers ----------------------------- */
 
+/** HTTP(S) URLs, data: images and same-origin bundled assets ("/branding/…"). */
 export function isMediaUrl(url: string): boolean {
-  return /^https?:\/\//i.test(url.trim()) || /^data:image\//i.test(url.trim());
+  const v = url.trim();
+  return /^https?:\/\//i.test(v) || /^data:image\//i.test(v) || /^\//.test(v);
 }
 
 export function isCloudinary(url: string): boolean {

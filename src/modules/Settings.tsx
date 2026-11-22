@@ -40,7 +40,7 @@ export default function Settings() {
   const reset = async () => {
     setDraft(DEFAULT_BRANDING);
     const ok = await resetBranding();
-    notify({ title: ok ? "Branding reset" : "Reset failed", body: ok ? "Restored to default Estate Pulse branding." : syncError ?? "DB error", tone: ok ? "amber" : "rose", channel: "system" });
+    notify({ title: ok ? "Branding reset" : "Reset failed", body: ok ? "Restored to the default Dalu Plus branding." : syncError ?? "DB error", tone: ok ? "amber" : "rose", channel: "system" });
   };
 
   const toggleOfficeLorryTracking = async () => {
@@ -96,14 +96,14 @@ export default function Settings() {
               <h3 className="font-display text-sm font-bold text-slate-800">Company / App Shell</h3>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <MediaField label="Company Logo URL" icon={ImageIcon} hint="Cloudinary image. Shown in app headers. Empty = default leaf badge." value={draft.companyLogoUrl} onChange={(v) => update("companyLogoUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="logo" />
+              <MediaField label="Company Logo URL" icon={ImageIcon} hint="Shown in app headers. Empty = the built-in Dalu Plus mark. Paste a Cloudinary (or any CDN) URL to override it." value={draft.companyLogoUrl} onChange={(v) => update("companyLogoUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="logo" />
               <div className="sm:col-span-1">
                 <label className={labelCls}>Company Name</label>
-                <input value={draft.companyName} onChange={(e) => update("companyName", e.target.value)} className={inputCls} placeholder="Estate Pulse" />
+                <input value={draft.companyName} onChange={(e) => update("companyName", e.target.value)} className={inputCls} placeholder="Dalu Plus" />
               </div>
               <div className="sm:col-span-1">
                 <label className={labelCls}>Tagline</label>
-                <input value={draft.companyTagline} onChange={(e) => update("companyTagline", e.target.value)} className={inputCls} placeholder="Tea Estate ERP" />
+                <input value={draft.companyTagline} onChange={(e) => update("companyTagline", e.target.value)} className={inputCls} placeholder="Powered by KDU Group" />
               </div>
             </div>
           </Card>
@@ -121,11 +121,11 @@ export default function Settings() {
               <MediaField label="Supplier Portal Logo URL" icon={ImageIcon} hint="Logo shown in the supplier mobile header. Leave blank to inherit the company logo." value={draft.supplierCompanyLogoUrl} onChange={(v) => update("supplierCompanyLogoUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="logo" />
               <div>
                 <label className={labelCls}>Supplier Portal Company Name</label>
-                <input value={draft.supplierCompanyName} onChange={(e) => update("supplierCompanyName", e.target.value)} className={inputCls} placeholder={draft.companyName || "Estate Pulse"} />
+                <input value={draft.supplierCompanyName} onChange={(e) => update("supplierCompanyName", e.target.value)} className={inputCls} placeholder={draft.companyName || "Dalu Plus"} />
               </div>
               <div>
                 <label className={labelCls}>Supplier Portal Tagline</label>
-                <input value={draft.supplierCompanyTagline} onChange={(e) => update("supplierCompanyTagline", e.target.value)} className={inputCls} placeholder={draft.companyTagline || "Supplier Management System"} />
+                <input value={draft.supplierCompanyTagline} onChange={(e) => update("supplierCompanyTagline", e.target.value)} className={inputCls} placeholder={draft.companyTagline || "Powered by KDU Group"} />
               </div>
             </div>
           </Card>
@@ -139,13 +139,13 @@ export default function Settings() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelCls}><Type className="mr-1 inline h-3 w-3" />Login Title</label>
-                <input value={draft.loginTitle} onChange={(e) => update("loginTitle", e.target.value)} className={inputCls} placeholder="Estate Pulse" />
+                <input value={draft.loginTitle} onChange={(e) => update("loginTitle", e.target.value)} className={inputCls} placeholder="Dalu Plus" />
               </div>
               <div>
                 <label className={labelCls}><Type className="mr-1 inline h-3 w-3" />Login Subtitle</label>
-                <input value={draft.loginSubtitle} onChange={(e) => update("loginSubtitle", e.target.value)} className={inputCls} placeholder="Integrated Tea Estate Platform" />
+                <input value={draft.loginSubtitle} onChange={(e) => update("loginSubtitle", e.target.value)} className={inputCls} placeholder="Powered by KDU Group" />
               </div>
-              <MediaField label="Login Logo URL" icon={ImageIcon} hint="Cloudinary image. The hero logo on the login card. Empty = default leaf badge." value={draft.loginLogoUrl} onChange={(v) => update("loginLogoUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="logo" />
+              <MediaField label="Login Logo URL" icon={ImageIcon} hint="The hero logo on the login card. Empty = the built-in Dalu Plus mark. Paste a Cloudinary (or any CDN) URL to override it." value={draft.loginLogoUrl} onChange={(v) => update("loginLogoUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="logo" />
               <MediaField label="Login Background Image / Video URL" icon={ImageIcon} hint="Cloudinary image or .mp4 video. A dark scrim auto-applies so text stays readable." value={draft.loginBackgroundUrl} onChange={(v) => update("loginBackgroundUrl", v)} inputCls={inputCls} labelCls={labelCls} preview="bg" video={isVideoUrl(draft.loginBackgroundUrl)} />
               <div className="sm:col-span-2">
                 <label className={labelCls}>Text Readability Scrim: {draft.loginScrimOpacity}%</label>
@@ -256,7 +256,7 @@ export default function Settings() {
                     <Leaf className="h-7 w-7" />
                   )}
                 </div>
-                <h2 className="font-display text-xl font-extrabold drop-shadow">{draft.loginTitle || "Estate Pulse"}</h2>
+                <h2 className="font-display text-xl font-extrabold drop-shadow">{draft.loginTitle || "Dalu Plus"}</h2>
                 <p className="text-xs text-white/80 drop-shadow">{draft.loginSubtitle}</p>
                 <div className="mt-2 w-full max-w-[160px] rounded-lg px-3 py-2 text-center text-[11px] font-semibold text-white shadow" style={{ background: draft.accentColor }}>
                   Sign in
@@ -267,24 +267,24 @@ export default function Settings() {
 
             {/* Shell header preview */}
             <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-slate-900 to-emerald-950 px-3 py-2.5">
-              <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600">
+              <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm">
                 {draft.companyLogoUrl && isMediaUrl(draft.companyLogoUrl) ? (
-                  <img src={draft.companyLogoUrl} alt="" className="h-full w-full scale-[1.55] origin-[47.5%_20.7%] object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <img src={draft.companyLogoUrl} alt="" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : (
                   <Leaf className="h-4 w-4 text-white" />
                 )}
               </span>
               <div className="leading-tight">
-                <p className="font-display text-sm font-bold text-white">{draft.companyName || "Estate Pulse"}</p>
+                <p className="font-display text-sm font-bold text-white">{draft.companyName || "Dalu Plus"}</p>
                 <p className="text-[9px] text-emerald-300/80">{draft.companyTagline}</p>
               </div>
             </div>
             <p className="mt-1.5 text-center text-[11px] text-slate-400">App header preview</p>
 
             <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-violet-950 to-emerald-950 px-3 py-2.5">
-              <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-violet-500 to-emerald-600">
+              <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-white shadow-sm">
                 {supplierPreview.logoUrl && isMediaUrl(supplierPreview.logoUrl) ? (
-                  <img src={supplierPreview.logoUrl} alt={`${supplierPreview.name} logo`} className="h-full w-full scale-[1.55] origin-[47.5%_20.7%] object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <img src={supplierPreview.logoUrl} alt={`${supplierPreview.name} logo`} className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : (
                   <Leaf className="h-4 w-4 text-white" />
                 )}

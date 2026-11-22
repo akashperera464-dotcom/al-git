@@ -1,5 +1,5 @@
 /**
- * KDU TEA FACTORY · Dynamic Expo config (app.config.js)
+ * Dalu Plus · Dynamic Expo config (app.config.js)
  * ------------------------------------------------------------------
  * app.json stays static for tooling; app.config.js layers on the
  * environment-dependent bits (PWA URL, FCM, notification icon).
@@ -10,7 +10,7 @@
  */
 export default {
   expo: {
-    name: "KDU TEA FACTORY",
+    name: "Dalu Plus",
     slug: "verda-tea-erp",
     version: "1.0.0",
     orientation: "default",
@@ -27,10 +27,10 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.verda.teaerp",
       infoPlist: {
-        NSCameraUsageDescription: "KDU TEA FACTORY uses the camera to capture receipts and scan worker QR badges for attendance.",
-        NSLocationWhenInUseUsageDescription: "KDU TEA FACTORY uses your location to verify your check-in at the estate.",
-        NSLocationAlwaysAndWhenInUseUsageDescription: "KDU TEA FACTORY uses background location to verify estate attendance during deliveries.",
-        NSPhotoLibraryUsageDescription: "KDU TEA FACTORY needs photo library access to attach saved receipt images.",
+        NSCameraUsageDescription: "Dalu Plus uses the camera to capture receipts and scan worker QR badges for attendance.",
+        NSLocationWhenInUseUsageDescription: "Dalu Plus uses your location to verify your check-in at the estate.",
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Dalu Plus uses background location to verify estate attendance during deliveries.",
+        NSPhotoLibraryUsageDescription: "Dalu Plus needs photo library access to attach saved receipt images.",
       },
       // APNs / Firebase for push on iOS
       googleServicesFile: "./GoogleService-Info.plist",
@@ -76,21 +76,21 @@ export default {
       [
         "expo-camera",
         {
-          cameraPermission: "KDU TEA FACTORY needs camera access to capture receipts, documents, and scan worker QR badges for attendance.",
+          cameraPermission: "Dalu Plus needs camera access to capture receipts, documents, and scan worker QR badges for attendance.",
           microphonePermission: false,
         },
       ],
       [
         "expo-image-picker",
         {
-          photosPermission: "KDU TEA FACTORY needs photo library access to attach saved receipt images.",
-          cameraPermission: "KDU TEA FACTORY needs camera access to capture receipts and field documents.",
+          photosPermission: "Dalu Plus needs photo library access to attach saved receipt images.",
+          cameraPermission: "Dalu Plus needs camera access to capture receipts and field documents.",
         },
       ],
       [
         "expo-media-library",
         {
-          photosPermission: "KDU TEA FACTORY saves captured documents to your photo library for offline reference.",
+          photosPermission: "Dalu Plus saves captured documents to your photo library for offline reference.",
           savePhotosPermission: false,
           isAccessMediaLocationEnabled: true,
         },
@@ -98,15 +98,15 @@ export default {
       [
         "expo-location",
         {
-          locationAlwaysAndWhenInUsePermission: "KDU TEA FACTORY uses your location to verify estate check-ins during deliveries, even when the app is closed.",
-          locationWhenInUsePermission: "KDU TEA FACTORY uses your location to verify your check-in at the estate.",
+          locationAlwaysAndWhenInUsePermission: "Dalu Plus uses your location to verify estate check-ins during deliveries, even when the app is closed.",
+          locationWhenInUsePermission: "Dalu Plus uses your location to verify your check-in at the estate.",
           isAndroidBackgroundLocationEnabled: true,
           androidBackgroundLocationMode: "fusedLocationProvider",
         },
       ],
       [
         "expo-secure-store",
-        { faceIDPermission: "KDU TEA FACTORY uses Face ID to securely unlock your account." },
+        { faceIDPermission: "Dalu Plus uses Face ID to securely unlock your account." },
       ],
       "expo-file-system",
       "expo-font", // peer dep of @expo/vector-icons — required for native build
